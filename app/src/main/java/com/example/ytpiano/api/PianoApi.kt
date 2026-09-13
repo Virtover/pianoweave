@@ -1,9 +1,11 @@
 package com.example.ytpiano.api
 
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Streaming
 
 interface PianoApi {
 
@@ -16,4 +18,10 @@ interface PianoApi {
     suspend fun getTranscription(
         @Path("jobId") jobId: String
     ): TranscriptionStatusResponse
+
+    @Streaming
+    @GET("api/transcriptions/{jobId}/midi")
+    suspend fun downloadMidi(
+        @Path("jobId") jobId: String
+    ): ResponseBody
 }
