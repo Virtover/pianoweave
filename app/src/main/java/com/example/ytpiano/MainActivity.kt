@@ -1,175 +1,107 @@
 package com.example.ytpiano
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.ytpiano.api.CreateTranscriptionRequest
-import com.example.ytpiano.api.PianoApiFactory
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import com.example.ytpiano.midi.MidiStorage
-import kotlin.time.Duration.Companion.milliseconds
-import android.content.Context
+import com.example.ytpiano.midi.MidiInputManager
+import com.example.ytpiano.ui.components.AdaptiveNavigation
+import com.example.ytpiano.ui.screens.LearnScreen
+import com.example.ytpiano.ui.screens.PianoRollScreen
+import com.example.ytpiano.ui.screens.StorageScreen
+import com.example.ytpiano.ui.theme.PianoLearnerTheme
+import com.example.ytpiano.ui.viewmodel.PianoLearnerViewModel
 
 class MainActivity : ComponentActivity() {
 
+    private val viewModel: PianoLearnerViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        // Initialize physical hardware MIDI listener framework at application launch
+        MidiInputManager.initialize(applicationContext)
 
         setContent {
-            MaterialTheme {
+            PianoLearnerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    PianoLearnerScreen(applicationContext)
+                    // Pre-load local MIDI history when screen mounts
+                    LaunchedEffect(Unit) {
+                        viewModel.loadSongs(applicationContext)
+                    }
+
+                    // Check if an active practice session is opened
+                    val activeSong = viewModel.activePracticeSong
+                    if (activeSong != null) {
+                        PianoRollScreen(
+                            song = activeSong,
+                            onBack = { viewModel.activePracticeSong = null }
+                        )
+                    } else {
+                        PianoLearnerApp(
+                            viewModel = viewModel,
+                            context = applicationContext
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+private enum class AppTab {
+    Learn,
+    Storage
+}
+
 @Composable
-private fun PianoLearnerScreen(context: Context) {
-    var youtubeUrl by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Ready") }
-    var progress by remember { mutableStateOf(0f) }
-    var isLoading by remember { mutableStateOf(false) }
+private fun PianoLearnerApp(
+    viewModel: PianoLearnerViewModel,
+    context: Context
+) {
+    var selectedTab by remember { mutableStateOf(AppTab.Learn) }
 
-    val scope = rememberCoroutineScope()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center
+    AdaptiveNavigation(
+        isLearnSelected = selectedTab == AppTab.Learn,
+        onLearnSelect = { selectedTab = AppTab.Learn },
+        isStorageSelected = selectedTab == AppTab.Storage,
+        onStorageSelect = { selectedTab = AppTab.Storage }
     ) {
-        Text(
-            text = "Piano Learner",
-            style = MaterialTheme.typography.headlineMedium
-        )
+        when (selectedTab) {
+            AppTab.Learn -> {
+                LearnScreen(
+                    viewModel = viewModel,
+                    context = context
+                )
+            }
 
-        OutlinedTextField(
-            value = youtubeUrl,
-            onValueChange = { youtubeUrl = it },
-            label = {
-                Text("YouTube URL")
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp),
-            singleLine = true,
-            enabled = !isLoading
-        )
-
-        Button(
-            onClick = {
-                scope.launch {
-                    isLoading = true
-                    progress = 0f
-                    status = "Submitting..."
-
-                    try {
-                        val response = PianoApiFactory.api
-                            .createTranscription(
-                                CreateTranscriptionRequest(
-                                    youtube_url = youtubeUrl
-                                )
-                            )
-
-                        val jobId = response.job_id
-
-                        status = "Queued"
-
-                        while (true) {
-                            val job = PianoApiFactory.api
-                                .getTranscription(jobId)
-
-                            progress = job.progress
-
-                            status = when (job.status) {
-                                "queued" -> "Queued"
-                                "running" -> "Transcribing..."
-                                "completed" -> "Completed"
-                                "failed" -> {
-                                    "Failed: ${job.error ?: "Unknown error"}"
-                                }
-                                else -> job.status
-                            }
-
-                            if (job.status == "completed") {
-                                status = "Downloading MIDI..."
-
-                                val midiResponse = PianoApiFactory.api
-                                    .downloadMidi(jobId)
-
-                                val midiFile = MidiStorage.save(
-                                    context,
-                                    jobId,
-                                    midiResponse
-                                )
-
-                                progress = 1f
-                                status = "Ready: ${midiFile.name}"
-
-                                break
-                            }
-
-                            if (job.status == "failed") {
-                                break
-                            }
-
-                            delay(1000.milliseconds)
-                        }
-                    } catch (e: Exception) {
-                        status = "Error: ${e.message}"
-                    } finally {
-                        isLoading = false
+            AppTab.Storage -> {
+                StorageScreen(
+                    songs = viewModel.songs,
+                    onSongsChange = { /* Handled reactively by viewModel state updates */ },
+                    context = context,
+                    onSongSelect = { clickedSong ->
+                        viewModel.activePracticeSong = clickedSong
+                    },
+                    onDeleteClick = { songToDelete ->
+                        viewModel.deleteSong(context, songToDelete)
                     }
-                }
-            },
-            modifier = Modifier
-                .padding(top = 16.dp),
-            enabled = youtubeUrl.isNotBlank() && !isLoading
-        ) {
-            Text("Transcribe")
+                )
+            }
         }
-
-        if (isLoading) {
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 24.dp)
-            )
-
-            Text(
-                text = "${(progress * 100).toInt()}%",
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        Text(
-            text = status,
-            modifier = Modifier.padding(top = 16.dp)
-        )
     }
 }
