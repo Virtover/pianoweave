@@ -32,6 +32,38 @@ fun StorageScreen(
     onDeleteClick: (StoredMidi) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var songPendingDelete by remember { mutableStateOf<StoredMidi?>(null) }
+
+    // High-UX Confirmation Dialog overlay for large MIDI tracks (> 100 KB)
+    songPendingDelete?.let { song ->
+        AlertDialog(
+            onDismissRequest = { songPendingDelete = null },
+            title = { Text("Delete Large MIDI Track?") },
+            text = { 
+                Text("You are about to remove '${song.songTitle}' (%.1f KB) permanently from your local library cache. This action cannot be undone."
+                    .format(song.file.length() / 1024.0)) 
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteClick(song)
+                        songPendingDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { songPendingDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 
     val filteredSongs = remember(songs, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -126,7 +158,15 @@ fun StorageScreen(
                 ) { song ->
                     StoredSongCard(
                         song = song,
-                        onDelete = { onDeleteClick(song) },
+                        onDelete = {
+                            // Intercept deletion for large files (defined as > 100 KB)
+                            val isLargeFile = song.file.length() > (100 * 1024)
+                            if (isLargeFile) {
+                                songPendingDelete = song
+                            } else {
+                                onDeleteClick(song)
+                            }
+                        },
                         modifier = Modifier.clickable { onSongSelect(song) }
                     )
                 }

@@ -1,6 +1,7 @@
 package com.example.ytpiano.ui.viewmodel
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -11,8 +12,10 @@ import com.example.ytpiano.api.CreateTranscriptionRequest
 import com.example.ytpiano.api.PianoApiFactory
 import com.example.ytpiano.midi.MidiStorage
 import com.example.ytpiano.midi.StoredMidi
+import com.google.gson.JsonParser
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 class PianoLearnerViewModel : ViewModel() {
 
@@ -87,7 +90,7 @@ class PianoLearnerViewModel : ViewModel() {
                     val serverError = job.error
                     status = when (job.status) {
                         "queued" -> "Queued in server pipeline..."
-                        "running" -> "AI model transcribing notes..."
+                        "running", "processing" -> "AI model transcribing notes..."
                         "completed" -> "Conversion successful!"
                         "failed" -> {
                             if (serverError != null && serverError.trim().lowercase() != "null" && serverError.isNotBlank()) {
@@ -106,6 +109,7 @@ class PianoLearnerViewModel : ViewModel() {
                         MidiStorage.save(
                             context = context,
                             youtubeUrl = stableUrl,
+                            songTitle = job.title,
                             body = midiResponse
                         )
 

@@ -75,6 +75,13 @@ private fun PianoLearnerApp(
 ) {
     var selectedTab by remember { mutableStateOf(AppTab.Learn) }
 
+    // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == AppTab.Storage) {
+            viewModel.loadSongs(context)
+        }
+    }
+
     AdaptiveNavigation(
         isLearnSelected = selectedTab == AppTab.Learn,
         onLearnSelect = { selectedTab = AppTab.Learn },

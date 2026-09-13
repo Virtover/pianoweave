@@ -7,7 +7,8 @@ import java.security.MessageDigest
 
 data class StoredMidi(
     val file: File,
-    val youtubeUrl: String
+    val youtubeUrl: String,
+    val songTitle: String
 )
 
 object MidiStorage {
@@ -52,6 +53,7 @@ object MidiStorage {
     fun save(
         context: Context,
         youtubeUrl: String,
+        songTitle: String?,
         body: ResponseBody
     ): File {
         val id = idForUrl(youtubeUrl)
@@ -73,7 +75,9 @@ object MidiStorage {
             }
         }
 
-        urlFile.writeText(youtubeUrl.trim())
+        // Store both title and URL on separate lines inside the metadata descriptor block
+        val stableTitle = if (songTitle.isNullOrBlank() || songTitle.trim().lowercase() == "null") "Piano Performance" else songTitle.trim()
+        urlFile.writeText("${youtubeUrl.trim()}\n$stableTitle")
 
         return midiFile
     }
@@ -95,13 +99,28 @@ object MidiStorage {
                             URL_EXTENSION
                 )
 
-                if (!urlFile.exists()) {
-                    return@mapNotNull null
+                var youtubeUrl = "Unknown Source URL"
+                var songTitle = "Piano Performance"
+
+                if (urlFile.exists()) {
+                    val lines = urlFile.readLines()
+                    if (lines.isNotEmpty()) {
+                        youtubeUrl = lines[0]
+                    }
+                    if (lines.size > 1) {
+                        songTitle = lines[1]
+                    } else {
+                        // Fallback descriptor mapping for legacy or older cache links
+                        songTitle = "Cached Performance (${midiFile.nameWithoutExtension.take(6)})"
+                    }
+                } else {
+                    songTitle = "Cached Performance (${midiFile.nameWithoutExtension.take(6)})"
                 }
 
                 StoredMidi(
                     file = midiFile,
-                    youtubeUrl = urlFile.readText()
+                    youtubeUrl = youtubeUrl,
+                    songTitle = songTitle
                 )
             }
             ?.sortedByDescending {

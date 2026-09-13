@@ -13,5 +13,6 @@ data class TranscriptionStatusResponse(
     val job_id: String,
     val status: String,
     val progress: Float,
-    val error: String?
+    val error: String?,
+    val title: String? = null
 )

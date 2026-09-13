@@ -50,18 +50,29 @@ fun StoredSongCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
+                // High-UX Typography Hierarchy: Primary bold Song Title on top
                 Text(
-                    text = song.youtubeUrl,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    text = song.songTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.primary
                 )
 
+                // Subtitle: Source YouTube link text cleanly fitted below
+                Text(
+                    text = song.youtubeUrl,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 6.dp)
                 ) {
                     Text(
                         text = "%.1f KB".format(song.file.length() / 1024.0),

@@ -106,14 +106,15 @@ fun PianoRollScreen(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = song.youtubeUrl,
+                    text = song.songTitle,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "${noteEvents.size} total notes loaded",
+                    text = song.youtubeUrl,
                     style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
