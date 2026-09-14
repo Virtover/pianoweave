@@ -92,7 +92,11 @@ private fun PianoLearnerApp(
             AppTab.Learn -> {
                 LearnScreen(
                     viewModel = viewModel,
-                    context = context
+                    context = context,
+                    onSongSelect = { selectedSong ->
+                        viewModel.activePracticeSong = selectedSong
+                        viewModel.readySong = null
+                    }
                 )
             }
 

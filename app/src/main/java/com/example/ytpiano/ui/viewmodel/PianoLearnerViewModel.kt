@@ -36,6 +36,8 @@ class PianoLearnerViewModel : ViewModel() {
     var songs by mutableStateOf<List<StoredMidi>>(emptyList())
         private set
 
+    var readySong by mutableStateOf<StoredMidi?>(null)
+
     var activePracticeSong by mutableStateOf<StoredMidi?>(null)
 
     fun updateUrl(url: String) {
@@ -72,8 +74,13 @@ class PianoLearnerViewModel : ViewModel() {
                 if (storedFile != null) {
                     progress = 1f
                     status = "Loaded from local library cache!"
-                    isLoading = false
                     loadSongs(context)
+
+                    readySong = songs.firstOrNull {
+                        it.file.absolutePath == storedFile.absolutePath
+                    }
+
+                    isLoading = false
                     return@launch
                 }
 
@@ -125,7 +132,18 @@ class PianoLearnerViewModel : ViewModel() {
                         }
 
                         progress = 1f
-                        status = "Transcription ready and saved!"
+
+                        val updatedSongs = withContext(Dispatchers.IO) {
+                            MidiStorage.list(context)
+                        }
+
+                        songs = updatedSongs
+
+                        readySong = updatedSongs.firstOrNull {
+                            it.youtubeUrl == stableUrl
+                        }
+
+                        status = "Ready to learn!"
                         loadSongs(context)
                         break
                     }

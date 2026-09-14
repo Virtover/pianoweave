@@ -59,7 +59,7 @@ object MidiStorage {
         youtubeUrl: String,
         songTitle: String?,
         body: ResponseBody
-    ): File {
+    ): StoredMidi {
         Log.d("MidiStorage", "Saving MIDI file for URL: $youtubeUrl")
         val id = idForUrl(youtubeUrl)
         val dir = directory(context)
@@ -92,7 +92,11 @@ object MidiStorage {
         metadataFile.writeText(
             "$stableUrl\n$stableTitle"
         )
-        return midiFile
+        return StoredMidi(
+            file = midiFile,
+            youtubeUrl = stableUrl,
+            songTitle = stableTitle
+        )
     }
 
     fun list(context: Context): List<StoredMidi> {
