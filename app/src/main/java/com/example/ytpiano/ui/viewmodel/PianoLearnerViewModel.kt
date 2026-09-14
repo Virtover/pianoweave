@@ -15,6 +15,8 @@ import com.example.ytpiano.midi.StoredMidi
 import com.google.gson.JsonParser
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 
 class PianoLearnerViewModel : ViewModel() {
@@ -90,11 +92,16 @@ class PianoLearnerViewModel : ViewModel() {
                     val serverError = job.error
                     status = when (job.status) {
                         "queued" -> "Queued in server pipeline..."
-                        "running", "processing" -> "AI model transcribing notes..."
-                        "completed" -> "Conversion successful!"
+                        "running", "processing" ->
+                            if (job.title != null) {
+                                "Transcribing \"${job.title}\"..."
+                            } else {
+                                "AI model transcribing notes..."
+                            }
+                        "completed" -> "Transcription completed."
                         "failed" -> {
-                            if (serverError != null && serverError.trim().lowercase() != "null" && serverError.isNotBlank()) {
-                                "Failed: $serverError"
+                            if (!job.error.isNullOrBlank()) {
+                                "Failed: ${job.error}"
                             } else {
                                 "Failed: Server processing error"
                             }
@@ -104,14 +111,18 @@ class PianoLearnerViewModel : ViewModel() {
 
                     if (job.status == "completed") {
                         status = "Downloading completed MIDI file..."
-                        val midiResponse = PianoApiFactory.api.downloadMidi(jobId)
 
-                        MidiStorage.save(
-                            context = context,
-                            youtubeUrl = stableUrl,
-                            songTitle = job.title,
-                            body = midiResponse
-                        )
+                        withContext(Dispatchers.IO) {
+                            val midiResponse =
+                                PianoApiFactory.api.downloadMidi(jobId)
+
+                            MidiStorage.save(
+                                context = context,
+                                youtubeUrl = stableUrl,
+                                songTitle = job.title,
+                                body = midiResponse
+                            )
+                        }
 
                         progress = 1f
                         status = "Transcription ready and saved!"

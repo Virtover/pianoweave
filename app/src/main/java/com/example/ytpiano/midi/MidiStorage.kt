@@ -1,9 +1,12 @@
 package com.example.ytpiano.midi
 
 import android.content.Context
+import android.util.Log
 import okhttp3.ResponseBody
 import java.io.File
 import java.security.MessageDigest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class StoredMidi(
     val file: File,
@@ -14,7 +17,7 @@ data class StoredMidi(
 object MidiStorage {
 
     private const val DIRECTORY = "midi"
-    private const val URL_EXTENSION = ".url"
+    private const val METADATA_EXTENSION = ".meta"
 
     private fun directory(context: Context): File {
         return File(
@@ -26,7 +29,8 @@ object MidiStorage {
     }
 
     private fun idForUrl(url: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
+        val digest = MessageDigest
+            .getInstance("SHA-256")
             .digest(url.trim().toByteArray())
 
         return digest.joinToString("") {
@@ -56,17 +60,18 @@ object MidiStorage {
         songTitle: String?,
         body: ResponseBody
     ): File {
+        Log.d("MidiStorage", "Saving MIDI file for URL: $youtubeUrl")
         val id = idForUrl(youtubeUrl)
         val dir = directory(context)
-
+        Log.d("MidiStorage", "Directory path: ${dir.absolutePath}")
         val midiFile = File(
             dir,
             "$id.mid"
         )
 
-        val urlFile = File(
+        val metadataFile = File(
             dir,
-            "$id$URL_EXTENSION"
+            "$id$METADATA_EXTENSION"
         )
 
         body.byteStream().use { input ->
@@ -75,10 +80,18 @@ object MidiStorage {
             }
         }
 
-        // Store both title and URL on separate lines inside the metadata descriptor block
-        val stableTitle = if (songTitle.isNullOrBlank() || songTitle.trim().lowercase() == "null") "Piano Performance" else songTitle.trim()
-        urlFile.writeText("${youtubeUrl.trim()}\n$stableTitle")
+        val stableUrl = youtubeUrl.trim()
+        val stableTitle = songTitle
+            ?.trim()
+            ?.takeIf {
+                it.isNotBlank() &&
+                        !it.equals("null", ignoreCase = true)
+            }
+            ?: "Piano Performance"
 
+        metadataFile.writeText(
+            "$stableUrl\n$stableTitle"
+        )
         return midiFile
     }
 
@@ -92,29 +105,32 @@ object MidiStorage {
                         it.exists() &&
                         it.length() > 0
             }
-            ?.mapNotNull { midiFile ->
-                val urlFile = File(
+            ?.map { midiFile ->
+                val metadataFile = File(
                     dir,
                     midiFile.nameWithoutExtension +
-                            URL_EXTENSION
+                            METADATA_EXTENSION
                 )
 
-                var youtubeUrl = "Unknown Source URL"
+                var youtubeUrl = "Unknown source"
                 var songTitle = "Piano Performance"
 
-                if (urlFile.exists()) {
-                    val lines = urlFile.readLines()
+                if (metadataFile.exists()) {
+                    val lines = metadataFile.readLines()
+
                     if (lines.isNotEmpty()) {
-                        youtubeUrl = lines[0]
+                        youtubeUrl = lines[0].trim()
                     }
+
                     if (lines.size > 1) {
-                        songTitle = lines[1]
-                    } else {
-                        // Fallback descriptor mapping for legacy or older cache links
-                        songTitle = "Cached Performance (${midiFile.nameWithoutExtension.take(6)})"
+                        songTitle = lines
+                            .drop(1)
+                            .joinToString("\n")
+                            .trim()
+                            .ifBlank {
+                                "Piano Performance"
+                            }
                     }
-                } else {
-                    songTitle = "Cached Performance (${midiFile.nameWithoutExtension.take(6)})"
                 }
 
                 StoredMidi(
@@ -138,7 +154,7 @@ object MidiStorage {
         File(
             directory(context),
             storedMidi.file.nameWithoutExtension +
-                    URL_EXTENSION
+                    METADATA_EXTENSION
         ).delete()
     }
 }
