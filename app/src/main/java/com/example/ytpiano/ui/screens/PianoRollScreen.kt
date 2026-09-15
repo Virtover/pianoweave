@@ -17,7 +17,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -41,12 +40,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
-// --- Modern Pro Piano Theme (Updated for Visual Excellence) ---
+// --- Ultra Pro Piano Theme (Updated for Visual Excellence) ---
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
 private val ColorGold = Color(0xFFD4AF37) // Signature Premium Gold
-private val ColorGoldLight = Color(0xFFFFE082)
-private val ColorGoldDim = Color(0xFF2C2512)
+private val ColorGoldDim = Color(0xFF3E351A)
+private val ColorSlate = Color(0xFF30363D) // Muted Dark Slate
 private val ColorSuccess = Color(0xFF2EA043) // Success Green
 private val ColorTarget = Color(0xFFF39C12) // Vibrant On-Hit Gold
 private val ColorBaseline = Color(0xFFF85149) // Neon Red Hitline
@@ -71,7 +70,7 @@ fun PianoRollScreen(
             }
             noteEvents = parsed
         } catch (e: Exception) {
-            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI read failure"
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
         }
     }
 
@@ -86,8 +85,8 @@ fun PianoRollScreen(
 private fun MidiLoadingScreen() {
     Box(modifier = Modifier.fillMaxSize().background(ColorBg), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            CircularProgressIndicator(color = ColorGold, strokeWidth = 4.dp, modifier = Modifier.size(56.dp))
-            Text("Building performance data...", color = ColorGold, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            CircularProgressIndicator(color = ColorGold, strokeWidth = 3.dp, modifier = Modifier.size(52.dp))
+            Text("Building performance data...", color = ColorGold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -162,20 +161,12 @@ private fun ModernPianoPlayerContent(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
-        ModernToolbar(
-            title = song.songTitle,
-            isWait = isWaitModeEnabled,
-            speed = speedMultiplier,
-            onSpeedChange = { speedMultiplier = it },
-            onWaitToggle = { isWaitModeEnabled = !isWaitModeEnabled },
-            onSetClick = { showSettingsDialog = true },
-            onBack = onBack
-        )
+        ModernToolbar(song.songTitle, isWaitModeEnabled, speedMultiplier, { speedMultiplier = it }, { isWaitModeEnabled = !isWaitModeEnabled }, { showSettingsDialog = true }, onBack)
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalKeys)
             if (isWaitModeEnabled && nextOnsetMs != null && playheadMs >= nextOnsetMs - 500) {
-                WaitModeOverlay(active = notesAtOnset)
+                WaitModeOverlay(notesAtOnset)
             }
         }
 
@@ -196,35 +187,21 @@ private fun ModernPianoPlayerContent(
         )
     }
 
-    if (showSettingsDialog) {
-        EditorSettingsDialog(
-            offset = transposeOffset,
-            onChange = { transposeOffset = it },
-            onDismiss = { showSettingsDialog = false }
-        )
-    }
+    if (showSettingsDialog) EditorSettingsDialog(transposeOffset, { transposeOffset = it }, { showSettingsDialog = false })
 }
 
 @Composable
-private fun ModernToolbar(
-    title: String,
-    isWait: Boolean,
-    speed: Float,
-    onSpeedChange: (Float) -> Unit,
-    onWaitToggle: () -> Unit,
-    onSetClick: () -> Unit,
-    onBack: () -> Unit
-) {
+private fun ModernToolbar(title: String, isWait: Boolean, speed: Float, onSpeedChange: (Float) -> Unit, onWaitToggle: () -> Unit, onSetClick: () -> Unit, onBack: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-        Text(title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+        Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
         
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Speed Circle Buttons
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
                     val isSelected = speed == s
                     Box(
@@ -242,22 +219,19 @@ private fun ModernToolbar(
             Button(
                 onClick = onWaitToggle,
                 colors = ButtonDefaults.buttonColors(containerColor = if (isWait) ColorGold else ColorSurface, contentColor = if (isWait) Color.Black else ColorGold),
-                shape = RoundedCornerShape(10.dp), 
+                shape = RoundedCornerShape(8.dp), 
                 border = if (!isWait) BorderStroke(1.dp, ColorSlate) else null,
-                contentPadding = PaddingValues(horizontal = 14.dp), modifier = Modifier.height(36.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.height(34.dp)
             ) {
                 Icon(Icons.Default.Timer, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Wait mode", fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text("Wait mode", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.width(6.dp)) // Extra space before settings
+            Spacer(modifier = Modifier.width(6.dp))
 
-            IconButton(
-                onClick = onSetClick,
-                modifier = Modifier.size(36.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp))
-            ) {
-                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp))
+            IconButton(onClick = onSetClick, modifier = Modifier.size(34.dp).background(ColorSurface, RoundedCornerShape(8.dp)).border(1.dp, ColorSlate, RoundedCornerShape(8.dp))) {
+                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -272,7 +246,7 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
         
         for (p in start..end) {
             val x = (p - start) * kw
-            drawLine(if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), Offset(x, 0f), Offset(x, size.height), 1.5f)
+            drawLine(if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), Offset(x, 0f), Offset(x, size.height), 1f)
         }
 
         events.forEach { e ->
@@ -284,51 +258,50 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
             val h = (e.durationMs * scale).coerceAtLeast(10f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
+            val isPressed = MidiInputManager.pressedKeys.contains(e.pitch)
+            // Fix: Only highlight if the note is ACTUALLY passing the baseline
             val isHitting = head >= e.startMs && head <= (e.startMs + 50L)
             val isPassing = head > e.startMs && head < endMs
-            val isUserPressed = MidiInputManager.pressedKeys.contains(e.pitch)
 
-            // Fix: Only highlight if the note is ACTUALLY passing the baseline
             val color = when {
-                isUserPressed && isPassing -> ColorSuccess
+                isPressed && isPassing -> ColorSuccess
                 isHitting -> ColorTarget
-                isPassing -> ColorGold.copy(alpha = 0.7f)
-                else -> ColorGoldDim // Dim but visible and app-consistent
+                isPassing -> ColorGold.copy(alpha = 0.5f)
+                else -> ColorGoldDim 
             }
             
             drawRoundRect(
                 color = color, 
                 topLeft = Offset(x + 3f, y.coerceIn(-h, size.height)), 
                 size = Size(kw - 6f, h), 
-                cornerRadius = CornerRadius(6.dp.toPx())
+                cornerRadius = CornerRadius(4.dp.toPx())
             )
             
-            if (isHitting || (isUserPressed && isPassing)) {
-                // Neon-like glow at the hit point
+            if (isHitting || (isPressed && isPassing)) {
                 drawRect(
-                    brush = Brush.verticalGradient(listOf(color.copy(0.5f), Color.Transparent)),
+                    brush = Brush.verticalGradient(listOf(color.copy(0.4f), Color.Transparent)),
                     topLeft = Offset(x, y.coerceIn(-h, size.height) + h),
-                    size = Size(kw, 60.dp.toPx())
+                    size = Size(kw, 40.dp.toPx())
                 )
             }
         }
-        drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 3f)
+        drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 2f)
     }
 }
 
 @Composable
-private fun WaitModeOverlay(active: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 28.dp), Alignment.TopCenter) {
+private fun WaitModeOverlay(notes: Set<Int>) {
+    Box(Modifier.fillMaxWidth().padding(top = 24.dp), Alignment.TopCenter) {
         Surface(
             color = ColorGold, 
-            shape = RoundedCornerShape(14.dp), 
-            shadowElevation = 16.dp,
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(0.4f))
+            shape = RoundedCornerShape(12.dp), 
+            shadowElevation = 12.dp,
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(0.5f))
         ) {
             Text(
-                text = "STRIKE: " + active.sorted().joinToString("  ") { midiPitchName(it) }, 
-                Modifier.padding(horizontal = 28.dp, vertical = 12.dp), 
-                fontSize = 18.sp, 
+                text = "STRIKE: " + notes.sorted().joinToString("  ") { midiPitchName(it) }, 
+                Modifier.padding(horizontal = 24.dp, vertical = 10.dp), 
+                fontSize = 16.sp, 
                 fontWeight = FontWeight.Black, 
                 color = Color.Black
             )
@@ -342,7 +315,7 @@ private fun PianoKeyboardRow(start: Int, end: Int, events: List<MidiNoteEvent>, 
         events.filter { head >= it.startMs && head <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
     }
     
-    Row(Modifier.fillMaxWidth().height(88.dp).background(ColorBg)) {
+    Row(Modifier.fillMaxWidth().height(80.dp).background(ColorBg)) {
         val pressed = MidiInputManager.pressedKeys.toSet()
         for (p in start..end) {
             val isBlack = isPitchBlack(p)
@@ -357,27 +330,20 @@ private fun PianoKeyboardRow(start: Int, end: Int, events: List<MidiNoteEvent>, 
                 else -> baseColor
             }
             
-            // "Brass" / "Gold" gradient feel
             val gradient = Brush.verticalGradient(
-                colors = listOf(highlightColor, highlightColor.copy(alpha = 0.85f), highlightColor.copy(alpha = 0.7f)),
+                colors = listOf(highlightColor, highlightColor.copy(alpha = 0.8f)),
                 startY = 0f,
-                endY = 220f
+                endY = 200f
             )
 
             Box(
                 Modifier.weight(1f).fillMaxHeight().padding(0.5.dp)
-                    .background(gradient, RoundedCornerShape(bottomStart = 5.dp, bottomEnd = 5.dp))
+                    .background(gradient, RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
                     .clickable { if (MidiInputManager.pressedKeys.contains(p)) MidiInputManager.simulateNoteOff(p) else MidiInputManager.simulateNoteOn(p) },
                 Alignment.BottomCenter
             ) {
                 val label = when (p) { 36->"C1";48->"C2";60->"C3";72->"C4";84->"C5";96->"C6"; else->"" }
-                if (label.isNotEmpty()) {
-                    Text(
-                        label, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, 
-                        color = if (isPressed) Color.Black else ColorTextDim, 
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                }
+                if (label.isNotEmpty()) Text(label, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = if (isPressed) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 4.dp))
             }
         }
     }
@@ -395,11 +361,11 @@ private fun MediaTimelineFooter(
     ) {
         // Playback Buttons Group
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconButton(onClick = onPlay, Modifier.size(48.dp).background(ColorGold, CircleShape)) {
-                Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(32.dp))
+            IconButton(onClick = onPlay, Modifier.size(44.dp).background(ColorGold, CircleShape)) {
+                Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(28.dp))
             }
-            IconButton(onClick = onReset, modifier = Modifier.size(36.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) {
-                Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            IconButton(onClick = onReset, modifier = Modifier.size(34.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) {
+                Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
         }
 
@@ -407,28 +373,23 @@ private fun MediaTimelineFooter(
 
         // Center Column: Dual Sliders (Separated for precise touch)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Box(contentAlignment = Alignment.Center) {
-                // Background Track for Sliders
-                Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(ColorSlate, CircleShape))
-
-                if (isLoop) {
-                    RangeSlider(
-                        value = lStart.toFloat()..lEnd.toFloat(),
-                        onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) },
-                        valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
-                        colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = ColorGoldDim, inactiveTrackColor = Color.Transparent),
-                        modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-18).dp)
-                    )
-                }
-
-                Slider(
-                    value = head.toFloat().coerceIn(0f, dur.toFloat()),
-                    onValueChange = { onSeek(it.toLong()) },
+            if (isLoop) {
+                RangeSlider(
+                    value = lStart.toFloat()..lEnd.toFloat(),
+                    onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) },
                     valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
-                    colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = Color.Transparent),
-                    modifier = Modifier.fillMaxWidth().height(32.dp)
+                    colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = ColorGoldDim, inactiveTrackColor = Color.Transparent),
+                    modifier = Modifier.fillMaxWidth().height(28.dp)
                 )
             }
+            
+            Slider(
+                value = head.toFloat().coerceIn(0f, dur.toFloat()),
+                onValueChange = { onSeek(it.toLong()) },
+                valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
+                colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = ColorSlate),
+                modifier = Modifier.fillMaxWidth().height(28.dp)
+            )
             
             Text(
                 text = "${formatTime(head)} / ${formatTime(dur)}",
@@ -452,17 +413,17 @@ private fun MediaTimelineFooter(
 @Composable
 private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: ()->Unit) {
     Dialog(onDismiss) {
-        Surface(shape = RoundedCornerShape(24.dp), color = ColorSurface, contentColor = Color.White, border = androidx.compose.foundation.BorderStroke(1.dp, ColorSlate)) {
-            Column(modifier = Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Surface(shape = RoundedCornerShape(20.dp), color = ColorSurface, contentColor = Color.White, border = androidx.compose.foundation.BorderStroke(1.dp, ColorSlate)) {
+            Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text("Piano Editor", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ColorGold)
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Transposition", color = ColorTextDim, fontWeight = FontWeight.Bold)
                         Text("${if (offset > 0) "+" else ""}$offset", color = ColorGold, fontWeight = FontWeight.Black, style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 4f)))
                     }
                     Slider(value = offset.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = -12f..12f, steps = 23, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold))
                 }
-                Button(onClick = onDismiss, Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black), shape = RoundedCornerShape(14.dp)) {
+                Button(onClick = onDismiss, Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black), shape = RoundedCornerShape(12.dp)) {
                     Text("DONE", fontWeight = FontWeight.Black)
                 }
             }
@@ -474,10 +435,10 @@ private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: 
 private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit) {
     Box(Modifier.fillMaxSize().background(ColorBg).padding(32.dp), Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Default.Warning, null, tint = ColorBaseline, modifier = Modifier.size(72.dp))
-            Text("MIDI Interface Error", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
+            Icon(Icons.Default.Warning, null, tint = ColorBaseline, modifier = Modifier.size(64.dp))
+            Text("Midi Compatibility Error", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
             Text(song.songTitle, color = ColorTextDim, textAlign = TextAlign.Center)
-            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = ColorSurface)) { Text("Back to Library") }
+            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = ColorSurface)) { Text("Return to Library") }
         }
     }
 }
