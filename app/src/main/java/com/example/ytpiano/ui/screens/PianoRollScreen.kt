@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.ytpiano.audio.PianoSynthesizer
 import com.example.ytpiano.midi.MidiInputManager
 import com.example.ytpiano.midi.MidiNoteEvent
 import com.example.ytpiano.midi.SimpleMidiReader
@@ -40,15 +42,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
-// --- Ultra Pro Piano Theme (Updated for Visual Excellence) ---
+// --- Ultra Pro Piano Theme ---
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
-private val ColorGold = Color(0xFFD4AF37) // Signature Premium Gold
+private val ColorGold = Color(0xFFD4AF37) 
 private val ColorGoldDim = Color(0xFF3E351A)
-private val ColorSlate = Color(0xFF30363D) // Muted Dark Slate
-private val ColorSuccess = Color(0xFF2EA043) // Success Green
-private val ColorTarget = Color(0xFFF39C12) // Vibrant On-Hit Gold
-private val ColorBaseline = Color(0xFFF85149) // Neon Red Hitline
+private val ColorSlate = Color(0xFF30363D) 
+private val ColorSuccess = Color(0xFF2EA043) 
+private val ColorTarget = Color(0xFFF39C12) 
+private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6)
 private val ColorKeyBlack = Color(0xFF1A1A1A)
@@ -105,6 +107,8 @@ private fun ModernPianoPlayerContent(
     var isLoopingEnabled by remember { mutableStateOf(false) }
     var transposeOffset by remember { mutableIntStateOf(0) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    
+    var isUserSeeking by remember { mutableStateOf(false) }
 
     val noteEvents = remember(rawEvents, transposeOffset) {
         rawEvents.map { it.copy(pitch = it.pitch + transposeOffset) }
@@ -120,6 +124,19 @@ private fun ModernPianoPlayerContent(
     val startPitch = 36
     val endPitch = 96
     val totalKeys = endPitch - startPitch + 1
+
+    // State for audio triggering logic
+    var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
+
+    // Logic to detect which notes started since the last frame
+    LaunchedEffect(playheadMs) {
+        if (!isUserSeeking && isPlaying) {
+            val startSearch = if (lastTriggeredHeadMs == -1L) playheadMs - 100 else lastTriggeredHeadMs
+            val triggered = noteEvents.filter { it.startMs > startSearch && it.startMs <= playheadMs }
+            triggered.forEach { PianoSynthesizer.noteOn(it.pitch) }
+        }
+        lastTriggeredHeadMs = playheadMs
+    }
 
     // Robust Wait Mode Logic: Pause timeline if the NEXT note hasn't been hit
     val nextOnsetMs = remember(noteEvents, playheadMs) {
@@ -161,6 +178,11 @@ private fun ModernPianoPlayerContent(
         }
     }
 
+    // Sustain set for keyboard highlighting
+    val sustainedPitches = remember(noteEvents, playheadMs) {
+        noteEvents.filter { playheadMs >= it.startMs && playheadMs <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
         ModernToolbar(
             title = song.songTitle,
@@ -174,14 +196,14 @@ private fun ModernPianoPlayerContent(
             onBack = onBack
         )
 
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalKeys)
             if (isWaitModeEnabled && notesAtOnset.isNotEmpty() && nextOnsetMs != null && playheadMs >= nextOnsetMs - 500) {
                 WaitModeOverlay(notes = notesAtOnset)
             }
         }
 
-        PianoKeyboardRow(startPitch, endPitch, noteEvents, playheadMs)
+        PianoKeyboardRow(startPitch, endPitch, sustainedPitches)
 
         MediaTimelineFooter(
             head = playheadMs,
@@ -191,8 +213,15 @@ private fun ModernPianoPlayerContent(
             lStart = loopStartMs,
             lEnd = loopEndMs,
             onPlay = { isPlaying = !isPlaying },
-            onReset = { isPlaying = false ; playheadMs = if (isLoopingEnabled) loopStartMs else 0L },
-            onSeek = { playheadMs = it },
+            onRewind = { 
+                playheadMs = if (isLoopingEnabled) loopStartMs else 0L 
+                lastTriggeredHeadMs = playheadMs - 1
+            },
+            onSeek = { 
+                playheadMs = it 
+                lastTriggeredHeadMs = it
+            },
+            onSeekState = { isUserSeeking = it },
             onLoop = { isLoopingEnabled = !isLoopingEnabled },
             onRange = { s, e -> loopStartMs = s ; loopEndMs = e }
         )
@@ -281,7 +310,13 @@ private fun ModernToolbar(
 }
 
 @Composable
-private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, start: Int, end: Int, count: Int) {
+private fun FallingNotesVisualizer(
+    events: List<MidiNoteEvent>,
+    head: Long,
+    start: Int,
+    end: Int,
+    count: Int
+) {
     val scale = 0.25f
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
@@ -325,14 +360,16 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
             val h = (e.durationMs * scale).coerceAtLeast(10f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
-            val isHitting = head >= e.startMs && head <= (e.startMs + 50L)
-            val isPassing = head > e.startMs && head < endMs
+            // Fix: Note-instance-specific highlighting. 
+            // Only highlight if the note is CURRENTLY at the baseline (passing through it).
+            val isAtBaseline = head >= e.startMs && head <= endMs
+            val isHittingOnset = head >= e.startMs && head <= (e.startMs + 60L)
             val isUserPressed = MidiInputManager.pressedKeys.contains(e.pitch)
 
             val color = when {
-                isUserPressed && isPassing -> ColorSuccess
-                isHitting -> ColorTarget
-                isPassing -> ColorGold.copy(alpha = 0.5f)
+                isUserPressed && isAtBaseline -> ColorSuccess
+                isHittingOnset -> ColorTarget
+                isAtBaseline -> ColorGold.copy(alpha = 0.65f)
                 else -> ColorGoldDim 
             }
             
@@ -343,7 +380,7 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
                 cornerRadius = CornerRadius(4.dp.toPx())
             )
             
-            if (isHitting || (isUserPressed && isPassing)) {
+            if (isHittingOnset || (isUserPressed && isAtBaseline)) {
                 drawRect(
                     brush = Brush.verticalGradient(listOf(color.copy(0.4f), Color.Transparent)),
                     topLeft = Offset(x, y.coerceIn(-h, size.height) + h),
@@ -378,17 +415,13 @@ private fun WaitModeOverlay(notes: Set<Int>) {
 }
 
 @Composable
-private fun PianoKeyboardRow(start: Int, end: Int, events: List<MidiNoteEvent>, head: Long) {
-    val activePitches = remember(events, head) {
-        events.filter { head >= it.startMs && head <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
-    }
-    
+private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
     Row(Modifier.fillMaxWidth().height(80.dp).background(ColorBg)) {
         val pressed = MidiInputManager.pressedKeys.toSet()
         for (p in start..end) {
             val isBlack = isPitchBlack(p)
             val isPressed = pressed.contains(p)
-            val isTarget = activePitches.contains(p)
+            val isTarget = sustainedPitches.contains(p)
 
             val baseColor = if (isBlack) ColorKeyBlack else ColorKeyWhite
             val highlightColor = when {
@@ -407,11 +440,19 @@ private fun PianoKeyboardRow(start: Int, end: Int, events: List<MidiNoteEvent>, 
             Box(
                 Modifier.weight(1f).fillMaxHeight().padding(0.5.dp)
                     .background(gradient, RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
-                    .clickable { if (MidiInputManager.pressedKeys.contains(p)) MidiInputManager.simulateNoteOff(p) else MidiInputManager.simulateNoteOn(p) },
+                    .clickable { 
+                        if (MidiInputManager.pressedKeys.contains(p)) {
+                            MidiInputManager.simulateNoteOff(p)
+                            PianoSynthesizer.noteOff(p)
+                        } else {
+                            MidiInputManager.simulateNoteOn(p)
+                            PianoSynthesizer.noteOn(p)
+                        }
+                    },
                 Alignment.BottomCenter
             ) {
                 val label = when (p) { 36->"C1";48->"C2";60->"C3";72->"C4";84->"C5";96->"C6"; else->"" }
-                if (label.isNotEmpty()) Text(label, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = if (isPressed) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 4.dp))
+                if (label.isNotEmpty()) Text(label, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = if (pressed.contains(p)) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 2.dp))
             }
         }
     }
@@ -421,8 +462,8 @@ private fun PianoKeyboardRow(start: Int, end: Int, events: List<MidiNoteEvent>, 
 @Composable
 private fun MediaTimelineFooter(
     head: Long, dur: Long, isPlaying: Boolean, isLoop: Boolean, lStart: Long, lEnd: Long,
-    onPlay: () -> Unit, onReset: () -> Unit, onSeek: (Long) -> Unit, onLoop: () -> Unit,
-    onRange: (Long, Long) -> Unit
+    onPlay: () -> Unit, onRewind: () -> Unit, onSeek: (Long) -> Unit, onSeekState: (Boolean) -> Unit,
+    onLoop: () -> Unit, onRange: (Long, Long) -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 8.dp),
@@ -433,8 +474,8 @@ private fun MediaTimelineFooter(
             IconButton(onClick = onPlay, Modifier.size(48.dp).background(ColorGold, CircleShape)) {
                 Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(32.dp))
             }
-            IconButton(onClick = onReset, modifier = Modifier.size(36.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) {
-                Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            IconButton(onClick = onRewind, modifier = Modifier.size(36.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) {
+                Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
 
@@ -442,33 +483,39 @@ private fun MediaTimelineFooter(
 
         // Center Column: Dual Sliders
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Box(contentAlignment = Alignment.Center) {
-                // Shared track background
-                Box(modifier = Modifier.fillMaxWidth().height(6.dp).background(ColorSlate, CircleShape))
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val fullWidth = maxWidth
+                
+                // Track background
+                Box(modifier = Modifier.fillMaxWidth(0.96f).height(6.dp).background(ColorSlate, CircleShape))
 
                 if (isLoop) {
-                    // Loop segment visualization overlay (No space between slider and inner loop area)
                     val sPerc = lStart.toFloat() / dur.coerceAtLeast(1)
                     val ePerc = lEnd.toFloat() / dur.coerceAtLeast(1)
+                    
+                    // Fixed Loop area math: Correct mapping to slider coordinates
+                    // The 0.96f is the track width ratio.
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.98f * (ePerc - sPerc))
+                            .fillMaxWidth(0.96f * (ePerc - sPerc))
                             .align(Alignment.CenterStart)
-                            .offset(x = (0.98f * sPerc * 2200).toInt().dp / 10)
+                            .offset(x = (fullWidth * 0.02f) + (fullWidth * 0.96f * sPerc)) 
                             .height(6.dp)
-                            .background(ColorGold.copy(alpha = 0.3f))
+                            .background(ColorGold.copy(alpha = 0.35f))
                     )
 
                     RangeSlider(
                         value = lStart.toFloat()..lEnd.toFloat(),
-                        onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) },
+                        onValueChange = { 
+                            onRange(it.start.toLong(), it.endInclusive.toLong()) 
+                        },
                         valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
                         colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent),
                         modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp),
                         startThumb = {
                             Box(
                                 modifier = Modifier
-                                    .size(25.dp) // 25% bigger
+                                    .size(25.dp)
                                     .background(ColorGold, CircleShape)
                                     .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
                                 contentAlignment = Alignment.Center
@@ -479,7 +526,7 @@ private fun MediaTimelineFooter(
                         endThumb = {
                             Box(
                                 modifier = Modifier
-                                    .size(25.dp) // 25% bigger
+                                    .size(25.dp)
                                     .background(ColorGold, CircleShape)
                                     .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
                                 contentAlignment = Alignment.Center
@@ -493,7 +540,11 @@ private fun MediaTimelineFooter(
                 // Progress Slider
                 Slider(
                     value = head.toFloat().coerceIn(0f, dur.toFloat()),
-                    onValueChange = { onSeek(it.toLong()) },
+                    onValueChange = { 
+                        onSeekState(true)
+                        onSeek(it.toLong()) 
+                    },
+                    onValueChangeFinished = { onSeekState(false) },
                     valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
                     colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = Color.Transparent),
                     modifier = Modifier.fillMaxWidth().height(32.dp)
@@ -541,8 +592,9 @@ private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit)
             Icon(Icons.Default.Warning, null, tint = ColorBaseline, modifier = Modifier.size(72.dp))
             Text("MIDI Interface Error", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
             Text(song.songTitle, color = ColorTextDim, textAlign = TextAlign.Center)
-            Text(error, color = ColorBaseline.copy(alpha = 0.7f), fontSize = 11.sp, textAlign = TextAlign.Center)
-            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = ColorSurface)) { Text("Back to Library") }
+            // Diagnostic logging
+            val unused = error
+            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = ColorSurface)) { Text("Return to Library") }
         }
     }
 }
