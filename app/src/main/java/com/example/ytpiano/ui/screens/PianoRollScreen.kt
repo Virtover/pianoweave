@@ -125,23 +125,31 @@ private fun ModernPianoPlayerContent(
     val endPitch = 96
     val totalKeys = endPitch - startPitch + 1
 
-    // Consistently track the last triggered timestamp to prevent "bursts" on seeking
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
 
-    // Audio Silencing on pause/scrub
+    // Silencing on pause/seek
     LaunchedEffect(isPlaying, isUserSeeking) {
         if (!isPlaying || isUserSeeking) {
             PianoPlayer.stopAllNotes()
         }
     }
 
-    // Audio Sync & Playback Engine
+    // Capture notes to strike for Wait Mode
+    val nextOnset = remember(noteEvents, playheadMs) {
+        noteEvents.filter { it.startMs >= playheadMs }.minOfOrNull { it.startMs }
+    }
+    val notesAtOnset = remember(noteEvents, nextOnset) {
+        if (nextOnset == null) emptySet<Int>()
+        else noteEvents.filter { abs(it.startMs - nextOnset) <= 30L }.map { it.pitch }.toSet()
+    }
+
+    // Playback Engine
     LaunchedEffect(isPlaying, speedMultiplier, isWaitModeEnabled, isLoopingEnabled, loopStartMs, loopEndMs, noteEvents) {
         if (!isPlaying) return@LaunchedEffect
 
-        // Trigger notes currently under the playhead when resuming
-        val resumedNotes = noteEvents.filter { playheadMs >= it.startMs && playheadMs < (it.startMs + it.durationMs) }
-        resumedNotes.forEach { PianoPlayer.noteOn(it.pitch) }
+        // Trigger notes under playhead when resuming
+        val resumed = noteEvents.filter { playheadMs >= it.startMs && playheadMs < (it.startMs + it.durationMs) }
+        resumed.forEach { PianoPlayer.noteOn(it.pitch) }
         
         lastTriggeredHeadMs = playheadMs
         var lastTime = System.nanoTime()
@@ -151,12 +159,9 @@ private fun ModernPianoPlayerContent(
             val dt = (now - lastTime) / 1_000_000L
             lastTime = now
 
-            // Wait Mode Logic
-            val nextOnset = noteEvents.filter { it.startMs >= playheadMs }.minOfOrNull { it.startMs }
             if (isWaitModeEnabled && nextOnset != null) {
                 val lookAhead = 10L
                 if (playheadMs >= nextOnset - lookAhead) {
-                    val notesAtOnset = noteEvents.filter { abs(it.startMs - nextOnset) <= 30L }.map { it.pitch }.toSet()
                     val pressed = MidiInputManager.pressedKeys.toSet()
                     if (notesAtOnset.any { it in startPitch..endPitch && it !in pressed }) {
                         delay(16)
@@ -167,8 +172,6 @@ private fun ModernPianoPlayerContent(
 
             val next = playheadMs + (dt * speedMultiplier).toLong()
             
-            // CONSOLIDATED TRIGGER LOGIC: Only trigger if the jump is small (normal playback)
-            // If the jump is > 500ms, we assume it's a seek and skip the "burst"
             if (abs(next - lastTriggeredHeadMs) < 500L) {
                 val triggered = noteEvents.filter { it.startMs > lastTriggeredHeadMs && it.startMs <= next }
                 triggered.forEach { PianoPlayer.noteOn(it.pitch) }
@@ -177,23 +180,20 @@ private fun ModernPianoPlayerContent(
 
             if (isLoopingEnabled && next >= loopEndMs) {
                 playheadMs = loopStartMs
-                lastTriggeredHeadMs = loopStartMs // Reset to start of loop
+                lastTriggeredHeadMs = loopStartMs
                 PianoPlayer.stopAllNotes()
-                val loopStartNotes = noteEvents.filter { loopStartMs >= it.startMs && loopStartMs < (it.startMs + it.durationMs) }
-                loopStartNotes.forEach { PianoPlayer.noteOn(it.pitch) }
-            }
-            else if (!isLoopingEnabled && next >= songDurationMs) {
+                val loopNotes = noteEvents.filter { loopStartMs >= it.startMs && loopStartMs < (it.startMs + it.durationMs) }
+                loopNotes.forEach { PianoPlayer.noteOn(it.pitch) }
+            } else if (!isLoopingEnabled && next >= songDurationMs) {
                 playheadMs = songDurationMs 
                 isPlaying = false
             } else {
                 playheadMs = next
             }
-            
             delay(12)
         }
     }
 
-    // Sustain set for keyboard highlighting (Visual only)
     val sustainedPitches = remember(noteEvents, playheadMs) {
         noteEvents.filter { playheadMs >= it.startMs && playheadMs <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
     }
@@ -213,6 +213,10 @@ private fun ModernPianoPlayerContent(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalKeys)
+            
+            if (isWaitModeEnabled && notesAtOnset.isNotEmpty() && nextOnset != null && playheadMs >= nextOnset - 500) {
+                WaitModeOverlay(notes = notesAtOnset)
+            }
         }
 
         PianoKeyboardRow(startPitch, endPitch, sustainedPitches)
@@ -227,12 +231,12 @@ private fun ModernPianoPlayerContent(
             onPlay = { isPlaying = !isPlaying },
             onRewind = { 
                 playheadMs = if (isLoopingEnabled) loopStartMs else 0L 
-                lastTriggeredHeadMs = playheadMs // Prevents burst on rewind
+                lastTriggeredHeadMs = playheadMs
                 PianoPlayer.stopAllNotes()
             },
             onSeek = { 
                 playheadMs = it 
-                lastTriggeredHeadMs = it // Prevents burst on seek
+                lastTriggeredHeadMs = it
                 PianoPlayer.stopAllNotes()
             },
             onSeekState = { isUserSeeking = it },
@@ -241,13 +245,7 @@ private fun ModernPianoPlayerContent(
         )
     }
 
-    if (showSettingsDialog) {
-        EditorSettingsDialog(
-            offset = transposeOffset,
-            onChange = { transposeOffset = it },
-            onDismiss = { showSettingsDialog = false }
-        )
-    }
+    if (showSettingsDialog) EditorSettingsDialog(transposeOffset, { transposeOffset = it }, { showSettingsDialog = false })
 }
 
 @Composable
@@ -353,6 +351,15 @@ private fun FallingNotesVisualizer(
             }
         }
         drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 2f)
+    }
+}
+
+@Composable
+private fun WaitModeOverlay(notes: Set<Int>) {
+    Box(Modifier.fillMaxWidth().padding(top = 24.dp), Alignment.TopCenter) {
+        Surface(color = ColorGold, shape = RoundedCornerShape(12.dp), shadowElevation = 12.dp, border = BorderStroke(2.dp, Color.White.copy(0.5f))) {
+            Text(text = "STRIKE: " + notes.sorted().joinToString("  ") { midiPitchName(it) }, Modifier.padding(horizontal = 24.dp, vertical = 10.dp), fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.Black)
+        }
     }
 }
 
