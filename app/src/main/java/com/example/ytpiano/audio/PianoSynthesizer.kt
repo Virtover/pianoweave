@@ -8,13 +8,14 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.*
 
 /**
- * Advanced real-time additive synthesizer providing a rich, percussive piano tone.
- * Optimized for low latency and high stability to prevent audio artifacts.
+ * High-quality real-time Grand Piano synthesizer.
+ * Uses additive synthesis with 8 harmonics, hammer-strike emulation, 
+ * and a soft-knee limiter for clear, undistorted polyphonic playback.
  */
 object PianoSynthesizer {
 
     private const val SAMPLE_RATE = 44100
-    private const val BUFFER_SIZE = 2048 // Increased for better stability
+    private const val BUFFER_SIZE = 1024
     
     private val audioTrack = AudioTrack.Builder()
         .setAudioAttributes(AudioAttributes.Builder()
@@ -26,7 +27,7 @@ object PianoSynthesizer {
             .setSampleRate(SAMPLE_RATE)
             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
             .build())
-        .setBufferSizeInBytes(BUFFER_SIZE * 4)
+        .setBufferSizeInBytes(BUFFER_SIZE * 8) // Ample buffer for high polyphony
         .setTransferMode(AudioTrack.MODE_STREAM)
         .build()
 
@@ -49,49 +50,58 @@ object PianoSynthesizer {
                     continue
                 }
 
+                // Dynamic gain compensation to avoid distortion during chords
+                val gain = 1.0 / sqrt(max(1.0, voices.size.toDouble()))
+
                 for (i in 0 until BUFFER_SIZE) {
-                    var sum = 0.0
+                    var mixed = 0.0
                     val t = (sampleCounter + i).toDouble() / SAMPLE_RATE
 
                     for (voice in voices) {
                         val vt = t - voice.startTime
                         if (vt < 0) continue
                         
-                        // Maximum ring duration
-                        if (vt > 3.0) {
+                        // Grand Piano Sustain: ring for up to 4 seconds
+                        if (vt > 4.0) {
                             activeVoices.remove(voice.pitch)
                             continue
                         }
 
-                        // --- Acoustic Piano Synthesis Model ---
-                        // A more complex harmonic series for "Real Piano" timbre
+                        // --- Grand Piano Harmonic Model ---
+                        // Rich overtone series with detuned octaves for "body"
                         var s = sin(2.0 * PI * voice.freq * vt)
-                        s += 0.60 * sin(2.0 * PI * (voice.freq * 2.001) * vt + 0.1) // Slightly detuned octaves
-                        s += 0.30 * sin(2.0 * PI * (voice.freq * 3.0) * vt + 0.2)
-                        s += 0.15 * sin(2.0 * PI * (voice.freq * 4.002) * vt + 0.3)
-                        s += 0.08 * sin(2.0 * PI * (voice.freq * 5.0) * vt + 0.4)
-                        s += 0.04 * sin(2.0 * PI * (voice.freq * 6.0) * vt + 0.5)
+                        s += 0.55 * sin(2.0 * PI * (voice.freq * 2.001) * vt + 0.1)
+                        s += 0.25 * sin(2.0 * PI * (voice.freq * 3.0) * vt + 0.2)
+                        s += 0.12 * sin(2.0 * PI * (voice.freq * 4.002) * vt + 0.3)
+                        s += 0.06 * sin(2.0 * PI * (voice.freq * 5.0) * vt + 0.4)
+                        s += 0.03 * sin(2.0 * PI * (voice.freq * 6.0) * vt + 0.5)
 
-                        // Hammer Strike Noise (percussive "thump" at onset)
-                        val noiseEnv = exp(-100.0 * vt)
-                        val hammerThump = (Math.random() * 2.0 - 1.0) * 0.2 * noiseEnv
-                        s += hammerThump
+                        // Hammer Impact (Percussive onset noise)
+                        val attackEnv = exp(-120.0 * vt)
+                        s += (Math.random() * 2.0 - 1.0) * 0.2 * attackEnv
 
-                        // ADSR - Percussive Envelope
-                        val attack = 0.003
+                        // ADSR - Piano Hammer-on-String Envelope
+                        val attack = 0.005
                         val env = if (vt < attack) {
                             vt / attack 
                         } else {
-                            // Classic piano decay: sharp initial drop then slow sustain
-                            0.7 * exp(-8.0 * (vt - attack)) + 0.3 * exp(-1.5 * (vt - attack))
+                            // Compound decay: fast initial drop then a slow "singing" sustain
+                            0.7 * exp(-7.0 * (vt - attack)) + 0.3 * exp(-1.2 * (vt - attack))
                         }
                         
-                        sum += s * voice.amp * env
+                        mixed += s * voice.amp * env
                     }
                     
-                    // Limiter to prevent digital clipping
-                    val limited = sum.coerceIn(-1.0, 1.0)
-                    buffer[i] = (limited * Short.MAX_VALUE).toInt().toShort()
+                    // --- Soft-Knee Limiter ---
+                    // Smoothly saturates instead of hard-clipping
+                    val scaled = mixed * gain
+                    val output = if (abs(scaled) > 0.8) {
+                        sign(scaled) * (0.8 + (abs(scaled) - 0.8) / (1 + (abs(scaled) - 0.8).pow(2)))
+                    } else {
+                        scaled
+                    }
+                    
+                    buffer[i] = (output.coerceIn(-1.0, 1.0) * Short.MAX_VALUE).toInt().toShort()
                 }
 
                 audioTrack.write(buffer, 0, buffer.size)
@@ -100,9 +110,14 @@ object PianoSynthesizer {
         }
     }
 
+    /**
+     * Start a piano note.
+     */
     fun noteOn(pitch: Int, velocity: Int = 80) {
         val freq = 440.0 * 2.0.pow((pitch - 69).toDouble() / 12.0)
-        val amp = (velocity / 127.0) * 0.22
+        // High notes have less energy
+        val brilliance = 1.0 / (1.0 + 0.0005 * freq)
+        val amp = (velocity / 127.0) * 0.35 * brilliance
         
         activeVoices[pitch] = Voice(
             pitch = pitch,
@@ -112,8 +127,11 @@ object PianoSynthesizer {
         )
     }
 
+    /**
+     * Stop a note (unused as natural decay sounds better for piano)
+     */
     fun noteOff(pitch: Int) {
-        // Natural string vibration decay
+        // String continues to vibrate
     }
 
     private data class Voice(

@@ -100,8 +100,8 @@ class PianoLearnerViewModel : ViewModel() {
                     status = when (job.status) {
                         "queued" -> "Queued in server pipeline..."
                         "running", "processing" ->
-                            if (job.title != null) {
-                                "Transcribing \"${job.title}\"..."
+                            if (job.metadata != null) {
+                                "Transcribing \"${job.metadata.title}\"..."
                             } else {
                                 "AI model transcribing notes..."
                             }
@@ -126,7 +126,7 @@ class PianoLearnerViewModel : ViewModel() {
                             MidiStorage.save(
                                 context = context,
                                 youtubeUrl = stableUrl,
-                                songTitle = job.title,
+                                metadata = job.metadata,
                                 body = midiResponse
                             )
                         }

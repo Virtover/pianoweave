@@ -2,16 +2,15 @@ package com.example.ytpiano.midi
 
 import android.content.Context
 import android.util.Log
+import com.example.ytpiano.api.VideoMetadata
 import okhttp3.ResponseBody
 import java.io.File
 import java.security.MessageDigest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 data class StoredMidi(
     val file: File,
     val youtubeUrl: String,
-    val songTitle: String
+    val metadata: VideoMetadata
 )
 
 object MidiStorage {
@@ -57,13 +56,22 @@ object MidiStorage {
     fun save(
         context: Context,
         youtubeUrl: String,
-        songTitle: String?,
+        metadata: VideoMetadata?,
         body: ResponseBody
     ): StoredMidi {
-        Log.d("MidiStorage", "Saving MIDI file for URL: $youtubeUrl")
+        Log.d(
+            "MidiStorage",
+            "Saving MIDI file for URL: $youtubeUrl"
+        )
+
         val id = idForUrl(youtubeUrl)
         val dir = directory(context)
-        Log.d("MidiStorage", "Directory path: ${dir.absolutePath}")
+
+        Log.d(
+            "MidiStorage",
+            "Directory path: ${dir.absolutePath}"
+        )
+
         val midiFile = File(
             dir,
             "$id.mid"
@@ -81,21 +89,42 @@ object MidiStorage {
         }
 
         val stableUrl = youtubeUrl.trim()
-        val stableTitle = songTitle
-            ?.trim()
-            ?.takeIf {
-                it.isNotBlank() &&
-                        !it.equals("null", ignoreCase = true)
-            }
-            ?: "Piano Performance"
+
+        val stableMetadata = metadata ?: VideoMetadata(
+            title = "Piano Performance",
+            author = "Unknown",
+            channel = "Unknown",
+            channel_id = "",
+            channel_url = "",
+            upload_date = "",
+            duration = 0f,
+            thumbnail = "",
+            webpage_url = stableUrl,
+            view_count = 0L,
+            like_count = 0L
+        )
 
         metadataFile.writeText(
-            "$stableUrl\n$stableTitle"
+            listOf(
+                stableUrl,
+                stableMetadata.title,
+                stableMetadata.author,
+                stableMetadata.channel,
+                stableMetadata.channel_id,
+                stableMetadata.channel_url,
+                stableMetadata.upload_date,
+                stableMetadata.duration.toString(),
+                stableMetadata.thumbnail,
+                stableMetadata.webpage_url,
+                stableMetadata.view_count.toString(),
+                stableMetadata.like_count.toString()
+            ).joinToString("\n")
         )
+
         return StoredMidi(
             file = midiFile,
             youtubeUrl = stableUrl,
-            songTitle = stableTitle
+            metadata = stableMetadata
         )
     }
 
@@ -116,37 +145,96 @@ object MidiStorage {
                             METADATA_EXTENSION
                 )
 
-                var youtubeUrl = "Unknown source"
-                var songTitle = "Piano Performance"
-
-                if (metadataFile.exists()) {
-                    val lines = metadataFile.readLines()
-
-                    if (lines.isNotEmpty()) {
-                        youtubeUrl = lines[0].trim()
-                    }
-
-                    if (lines.size > 1) {
-                        songTitle = lines
-                            .drop(1)
-                            .joinToString("\n")
-                            .trim()
-                            .ifBlank {
-                                "Piano Performance"
-                            }
-                    }
-                }
+                val metadata =
+                    readMetadata(
+                        metadataFile = metadataFile,
+                        midiFile = midiFile
+                    )
 
                 StoredMidi(
                     file = midiFile,
-                    youtubeUrl = youtubeUrl,
-                    songTitle = songTitle
+                    youtubeUrl = metadata.webpage_url,
+                    metadata = metadata
                 )
             }
             ?.sortedByDescending {
                 it.file.lastModified()
             }
             ?: emptyList()
+    }
+
+    private fun readMetadata(
+        metadataFile: File,
+        midiFile: File
+    ): VideoMetadata {
+        if (!metadataFile.exists()) {
+            return fallbackMetadata()
+        }
+
+        val lines = metadataFile.readLines()
+
+        if (lines.size < 12) {
+            return fallbackMetadata(
+                youtubeUrl = lines
+                    .firstOrNull()
+                    ?.trim()
+                    .orEmpty()
+                    .ifBlank {
+                        "Unknown source"
+                    }
+            )
+        }
+
+        return try {
+            VideoMetadata(
+                title = lines[1],
+                author = lines[2],
+                channel = lines[3],
+                channel_id = lines[4],
+                channel_url = lines[5],
+                upload_date = lines[6],
+                duration = lines[7].toFloat(),
+                thumbnail = lines[8],
+                webpage_url = lines[9],
+                view_count = lines[10].toLong(),
+                like_count = lines[11].toLong()
+            )
+        } catch (e: Exception) {
+            Log.e(
+                "MidiStorage",
+                "Failed to read metadata for " +
+                        midiFile.name,
+                e
+            )
+
+            fallbackMetadata(
+                youtubeUrl = lines
+                    .firstOrNull()
+                    ?.trim()
+                    .orEmpty()
+                    .ifBlank {
+                        "Unknown source"
+                    }
+            )
+        }
+    }
+
+    private fun fallbackMetadata(
+        youtubeUrl: String = "Unknown source"
+    ): VideoMetadata {
+        return VideoMetadata(
+            title = "Piano Performance",
+            author = "Unknown",
+            channel = "Unknown",
+            channel_id = "",
+            channel_url = "",
+            upload_date = "",
+            duration = 0f,
+            thumbnail = "",
+            webpage_url = youtubeUrl,
+            view_count = 0L,
+            like_count = 0L
+        )
     }
 
     fun delete(

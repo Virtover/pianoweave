@@ -45,12 +45,13 @@ import kotlin.math.abs
 // --- Ultra Pro Piano Theme ---
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
-private val ColorGold = Color(0xFFD4AF37) 
+private val ColorGold = Color(0xFFD4AF37) // Signature Gold
 private val ColorGoldDim = Color(0xFF3E351A)
-private val ColorSlate = Color(0xFF30363D) 
-private val ColorSuccess = Color(0xFF2EA043) 
-private val ColorTarget = Color(0xFFF39C12) 
-private val ColorBaseline = Color(0xFFF85149) 
+private val ColorSlate = Color(0xFF30363D) // Muted Slate
+private val ColorNoteUpcoming = Color(0xFF1F2937) // Deep Charcoal-Blue
+private val ColorSuccess = Color(0xFF2EA043) // Success Green
+private val ColorTarget = Color(0xFFF39C12) // Vibrant On-Hit Gold
+private val ColorBaseline = Color(0xFFF85149) // Neon Red Hitline
 private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6)
 private val ColorKeyBlack = Color(0xFF1A1A1A)
@@ -73,7 +74,7 @@ fun PianoRollScreen(
             }
             noteEvents = parsed
         } catch (e: Exception) {
-            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI read failure"
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
         }
     }
 
@@ -178,14 +179,14 @@ private fun ModernPianoPlayerContent(
         }
     }
 
-    // Sustain set for keyboard highlighting
-    val sustainedPitches = remember(noteEvents, playheadMs) {
+    // Current sustain for visualizer
+    val currentlySustained = remember(noteEvents, playheadMs) {
         noteEvents.filter { playheadMs >= it.startMs && playheadMs <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
     }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
         ModernToolbar(
-            title = song.songTitle,
+            title = song.metadata.title,
             head = playheadMs,
             dur = songDurationMs,
             isWait = isWaitModeEnabled,
@@ -203,7 +204,7 @@ private fun ModernPianoPlayerContent(
             }
         }
 
-        PianoKeyboardRow(startPitch, endPitch, sustainedPitches)
+        PianoKeyboardRow(startPitch, endPitch, currentlySustained)
 
         MediaTimelineFooter(
             head = playheadMs,
@@ -360,17 +361,16 @@ private fun FallingNotesVisualizer(
             val h = (e.durationMs * scale).coerceAtLeast(10f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
-            // Fix: Note-instance-specific highlighting. 
-            // Only highlight if the note is CURRENTLY at the baseline (passing through it).
-            val isAtBaseline = head >= e.startMs && head <= endMs
+            // Fix: Precise instance-specific highlighting
             val isHittingOnset = head >= e.startMs && head <= (e.startMs + 60L)
+            val isAtBaseline = head >= e.startMs && head <= endMs
             val isUserPressed = MidiInputManager.pressedKeys.contains(e.pitch)
 
             val color = when {
                 isUserPressed && isAtBaseline -> ColorSuccess
                 isHittingOnset -> ColorTarget
-                isAtBaseline -> ColorGold.copy(alpha = 0.65f)
-                else -> ColorGoldDim 
+                isAtBaseline -> ColorGold.copy(alpha = 0.7f)
+                else -> ColorNoteUpcoming // Muted but stylish Charcoal-Blue
             }
             
             drawRoundRect(
@@ -452,7 +452,7 @@ private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
                 Alignment.BottomCenter
             ) {
                 val label = when (p) { 36->"C1";48->"C2";60->"C3";72->"C4";84->"C5";96->"C6"; else->"" }
-                if (label.isNotEmpty()) Text(label, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = if (pressed.contains(p)) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 2.dp))
+                if (label.isNotEmpty()) Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (pressed.contains(p)) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 4.dp))
             }
         }
     }
@@ -486,19 +486,19 @@ private fun MediaTimelineFooter(
             BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 val fullWidth = maxWidth
                 
-                // Track background
+                // Track background (Adjusted width to match standard Slider behavior)
                 Box(modifier = Modifier.fillMaxWidth(0.96f).height(6.dp).background(ColorSlate, CircleShape))
 
                 if (isLoop) {
                     val sPerc = lStart.toFloat() / dur.coerceAtLeast(1)
                     val ePerc = lEnd.toFloat() / dur.coerceAtLeast(1)
                     
-                    // Fixed Loop area math: Correct mapping to slider coordinates
-                    // The 0.96f is the track width ratio.
+                    // Fixed: Perfect gapless highlight mapping to handle positions
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.96f * (ePerc - sPerc))
                             .align(Alignment.CenterStart)
+                            // Align precisely with the track start offset
                             .offset(x = (fullWidth * 0.02f) + (fullWidth * 0.96f * sPerc)) 
                             .height(6.dp)
                             .background(ColorGold.copy(alpha = 0.35f))
@@ -570,7 +570,7 @@ private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: 
         Surface(shape = RoundedCornerShape(20.dp), color = ColorSurface, contentColor = Color.White, border = BorderStroke(1.dp, ColorSlate)) {
             Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text("Piano Editor", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ColorGold)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Transposition", color = ColorTextDim, fontWeight = FontWeight.Bold)
                         Text("${if (offset > 0) "+" else ""}$offset", color = ColorGold, fontWeight = FontWeight.Black, style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 4f)))
@@ -591,7 +591,7 @@ private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit)
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Icon(Icons.Default.Warning, null, tint = ColorBaseline, modifier = Modifier.size(72.dp))
             Text("MIDI Interface Error", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(song.songTitle, color = ColorTextDim, textAlign = TextAlign.Center)
+            Text(song.metadata.title, color = ColorTextDim, textAlign = TextAlign.Center)
             // Diagnostic logging
             val unused = error
             Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = ColorSurface)) { Text("Return to Library") }

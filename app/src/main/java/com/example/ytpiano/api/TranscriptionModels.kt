@@ -14,5 +14,19 @@ data class TranscriptionStatusResponse(
     val status: String,
     val progress: Float,
     val error: String?,
-    val title: String? = null
+    val metadata: VideoMetadata? = null
+)
+
+data class VideoMetadata(
+    val title: String,
+    val author: String,
+    val channel: String,
+    val channel_id: String,
+    val channel_url: String,
+    val upload_date: String,
+    val duration: Float,
+    val thumbnail: String,
+    val webpage_url: String,
+    val view_count: Long,
+    val like_count: Long
 )

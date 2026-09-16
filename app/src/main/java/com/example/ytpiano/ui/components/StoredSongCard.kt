@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,23 +51,23 @@ fun StoredSongCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                // High-UX Typography Hierarchy: Primary bold Song Title on top
                 Text(
-                    text = song.songTitle,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    text = song.metadata.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                // Subtitle: Source YouTube link text cleanly fitted below
                 Text(
-                    text = song.youtubeUrl,
+                    text = "${song.metadata.author} • ${song.youtubeUrl}",
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 1.dp)
+                    modifier = Modifier.padding(top = 2.dp)
                 )
 
                 Row(
@@ -75,18 +76,24 @@ fun StoredSongCard(
                     modifier = Modifier.padding(top = 6.dp)
                 ) {
                     Text(
-                        text = "%.1f KB".format(song.file.length() / 1024.0),
+                        text = "%.1f KB".format(
+                            song.file.length() / 1024.0
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
                     Text(
                         text = "•",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
                     Text(
                         text = "Standard MIDI",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
                         color = MaterialTheme.colorScheme.secondary
                     )
                 }
@@ -98,7 +105,9 @@ fun StoredSongCard(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Delete from Library",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    tint = MaterialTheme.colorScheme.error.copy(
+                        alpha = 0.8f
+                    )
                 )
             }
         }
