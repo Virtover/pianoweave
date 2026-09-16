@@ -13,8 +13,8 @@ Upgrade your piano learning experience with high-fidelity practice tools. This a
 
 ## 🛠️ Setup
 
-### Backend
-This app requires the [YT Piano Backend](https://github.com/example/yt-piano-backend) running locally or on a server.
+### Transcription server
+This app requires the [YT Piano To Midi Server](https://github.com/example/yt-piano-to-midi-server) running locally or on a server.
 
 ### Configuration
 1.  Copy `app/src/main/assets/config.example.txt` to `app/src/main/assets/config/config.txt`.
