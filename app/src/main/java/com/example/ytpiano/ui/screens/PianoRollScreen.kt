@@ -71,7 +71,7 @@ fun PianoRollScreen(
             }
             noteEvents = parsed
         } catch (e: Exception) {
-            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI read failure"
         }
     }
 
@@ -176,8 +176,8 @@ private fun ModernPianoPlayerContent(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalKeys)
-            if (isWaitModeEnabled && nextOnsetMs != null && playheadMs >= nextOnsetMs - 500) {
-                WaitModeOverlay(notesAtOnset)
+            if (isWaitModeEnabled && notesAtOnset.isNotEmpty() && nextOnsetMs != null && playheadMs >= nextOnsetMs - 500) {
+                WaitModeOverlay(notes = notesAtOnset)
             }
         }
 
@@ -214,7 +214,7 @@ private fun ModernToolbar(
     onBack: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 0.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
@@ -230,50 +230,51 @@ private fun ModernToolbar(
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Speed Circle Buttons
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Speed Circle Buttons (35dp size)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
                     val isSelected = speed == s
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(35.dp)
                             .background(if (isSelected) ColorGold else ColorSlate, CircleShape)
                             .clickable { onSpeedChange(s) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("${s}x", fontSize = 9.sp, fontWeight = FontWeight.Black, color = if (isSelected) Color.Black else Color.White)
+                        Text("${s}x", fontSize = 10.sp, fontWeight = FontWeight.Black, color = if (isSelected) Color.Black else Color.White)
                     }
                 }
             }
 
-            // Wait mode toggle - Refactored to match other buttons exactly
+            // Wait mode toggle (36dp height)
             Box(
                 modifier = Modifier
-                    .height(28.dp)
+                    .height(36.dp)
                     .background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(8.dp))
                     .border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(8.dp))
                     .clickable { onWaitToggle() }
-                    .padding(horizontal = 10.dp),
+                    .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Wait mode", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isWait) Color.Black else ColorGold)
+                    Text("Wait mode", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isWait) Color.Black else ColorGold)
                 }
             }
 
+            // Settings button (36dp size)
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(36.dp)
                     .background(ColorSurface, RoundedCornerShape(8.dp))
                     .border(1.dp, ColorSlate, RoundedCornerShape(8.dp))
                     .clickable { onSetClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -286,21 +287,30 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val kw = size.width / count
         
-            // 2. Draw horizontal bar lines (Musical bars & beats guide)
-        val beatIntervalMs = 500L // Assuming 120 BPM
-        val barIntervalMs = 2000L // Assuming 4/4 time
-        val firstVisibleBeat = (head / beatIntervalMs) * beatIntervalMs
+        // 1. Grid Lanes (Vertical separators)
+        for (p in start..end) {
+            val x = (p - start) * kw
+            drawLine(
+                color = if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), 
+                start = Offset(x, 0f), 
+                end = Offset(x, size.height), 
+                strokeWidth = 1f
+            )
+        }
+
+        // 2. Horizontal Bar Lines (Musical bar ends - every 2000ms)
+        val barIntervalMs = 2000L 
+        val firstVisibleBar = (head / barIntervalMs) * barIntervalMs
         val lastVisibleMs = head + (size.height / scale).toLong()
         
-        for (ms in firstVisibleBeat..lastVisibleMs step beatIntervalMs) {
+        for (ms in firstVisibleBar..lastVisibleMs step barIntervalMs) {
             val y = size.height - ((ms - head) * scale)
             if (y in 0f..size.height) {
-                val isBar = ms % barIntervalMs == 0L
                 drawLine(
-                    color = if (isBar) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+                    color = Color.White.copy(alpha = 0.15f),
                     start = Offset(0f, y),
                     end = Offset(size.width, y),
-                    strokeWidth = (if (isBar) 1.5.dp else 1.dp).toPx()
+                    strokeWidth = 1.5.dp.toPx()
                 )
             }
         }
@@ -315,12 +325,12 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
             val h = (e.durationMs * scale).coerceAtLeast(10f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
-            val isPressed = MidiInputManager.pressedKeys.contains(e.pitch)
             val isHitting = head >= e.startMs && head <= (e.startMs + 50L)
             val isPassing = head > e.startMs && head < endMs
+            val isUserPressed = MidiInputManager.pressedKeys.contains(e.pitch)
 
             val color = when {
-                isPressed && isPassing -> ColorSuccess
+                isUserPressed && isPassing -> ColorSuccess
                 isHitting -> ColorTarget
                 isPassing -> ColorGold.copy(alpha = 0.5f)
                 else -> ColorGoldDim 
@@ -333,7 +343,7 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
                 cornerRadius = CornerRadius(4.dp.toPx())
             )
             
-            if (isHitting || (isPressed && isPassing)) {
+            if (isHitting || (isUserPressed && isPassing)) {
                 drawRect(
                     brush = Brush.verticalGradient(listOf(color.copy(0.4f), Color.Transparent)),
                     topLeft = Offset(x, y.coerceIn(-h, size.height) + h),
@@ -354,7 +364,7 @@ private fun WaitModeOverlay(notes: Set<Int>) {
             color = ColorGold, 
             shape = RoundedCornerShape(12.dp), 
             shadowElevation = 12.dp,
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(0.5f))
+            border = BorderStroke(2.dp, Color.White.copy(0.5f))
         ) {
             Text(
                 text = "STRIKE: " + notes.sorted().joinToString("  ") { midiPitchName(it) }, 
@@ -415,62 +425,80 @@ private fun MediaTimelineFooter(
     onRange: (Long, Long) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Playback Buttons Group
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconButton(onClick = onPlay, Modifier.size(44.dp).background(ColorGold, CircleShape)) {
-                Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(28.dp))
+            IconButton(onClick = onPlay, Modifier.size(48.dp).background(ColorGold, CircleShape)) {
+                Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(32.dp))
             }
-            IconButton(onClick = onReset, modifier = Modifier.size(34.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) {
-                Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            IconButton(onClick = onReset, modifier = Modifier.size(36.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) {
+                Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Center Column: Dual Sliders (Separated for precise touch)
+        // Center Column: Dual Sliders
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            if (isLoop) {
-                RangeSlider(
-                    value = lStart.toFloat()..lEnd.toFloat(),
-                    onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) },
+            Box(contentAlignment = Alignment.Center) {
+                // Shared track background
+                Box(modifier = Modifier.fillMaxWidth().height(6.dp).background(ColorSlate, CircleShape))
+
+                if (isLoop) {
+                    // Loop segment visualization overlay (No space between slider and inner loop area)
+                    val sPerc = lStart.toFloat() / dur.coerceAtLeast(1)
+                    val ePerc = lEnd.toFloat() / dur.coerceAtLeast(1)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.98f * (ePerc - sPerc))
+                            .align(Alignment.CenterStart)
+                            .offset(x = (0.98f * sPerc * 2200).toInt().dp / 10)
+                            .height(6.dp)
+                            .background(ColorGold.copy(alpha = 0.3f))
+                    )
+
+                    RangeSlider(
+                        value = lStart.toFloat()..lEnd.toFloat(),
+                        onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) },
+                        valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
+                        colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent),
+                        modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp),
+                        startThumb = {
+                            Box(
+                                modifier = Modifier
+                                    .size(25.dp) // 25% bigger
+                                    .background(ColorGold, CircleShape)
+                                    .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                            }
+                        },
+                        endThumb = {
+                            Box(
+                                modifier = Modifier
+                                    .size(25.dp) // 25% bigger
+                                    .background(ColorGold, CircleShape)
+                                    .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    )
+                }
+
+                // Progress Slider
+                Slider(
+                    value = head.toFloat().coerceIn(0f, dur.toFloat()),
+                    onValueChange = { onSeek(it.toLong()) },
                     valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
-                    colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = ColorGoldDim, inactiveTrackColor = Color.Transparent),
-                    modifier = Modifier.fillMaxWidth().height(28.dp),
-                    startThumb = {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .background(ColorGold, CircleShape)
-                                .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(14.dp))
-                        }
-                    },
-                    endThumb = {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .background(ColorGold, CircleShape)
-                                .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(14.dp))
-                        }
-                    }
+                    colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = Color.Transparent),
+                    modifier = Modifier.fillMaxWidth().height(32.dp)
                 )
             }
-            
-            Slider(
-                value = head.toFloat().coerceIn(0f, dur.toFloat()),
-                onValueChange = { onSeek(it.toLong()) },
-                valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
-                colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = ColorSlate),
-                modifier = Modifier.fillMaxWidth().height(28.dp)
-            )
         }
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -478,7 +506,7 @@ private fun MediaTimelineFooter(
         // Loop Toggle Button
         IconButton(
             onClick = onLoop,
-            modifier = Modifier.size(40.dp).background(if (isLoop) ColorGold else ColorSurface, RoundedCornerShape(10.dp)).border(if (!isLoop) 1.dp else 0.dp, ColorSlate, RoundedCornerShape(10.dp))
+            modifier = Modifier.size(40.dp).background(if (isLoop) ColorGold else ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, if(!isLoop) ColorSlate else Color.Transparent, RoundedCornerShape(10.dp))
         ) {
             Icon(Icons.Default.Repeat, null, tint = if (isLoop) Color.Black else ColorGold, modifier = Modifier.size(22.dp))
         }
@@ -488,7 +516,7 @@ private fun MediaTimelineFooter(
 @Composable
 private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: ()->Unit) {
     Dialog(onDismiss) {
-        Surface(shape = RoundedCornerShape(20.dp), color = ColorSurface, contentColor = Color.White, border = androidx.compose.foundation.BorderStroke(1.dp, ColorSlate)) {
+        Surface(shape = RoundedCornerShape(20.dp), color = ColorSurface, contentColor = Color.White, border = BorderStroke(1.dp, ColorSlate)) {
             Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text("Piano Editor", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ColorGold)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -510,10 +538,11 @@ private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: 
 private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit) {
     Box(Modifier.fillMaxSize().background(ColorBg).padding(32.dp), Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Default.Warning, null, tint = ColorBaseline, modifier = Modifier.size(64.dp))
-            Text("Midi Compatibility Error", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
+            Icon(Icons.Default.Warning, null, tint = ColorBaseline, modifier = Modifier.size(72.dp))
+            Text("MIDI Interface Error", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
             Text(song.songTitle, color = ColorTextDim, textAlign = TextAlign.Center)
-            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = ColorSurface)) { Text("Return to Library") }
+            Text(error, color = ColorBaseline.copy(alpha = 0.7f), fontSize = 11.sp, textAlign = TextAlign.Center)
+            Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = ColorSurface)) { Text("Back to Library") }
         }
     }
 }
