@@ -53,6 +53,7 @@ private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6)
 private val ColorKeyBlack = Color(0xFF1A1A1A)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PianoRollScreen(
     song: StoredMidi,
@@ -213,7 +214,7 @@ private fun ModernToolbar(
     onBack: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 0.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
@@ -247,23 +248,32 @@ private fun ModernToolbar(
                 }
             }
 
-            Button(
-                onClick = onWaitToggle,
-                colors = ButtonDefaults.buttonColors(containerColor = if (isWait) ColorGold else ColorSurface, contentColor = if (isWait) Color.Black else ColorGold),
-                shape = RoundedCornerShape(8.dp), 
-                border = if (!isWait) BorderStroke(1.dp, ColorSlate) else null,
-                contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.height(30.dp)
+            // Wait mode toggle - Refactored to match other buttons exactly
+            Box(
+                modifier = Modifier
+                    .height(28.dp)
+                    .background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(8.dp))
+                    .border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(8.dp))
+                    .clickable { onWaitToggle() }
+                    .padding(horizontal = 10.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Timer, null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Wait mode", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Wait mode", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isWait) Color.Black else ColorGold)
+                }
             }
 
-            IconButton(
-                onClick = onSetClick,
-                modifier = Modifier.size(30.dp).background(ColorSurface, RoundedCornerShape(8.dp)).border(1.dp, ColorSlate, RoundedCornerShape(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(ColorSurface, RoundedCornerShape(8.dp))
+                    .border(1.dp, ColorSlate, RoundedCornerShape(8.dp))
+                    .clickable { onSetClick() },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -276,22 +286,36 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val kw = size.width / count
         
-        for (p in start..end) {
-            val x = (p - start) * kw
-            drawLine(if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), Offset(x, 0f), Offset(x, size.height), 1f)
+            // 2. Draw horizontal bar lines (Musical bars & beats guide)
+        val beatIntervalMs = 500L // Assuming 120 BPM
+        val barIntervalMs = 2000L // Assuming 4/4 time
+        val firstVisibleBeat = (head / beatIntervalMs) * beatIntervalMs
+        val lastVisibleMs = head + (size.height / scale).toLong()
+        
+        for (ms in firstVisibleBeat..lastVisibleMs step beatIntervalMs) {
+            val y = size.height - ((ms - head) * scale)
+            if (y in 0f..size.height) {
+                val isBar = ms % barIntervalMs == 0L
+                drawLine(
+                    color = if (isBar) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = (if (isBar) 1.5.dp else 1.dp).toPx()
+                )
+            }
         }
 
+        // 3. Note Capsules
         events.forEach { e ->
             if (e.pitch !in start..end) return@forEach
             val endMs = e.startMs + e.durationMs
-            if (endMs < head || e.startMs > head + (size.height / scale)) return@forEach
+            if (endMs < head || e.startMs > lastVisibleMs) return@forEach
             
             val x = (e.pitch - start) * kw
             val h = (e.durationMs * scale).coerceAtLeast(10f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
             val isPressed = MidiInputManager.pressedKeys.contains(e.pitch)
-            // Fix: Only highlight if the note is ACTUALLY passing the baseline
             val isHitting = head >= e.startMs && head <= (e.startMs + 50L)
             val isPassing = head > e.startMs && head < endMs
 
@@ -317,6 +341,8 @@ private fun FallingNotesVisualizer(events: List<MidiNoteEvent>, head: Long, star
                 )
             }
         }
+        
+        // 4. Neon Hitline
         drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 2f)
     }
 }
@@ -381,6 +407,7 @@ private fun PianoKeyboardRow(start: Int, end: Int, events: List<MidiNoteEvent>, 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MediaTimelineFooter(
     head: Long, dur: Long, isPlaying: Boolean, isLoop: Boolean, lStart: Long, lEnd: Long,
@@ -411,7 +438,29 @@ private fun MediaTimelineFooter(
                     onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) },
                     valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
                     colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = ColorGoldDim, inactiveTrackColor = Color.Transparent),
-                    modifier = Modifier.fillMaxWidth().height(28.dp)
+                    modifier = Modifier.fillMaxWidth().height(28.dp),
+                    startThumb = {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .background(ColorGold, CircleShape)
+                                .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(14.dp))
+                        }
+                    },
+                    endThumb = {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .background(ColorGold, CircleShape)
+                                .border(1.5.dp, Color.White.copy(0.4f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(14.dp))
+                        }
+                    }
                 )
             }
             
