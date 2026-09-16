@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * High-quality Grand Piano player using FluidSynth and SoundFonts.
- * Optimized for ultra-low latency and a rich, professional grand piano sound.
+ * Optimized for high stability on Android and Emulators.
  */
 object PianoPlayer : AutoCloseable {
 
@@ -25,12 +25,15 @@ object PianoPlayer : AutoCloseable {
 
         val soundFontPath = copySoundFont(context)
         
+        // Stabilized Audio Configuration
+        // periodSize = 512 and periods = 8 are much safer for Emulator/Mobile environments
+        // Interpolation.NORMAL is a good balance between quality and CPU.
         player = FluidSynthPlayer(
             AudioConfig(
                 sampleRate = 44100,
-                interpolation = Interpolation.HIGH, 
-                periodSize = 64, 
-                periods = 2 
+                interpolation = Interpolation.NORMAL, 
+                periodSize = 512, 
+                periods = 8 
             )
         ).apply {
             val soundFontId = loadSoundFont(soundFontPath)
@@ -40,20 +43,20 @@ object PianoPlayer : AutoCloseable {
             }
 
             programChange(CHANNEL, GRAND_PIANO)
-            setGain(0.85f) 
+            setGain(0.8f) 
             
             setReverb(
-                roomSize = 0.75, 
-                damping = 0.4, 
-                width = 0.9, 
-                level = 0.35 
+                roomSize = 0.65, 
+                damping = 0.5, 
+                width = 0.8, 
+                level = 0.3
             )
             
             setChorus(
                 voiceCount = 3,
-                level = 1.2,
+                level = 0.5,
                 speed = 0.3,
-                depth = 8.0
+                depth = 4.0
             )
         }
     }
@@ -69,13 +72,10 @@ object PianoPlayer : AutoCloseable {
     }
 
     /**
-     * Instantly silence all active notes. 
-     * Useful for pausing playback or clearing the stage.
+     * Stop all notes instantly.
      */
     fun stopAllNotes() {
-        // FluidSynth kmp doesn't have a direct "all notes off" MIDI controller call exposed,
-        // so we loop through the piano range (21-108) to silence hanging notes.
-        for (pitch in 21..108) {
+        for (pitch in 0..127) {
             player?.noteOff(CHANNEL, pitch)
         }
     }
