@@ -29,3 +29,7 @@ Open the project in Android Studio and build the `:app` module.
 - **`midi`:** Binary MIDI parsing and hardware input management.
 - **`api`:** Retrofit-based communication with the transcription backend.
 - **`ui`:** Modern Jetpack Compose implementation of the practicing dashboard.
+
+## License
+
+This project is licensed under the MIT License.
