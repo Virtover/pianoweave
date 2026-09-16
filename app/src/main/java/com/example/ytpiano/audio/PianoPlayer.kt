@@ -28,9 +28,9 @@ object PianoPlayer : AutoCloseable {
         player = FluidSynthPlayer(
             AudioConfig(
                 sampleRate = 44100,
-                interpolation = Interpolation.HIGH, // Use HIGH for best quality since user specifically wants Grand Piano
-                periodSize = 64, // Reduced for ultra-low latency
-                periods = 2 // Minimum periods for fast response
+                interpolation = Interpolation.HIGH, 
+                periodSize = 64, 
+                periods = 2 
             )
         ).apply {
             val soundFontId = loadSoundFont(soundFontPath)
@@ -39,16 +39,14 @@ object PianoPlayer : AutoCloseable {
                 return
             }
 
-            // Explicitly select Grand Piano (Bank 0, Program 0)
             programChange(CHANNEL, GRAND_PIANO)
-            setGain(0.85f) // Balanced gain to prevent digital clipping in chords
+            setGain(0.85f) 
             
-            // Grand Piano Acoustics tuning
             setReverb(
-                roomSize = 0.75, // Large grand piano hall
+                roomSize = 0.75, 
                 damping = 0.4, 
                 width = 0.9, 
-                level = 0.35 // Notable but professional reverb
+                level = 0.35 
             )
             
             setChorus(
@@ -68,6 +66,18 @@ object PianoPlayer : AutoCloseable {
     fun noteOff(pitch: Int) {
         if (pitch !in 0..127) return
         player?.noteOff(CHANNEL, pitch)
+    }
+
+    /**
+     * Instantly silence all active notes. 
+     * Useful for pausing playback or clearing the stage.
+     */
+    fun stopAllNotes() {
+        // FluidSynth kmp doesn't have a direct "all notes off" MIDI controller call exposed,
+        // so we loop through the piano range (21-108) to silence hanging notes.
+        for (pitch in 21..108) {
+            player?.noteOff(CHANNEL, pitch)
+        }
     }
 
     override fun close() {

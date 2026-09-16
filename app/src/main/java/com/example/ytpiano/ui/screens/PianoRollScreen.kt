@@ -46,7 +46,7 @@ import kotlin.math.abs
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
 private val ColorGold = Color(0xFFD4AF37) // Signature Premium Gold
-private val ColorGoldDim = Color(0xFF1A1608) // Deep, dark muted gold (almost black)
+private val ColorGoldDim = Color(0xFF30363D) // Muted Slate (Better for upcoming notes)
 private val ColorSlate = Color(0xFF30363D) 
 private val ColorSuccess = Color(0xFF2EA043) // Success Green
 private val ColorTarget = Color(0xFFF39C12) // Vibrant On-Hit Gold
@@ -127,6 +127,19 @@ private fun ModernPianoPlayerContent(
 
     // State for audio triggering logic
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
+
+    // Silencing logic when pausing or scrubbing
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) {
+            PianoPlayer.stopAllNotes()
+        }
+    }
+    
+    LaunchedEffect(isUserSeeking) {
+        if (isUserSeeking) {
+            PianoPlayer.stopAllNotes()
+        }
+    }
 
     // Audio Sync: Trigger FluidSynth notes
     LaunchedEffect(playheadMs) {
@@ -216,6 +229,7 @@ private fun ModernPianoPlayerContent(
             onRewind = { 
                 playheadMs = if (isLoopingEnabled) loopStartMs else 0L 
                 lastTriggeredHeadMs = playheadMs - 1
+                PianoPlayer.stopAllNotes()
             },
             onSeek = { 
                 playheadMs = it 
@@ -367,14 +381,14 @@ private fun FallingNotesVisualizer(
             val isAtBaseline = head >= e.startMs && head <= endMs
             val isHittingOnset = head >= e.startMs && head <= (e.startMs + 60L)
             
-            // Only green if THIS specific note block is at the baseline
+            // Only highlight if the note is ACTUALLY passing the baseline
             val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
 
             val color = when {
                 isUserMatch -> ColorSuccess
                 isHittingOnset -> ColorTarget
                 isAtBaseline -> ColorGold.copy(alpha = 0.75f)
-                else -> ColorGoldDim // Now a very dark muted gold, almost invisible unless active
+                else -> ColorGoldDim 
             }
             
             drawRoundRect(
@@ -488,6 +502,7 @@ private fun MediaTimelineFooter(
             BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 val fullWidth = maxWidth
                 
+                // Track background
                 Box(modifier = Modifier.fillMaxWidth(0.96f).height(6.dp).background(ColorSlate, CircleShape))
 
                 if (isLoop) {
@@ -542,6 +557,7 @@ private fun MediaTimelineFooter(
                     )
                 }
 
+                // Progress Slider
                 Slider(
                     value = head.toFloat().coerceIn(0f, dur.toFloat()),
                     onValueChange = { 
@@ -558,6 +574,7 @@ private fun MediaTimelineFooter(
 
         Spacer(modifier = Modifier.width(16.dp))
 
+        // Loop Toggle Button
         IconButton(
             onClick = onLoop,
             modifier = Modifier.size(40.dp).background(if (isLoop) ColorGold else ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, if(!isLoop) ColorSlate else Color.Transparent, RoundedCornerShape(10.dp))
