@@ -1,16 +1,32 @@
 package com.example.ytpiano.api
 
+import android.app.Application
+import com.example.ytpiano.api.config.AppConfig
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object PianoApiFactory {
 
-    private const val BASE_URL = "http://10.0.2.2:8000/"
+    private lateinit var application: Application
+
+    fun initialize(application: Application) {
+        this.application = application
+    }
 
     val api: PianoApi by lazy {
+        check(::application.isInitialized) {
+            "PianoApiFactory.initialize() must be called first"
+        }
+
         Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
+            .baseUrl(
+                AppConfig.loadBaseUrl(
+                    application
+                )
+            )
+            .addConverterFactory(
+                GsonConverterFactory.create()
+            )
             .build()
             .create(PianoApi::class.java)
     }

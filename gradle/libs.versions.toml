@@ -14,6 +14,8 @@ retrofit = "3.0.0"
 kotlinxCoroutines = "1.10.2"
 composeMaterialIcons = "1.7.8"
 
+fluidSynth = "1.1.0"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 
@@ -35,6 +37,8 @@ converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", ve
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "composeMaterialIcons" }
 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+
+fluidsynth-kmp = { module = "dev.kotlinds:fluidsynth-kmp", version.ref = "fluidSynth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

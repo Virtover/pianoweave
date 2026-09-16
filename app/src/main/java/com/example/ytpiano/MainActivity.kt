@@ -15,6 +15,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.example.ytpiano.api.PianoApiFactory
+import com.example.ytpiano.audio.PianoPlayer
 import com.example.ytpiano.midi.MidiInputManager
 import com.example.ytpiano.ui.components.AdaptiveNavigation
 import com.example.ytpiano.ui.screens.LearnScreen
@@ -29,6 +31,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PianoApiFactory.initialize(application)
+        PianoPlayer.initialize(applicationContext)
         enableEdgeToEdge()
 
         // Initialize physical hardware MIDI listener framework at application launch
