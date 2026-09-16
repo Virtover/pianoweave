@@ -161,7 +161,17 @@ private fun ModernPianoPlayerContent(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
-        ModernToolbar(song.songTitle, isWaitModeEnabled, speedMultiplier, { speedMultiplier = it }, { isWaitModeEnabled = !isWaitModeEnabled }, { showSettingsDialog = true }, onBack)
+        ModernToolbar(
+            title = song.songTitle,
+            head = playheadMs,
+            dur = songDurationMs,
+            isWait = isWaitModeEnabled,
+            speed = speedMultiplier,
+            onSpeedChange = { speedMultiplier = it },
+            onWaitToggle = { isWaitModeEnabled = !isWaitModeEnabled },
+            onSetClick = { showSettingsDialog = true },
+            onBack = onBack
+        )
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalKeys)
@@ -191,27 +201,48 @@ private fun ModernPianoPlayerContent(
 }
 
 @Composable
-private fun ModernToolbar(title: String, isWait: Boolean, speed: Float, onSpeedChange: (Float) -> Unit, onWaitToggle: () -> Unit, onSetClick: () -> Unit, onBack: () -> Unit) {
+private fun ModernToolbar(
+    title: String,
+    head: Long,
+    dur: Long,
+    isWait: Boolean,
+    speed: Float,
+    onSpeedChange: (Float) -> Unit,
+    onWaitToggle: () -> Unit,
+    onSetClick: () -> Unit,
+    onBack: () -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
         Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
         
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "${formatTime(head)} / ${formatTime(dur)}",
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             // Speed Circle Buttons
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
                     val isSelected = speed == s
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(28.dp)
                             .background(if (isSelected) ColorGold else ColorSlate, CircleShape)
                             .clickable { onSpeedChange(s) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("${s}x", fontSize = 10.sp, fontWeight = FontWeight.Black, color = if (isSelected) Color.Black else Color.White)
+                        Text("${s}x", fontSize = 9.sp, fontWeight = FontWeight.Black, color = if (isSelected) Color.Black else Color.White)
                     }
                 }
             }
@@ -221,16 +252,17 @@ private fun ModernToolbar(title: String, isWait: Boolean, speed: Float, onSpeedC
                 colors = ButtonDefaults.buttonColors(containerColor = if (isWait) ColorGold else ColorSurface, contentColor = if (isWait) Color.Black else ColorGold),
                 shape = RoundedCornerShape(8.dp), 
                 border = if (!isWait) BorderStroke(1.dp, ColorSlate) else null,
-                contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.height(34.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.height(30.dp)
             ) {
                 Icon(Icons.Default.Timer, null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Wait mode", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Wait mode", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.width(6.dp))
-
-            IconButton(onClick = onSetClick, modifier = Modifier.size(34.dp).background(ColorSurface, RoundedCornerShape(8.dp)).border(1.dp, ColorSlate, RoundedCornerShape(8.dp))) {
+            IconButton(
+                onClick = onSetClick,
+                modifier = Modifier.size(30.dp).background(ColorSurface, RoundedCornerShape(8.dp)).border(1.dp, ColorSlate, RoundedCornerShape(8.dp))
+            ) {
                 Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(18.dp))
             }
         }
@@ -356,7 +388,7 @@ private fun MediaTimelineFooter(
     onRange: (Long, Long) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Playback Buttons Group
@@ -389,12 +421,6 @@ private fun MediaTimelineFooter(
                 valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
                 colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = ColorSlate),
                 modifier = Modifier.fillMaxWidth().height(28.dp)
-            )
-            
-            Text(
-                text = "${formatTime(head)} / ${formatTime(dur)}",
-                color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, 
-                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
             )
         }
 
