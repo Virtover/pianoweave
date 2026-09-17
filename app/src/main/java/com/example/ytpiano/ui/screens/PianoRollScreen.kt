@@ -45,12 +45,12 @@ import kotlin.math.abs
 // --- Ultra Pro Piano Theme ---
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
-private val ColorGold = Color(0xFFD4AF37) 
+private val ColorGold = Color(0xFFD4AF37) // Signature Gold
 private val ColorUpcomingNote = Color(0xFF424B5B) 
 private val ColorSlate = Color(0xFF30363D) 
-private val ColorSuccess = Color(0xFF2EA043) 
-private val ColorTarget = Color(0xFFF39C12) 
-private val ColorBaseline = Color(0xFFF85149) 
+private val ColorSuccess = Color(0xFF2EA043) // Success Green
+private val ColorTarget = Color(0xFFF39C12) // Vibrant On-Hit Gold
+private val ColorBaseline = Color(0xFFF85149) // Neon Red Hitline
 private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6)
 private val ColorKeyBlack = Color(0xFF1A1A1A)
@@ -162,8 +162,9 @@ private fun ModernPianoPlayerContent(
             if (isWaitModeEnabled && nextOnset != null) {
                 val lookAhead = 10L
                 if (playheadMs >= nextOnset - lookAhead) {
+                    val notesAtOnsetNow = noteEvents.filter { abs(it.startMs - nextOnset) <= 30L }.map { it.pitch }.toSet()
                     val pressed = MidiInputManager.pressedKeys.toSet()
-                    if (notesAtOnset.any { it in startPitch..endPitch && it !in pressed }) {
+                    if (notesAtOnsetNow.any { it in startPitch..endPitch && it !in pressed }) {
                         delay(16)
                         continue
                     }
@@ -372,16 +373,39 @@ private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
             val isPressed = pressed.contains(p)
             val isTarget = sustainedPitches.contains(p)
             val baseColor = if (isBlack) ColorKeyBlack else ColorKeyWhite
+            
+            // Refined keyboard highlighting
             val highlightColor = when {
-                isPressed && isTarget -> ColorSuccess
-                isPressed -> ColorGold
-                isTarget -> ColorSlate
+                isPressed && isTarget -> ColorSuccess // Correct hit
+                isPressed -> ColorGold // Pressed but not target
+                isTarget -> ColorGold.copy(alpha = 0.4f) // Target note (soft highlight, not dark grey)
                 else -> baseColor
             }
-            val gradient = Brush.verticalGradient(colors = listOf(highlightColor, highlightColor.copy(alpha = 0.8f)), startY = 0f, endY = 200f)
-            Box(Modifier.weight(1f).fillMaxHeight().padding(0.5.dp).background(gradient, RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp)).clickable { if (MidiInputManager.pressedKeys.contains(p)) { MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) } else { MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) } }, Alignment.BottomCenter) {
+            
+            val gradient = Brush.verticalGradient(
+                colors = if (isPressed || isTarget) {
+                    listOf(highlightColor, highlightColor.copy(alpha = 0.7f))
+                } else {
+                    listOf(baseColor, baseColor)
+                },
+                startY = 0f,
+                endY = 200f
+            )
+
+            Box(
+                Modifier.weight(1f).fillMaxHeight().padding(0.5.dp)
+                    .background(gradient, RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
+                    .clickable { 
+                        if (MidiInputManager.pressedKeys.contains(p)) { 
+                            MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) 
+                        } else { 
+                            MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) 
+                        } 
+                    }, 
+                Alignment.BottomCenter
+            ) {
                 val label = when (p) { 36->"C1";48->"C2";60->"C3";72->"C4";84->"C5";96->"C6"; else->"" }
-                if (label.isNotEmpty()) Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (pressed.contains(p)) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 6.dp))
+                if (label.isNotEmpty()) Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isPressed) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 6.dp))
             }
         }
     }
