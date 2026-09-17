@@ -38,9 +38,9 @@ fun StorageScreen(
     songPendingDelete?.let { song ->
         AlertDialog(
             onDismissRequest = { songPendingDelete = null },
-            title = { Text("Delete Large MIDI Track?") },
+            title = { Text("Delete MIDI Track?") },
             text = { 
-                Text("You are about to remove '${song.metadata.title} - ${song.metadata.author}' (%.1f KB) permanently from your local library cache. This action cannot be undone."
+                Text("You are about to remove '${song.metadata.title} - ${song.metadata.author}' (%.1f KB) from your local library cache. "
                     .format(song.file.length() / 1024.0)) 
             },
             confirmButton = {
@@ -159,13 +159,7 @@ fun StorageScreen(
                     StoredSongCard(
                         song = song,
                         onDelete = {
-                            // Intercept deletion for large files (defined as > 100 KB)
-                            val isLargeFile = song.file.length() > (100 * 1024)
-                            if (isLargeFile) {
-                                songPendingDelete = song
-                            } else {
-                                onDeleteClick(song)
-                            }
+                            songPendingDelete = song
                         },
                         modifier = Modifier.clickable { onSongSelect(song) }
                     )
