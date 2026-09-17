@@ -2,9 +2,11 @@
 
 Upgrade your piano learning experience with high-fidelity practice tools. This app transcribes piano performances from YouTube into interactive practice sessions with a professional piano roll and a high-quality Grand Piano audio engine.
 
+YT Piano is an independent open-source project and is not affiliated with or endorsed by YouTube or Google.
+
 ## ✨ Features
 
-- **YouTube Transcription:** Integrated with a FastAPI backend to convert any YouTube piano video into performance data.
+- **YouTube Transcription:** Integrated with a FastAPI backend to transcribe piano performances from YouTube into performance data.
 - **Ultra-Pro Piano Roll:** Practice with a high-fidelity interactive roll featuring A/B looping, speed control, and transposition.
 - **Grand Piano Sound:** Powered by FluidSynth and high-quality SoundFonts for a rich, realistic acoustic piano experience.
 - **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations.
