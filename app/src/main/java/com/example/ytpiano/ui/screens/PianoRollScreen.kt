@@ -25,7 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -57,7 +57,7 @@ private val ColorSuccessLight = Color(0xFF69C67E)
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
-private val ColorKeyWhite = Color(0xFFE6E6E6) // Back to classic white but with gradients
+private val ColorKeyWhite = Color(0xFFE6E6E6) 
 private val ColorKeyBlack = Color(0xFF121212)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -269,17 +269,27 @@ private fun getWhiteIndex(pitch: Int): Int {
     return (octave * 7) + offset
 }
 
+private fun getWhiteKeyXPx(whiteIndex: Int, numWhiteKeys: Int, totalWidth: Float): Float {
+    val bw = (totalWidth / numWhiteKeys).toInt()
+    val rem = (totalWidth % numWhiteKeys).toInt()
+    return (whiteIndex * bw + minOf(whiteIndex, rem)).toFloat()
+}
+
 private fun getPitchXRange(pitch: Int, startPitch: Int, totalWidth: Float, numWhiteKeys: Int): Pair<Float, Float> {
-    val wkW = totalWidth / numWhiteKeys
     val startWhite = getWhiteIndex(startPitch)
     
     if (!isPitchBlack(pitch)) {
         val whiteIdx = getWhiteIndex(pitch) - startWhite
-        return (whiteIdx * wkW) to ((whiteIdx + 1) * wkW)
+        val x1 = getWhiteKeyXPx(whiteIdx, numWhiteKeys, totalWidth)
+        val x2 = getWhiteKeyXPx(whiteIdx + 1, numWhiteKeys, totalWidth)
+        return x1 to x2
     } else {
         // Black key: centered on boundary between neighbors
         val leftWhiteIdx = getWhiteIndex(pitch - 1) - startWhite
-        val center = (leftWhiteIdx + 1) * wkW
+        val xLeft = getWhiteKeyXPx(leftWhiteIdx, numWhiteKeys, totalWidth)
+        val xRight = getWhiteKeyXPx(leftWhiteIdx + 1, numWhiteKeys, totalWidth)
+        val wkW = xRight - xLeft
+        val center = xRight
         val bkWidth = wkW * 0.65f // Standard black key ratio
         return (center - bkWidth/2) to (center + bkWidth/2)
     }
@@ -293,11 +303,10 @@ private fun FallingNotesVisualizer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
-        val startWhite = getWhiteIndex(start)
 
         // 1. Precise Grid Lanes (White Key boundaries)
         for (i in 0..numWhiteKeys) {
-            val x = i * (tw / numWhiteKeys)
+            val x = getWhiteKeyXPx(i, numWhiteKeys, tw)
             drawLine(color = Color(0xFF161B22), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
@@ -380,38 +389,69 @@ private fun PianoKeyboardRow(start: Int, end: Int, numWhiteKeys: Int, sustainedP
             }
         }
 
-        // Interaction Overlay
+        // Interaction Overlay (Multi-touch support)
+        val activePointers = remember { mutableStateMapOf<PointerId, Int>() }
+
         Box(Modifier.fillMaxSize().pointerInput(Unit) {
-            detectTapGestures(onPress = { offset ->
-                // Precise pitch detection
-                var hitPitch = -1
-                // Check black keys first (top layer)
-                for (p in start..end) {
-                    if (isPitchBlack(p)) {
-                        val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
-                        if (offset.x in x1..x2 && offset.y <= 100.dp.toPx() * 0.7f) { hitPitch = p ; break }
-                    }
-                }
-                // Check white keys second
-                if (hitPitch == -1) {
-                    for (p in start..end) {
-                        if (!isPitchBlack(p)) {
-                            val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
-                            if (offset.x in x1..x2) { hitPitch = p ; break }
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    event.changes.forEach { change ->
+                        val pointerId = change.id
+                        if (change.changedToDown()) {
+                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys)
+                            if (p != -1) {
+                                activePointers[pointerId] = p
+                                MidiInputManager.simulateNoteOn(p)
+                                PianoPlayer.noteOn(p)
+                            }
+                        } else if (change.changedToUp() || !change.pressed) {
+                            activePointers.remove(pointerId)?.let { oldPitch ->
+                                MidiInputManager.simulateNoteOff(oldPitch)
+                                PianoPlayer.noteOff(oldPitch)
+                            }
+                        } else if (change.positionChanged()) {
+                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys)
+                            val oldP = activePointers[pointerId]
+                            if (newP != oldP) {
+                                if (oldP != null) {
+                                    MidiInputManager.simulateNoteOff(oldP)
+                                    PianoPlayer.noteOff(oldP)
+                                }
+                                if (newP != -1) {
+                                    activePointers[pointerId] = newP
+                                    MidiInputManager.simulateNoteOn(newP)
+                                    PianoPlayer.noteOn(newP)
+                                } else {
+                                    activePointers.remove(pointerId)
+                                }
+                            }
                         }
                     }
                 }
-
-                if (hitPitch != -1) {
-                    try {
-                        MidiInputManager.simulateNoteOn(hitPitch) ; PianoPlayer.noteOn(hitPitch) ; awaitRelease()
-                    } finally {
-                        MidiInputManager.simulateNoteOff(hitPitch) ; PianoPlayer.noteOff(hitPitch)
-                    }
-                }
-            })
+            }
         })
     }
+}
+
+private fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKeys: Int): Int {
+    // Check black keys first (top layer)
+    for (p in start..end) {
+        if (isPitchBlack(p)) {
+            val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+            if (pos.x in x1..x2 && pos.y <= 100.dp.value * 0.7f * 2.5f) { // Approximating height check
+                return p
+            }
+        }
+    }
+    // Check white keys second
+    for (p in start..end) {
+        if (!isPitchBlack(p)) {
+            val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+            if (pos.x in x1..x2) return p
+        }
+    }
+    return -1
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -424,7 +464,7 @@ private fun MediaTimelineFooter(
     Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             IconButton(onClick = onPlay, Modifier.size(56.dp).background(ColorGold, CircleShape)) { Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(36.dp)) }
-            IconButton(onClick = onRewind, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
+            IconButton(onClick = onRewind, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
         }
         Spacer(modifier = Modifier.width(20.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
@@ -434,7 +474,7 @@ private fun MediaTimelineFooter(
                 if (isLoop) {
                     val sPerc = lStart.toFloat() / dur.coerceAtLeast(1) ; val ePerc = lEnd.toFloat() / dur.coerceAtLeast(1)
                     Box(modifier = Modifier.fillMaxWidth(0.96f * (ePerc - sPerc)).align(Alignment.CenterStart).offset(x = (fullWidth * 0.02f) + (fullWidth * 0.96f * sPerc)).height(8.dp).background(ColorGold.copy(alpha = 0.5f)))
-                    RangeSlider(value = lStart.toFloat()..lEnd.toFloat(), onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp), startThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } }, endThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } })
+                    RangeSlider(value = lStart.toFloat()..lEnd.toFloat(), onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp), startThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } }, endThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.0.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } })
                 }
                 Slider(value = head.toFloat().coerceIn(0f, dur.toFloat()), onValueChange = { onSeekState(true) ; onSeek(it.toLong()) }, onValueChangeFinished = { onSeekState(false) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp))
             }
