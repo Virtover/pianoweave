@@ -152,7 +152,8 @@ fun AdaptiveNavigation(
                     )
                 }
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets(0.dp) // Fixed: Remove ghost space for system bars
         ) { paddingValues ->
             Box(
                 modifier = Modifier

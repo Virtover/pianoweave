@@ -2,7 +2,9 @@ package com.example.ytpiano.ui.screens
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -28,8 +30,9 @@ fun LearnScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.85f)
-                .padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(vertical = 16.dp)
+                .verticalScroll(rememberScrollState()), // Ensure visibility on high-res devices
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Main New Conversion Widget Card
@@ -39,12 +42,12 @@ fun LearnScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "New Audio Conversion",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
+                        text = "AI Transcription",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Black
                         ),
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -60,14 +63,14 @@ fun LearnScreen(
                         },
                         placeholder = {
                             Text(
-                                "https://www.video-platform.com/watch?v=..."
+                                "Paste video link..."
                             )
                         },
                         singleLine = true,
                         enabled = !viewModel.isLoading,
                         leadingIcon = {
                             Icon(
-                                Icons.Default.PlayArrow,
+                                Icons.Default.Link,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.secondary
                             )
@@ -90,10 +93,8 @@ fun LearnScreen(
                             }
                         },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor =
-                                MaterialTheme.colorScheme.secondary,
-                            cursorColor =
-                                MaterialTheme.colorScheme.secondary
+                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                            cursorColor = MaterialTheme.colorScheme.secondary
                         )
                     )
 
@@ -101,64 +102,39 @@ fun LearnScreen(
                         onClick = {
                             viewModel.startTranscription(context)
                         },
-                        enabled =
-                            viewModel.videoUrl.isNotBlank() &&
-                                    !viewModel.isLoading,
+                        enabled = viewModel.videoUrl.isNotBlank() && !viewModel.isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor =
-                                MaterialTheme.colorScheme.secondary,
-                            contentColor =
-                                MaterialTheme.colorScheme.onSecondary,
-                            disabledContainerColor =
-                                MaterialTheme.colorScheme.primaryContainer,
-                            disabledContentColor =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                                    .copy(alpha = 0.5f)
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary
                         )
                     ) {
                         Icon(
-                            Icons.Default.CloudDownload,
+                            Icons.Default.AutoAwesome,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
 
                         Text(
-                            text = if (viewModel.isLoading) {
-                                "Transcribing..."
-                            } else {
-                                "Convert to MIDI"
-                            },
+                            text = if (viewModel.isLoading) "Processing..." else "Transcribe to MIDI",
                             style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.ExtraBold
                             )
                         )
                     }
                 }
             }
 
-            // Real-Time Live Status/Progress Feed Card
-            val showStatusCard =
-                viewModel.isLoading ||
-                        viewModel.progress > 0f ||
-                        viewModel.status.contains(
-                            "ready",
-                            ignoreCase = true
-                        ) ||
-                        viewModel.status.contains(
-                            "Error",
-                            ignoreCase = true
-                        ) ||
-                        viewModel.status.contains(
-                            "Loaded",
-                            ignoreCase = true
-                        )
+            // Real-Time Progress Feed Card
+            val showStatusCard = viewModel.isLoading || 
+                                viewModel.progress > 0f || 
+                                viewModel.status.contains("Ready", ignoreCase = true) || 
+                                viewModel.status.contains("Error", ignoreCase = true)
 
             if (showStatusCard) {
                 OutlinedCard(
@@ -166,183 +142,85 @@ fun LearnScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement =
-                            Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        if (
-                            viewModel.isLoading &&
-                            viewModel.progress < 1f &&
-                            !viewModel.status.contains("Error")
-                        ) {
+                        if (viewModel.isLoading && viewModel.progress < 1f && !viewModel.status.contains("Error")) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(28.dp),
-                                color =
-                                    MaterialTheme.colorScheme.secondary,
+                                color = MaterialTheme.colorScheme.secondary,
                                 strokeWidth = 3.dp
                             )
                         } else {
                             val (icon, color) = when {
-                                viewModel.status.contains("Error") ||
-                                        viewModel.status.contains("Failed") ->
-                                    Icons.Default.Error to
-                                            MaterialTheme.colorScheme.error
-
-                                viewModel.progress >= 1f ->
-                                    Icons.Default.CheckCircle to
-                                            MaterialTheme.colorScheme.secondary
-
-                                else ->
-                                    Icons.Default.Info to
-                                            MaterialTheme.colorScheme
-                                                .onSurfaceVariant
+                                viewModel.status.contains("Error") -> Icons.Default.Error to MaterialTheme.colorScheme.error
+                                viewModel.progress >= 1f -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.secondary
+                                else -> Icons.Default.Info to MaterialTheme.colorScheme.onSurfaceVariant
                             }
 
                             Icon(
                                 imageVector = icon,
                                 contentDescription = null,
                                 tint = color,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(32.dp)
                             )
                         }
 
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement =
-                                    Arrangement.SpaceBetween,
-                                verticalAlignment =
-                                    Alignment.CenterVertically
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Processing Feed",
-                                    style =
-                                        MaterialTheme.typography
-                                            .bodySmall
-                                            .copy(
-                                                fontWeight =
-                                                    FontWeight.SemiBold
-                                            ),
-                                    color =
-                                        MaterialTheme.colorScheme
-                                            .onSurfaceVariant
+                                    text = "Status",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
 
                                 if (viewModel.progress > 0f) {
                                     Text(
-                                        text =
-                                            "${(viewModel.progress * 100)
-                                                .toInt()}%",
-                                        style =
-                                            MaterialTheme.typography
-                                                .bodySmall
-                                                .copy(
-                                                    fontWeight =
-                                                        FontWeight.Bold
-                                                ),
-                                        color =
-                                            MaterialTheme.colorScheme
-                                                .secondary
+                                        text = "${(viewModel.progress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
                                 }
                             }
 
-                            Spacer(
-                                modifier = Modifier.height(2.dp)
-                            )
-
                             Text(
                                 text = viewModel.status,
-                                style =
-                                    MaterialTheme.typography.bodyMedium
-                                        .copy(
-                                            fontWeight =
-                                                FontWeight.Medium
-                                        ),
-                                color =
-                                    MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.primary,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
 
-                            // Progress bar while processing.
-                            if (
-                                viewModel.isLoading &&
-                                viewModel.progress < 1f
-                            ) {
-                                Spacer(
-                                    modifier = Modifier.height(6.dp)
-                                )
-
+                            if (viewModel.isLoading && viewModel.progress < 1f) {
+                                Spacer(modifier = Modifier.height(8.dp))
                                 LinearProgressIndicator(
-                                    progress = {
-                                        viewModel.progress
-                                    },
+                                    progress = { viewModel.progress },
                                     modifier = Modifier.fillMaxWidth(),
-                                    color =
-                                        MaterialTheme.colorScheme
-                                            .secondary,
-                                    trackColor =
-                                        MaterialTheme.colorScheme
-                                            .primaryContainer
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    trackColor = MaterialTheme.colorScheme.primaryContainer
                                 )
                             }
 
-                            // Replace the progress bar with the
-                            // learning button when finished.
-                            if (
-                                !viewModel.isLoading &&
-                                viewModel.progress >= 1f &&
-                                viewModel.readySong != null
-                            ) {
-                                Spacer(
-                                    modifier = Modifier.height(8.dp)
-                                )
-
+                            // Start practicing button
+                            if (!viewModel.isLoading && viewModel.readySong != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Button(
-                                    onClick = {
-                                        viewModel.readySong?.let { song ->
-                                            onSongSelect(song)
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors =
-                                        ButtonDefaults.buttonColors(
-                                            containerColor =
-                                                MaterialTheme.colorScheme
-                                                    .secondary,
-                                            contentColor =
-                                                MaterialTheme.colorScheme
-                                                    .onSecondary
-                                        )
+                                    onClick = { viewModel.readySong?.let { onSongSelect(it) } },
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondary,
+                                        contentColor = MaterialTheme.colorScheme.onSecondary
+                                    )
                                 ) {
-                                    Icon(
-                                        Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-
-                                    Spacer(
-                                        modifier =
-                                            Modifier.width(8.dp)
-                                    )
-
-                                    Text(
-                                        text = "Start learning",
-                                        style =
-                                            MaterialTheme.typography
-                                                .labelLarge
-                                                .copy(
-                                                    fontWeight =
-                                                        FontWeight.Bold
-                                                )
-                                    )
+                                    Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Text("Start practicing", fontWeight = FontWeight.Black)
                                 }
                             }
                         }

@@ -15,6 +15,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.ytpiano.api.PianoApiFactory
 import com.example.ytpiano.audio.PianoPlayer
 import com.example.ytpiano.midi.MidiInputManager
@@ -34,6 +36,12 @@ class MainActivity : ComponentActivity() {
         PianoApiFactory.initialize(application)
         PianoPlayer.initialize(applicationContext)
         enableEdgeToEdge()
+
+        // Enable full immersive mode to hide navigation and status bars
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
 
         // Initialize physical hardware MIDI listener framework at application launch
         MidiInputManager.initialize(applicationContext)

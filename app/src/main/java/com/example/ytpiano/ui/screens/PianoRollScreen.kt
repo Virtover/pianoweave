@@ -242,6 +242,7 @@ private fun ModernToolbar(
         if (isPortrait) Spacer(Modifier.weight(1f))
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 6.dp else 12.dp)) {
+            // Speed Buttons row
             Row(horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 4.dp else 8.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
                     val isSelected = speed == s
@@ -251,26 +252,38 @@ private fun ModernToolbar(
                 }
             }
             
-            // Wait Mode Toggle (Square in Portrait)
+            // Wait Mode Toggle (Optimized sizing and text wrapping prevention)
             Box(
                 modifier = Modifier
-                    .size(width = if (isPortrait) 38.dp else 110.dp, height = 38.dp)
+                    .height(38.dp)
+                    .then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth())
                     .background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(10.dp))
                     .border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(10.dp))
-                    .clickable { onWaitToggle() },
+                    .clickable { onWaitToggle() }
+                    .padding(horizontal = if (isPortrait) 0.dp else 14.dp),
                 Alignment.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(18.dp))
                     if (!isPortrait) {
                         Spacer(Modifier.width(8.dp))
-                        Text("Wait mode", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (isWait) Color.Black else ColorGold)
+                        Text(
+                            text = "Wait mode", 
+                            fontSize = 13.sp, 
+                            fontWeight = FontWeight.ExtraBold, 
+                            color = if (isWait) Color.Black else ColorGold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
 
             // Settings button
-            Box(Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, Alignment.Center) {
+            Box(
+                modifier = Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, 
+                Alignment.Center
+            ) {
                 Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp))
             }
         }
@@ -285,6 +298,7 @@ private fun FallingNotesVisualizer(
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
         
+        // Exact coordinate mapping to match Compose Row weighted distribution
         fun getX(index: Int): Float {
             val totalWidth = size.width
             val baseWidth = (totalWidth / count).toInt()
@@ -292,11 +306,13 @@ private fun FallingNotesVisualizer(
             return (index * baseWidth + minOf(index, remainder)).toFloat()
         }
 
+        // 1. Static Grid Lanes
         for (p in start..end) {
             val x = getX(p - start)
             drawLine(color = if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
+        // 2. Translucent Musical Bar Lines
         val barIntervalMs = 2000L 
         val firstVisibleBar = (head / barIntervalMs) * barIntervalMs
         val lastVisibleMs = head + (size.height / scale).toLong()
@@ -305,6 +321,7 @@ private fun FallingNotesVisualizer(
             if (y in 0f..size.height) drawLine(color = Color.White.copy(alpha = 0.12f), start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 1.dp.toPx())
         }
 
+        // 3. Falling Note Capsules (Ultra-HD Visuals)
         events.forEach { e ->
             if (e.pitch !in start..end) return@forEach
             val endMs = e.startMs + e.durationMs
@@ -314,25 +331,70 @@ private fun FallingNotesVisualizer(
             val xStart = getX(index)
             val xEnd = getX(index + 1)
             val kw = xEnd - xStart
+            
             val h = (e.durationMs * scale).coerceAtLeast(12f)
             val y = size.height - ((e.startMs - head) * scale) - h
+            
             val isAtBaseline = head >= e.startMs && head <= endMs
             val isHittingOnset = head >= e.startMs && head <= (e.startMs + 60L)
             val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
+
             val baseCol = when {
                 isUserMatch -> ColorSuccess ; isHittingOnset -> ColorTarget ; isAtBaseline -> ColorGold ; else -> ColorUpcomingNote
             }
+            
             val highlightCol = when {
                 isUserMatch -> ColorSuccessLight ; isHittingOnset -> ColorGoldLight ; isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) ; else -> baseCol.copy(alpha = 0.6f)
             }
-            drawRoundRect(brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), topLeft = Offset(xStart + 0.5f, y.coerceIn(-h, size.height)), size = Size(kw - 1f, h), cornerRadius = CornerRadius(6.dp.toPx()))
-            drawRoundRect(color = Color.White.copy(alpha = 0.12f), topLeft = Offset(xStart + 1.5f, y.coerceIn(-h, size.height) + 2f), size = Size(kw / 4f, h - 4f), cornerRadius = CornerRadius(4.dp.toPx()))
+
+            // Pro Gradient Note Capsule - PIXEL PERFECT ALIGNMENT
+            drawRoundRect(
+                brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), 
+                topLeft = Offset(xStart + 0.5f, y.coerceIn(-h, size.height)), 
+                size = Size(kw - 1f, h), 
+                cornerRadius = CornerRadius(6.dp.toPx())
+            )
+            
+            // Subtle "Shine" Overlay (Bevel Effect)
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.12f),
+                topLeft = Offset(xStart + 1.5f, y.coerceIn(-h, size.height) + 2f),
+                size = Size(kw / 4f, h - 4f),
+                cornerRadius = CornerRadius(4.dp.toPx())
+            )
+
+            // Hit Dynamics: Visual Bloom & Beams (REFINED & REDUCED)
             if (isHittingOnset || isUserMatch) {
-                drawRect(brush = Brush.verticalGradient(listOf(baseCol.copy(alpha = 0.4f), Color.Transparent)), topLeft = Offset(xStart + 1f, y.coerceIn(-h, size.height) + h), size = Size(kw - 1f, 40.dp.toPx()))
-                drawCircle(brush = Brush.radialGradient(listOf(baseCol.copy(alpha = 0.35f), Color.Transparent), center = Offset(xStart + kw/2, size.height), radius = 20.dp.toPx()), center = Offset(xStart + kw/2, size.height), radius = 20.dp.toPx())
-                if (isHittingOnset) drawCircle(color = Color.White.copy(alpha = 0.8f), center = Offset(xStart + kw/2, size.height), radius = 2.dp.toPx())
+                // LIGHT BEAM - Sharp & Professional
+                drawRect(
+                    brush = Brush.verticalGradient(listOf(baseCol.copy(alpha = 0.4f), Color.Transparent)),
+                    topLeft = Offset(xStart + 1f, y.coerceIn(-h, size.height) + h),
+                    size = Size(kw - 1f, 40.dp.toPx())
+                )
+                
+                // IMPACT BLOOM - Subtler radial glow
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(baseCol.copy(alpha = 0.35f), Color.Transparent),
+                        center = Offset(xStart + kw/2, size.height),
+                        radius = 20.dp.toPx() 
+                    ),
+                    center = Offset(xStart + kw/2, size.height),
+                    radius = 20.dp.toPx()
+                )
+                
+                // CORE SPARK - Tiny rhythmic focal point
+                if (isHittingOnset) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.8f),
+                        center = Offset(xStart + kw/2, size.height),
+                        radius = 2.dp.toPx()
+                    )
+                }
             }
         }
+        
+        // 4. Vibrant Neon Hitline
         drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 3.dp.toPx())
     }
 }

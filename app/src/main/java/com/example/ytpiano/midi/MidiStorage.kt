@@ -59,28 +59,10 @@ object MidiStorage {
         metadata: VideoMetadata?,
         body: ResponseBody
     ): StoredMidi {
-        Log.d(
-            "MidiStorage",
-            "Saving MIDI file for URL: $videoUrl"
-        )
-
         val id = idForUrl(videoUrl)
         val dir = directory(context)
-
-        Log.d(
-            "MidiStorage",
-            "Directory path: ${dir.absolutePath}"
-        )
-
-        val midiFile = File(
-            dir,
-            "$id.mid"
-        )
-
-        val metadataFile = File(
-            dir,
-            "$id$METADATA_EXTENSION"
-        )
+        val midiFile = File(dir, "$id.mid")
+        val metadataFile = File(dir, "$id$METADATA_EXTENSION")
 
         body.byteStream().use { input ->
             midiFile.outputStream().use { output ->
@@ -89,7 +71,6 @@ object MidiStorage {
         }
 
         val stableUrl = videoUrl.trim()
-
         val stableMetadata = metadata ?: VideoMetadata(
             title = "Piano Performance",
             author = "Unknown",
@@ -138,22 +119,24 @@ object MidiStorage {
                         it.exists() &&
                         it.length() > 0
             }
-            ?.map { midiFile ->
+            ?.mapNotNull { midiFile ->
                 val metadataFile = File(
                     dir,
                     midiFile.nameWithoutExtension +
                             METADATA_EXTENSION
                 )
 
-                val metadata =
-                    readMetadata(
-                        metadataFile = metadataFile,
-                        midiFile = midiFile
-                    )
+                if (!metadataFile.exists()) return@mapNotNull null
+
+                val lines = metadataFile.readLines()
+                if (lines.isEmpty()) return@mapNotNull null
+
+                val originalUrl = lines[0]
+                val metadata = readMetadata(metadataFile, midiFile)
 
                 StoredMidi(
                     file = midiFile,
-                    videoUrl = metadata.webpage_url,
+                    videoUrl = originalUrl, // Fixed: Use the URL used for caching
                     metadata = metadata
                 )
             }
@@ -175,13 +158,7 @@ object MidiStorage {
 
         if (lines.size < 12) {
             return fallbackMetadata(
-                videoUrl = lines
-                    .firstOrNull()
-                    ?.trim()
-                    .orEmpty()
-                    .ifBlank {
-                        "Unknown source"
-                    }
+                videoUrl = lines.firstOrNull()?.trim().orEmpty().ifBlank { "Unknown source" }
             )
         }
 
@@ -200,21 +177,8 @@ object MidiStorage {
                 like_count = lines[11].toLong()
             )
         } catch (e: Exception) {
-            Log.e(
-                "MidiStorage",
-                "Failed to read metadata for " +
-                        midiFile.name,
-                e
-            )
-
             fallbackMetadata(
-                videoUrl = lines
-                    .firstOrNull()
-                    ?.trim()
-                    .orEmpty()
-                    .ifBlank {
-                        "Unknown source"
-                    }
+                videoUrl = lines.firstOrNull()?.trim().orEmpty().ifBlank { "Unknown source" }
             )
         }
     }
