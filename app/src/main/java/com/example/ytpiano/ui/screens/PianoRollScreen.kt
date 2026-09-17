@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -43,7 +44,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.max
-import androidx.compose.foundation.gestures.detectTapGestures
 
 // --- Ultra Pro Piano Theme (Max Fidelity Visuals) ---
 private val ColorBg = Color(0xFF0D1117)
@@ -57,7 +57,7 @@ private val ColorSuccessLight = Color(0xFF69C67E)
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
-private val ColorKeyWhite = Color(0xFF808E95) // Darker Blue-Grey base
+private val ColorKeyWhite = Color(0xFFE6E6E6) // Back to classic white but with gradients
 private val ColorKeyBlack = Color(0xFF121212)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,29 +128,25 @@ private fun ModernPianoPlayerContent(
 
     val startPitch = 36
     val endPitch = 96
-    val totalKeys = endPitch - startPitch + 1
+    val totalWhiteKeys = remember { (startPitch..endPitch).count { !isPitchBlack(it) } }
 
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
-
-    // Logic to find the next required notes for Wait Mode UI overlay
-    val currentNextOnset = remember(noteEvents, playheadMs) {
-        noteEvents.filter { it.startMs >= playheadMs }.minOfOrNull { it.startMs }
-    }
-    val currentNotesToStrike = remember(noteEvents, currentNextOnset) {
-        if (currentNextOnset == null) emptySet<Int>()
-        else noteEvents.filter { abs(it.startMs - currentNextOnset) <= 30L }.map { it.pitch }.toSet()
-    }
 
     LaunchedEffect(isPlaying, isUserSeeking) {
         if (!isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
     }
 
-    // Main Playback Engine
-    // loop bounds removed from keys to prevent "machine gun" re-launch during slider dragging
+    val nextRequiredOnset = remember(noteEvents, playheadMs) {
+        noteEvents.filter { it.startMs >= playheadMs }.minOfOrNull { it.startMs }
+    }
+    val notesToStrike = remember(noteEvents, nextRequiredOnset) {
+        if (nextRequiredOnset == null) emptySet<Int>()
+        else noteEvents.filter { abs(it.startMs - nextRequiredOnset) <= 30L }.map { it.pitch }.toSet()
+    }
+
     LaunchedEffect(isPlaying, speedMultiplier, isWaitModeEnabled, noteEvents) {
         if (!isPlaying) return@LaunchedEffect
 
-        // Resumed trigger logic: only once per start/jump
         val resumed = noteEvents.filter { playheadMs >= it.startMs && playheadMs < (it.startMs + it.durationMs) }
         resumed.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
         
@@ -162,26 +158,19 @@ private fun ModernPianoPlayerContent(
             val dt = (now - lastTime) / 1_000_000L
             lastTime = now
 
-            // PRECISE WAIT MODE: Re-calculate upcoming onsets on every tick
             val targetNext = playheadMs + (dt * speedMultiplier).toLong()
             if (isWaitModeEnabled) {
-                val upcoming = noteEvents.filter { it.startMs >= playheadMs && it.startMs <= targetNext }
-                    .minOfOrNull { it.startMs }
-                
+                val upcoming = noteEvents.filter { it.startMs >= playheadMs && it.startMs <= targetNext }.minOfOrNull { it.startMs }
                 if (upcoming != null) {
-                    val requiredPitches = noteEvents.filter { abs(it.startMs - upcoming) <= 30L }.map { it.pitch }.toSet()
-                    val currentlyPressed = MidiInputManager.pressedKeys.toSet()
-                    if (requiredPitches.any { it in startPitch..endPitch && it !in currentlyPressed }) {
-                        playheadMs = upcoming
-                        delay(10)
-                        continue
+                    val required = noteEvents.filter { abs(it.startMs - upcoming) <= 30L }.map { it.pitch }.toSet()
+                    val pressed = MidiInputManager.pressedKeys.toSet()
+                    if (required.any { it in startPitch..endPitch && it !in pressed }) {
+                        playheadMs = upcoming ; delay(10) ; continue
                     }
                 }
             }
 
             val next = targetNext
-            
-            // Audio Triggering
             if (abs(next - lastTriggeredHeadMs) < 500L) {
                 val triggered = noteEvents.filter { it.startMs > lastTriggeredHeadMs && it.startMs <= next }
                 triggered.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
@@ -209,13 +198,13 @@ private fun ModernPianoPlayerContent(
         ModernToolbar(song.metadata.title, playheadMs, songDurationMs, isWaitModeEnabled, speedMultiplier, { speedMultiplier = it }, { isWaitModeEnabled = !isWaitModeEnabled }, { showSettingsDialog = true }, onBack)
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
-            FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalKeys)
-            if (isWaitModeEnabled && currentNotesToStrike.isNotEmpty() && currentNextOnset != null && playheadMs >= currentNextOnset - 500) {
-                WaitModeOverlay(notes = currentNotesToStrike)
+            FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalWhiteKeys)
+            if (isWaitModeEnabled && notesToStrike.isNotEmpty() && nextRequiredOnset != null && playheadMs >= nextRequiredOnset - 500) {
+                WaitModeOverlay(notes = notesToStrike)
             }
         }
 
-        PianoKeyboardRow(startPitch, endPitch, sustainedPitches)
+        PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches)
 
         MediaTimelineFooter(
             playheadMs, songDurationMs, isPlaying, isLoopingEnabled, loopStartMs, loopEndMs,
@@ -224,10 +213,7 @@ private fun ModernPianoPlayerContent(
             { playheadMs = it ; lastTriggeredHeadMs = it ; PianoPlayer.stopAllNotes() },
             { isUserSeeking = it },
             { isLoopingEnabled = !isLoopingEnabled },
-            { s, e -> 
-                loopStartMs = s ; loopEndMs = e 
-                lastTriggeredHeadMs = playheadMs // Prevents machine gun on drag
-            }
+            { s, e -> loopStartMs = s ; loopEndMs = e ; lastTriggeredHeadMs = playheadMs }
         )
     }
 
@@ -247,15 +233,9 @@ private fun ModernToolbar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-        
-        if (!isPortrait) {
-            Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, maxLines = 1, modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis)
-        }
-
+        if (!isPortrait) Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, maxLines = 1, modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis)
         Text("${formatTime(head)} / ${formatTime(dur)}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp))
-
         if (isPortrait) Spacer(Modifier.weight(1f))
-
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 6.dp else 12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 4.dp else 8.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
@@ -265,78 +245,95 @@ private fun ModernToolbar(
                     }
                 }
             }
-            
-            Box(
-                modifier = Modifier
-                    .height(38.dp)
-                    .then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth())
-                    .background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(10.dp))
-                    .border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(10.dp))
-                    .clickable { onWaitToggle() }
-                    .padding(horizontal = if (isPortrait) 0.dp else 14.dp),
-                Alignment.Center
-            ) {
+            Box(modifier = Modifier.height(38.dp).then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth()).background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(10.dp)).clickable { onWaitToggle() }.padding(horizontal = if (isPortrait) 0.dp else 14.dp), Alignment.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(18.dp))
-                    if (!isPortrait) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(text = "Wait mode", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (isWait) Color.Black else ColorGold, maxLines = 1, softWrap = false)
-                    }
+                    if (!isPortrait) { Spacer(Modifier.width(8.dp)) ; Text(text = "Wait mode", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (isWait) Color.Black else ColorGold, maxLines = 1, softWrap = false) }
                 }
             }
-
-            Box(Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, Alignment.Center) {
-                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp))
-            }
+            Box(Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, Alignment.Center) { Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp)) }
         }
     }
 }
 
-private fun getXPx(index: Int, count: Int, totalWidth: Float): Float {
-    val bw = (totalWidth / count).toInt()
-    val rem = (totalWidth % count).toInt()
-    return (index * bw + minOf(index, rem)).toFloat()
+/**
+ * Realistic Piano Layout Logic: Map MIDI pitch to horizontal pixels.
+ * Based on fixed-width white keys.
+ */
+private fun getWhiteIndex(pitch: Int): Int {
+    val octave = pitch / 12
+    val semitone = pitch % 12
+    val offset = when (semitone) {
+        0 -> 0 ; 1 -> 0 ; 2 -> 1 ; 3 -> 1 ; 4 -> 2 ; 5 -> 3 ; 6 -> 3 ; 7 -> 4 ; 8 -> 4 ; 9 -> 5 ; 10 -> 5 ; 11 -> 6 ; else -> 0
+    }
+    return (octave * 7) + offset
+}
+
+private fun getPitchXRange(pitch: Int, startPitch: Int, totalWidth: Float, numWhiteKeys: Int): Pair<Float, Float> {
+    val wkW = totalWidth / numWhiteKeys
+    val startWhite = getWhiteIndex(startPitch)
+    
+    if (!isPitchBlack(pitch)) {
+        val whiteIdx = getWhiteIndex(pitch) - startWhite
+        return (whiteIdx * wkW) to ((whiteIdx + 1) * wkW)
+    } else {
+        // Black key: centered on boundary between neighbors
+        val leftWhiteIdx = getWhiteIndex(pitch - 1) - startWhite
+        val center = (leftWhiteIdx + 1) * wkW
+        val bkWidth = wkW * 0.65f // Standard black key ratio
+        return (center - bkWidth/2) to (center + bkWidth/2)
+    }
 }
 
 @Composable
 private fun FallingNotesVisualizer(
-    events: List<MidiNoteEvent>, head: Long, start: Int, end: Int, count: Int
+    events: List<MidiNoteEvent>, head: Long, start: Int, end: Int, numWhiteKeys: Int
 ) {
     val scale = 0.25f
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
+        val startWhite = getWhiteIndex(start)
 
-        for (p in start..end) {
-            val x = getXPx(p - start, count, tw)
-            drawLine(color = if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
+        // 1. Precise Grid Lanes (White Key boundaries)
+        for (i in 0..numWhiteKeys) {
+            val x = i * (tw / numWhiteKeys)
+            drawLine(color = Color(0xFF161B22), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
+        // 2. Bar Lines
         val barIntervalMs = 2000L ; val firstBar = (head / barIntervalMs) * barIntervalMs ; val lastMs = head + (size.height / scale).toLong()
         for (ms in firstBar..lastMs step barIntervalMs) {
             val y = size.height - ((ms - head) * scale)
             if (y in 0f..size.height) drawLine(color = Color.White.copy(alpha = 0.1f), start = Offset(0f, y), end = Offset(tw, y), strokeWidth = 1.dp.toPx())
         }
 
-        events.filter { (it.startMs + it.durationMs) >= head && it.startMs <= lastMs }.forEach { e ->
-            val index = e.pitch - start
-            val x1 = getXPx(index, count, tw) ; val x2 = getXPx(index + 1, count, tw) ; val kw = x2 - x1
+        // 3. Falling Note Capsules (Realistic sizing)
+        val (blackEvents, whiteEvents) = events.filter { (it.startMs + it.durationMs) >= head && it.startMs <= lastMs }.partition { isPitchBlack(it.pitch) }
+
+        fun drawNote(e: MidiNoteEvent) {
+            val (x1, x2) = getPitchXRange(e.pitch, start, tw, numWhiteKeys)
+            val kw = x2 - x1
             val h = (e.durationMs * scale).coerceAtLeast(12f)
             val y = size.height - ((e.startMs - head) * scale) - h
+            
             val isAtBaseline = head >= e.startMs && head <= (e.startMs + e.durationMs)
             val isHitting = head >= e.startMs && head <= (e.startMs + 60L)
             val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
 
             val baseCol = when { isUserMatch -> ColorSuccess ; isHitting -> ColorTarget ; isAtBaseline -> ColorGold ; else -> ColorUpcomingNote }
             val highlightCol = when { isUserMatch -> ColorSuccessLight ; isHitting -> ColorGoldLight ; isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) ; else -> baseCol.copy(alpha = 0.6f) }
-            
-            // Standardized width match for semitone lanes
+
             drawRoundRect(brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)), size = Size(kw - 1f, h), cornerRadius = CornerRadius(6.dp.toPx()))
             if (isHitting || isUserMatch) {
                 drawRect(brush = Brush.verticalGradient(listOf(baseCol.copy(alpha = 0.4f), Color.Transparent)), topLeft = Offset(x1, y.coerceIn(-h, size.height) + h), size = Size(kw, 35.dp.toPx()))
                 drawCircle(brush = Brush.radialGradient(listOf(baseCol.copy(alpha = 0.3f), Color.Transparent), center = Offset(x1 + kw/2, size.height), radius = 18.dp.toPx()), center = Offset(x1 + kw/2, size.height), radius = 18.dp.toPx())
             }
         }
+
+        whiteEvents.forEach { drawNote(it) }
+        blackEvents.forEach { drawNote(it) }
+        
         drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(tw, size.height - 1f), 3.dp.toPx())
     }
 }
@@ -351,42 +348,69 @@ private fun WaitModeOverlay(notes: Set<Int>) {
 }
 
 @Composable
-private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
-    val count = end - start + 1
-    BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp).background(ColorKeyWhite)) {
-        val tw = constraints.maxWidth.toFloat() ; val pressed = MidiInputManager.pressedKeys.toSet()
+private fun PianoKeyboardRow(start: Int, end: Int, numWhiteKeys: Int, sustainedPitches: Set<Int>) {
+    BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp).background(ColorKeyBlack)) {
+        val tw = constraints.maxWidth.toFloat()
+        val pressed = MidiInputManager.pressedKeys.toSet()
+
         Canvas(Modifier.fillMaxSize()) {
+            // 1. White Keys
             for (p in start..end) {
                 if (isPitchBlack(p)) continue
-                val index = p - start
-                val x1 = getXPx(index, count, tw) ; val x2 = getXPx(index + 1, count, tw)
-                var dx1 = x1 ; var dx2 = x2
-                if (p > start && isPitchBlack(p - 1)) dx1 = (x1 + getXPx(index - 1, count, tw)) / 2f
-                if (isPitchBlack(p + 1)) dx2 = (x2 + getXPx(index + 2, count, tw)) / 2f
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
                 val isPressed = pressed.contains(p) ; val isTarget = sustainedPitches.contains(p)
                 val highlightColor = when { isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; isTarget -> ColorGold.copy(alpha = 0.35f) ; else -> ColorKeyWhite }
                 val shineColor = when { isPressed && isTarget -> ColorSuccessLight ; isPressed -> ColorGoldLight ; isTarget -> highlightColor.copy(alpha = 0.5f) ; else -> ColorKeyWhite }
-                drawRoundRect(brush = Brush.verticalGradient(listOf(shineColor, highlightColor), startY = 0f, endY = size.height), topLeft = Offset(dx1 + 0.5f, 0f), size = Size(dx2 - dx1 - 1f, size.height), cornerRadius = CornerRadius(6.dp.toPx()))
-                if (isPressed) drawRect(Color.Black.copy(alpha = 0.1f), topLeft = Offset(dx1, 0f), size = Size(dx2 - dx1, size.height))
-                drawLine(Color.Black.copy(alpha = 0.25f), Offset(dx1, 0f), Offset(dx1, size.height), 1.2.dp.toPx())
-                if (p == end) drawLine(Color.Black.copy(alpha = 0.25f), Offset(dx2, 0f), Offset(dx2, size.height), 1.2.dp.toPx())
+                
+                drawRoundRect(brush = Brush.verticalGradient(listOf(shineColor, highlightColor), startY = 0f, endY = size.height), topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, size.height), cornerRadius = CornerRadius(6.dp.toPx()))
+                if (isPressed) drawRect(Color.Black.copy(alpha = 0.1f), topLeft = Offset(x1, 0f), size = Size(x2 - x1, size.height))
+                drawLine(Color.Black.copy(alpha = 0.15f), Offset(x1, 0f), Offset(x1, size.height), 1f)
             }
+
+            // 2. Black Keys
             for (p in start..end) {
                 if (!isPitchBlack(p)) continue
-                val index = p - start
-                val x1 = getXPx(index, count, tw) ; val x2 = getXPx(index + 1, count, tw)
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
                 val isPressed = pressed.contains(p) ; val isTarget = sustainedPitches.contains(p)
                 val highlightColor = when { isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; isTarget -> ColorGold.copy(alpha = 0.4f) ; else -> ColorKeyBlack }
                 val shineColor = when { isPressed && isTarget -> ColorSuccessLight ; isPressed -> ColorGoldLight ; isTarget -> highlightColor.copy(alpha = 0.7f) ; else -> ColorKeyBlack }
+
                 val h = size.height * 0.7f
                 drawRoundRect(brush = Brush.verticalGradient(listOf(shineColor, highlightColor), startY = 0f, endY = h), topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, h), cornerRadius = CornerRadius(4.dp.toPx()))
             }
         }
-        Row(Modifier.fillMaxSize()) {
-            for (p in start..end) {
-                Box(Modifier.weight(1f).fillMaxHeight().pointerInput(p) { detectTapGestures(onPress = { try { MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) ; awaitRelease() } finally { MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) } }) })
-            }
-        }
+
+        // Interaction Overlay
+        Box(Modifier.fillMaxSize().pointerInput(Unit) {
+            detectTapGestures(onPress = { offset ->
+                // Precise pitch detection
+                var hitPitch = -1
+                // Check black keys first (top layer)
+                for (p in start..end) {
+                    if (isPitchBlack(p)) {
+                        val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                        if (offset.x in x1..x2 && offset.y <= 100.dp.toPx() * 0.7f) { hitPitch = p ; break }
+                    }
+                }
+                // Check white keys second
+                if (hitPitch == -1) {
+                    for (p in start..end) {
+                        if (!isPitchBlack(p)) {
+                            val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                            if (offset.x in x1..x2) { hitPitch = p ; break }
+                        }
+                    }
+                }
+
+                if (hitPitch != -1) {
+                    try {
+                        MidiInputManager.simulateNoteOn(hitPitch) ; PianoPlayer.noteOn(hitPitch) ; awaitRelease()
+                    } finally {
+                        MidiInputManager.simulateNoteOff(hitPitch) ; PianoPlayer.noteOff(hitPitch)
+                    }
+                }
+            })
+        })
     }
 }
 
@@ -397,13 +421,10 @@ private fun MediaTimelineFooter(
     onPlay: () -> Unit, onRewind: () -> Unit, onSeek: (Long) -> Unit, onSeekState: (Boolean) -> Unit,
     onLoop: () -> Unit, onRange: (Long, Long) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             IconButton(onClick = onPlay, Modifier.size(56.dp).background(ColorGold, CircleShape)) { Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(36.dp)) }
-            IconButton(onClick = onRewind, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+            IconButton(onClick = onRewind, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
         }
         Spacer(modifier = Modifier.width(20.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
@@ -413,7 +434,7 @@ private fun MediaTimelineFooter(
                 if (isLoop) {
                     val sPerc = lStart.toFloat() / dur.coerceAtLeast(1) ; val ePerc = lEnd.toFloat() / dur.coerceAtLeast(1)
                     Box(modifier = Modifier.fillMaxWidth(0.96f * (ePerc - sPerc)).align(Alignment.CenterStart).offset(x = (fullWidth * 0.02f) + (fullWidth * 0.96f * sPerc)).height(8.dp).background(ColorGold.copy(alpha = 0.5f)))
-                    RangeSlider(value = lStart.toFloat()..lEnd.toFloat(), onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp), startThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } }, endThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.0.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } })
+                    RangeSlider(value = lStart.toFloat()..lEnd.toFloat(), onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp), startThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } }, endThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } })
                 }
                 Slider(value = head.toFloat().coerceIn(0f, dur.toFloat()), onValueChange = { onSeekState(true) ; onSeek(it.toLong()) }, onValueChangeFinished = { onSeekState(false) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp))
             }
@@ -434,7 +455,7 @@ private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: 
                         Text("Transposition", color = ColorTextDim, fontWeight = FontWeight.Bold)
                         Text("${if (offset > 0) "+" else ""}$offset", color = ColorGold, fontWeight = FontWeight.Black, style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 4f)))
                     }
-                    Slider(value = offset.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = -12f..12f, steps = 23, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold))
+                    Slider(value = offset.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = -12f..12f, steps = 23, colors = SliderDefaults.colors(thumbColor = ColorKeyWhite, activeTrackColor = ColorGold))
                 }
                 Button(onClick = onDismiss, Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black), shape = RoundedCornerShape(14.dp)) { Text("DONE", fontWeight = FontWeight.Black, fontSize = 16.sp) }
             }
