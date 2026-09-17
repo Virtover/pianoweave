@@ -50,17 +50,17 @@ fun LearnScreen(
                     )
 
                     OutlinedTextField(
-                        value = viewModel.youtubeUrl,
+                        value = viewModel.videoUrl,
                         onValueChange = {
                             viewModel.updateUrl(it)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         label = {
-                            Text("YouTube Video URL")
+                            Text("Video URL")
                         },
                         placeholder = {
                             Text(
-                                "https://www.youtube.com/watch?v=..."
+                                "https://www.video-platform.com/watch?v=..."
                             )
                         },
                         singleLine = true,
@@ -74,7 +74,7 @@ fun LearnScreen(
                         },
                         trailingIcon = {
                             if (
-                                viewModel.youtubeUrl.isNotEmpty() &&
+                                viewModel.videoUrl.isNotEmpty() &&
                                 !viewModel.isLoading
                             ) {
                                 IconButton(
@@ -102,7 +102,7 @@ fun LearnScreen(
                             viewModel.startTranscription(context)
                         },
                         enabled =
-                            viewModel.youtubeUrl.isNotBlank() &&
+                            viewModel.videoUrl.isNotBlank() &&
                                     !viewModel.isLoading,
                         modifier = Modifier
                             .fillMaxWidth()

@@ -62,7 +62,7 @@ fun StoredSongCard(
                 )
 
                 Text(
-                    text = "${song.metadata.author} • ${song.youtubeUrl}",
+                    text = "${song.metadata.author} • ${song.videoUrl}",
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

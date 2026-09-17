@@ -1,7 +1,10 @@
 package com.example.ytpiano.api
 
+import com.google.gson.annotations.SerializedName
+
 data class CreateTranscriptionRequest(
-    val youtube_url: String
+    @SerializedName("source_url")
+    val source_url: String
 )
 
 data class CreateTranscriptionResponse(

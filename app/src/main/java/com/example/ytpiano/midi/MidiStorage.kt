@@ -9,7 +9,7 @@ import java.security.MessageDigest
 
 data class StoredMidi(
     val file: File,
-    val youtubeUrl: String,
+    val videoUrl: String,
     val metadata: VideoMetadata
 )
 
@@ -39,9 +39,9 @@ object MidiStorage {
 
     fun find(
         context: Context,
-        youtubeUrl: String
+        videoUrl: String
     ): File? {
-        val id = idForUrl(youtubeUrl)
+        val id = idForUrl(videoUrl)
 
         val midiFile = File(
             directory(context),
@@ -55,16 +55,16 @@ object MidiStorage {
 
     fun save(
         context: Context,
-        youtubeUrl: String,
+        videoUrl: String,
         metadata: VideoMetadata?,
         body: ResponseBody
     ): StoredMidi {
         Log.d(
             "MidiStorage",
-            "Saving MIDI file for URL: $youtubeUrl"
+            "Saving MIDI file for URL: $videoUrl"
         )
 
-        val id = idForUrl(youtubeUrl)
+        val id = idForUrl(videoUrl)
         val dir = directory(context)
 
         Log.d(
@@ -88,7 +88,7 @@ object MidiStorage {
             }
         }
 
-        val stableUrl = youtubeUrl.trim()
+        val stableUrl = videoUrl.trim()
 
         val stableMetadata = metadata ?: VideoMetadata(
             title = "Piano Performance",
@@ -123,7 +123,7 @@ object MidiStorage {
 
         return StoredMidi(
             file = midiFile,
-            youtubeUrl = stableUrl,
+            videoUrl = stableUrl,
             metadata = stableMetadata
         )
     }
@@ -153,7 +153,7 @@ object MidiStorage {
 
                 StoredMidi(
                     file = midiFile,
-                    youtubeUrl = metadata.webpage_url,
+                    videoUrl = metadata.webpage_url,
                     metadata = metadata
                 )
             }
@@ -175,7 +175,7 @@ object MidiStorage {
 
         if (lines.size < 12) {
             return fallbackMetadata(
-                youtubeUrl = lines
+                videoUrl = lines
                     .firstOrNull()
                     ?.trim()
                     .orEmpty()
@@ -208,7 +208,7 @@ object MidiStorage {
             )
 
             fallbackMetadata(
-                youtubeUrl = lines
+                videoUrl = lines
                     .firstOrNull()
                     ?.trim()
                     .orEmpty()
@@ -220,7 +220,7 @@ object MidiStorage {
     }
 
     private fun fallbackMetadata(
-        youtubeUrl: String = "Unknown source"
+        videoUrl: String = "Unknown source"
     ): VideoMetadata {
         return VideoMetadata(
             title = "Piano Performance",
@@ -231,7 +231,7 @@ object MidiStorage {
             upload_date = "",
             duration = 0f,
             thumbnail = "",
-            webpage_url = youtubeUrl,
+            webpage_url = videoUrl,
             view_count = 0L,
             like_count = 0L
         )

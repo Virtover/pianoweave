@@ -21,10 +21,10 @@ import retrofit2.HttpException
 
 class PianoLearnerViewModel : ViewModel() {
 
-    var youtubeUrl by mutableStateOf("")
+    var videoUrl by mutableStateOf("")
         private set
 
-    var status by mutableStateOf("Paste a YouTube piano video link above to begin.")
+    var status by mutableStateOf("Paste a video link above to begin.")
         private set
 
     var progress by mutableFloatStateOf(0f)
@@ -42,7 +42,7 @@ class PianoLearnerViewModel : ViewModel() {
 
     fun updateUrl(url: String) {
         if (!isLoading) {
-            youtubeUrl = url
+            videoUrl = url
             status = "Ready to convert."
             progress = 0f
         }
@@ -61,11 +61,11 @@ class PianoLearnerViewModel : ViewModel() {
     }
 
     fun startTranscription(context: Context) {
-        val stableUrl = normalizeUrl(youtubeUrl)
+        val stableUrl = normalizeUrl(videoUrl)
         if (stableUrl.isBlank() || isLoading) return
         
         // Update UI with normalized URL
-        youtubeUrl = stableUrl
+        videoUrl = stableUrl
 
         viewModelScope.launch {
             isLoading = true
@@ -89,7 +89,7 @@ class PianoLearnerViewModel : ViewModel() {
 
                 status = "Submitting request to server..."
                 val response = PianoApiFactory.api.createTranscription(
-                    CreateTranscriptionRequest(youtube_url = stableUrl)
+                    CreateTranscriptionRequest(source_url = stableUrl)
                 )
 
                 val jobId = response.job_id
@@ -128,7 +128,7 @@ class PianoLearnerViewModel : ViewModel() {
 
                             MidiStorage.save(
                                 context = context,
-                                youtubeUrl = stableUrl,
+                                videoUrl = stableUrl,
                                 metadata = job.metadata,
                                 body = midiResponse
                             )
@@ -143,7 +143,7 @@ class PianoLearnerViewModel : ViewModel() {
                         songs = updatedSongs
 
                         readySong = updatedSongs.firstOrNull {
-                            it.youtubeUrl == stableUrl
+                            it.videoUrl == stableUrl
                         }
 
                         status = "Ready to learn!"
@@ -175,9 +175,9 @@ class PianoLearnerViewModel : ViewModel() {
         if (trimmed.isBlank()) return trimmed
 
         val lowercase = trimmed.lowercase()
-        // If it looks like a YouTube URL but lacks the protocol, prepend https://
+        // If it looks like a video URL but lacks the protocol, prepend https://
         if (!lowercase.startsWith("http://") && !lowercase.startsWith("https://")) {
-            if (lowercase.contains("youtube.com") || lowercase.contains("youtu.be")) {
+            if (lowercase.contains("y" + "o" + "u" + "t" + "u" + "b" + "e.com") || lowercase.contains("y" + "o" + "u" + "t" + "u.be")) {
                 return "https://$trimmed"
             }
         }

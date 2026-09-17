@@ -70,7 +70,7 @@ fun StorageScreen(
             songs
         } else {
             songs.filter {
-                it.youtubeUrl.contains(searchQuery, ignoreCase = true)
+                it.videoUrl.contains(searchQuery, ignoreCase = true)
             }
         }
     }
