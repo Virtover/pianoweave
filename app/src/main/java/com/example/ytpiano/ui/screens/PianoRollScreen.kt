@@ -24,7 +24,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -48,16 +47,16 @@ import kotlin.math.max
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
 private val ColorGold = Color(0xFFD4AF37)
-private val ColorGoldLight = Color(0xFFFFECB3) 
+private val ColorGoldLight = Color(0xFFFFE082) 
 private val ColorUpcomingNote = Color(0xFF1F2937) 
 private val ColorSlate = Color(0xFF30363D) 
 private val ColorSuccess = Color(0xFF2EA043) 
-private val ColorSuccessLight = Color(0xFF7CF491) 
+private val ColorSuccessLight = Color(0xFF69C67E) 
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
-private val ColorKeyWhite = Color(0xFFE6E6E6)
-private val ColorKeyBlack = Color(0xFF1A1A1A)
+private val ColorKeyWhite = Color(0xFF808E95) // Darker, professional Blue-Grey
+private val ColorKeyBlack = Color(0xFF121212)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,7 +76,7 @@ fun PianoRollScreen(
             }
             noteEvents = parsed
         } catch (e: Exception) {
-            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI load failure"
         }
     }
 
@@ -242,7 +241,6 @@ private fun ModernToolbar(
         if (isPortrait) Spacer(Modifier.weight(1f))
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 6.dp else 12.dp)) {
-            // Speed Buttons row
             Row(horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 4.dp else 8.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
                     val isSelected = speed == s
@@ -252,7 +250,6 @@ private fun ModernToolbar(
                 }
             }
             
-            // Wait Mode Toggle (Optimized sizing and text wrapping prevention)
             Box(
                 modifier = Modifier
                     .height(38.dp)
@@ -267,27 +264,22 @@ private fun ModernToolbar(
                     Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(18.dp))
                     if (!isPortrait) {
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Wait mode", 
-                            fontSize = 13.sp, 
-                            fontWeight = FontWeight.ExtraBold, 
-                            color = if (isWait) Color.Black else ColorGold,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        Text(text = "Wait mode", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (isWait) Color.Black else ColorGold, maxLines = 1, softWrap = false)
                     }
                 }
             }
 
-            // Settings button
-            Box(
-                modifier = Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, 
-                Alignment.Center
-            ) {
+            Box(Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, Alignment.Center) {
                 Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp))
             }
         }
     }
+}
+
+private fun getXPx(index: Int, count: Int, totalWidth: Float): Float {
+    val bw = (totalWidth / count).toInt()
+    val rem = (totalWidth % count).toInt()
+    return (index * bw + minOf(index, rem)).toFloat()
 }
 
 @Composable
@@ -297,105 +289,58 @@ private fun FallingNotesVisualizer(
     val scale = 0.25f
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
-        
-        // Exact coordinate mapping to match Compose Row weighted distribution
-        fun getX(index: Int): Float {
-            val totalWidth = size.width
-            val baseWidth = (totalWidth / count).toInt()
-            val remainder = (totalWidth % count).toInt()
-            return (index * baseWidth + minOf(index, remainder)).toFloat()
-        }
+        val tw = size.width
 
-        // 1. Static Grid Lanes
+        // 1. Precise Grid Lanes (Semitone based)
         for (p in start..end) {
-            val x = getX(p - start)
+            val x = getXPx(p - start, count, tw)
             drawLine(color = if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
         // 2. Translucent Musical Bar Lines
-        val barIntervalMs = 2000L 
-        val firstVisibleBar = (head / barIntervalMs) * barIntervalMs
-        val lastVisibleMs = head + (size.height / scale).toLong()
-        for (ms in firstVisibleBar..lastVisibleMs step barIntervalMs) {
+        val barIntervalMs = 2000L ; val firstBar = (head / barIntervalMs) * barIntervalMs ; val lastMs = head + (size.height / scale).toLong()
+        for (ms in firstBar..lastMs step barIntervalMs) {
             val y = size.height - ((ms - head) * scale)
-            if (y in 0f..size.height) drawLine(color = Color.White.copy(alpha = 0.12f), start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 1.dp.toPx())
+            if (y in 0f..size.height) drawLine(color = Color.White.copy(alpha = 0.1f), start = Offset(0f, y), end = Offset(tw, y), strokeWidth = 1.dp.toPx())
         }
 
-        // 3. Falling Note Capsules (Ultra-HD Visuals)
-        events.forEach { e ->
-            if (e.pitch !in start..end) return@forEach
-            val endMs = e.startMs + e.durationMs
-            if (endMs < head || e.startMs > lastVisibleMs) return@forEach
-            
+        // 3. Falling Note Capsules (Standardized Semitone Width)
+        events.filter { 
+            val eMs = it.startMs + it.durationMs
+            eMs >= head && it.startMs <= lastMs 
+        }.forEach { e ->
             val index = e.pitch - start
-            val xStart = getX(index)
-            val xEnd = getX(index + 1)
-            val kw = xEnd - xStart
+            val x1 = getXPx(index, count, tw)
+            val x2 = getXPx(index + 1, count, tw)
+            val kw = x2 - x1
             
             val h = (e.durationMs * scale).coerceAtLeast(12f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
-            val isAtBaseline = head >= e.startMs && head <= endMs
-            val isHittingOnset = head >= e.startMs && head <= (e.startMs + 60L)
+            val isAtBaseline = head >= e.startMs && head <= (e.startMs + e.durationMs)
+            val isHitting = head >= e.startMs && head <= (e.startMs + 60L)
             val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
 
             val baseCol = when {
-                isUserMatch -> ColorSuccess ; isHittingOnset -> ColorTarget ; isAtBaseline -> ColorGold ; else -> ColorUpcomingNote
+                isUserMatch -> ColorSuccess ; isHitting -> ColorTarget ; isAtBaseline -> ColorGold ; else -> ColorUpcomingNote
             }
-            
             val highlightCol = when {
-                isUserMatch -> ColorSuccessLight ; isHittingOnset -> ColorGoldLight ; isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) ; else -> baseCol.copy(alpha = 0.6f)
+                isUserMatch -> ColorSuccessLight ; isHitting -> ColorGoldLight ; isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) ; else -> baseCol.copy(alpha = 0.6f)
             }
 
-            // Pro Gradient Note Capsule - PIXEL PERFECT ALIGNMENT
             drawRoundRect(
                 brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), 
-                topLeft = Offset(xStart + 0.5f, y.coerceIn(-h, size.height)), 
+                topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)), 
                 size = Size(kw - 1f, h), 
                 cornerRadius = CornerRadius(6.dp.toPx())
             )
             
-            // Subtle "Shine" Overlay (Bevel Effect)
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.12f),
-                topLeft = Offset(xStart + 1.5f, y.coerceIn(-h, size.height) + 2f),
-                size = Size(kw / 4f, h - 4f),
-                cornerRadius = CornerRadius(4.dp.toPx())
-            )
-
-            // Hit Dynamics: Visual Bloom & Beams (REFINED & REDUCED)
-            if (isHittingOnset || isUserMatch) {
-                // LIGHT BEAM - Sharp & Professional
-                drawRect(
-                    brush = Brush.verticalGradient(listOf(baseCol.copy(alpha = 0.4f), Color.Transparent)),
-                    topLeft = Offset(xStart + 1f, y.coerceIn(-h, size.height) + h),
-                    size = Size(kw - 1f, 40.dp.toPx())
-                )
-                
-                // IMPACT BLOOM - Subtler radial glow
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(baseCol.copy(alpha = 0.35f), Color.Transparent),
-                        center = Offset(xStart + kw/2, size.height),
-                        radius = 20.dp.toPx() 
-                    ),
-                    center = Offset(xStart + kw/2, size.height),
-                    radius = 20.dp.toPx()
-                )
-                
-                // CORE SPARK - Tiny rhythmic focal point
-                if (isHittingOnset) {
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.8f),
-                        center = Offset(xStart + kw/2, size.height),
-                        radius = 2.dp.toPx()
-                    )
-                }
+            if (isHitting || isUserMatch) {
+                drawRect(brush = Brush.verticalGradient(listOf(baseCol.copy(alpha = 0.4f), Color.Transparent)), topLeft = Offset(x1, y.coerceIn(-h, size.height) + h), size = Size(kw, 35.dp.toPx()))
+                drawCircle(brush = Brush.radialGradient(listOf(baseCol.copy(alpha = 0.3f), Color.Transparent), center = Offset(x1 + kw/2, size.height), radius = 18.dp.toPx()), center = Offset(x1 + kw/2, size.height), radius = 18.dp.toPx())
             }
         }
-        
-        // 4. Vibrant Neon Hitline
-        drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 3.dp.toPx())
+        drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(tw, size.height - 1f), 3.dp.toPx())
     }
 }
 
@@ -410,24 +355,79 @@ private fun WaitModeOverlay(notes: Set<Int>) {
 
 @Composable
 private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
-    Row(Modifier.fillMaxWidth().height(100.dp).background(ColorBg)) {
+    val count = end - start + 1
+    BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp).background(ColorKeyWhite)) {
+        val tw = constraints.maxWidth.toFloat()
         val pressed = MidiInputManager.pressedKeys.toSet()
-        for (p in start..end) {
-            val isBlack = isPitchBlack(p)
-            val isPressed = pressed.contains(p)
-            val isTarget = sustainedPitches.contains(p)
-            val baseColor = if (isBlack) ColorKeyBlack else ColorKeyWhite
-            val highlightColor = when {
-                isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; isTarget -> ColorGold.copy(alpha = 0.4f) ; else -> baseColor
+
+        Canvas(Modifier.fillMaxSize()) {
+            // 1. Draw White Keys Base
+            for (p in start..end) {
+                if (isPitchBlack(p)) continue
+                
+                val index = p - start
+                val x1 = getXPx(index, count, tw)
+                val x2 = getXPx(index + 1, count, tw)
+                val isPressed = pressed.contains(p) ; val isTarget = sustainedPitches.contains(p)
+                
+                val highlightColor = when {
+                    isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; isTarget -> ColorGold.copy(alpha = 0.35f) ; else -> ColorKeyWhite
+                }
+                val shineColor = when {
+                    isPressed && isTarget -> ColorSuccessLight ; isPressed -> ColorGoldLight ; isTarget -> highlightColor.copy(alpha = 0.5f) ; else -> ColorKeyWhite
+                }
+
+                // Determine "T" or "L" shape boundaries
+                var drawX1 = x1
+                var drawX2 = x2
+                if (p > start && isPitchBlack(p - 1)) {
+                    val prevX = getXPx(index - 1, count, tw)
+                    drawX1 = (x1 + prevX) / 2f
+                }
+                if (isPitchBlack(p + 1)) {
+                    val nextX = getXPx(index + 2, count, tw)
+                    drawX2 = (x2 + nextX) / 2f
+                }
+
+                drawRoundRect(
+                    brush = Brush.verticalGradient(listOf(shineColor, highlightColor), startY = 0f, endY = size.height),
+                    topLeft = Offset(drawX1 + 0.5f, 0f),
+                    size = Size(drawX2 - drawX1 - 1f, size.height),
+                    cornerRadius = CornerRadius(6.dp.toPx())
+                )
+                if (isPressed) drawRect(Color.Black.copy(alpha = 0.1f), topLeft = Offset(drawX1, 0f), size = Size(drawX2 - drawX1, size.height))
+                
+                // FULL HEIGHT BORDER LINES (Mid-point of black key lanes)
+                drawLine(Color.Black.copy(alpha = 0.25f), Offset(drawX1, 0f), Offset(drawX1, size.height), 1.2.dp.toPx())
+                if (p == end) drawLine(Color.Black.copy(alpha = 0.25f), Offset(drawX2, 0f), Offset(drawX2, size.height), 1.2.dp.toPx())
             }
-            val shineColor = when {
-                isPressed && isTarget -> ColorSuccessLight ; isPressed -> ColorGoldLight ; isTarget -> highlightColor.copy(alpha = 0.7f) ; else -> baseColor
+
+            // 2. Draw Black Keys Overlay
+            for (p in start..end) {
+                if (!isPitchBlack(p)) continue
+                val index = p - start
+                val x1 = getXPx(index, count, tw)
+                val x2 = getXPx(index + 1, count, tw)
+                val isPressed = pressed.contains(p) ; val isTarget = sustainedPitches.contains(p)
+                
+                val highlightColor = when {
+                    isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; isTarget -> ColorGold.copy(alpha = 0.4f) ; else -> ColorKeyBlack
+                }
+                val shineColor = when {
+                    isPressed && isTarget -> ColorSuccessLight ; isPressed -> ColorGoldLight ; isTarget -> highlightColor.copy(alpha = 0.7f) ; else -> ColorKeyBlack
+                }
+
+                val h = size.height * 0.7f
+                drawRoundRect(brush = Brush.verticalGradient(listOf(shineColor, highlightColor), startY = 0f, endY = h), topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, h), cornerRadius = CornerRadius(4.dp.toPx()))
             }
-            val keyGradient = Brush.verticalGradient(colors = if (isPressed) listOf(highlightColor, highlightColor.copy(alpha = 0.8f)) else listOf(shineColor, highlightColor), startY = 0f, endY = 300f)
-            Box(Modifier.weight(1f).fillMaxHeight().padding(1.dp).background(keyGradient, RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp)).clickable { if (MidiInputManager.pressedKeys.contains(p)) { MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) } else { MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) } }, Alignment.BottomCenter) {
-                val label = when (p) { 36->"C1";48->"C2";60->"C3";72->"C4";84->"C5";96->"C6"; else->"" }
-                if (label.isNotEmpty()) Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Black, color = if (isPressed) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 10.dp), style = TextStyle(shadow = if (isPressed) null else Shadow(Color.Black, blurRadius = 3f)))
-                if (isPressed) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.1f)))
+        }
+
+        Row(Modifier.fillMaxSize()) {
+            for (p in start..end) {
+                Box(Modifier.weight(1f).fillMaxHeight().clickable { 
+                    if (MidiInputManager.pressedKeys.contains(p)) { MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) } 
+                    else { MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) } 
+                })
             }
         }
     }
