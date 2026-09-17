@@ -125,7 +125,7 @@ fun LearnScreen(
                         value = viewModel.videoUrl,
                         onValueChange = { viewModel.updateUrl(it) },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Enter Video URL") },
+                        label = { Text("Enter a video URL you have the right to use") },
                         placeholder = { Text("Paste link here...") },
                         singleLine = true,
                         enabled = !viewModel.isLoading,
