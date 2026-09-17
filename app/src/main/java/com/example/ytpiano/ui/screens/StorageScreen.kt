@@ -71,6 +71,8 @@ fun StorageScreen(
         } else {
             songs.filter {
                 it.videoUrl.contains(searchQuery, ignoreCase = true)
+                        || it.metadata.title.contains(searchQuery, ignoreCase = true)
+                        || it.metadata.author.contains(searchQuery, ignoreCase = true)
             }
         }
     }
