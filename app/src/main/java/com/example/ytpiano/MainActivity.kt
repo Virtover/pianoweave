@@ -22,12 +22,12 @@ import com.example.ytpiano.ui.components.AdaptiveNavigation
 import com.example.ytpiano.ui.screens.LearnScreen
 import com.example.ytpiano.ui.screens.PianoRollScreen
 import com.example.ytpiano.ui.screens.StorageScreen
-import com.example.ytpiano.ui.theme.PianoLearnerTheme
-import com.example.ytpiano.ui.viewmodel.PianoLearnerViewModel
+import com.example.ytpiano.ui.theme.PianoWeaveTheme
+import com.example.ytpiano.ui.viewmodel.PianoWeaveViewModel
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: PianoLearnerViewModel by viewModels()
+    private val viewModel: PianoWeaveViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         MidiInputManager.initialize(applicationContext)
 
         setContent {
-            PianoLearnerTheme {
+            PianoWeaveTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
                             onBack = { viewModel.activePracticeSong = null }
                         )
                     } else {
-                        PianoLearnerApp(
+                        PianoWeaveApp(
                             viewModel = viewModel,
                             context = applicationContext
                         )
@@ -73,8 +73,8 @@ private enum class AppTab {
 }
 
 @Composable
-private fun PianoLearnerApp(
-    viewModel: PianoLearnerViewModel,
+private fun PianoWeaveApp(
+    viewModel: PianoWeaveViewModel,
     context: Context
 ) {
     var selectedTab by remember { mutableStateOf(AppTab.Learn) }

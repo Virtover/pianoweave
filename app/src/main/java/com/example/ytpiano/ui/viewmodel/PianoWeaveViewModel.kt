@@ -19,7 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 
-class PianoLearnerViewModel : ViewModel() {
+class PianoWeaveViewModel : ViewModel() {
 
     var videoUrl by mutableStateOf("")
         private set

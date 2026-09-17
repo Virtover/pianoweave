@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Yt Piano"
+rootProject.name = "Piano Weave"
 include(":app")

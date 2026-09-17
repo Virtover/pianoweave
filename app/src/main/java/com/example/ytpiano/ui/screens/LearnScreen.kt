@@ -13,11 +13,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ytpiano.midi.StoredMidi
-import com.example.ytpiano.ui.viewmodel.PianoLearnerViewModel
+import com.example.ytpiano.ui.viewmodel.PianoWeaveViewModel
 
 @Composable
 fun LearnScreen(
-    viewModel: PianoLearnerViewModel,
+    viewModel: PianoWeaveViewModel,
     context: Context,
     onSongSelect: (StoredMidi) -> Unit = {}
 ) {

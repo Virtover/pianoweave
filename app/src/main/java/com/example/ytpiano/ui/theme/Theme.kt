@@ -22,7 +22,7 @@ val PianoDarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun PianoLearnerTheme(
+fun PianoWeaveTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
