@@ -56,7 +56,7 @@ fun LearnScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         label = {
-                            Text("Video URL")
+                            Text("Enter a video URL you can legally use")
                         },
                         placeholder = {
                             Text(
