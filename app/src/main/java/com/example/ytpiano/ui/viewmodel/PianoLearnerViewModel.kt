@@ -61,8 +61,11 @@ class PianoLearnerViewModel : ViewModel() {
     }
 
     fun startTranscription(context: Context) {
-        val stableUrl = youtubeUrl.trim()
+        val stableUrl = normalizeUrl(youtubeUrl)
         if (stableUrl.isBlank() || isLoading) return
+        
+        // Update UI with normalized URL
+        youtubeUrl = stableUrl
 
         viewModelScope.launch {
             isLoading = true
@@ -165,5 +168,19 @@ class PianoLearnerViewModel : ViewModel() {
                 isLoading = false
             }
         }
+    }
+
+    private fun normalizeUrl(url: String): String {
+        val trimmed = url.trim()
+        if (trimmed.isBlank()) return trimmed
+
+        val lowercase = trimmed.lowercase()
+        // If it looks like a YouTube URL but lacks the protocol, prepend https://
+        if (!lowercase.startsWith("http://") && !lowercase.startsWith("https://")) {
+            if (lowercase.contains("youtube.com") || lowercase.contains("youtu.be")) {
+                return "https://$trimmed"
+            }
+        }
+        return trimmed
     }
 }
