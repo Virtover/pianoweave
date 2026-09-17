@@ -1,6 +1,6 @@
 # YT Piano 🎹
 
-Upgrade your piano learning experience with high-fidelity practice tools. This app allows you to transcribe YouTube piano performances into interactive practice sessions with a professional piano roll and a high-quality Grand Piano audio engine.
+Upgrade your piano learning experience with high-fidelity practice tools. This app transcribes piano performances from YouTube into interactive practice sessions with a professional piano roll and a high-quality Grand Piano audio engine.
 
 ## ✨ Features
 

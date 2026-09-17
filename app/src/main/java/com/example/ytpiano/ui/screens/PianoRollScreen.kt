@@ -21,10 +21,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,16 +40,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.max
 
 // --- Ultra Pro Piano Theme ---
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
-private val ColorGold = Color(0xFFD4AF37) // Signature Gold
-private val ColorUpcomingNote = Color(0xFF424B5B) 
+private val ColorGold = Color(0xFFD4AF37)
+private val ColorGoldLight = Color(0xFFFFECB3) 
+private val ColorUpcomingNote = Color(0xFF1F2937) 
 private val ColorSlate = Color(0xFF30363D) 
-private val ColorSuccess = Color(0xFF2EA043) // Success Green
-private val ColorTarget = Color(0xFFF39C12) // Vibrant On-Hit Gold
-private val ColorBaseline = Color(0xFFF85149) // Neon Red Hitline
+private val ColorSuccess = Color(0xFF2EA043) 
+private val ColorSuccessLight = Color(0xFF7CF491) 
+private val ColorTarget = Color(0xFFF39C12) 
+private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6)
 private val ColorKeyBlack = Color(0xFF1A1A1A)
@@ -73,7 +75,7 @@ fun PianoRollScreen(
             }
             noteEvents = parsed
         } catch (e: Exception) {
-            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI load failure"
         }
     }
 
@@ -89,7 +91,7 @@ private fun MidiLoadingScreen() {
     Box(modifier = Modifier.fillMaxSize().background(ColorBg), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CircularProgressIndicator(color = ColorGold, strokeWidth = 4.dp, modifier = Modifier.size(56.dp))
-            Text("Building performance data...", color = ColorGold, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Orchestrating performance...", color = ColorGold, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -127,14 +129,10 @@ private fun ModernPianoPlayerContent(
 
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
 
-    // Silencing on pause/seek
     LaunchedEffect(isPlaying, isUserSeeking) {
-        if (!isPlaying || isUserSeeking) {
-            PianoPlayer.stopAllNotes()
-        }
+        if (!isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
     }
 
-    // Capture notes to strike for Wait Mode
     val nextOnset = remember(noteEvents, playheadMs) {
         noteEvents.filter { it.startMs >= playheadMs }.minOfOrNull { it.startMs }
     }
@@ -143,13 +141,11 @@ private fun ModernPianoPlayerContent(
         else noteEvents.filter { abs(it.startMs - nextOnset) <= 30L }.map { it.pitch }.toSet()
     }
 
-    // Playback Engine
     LaunchedEffect(isPlaying, speedMultiplier, isWaitModeEnabled, isLoopingEnabled, loopStartMs, loopEndMs, noteEvents) {
         if (!isPlaying) return@LaunchedEffect
 
-        // Trigger notes under playhead when resuming
         val resumed = noteEvents.filter { playheadMs >= it.startMs && playheadMs < (it.startMs + it.durationMs) }
-        resumed.forEach { PianoPlayer.noteOn(it.pitch) }
+        resumed.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
         
         lastTriggeredHeadMs = playheadMs
         var lastTime = System.nanoTime()
@@ -162,11 +158,10 @@ private fun ModernPianoPlayerContent(
             if (isWaitModeEnabled && nextOnset != null) {
                 val lookAhead = 10L
                 if (playheadMs >= nextOnset - lookAhead) {
-                    val notesAtOnsetNow = noteEvents.filter { abs(it.startMs - nextOnset) <= 30L }.map { it.pitch }.toSet()
+                    val targetPitchesNow = noteEvents.filter { abs(it.startMs - nextOnset) <= 30L }.map { it.pitch }.toSet()
                     val pressed = MidiInputManager.pressedKeys.toSet()
-                    if (notesAtOnsetNow.any { it in startPitch..endPitch && it !in pressed }) {
-                        delay(16)
-                        continue
+                    if (targetPitchesNow.any { it in startPitch..endPitch && it !in pressed }) {
+                        delay(16) ; continue
                     }
                 }
             }
@@ -175,19 +170,16 @@ private fun ModernPianoPlayerContent(
             
             if (abs(next - lastTriggeredHeadMs) < 500L) {
                 val triggered = noteEvents.filter { it.startMs > lastTriggeredHeadMs && it.startMs <= next }
-                triggered.forEach { PianoPlayer.noteOn(it.pitch) }
+                triggered.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
             }
             lastTriggeredHeadMs = next
 
             if (isLoopingEnabled && next >= loopEndMs) {
-                playheadMs = loopStartMs
-                lastTriggeredHeadMs = loopStartMs
-                PianoPlayer.stopAllNotes()
+                playheadMs = loopStartMs ; lastTriggeredHeadMs = loopStartMs ; PianoPlayer.stopAllNotes()
                 val loopNotes = noteEvents.filter { loopStartMs >= it.startMs && loopStartMs < (it.startMs + it.durationMs) }
-                loopNotes.forEach { PianoPlayer.noteOn(it.pitch) }
+                loopNotes.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
             } else if (!isLoopingEnabled && next >= songDurationMs) {
-                playheadMs = songDurationMs 
-                isPlaying = false
+                playheadMs = songDurationMs ; isPlaying = false
             } else {
                 playheadMs = next
             }
@@ -200,21 +192,10 @@ private fun ModernPianoPlayerContent(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
-        ModernToolbar(
-            title = song.metadata.title,
-            head = playheadMs,
-            dur = songDurationMs,
-            isWait = isWaitModeEnabled,
-            speed = speedMultiplier,
-            onSpeedChange = { speedMultiplier = it },
-            onWaitToggle = { isWaitModeEnabled = !isWaitModeEnabled },
-            onSetClick = { showSettingsDialog = true },
-            onBack = onBack
-        )
+        ModernToolbar(song.metadata.title, playheadMs, songDurationMs, isWaitModeEnabled, speedMultiplier, { speedMultiplier = it }, { isWaitModeEnabled = !isWaitModeEnabled }, { showSettingsDialog = true }, onBack)
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalKeys)
-            
             if (isWaitModeEnabled && notesAtOnset.isNotEmpty() && nextOnset != null && playheadMs >= nextOnset - 500) {
                 WaitModeOverlay(notes = notesAtOnset)
             }
@@ -223,26 +204,13 @@ private fun ModernPianoPlayerContent(
         PianoKeyboardRow(startPitch, endPitch, sustainedPitches)
 
         MediaTimelineFooter(
-            head = playheadMs,
-            dur = songDurationMs,
-            isPlaying = isPlaying,
-            isLoop = isLoopingEnabled,
-            lStart = loopStartMs,
-            lEnd = loopEndMs,
-            onPlay = { isPlaying = !isPlaying },
-            onRewind = { 
-                playheadMs = if (isLoopingEnabled) loopStartMs else 0L 
-                lastTriggeredHeadMs = playheadMs
-                PianoPlayer.stopAllNotes()
-            },
-            onSeek = { 
-                playheadMs = it 
-                lastTriggeredHeadMs = it
-                PianoPlayer.stopAllNotes()
-            },
-            onSeekState = { isUserSeeking = it },
-            onLoop = { isLoopingEnabled = !isLoopingEnabled },
-            onRange = { s, e -> loopStartMs = s ; loopEndMs = e }
+            playheadMs, songDurationMs, isPlaying, isLoopingEnabled, loopStartMs, loopEndMs,
+            { isPlaying = !isPlaying },
+            { playheadMs = if (isLoopingEnabled) loopStartMs else 0L ; lastTriggeredHeadMs = playheadMs ; PianoPlayer.stopAllNotes() },
+            { playheadMs = it ; lastTriggeredHeadMs = it ; PianoPlayer.stopAllNotes() },
+            { isUserSeeking = it },
+            { isLoopingEnabled = !isLoopingEnabled },
+            { s, e -> loopStartMs = s ; loopEndMs = e }
         )
     }
 
@@ -255,46 +223,31 @@ private fun ModernToolbar(
     onSpeedChange: (Float) -> Unit, onWaitToggle: () -> Unit, onSetClick: () -> Unit, onBack: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 16.dp, vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-        Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
-        
-        Text(
-            text = "${formatTime(head)} / ${formatTime(dur)}",
-            color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp)
-        )
+        Text(title, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, maxLines = 1, modifier = Modifier.weight(1f))
+        Text("${formatTime(head)} / ${formatTime(dur)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
                     val isSelected = speed == s
-                    Box(
-                        modifier = Modifier.size(35.dp).background(if (isSelected) ColorGold else ColorSlate, CircleShape).clickable { onSpeedChange(s) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("${s}x", fontSize = 10.sp, fontWeight = FontWeight.Black, color = if (isSelected) Color.Black else Color.White)
+                    Box(Modifier.size(36.dp).background(if (isSelected) ColorGold else ColorSlate, CircleShape).clickable { onSpeedChange(s) }, Alignment.Center) {
+                        Text("${s}x", fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (isSelected) Color.Black else Color.White)
                     }
                 }
             }
-
-            Box(
-                modifier = Modifier.height(36.dp).background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(8.dp)).border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(8.dp)).clickable { onWaitToggle() }.padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.height(38.dp).background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(10.dp)).clickable { onWaitToggle() }.padding(horizontal = 14.dp), Alignment.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Wait mode", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isWait) Color.Black else ColorGold)
+                    Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Wait mode", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = if (isWait) Color.Black else ColorGold)
                 }
             }
-
-            Box(
-                modifier = Modifier.size(36.dp).background(ColorSurface, RoundedCornerShape(8.dp)).border(1.dp, ColorSlate, RoundedCornerShape(8.dp)).clickable { onSetClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp))
+            Box(Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, Alignment.Center) {
+                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -307,66 +260,126 @@ private fun FallingNotesVisualizer(
     val scale = 0.25f
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
-        val kw = size.width / count
         
+        // Exact coordinate mapping to match Compose Row weighted distribution
+        fun getX(index: Int): Float {
+            val totalWidth = size.width
+            val baseWidth = (totalWidth / count).toInt()
+            val remainder = (totalWidth % count).toInt()
+            return (index * baseWidth + minOf(index, remainder)).toFloat()
+        }
+
+        // 1. Precise Grid Lanes
         for (p in start..end) {
-            val x = (p - start) * kw
+            val x = getX(p - start)
             drawLine(color = if (isPitchBlack(p)) Color(0xFF161B22) else Color(0xFF0D1117), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
+        // 2. Translucent Musical Bar Lines
         val barIntervalMs = 2000L 
         val firstVisibleBar = (head / barIntervalMs) * barIntervalMs
         val lastVisibleMs = head + (size.height / scale).toLong()
-        
         for (ms in firstVisibleBar..lastVisibleMs step barIntervalMs) {
             val y = size.height - ((ms - head) * scale)
-            if (y in 0f..size.height) {
-                drawLine(color = Color.White.copy(alpha = 0.15f), start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 1.5.dp.toPx())
-            }
+            if (y in 0f..size.height) drawLine(color = Color.White.copy(alpha = 0.12f), start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 1.dp.toPx())
         }
 
+        // 3. Falling Note Capsules (Ultra-HD Visuals)
         events.forEach { e ->
             if (e.pitch !in start..end) return@forEach
             val endMs = e.startMs + e.durationMs
             if (endMs < head || e.startMs > lastVisibleMs) return@forEach
             
-            val x = (e.pitch - start) * kw
-            val h = (e.durationMs * scale).coerceAtLeast(10f)
+            val index = e.pitch - start
+            val xStart = getX(index)
+            val xEnd = getX(index + 1)
+            val kw = xEnd - xStart
+            
+            val h = (e.durationMs * scale).coerceAtLeast(12f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
             val isAtBaseline = head >= e.startMs && head <= endMs
             val isHittingOnset = head >= e.startMs && head <= (e.startMs + 60L)
             val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
 
-            val color = when {
+            val baseCol = when {
                 isUserMatch -> ColorSuccess
                 isHittingOnset -> ColorTarget
-                isAtBaseline -> ColorGold.copy(alpha = 0.75f)
-                else -> ColorUpcomingNote 
+                isAtBaseline -> ColorGold
+                else -> ColorUpcomingNote
             }
             
-            drawRoundRect(color = color, topLeft = Offset(x + 3f, y.coerceIn(-h, size.height)), size = Size(kw - 6f, h), cornerRadius = CornerRadius(4.dp.toPx()))
+            val highlightCol = when {
+                isUserMatch -> ColorSuccessLight
+                isHittingOnset -> ColorGoldLight
+                isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f)
+                else -> baseCol.copy(alpha = 0.6f)
+            }
+
+            // Pro Gradient Note Capsule - PIXEL PERFECT ALIGNMENT
+            drawRoundRect(
+                brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), 
+                topLeft = Offset(xStart + 1f, y.coerceIn(-h, size.height)), 
+                size = Size(kw - 2f, h), 
+                cornerRadius = CornerRadius(6.dp.toPx())
+            )
             
+            // Subtle "Shine" Overlay (Refined Bevel)
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.12f),
+                topLeft = Offset(xStart + 2f, y.coerceIn(-h, size.height) + 2f),
+                size = Size(kw / 4f, h - 4f),
+                cornerRadius = CornerRadius(4.dp.toPx())
+            )
+
+            // Hit Dynamics: Visual Bloom & Beams (REFINED & REDUCED)
             if (isHittingOnset || isUserMatch) {
-                drawRect(brush = Brush.verticalGradient(listOf(color.copy(0.4f), Color.Transparent)), topLeft = Offset(x, y.coerceIn(-h, size.height) + h), size = Size(kw, 40.dp.toPx()))
+                // LIGHT BEAM - Sharp & Professional
+                drawRect(
+                    brush = Brush.verticalGradient(listOf(baseCol.copy(alpha = 0.4f), Color.Transparent)),
+                    topLeft = Offset(xStart + 1f, y.coerceIn(-h, size.height) + h),
+                    size = Size(kw - 2f, 40.dp.toPx()) // Reduced from 80.dp
+                )
+                
+                // IMPACT BLOOM - Subtler radial glow
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(baseCol.copy(alpha = 0.35f), Color.Transparent),
+                        center = Offset(xStart + kw/2, size.height),
+                        radius = 20.dp.toPx() // Reduced from 35.dp
+                    ),
+                    center = Offset(xStart + kw/2, size.height),
+                    radius = 20.dp.toPx()
+                )
+                
+                // CORE SPARK - Tiny rhythmic focal point
+                if (isHittingOnset) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.8f),
+                        center = Offset(xStart + kw/2, size.height),
+                        radius = 2.dp.toPx()
+                    )
+                }
             }
         }
-        drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 2f)
+        
+        // 4. Vibrant Neon Hitline
+        drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 3.dp.toPx())
     }
 }
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 24.dp), Alignment.TopCenter) {
-        Surface(color = ColorGold, shape = RoundedCornerShape(12.dp), shadowElevation = 12.dp, border = BorderStroke(2.dp, Color.White.copy(0.5f))) {
-            Text(text = "STRIKE: " + notes.sorted().joinToString("  ") { midiPitchName(it) }, Modifier.padding(horizontal = 24.dp, vertical = 10.dp), fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.Black)
+    Box(Modifier.fillMaxWidth().padding(top = 32.dp), Alignment.TopCenter) {
+        Surface(color = ColorGold, shape = RoundedCornerShape(16.dp), shadowElevation = 20.dp, border = BorderStroke(2.dp, Color.White.copy(0.7f))) {
+            Text(text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) }, Modifier.padding(horizontal = 32.dp, vertical = 14.dp), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
         }
     }
 }
 
 @Composable
 private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
-    Row(Modifier.fillMaxWidth().height(80.dp).background(ColorBg)) {
+    Row(Modifier.fillMaxWidth().height(100.dp).background(ColorBg)) {
         val pressed = MidiInputManager.pressedKeys.toSet()
         for (p in start..end) {
             val isBlack = isPitchBlack(p)
@@ -374,38 +387,44 @@ private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
             val isTarget = sustainedPitches.contains(p)
             val baseColor = if (isBlack) ColorKeyBlack else ColorKeyWhite
             
-            // Refined keyboard highlighting
             val highlightColor = when {
                 isPressed && isTarget -> ColorSuccess // Correct hit
                 isPressed -> ColorGold // Pressed but not target
-                isTarget -> ColorGold.copy(alpha = 0.4f) // Target note (soft highlight, not dark grey)
+                isTarget -> ColorGold.copy(alpha = 0.4f) // Target note soft guide
                 else -> baseColor
             }
             
-            val gradient = Brush.verticalGradient(
-                colors = if (isPressed || isTarget) {
-                    listOf(highlightColor, highlightColor.copy(alpha = 0.7f))
-                } else {
-                    listOf(baseColor, baseColor)
-                },
-                startY = 0f,
-                endY = 200f
+            val shineColor = when {
+                isPressed && isTarget -> ColorSuccessLight
+                isPressed -> ColorGoldLight
+                isTarget -> highlightColor.copy(alpha = 0.7f)
+                else -> baseColor
+            }
+
+            // High-End Grand Piano Key Gradient with Depth
+            val keyGradient = Brush.verticalGradient(
+                colors = if (isPressed) listOf(highlightColor, highlightColor.copy(alpha = 0.8f)) 
+                        else listOf(shineColor, highlightColor),
+                startY = 0f, endY = 300f
             )
 
             Box(
-                Modifier.weight(1f).fillMaxHeight().padding(0.5.dp)
-                    .background(gradient, RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
+                Modifier.weight(1f).fillMaxHeight().padding(1.dp)
+                    .background(keyGradient, RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
                     .clickable { 
-                        if (MidiInputManager.pressedKeys.contains(p)) { 
-                            MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) 
-                        } else { 
-                            MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) 
-                        } 
+                        if (MidiInputManager.pressedKeys.contains(p)) { MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) } 
+                        else { MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) } 
                     }, 
                 Alignment.BottomCenter
             ) {
                 val label = when (p) { 36->"C1";48->"C2";60->"C3";72->"C4";84->"C5";96->"C6"; else->"" }
-                if (label.isNotEmpty()) Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isPressed) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 6.dp))
+                if (label.isNotEmpty()) {
+                    Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Black, color = if (isPressed) Color.Black else ColorTextDim, modifier = Modifier.padding(bottom = 10.dp), style = TextStyle(shadow = if (isPressed) null else Shadow(Color.Black, blurRadius = 3f)))
+                }
+                
+                if (isPressed) {
+                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.1f)))
+                }
             }
         }
     }
@@ -419,46 +438,45 @@ private fun MediaTimelineFooter(
     onLoop: () -> Unit, onRange: (Long, Long) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconButton(onClick = onPlay, Modifier.size(48.dp).background(ColorGold, CircleShape)) { Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(32.dp)) }
-            IconButton(onClick = onRewind, modifier = Modifier.size(36.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            IconButton(onClick = onPlay, Modifier.size(56.dp).background(ColorGold, CircleShape)) { Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(36.dp)) }
+            IconButton(onClick = onRewind, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(20.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 val fullWidth = maxWidth
-                Box(modifier = Modifier.fillMaxWidth(0.96f).height(6.dp).background(ColorSlate, CircleShape))
+                Box(modifier = Modifier.fillMaxWidth(0.96f).height(8.dp).background(ColorSlate, CircleShape))
                 if (isLoop) {
-                    val sPerc = lStart.toFloat() / dur.coerceAtLeast(1)
-                    val ePerc = lEnd.toFloat() / dur.coerceAtLeast(1)
-                    Box(modifier = Modifier.fillMaxWidth(0.96f * (ePerc - sPerc)).align(Alignment.CenterStart).offset(x = (fullWidth * 0.02f) + (fullWidth * 0.96f * sPerc)).height(6.dp).background(ColorGold.copy(alpha = 0.45f)))
-                    RangeSlider(value = lStart.toFloat()..lEnd.toFloat(), onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp), startThumb = { Box(modifier = Modifier.size(28.dp).background(ColorGold, CircleShape).border(1.5.dp, Color.White.copy(0.4f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(18.dp)) } }, endThumb = { Box(modifier = Modifier.size(28.dp).background(ColorGold, CircleShape).border(1.5.dp, Color.White.copy(0.4f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(18.dp)) } })
+                    val sPerc = lStart.toFloat() / dur.coerceAtLeast(1) ; val ePerc = lEnd.toFloat() / dur.coerceAtLeast(1)
+                    Box(modifier = Modifier.fillMaxWidth(0.96f * (ePerc - sPerc)).align(Alignment.CenterStart).offset(x = (fullWidth * 0.02f) + (fullWidth * 0.96f * sPerc)).height(8.dp).background(ColorGold.copy(alpha = 0.5f)))
+                    RangeSlider(value = lStart.toFloat()..lEnd.toFloat(), onValueChange = { onRange(it.start.toLong(), it.endInclusive.toLong()) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = ColorGold, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp).offset(y = (-16).dp), startThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } }, endThumb = { Box(modifier = Modifier.size(32.dp).background(ColorGold, CircleShape).border(2.dp, Color.White.copy(0.6f), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(20.dp)) } })
                 }
                 Slider(value = head.toFloat().coerceIn(0f, dur.toFloat()), onValueChange = { onSeekState(true) ; onSeek(it.toLong()) }, onValueChangeFinished = { onSeekState(false) }, valueRange = 0f..dur.toFloat().coerceAtLeast(1f), colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold, inactiveTrackColor = Color.Transparent), modifier = Modifier.fillMaxWidth().height(32.dp))
             }
         }
-        Spacer(modifier = Modifier.width(16.dp))
-        IconButton(onClick = onLoop, modifier = Modifier.size(40.dp).background(if (isLoop) ColorGold else ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, if(!isLoop) ColorSlate else Color.Transparent, RoundedCornerShape(10.dp))) { Icon(Icons.Default.Repeat, null, tint = if (isLoop) Color.Black else ColorGold, modifier = Modifier.size(22.dp)) }
+        Spacer(modifier = Modifier.width(20.dp))
+        IconButton(onClick = onLoop, modifier = Modifier.size(48.dp).background(if (isLoop) ColorGold else ColorSurface, RoundedCornerShape(12.dp)).border(1.dp, if(!isLoop) ColorSlate else Color.Transparent, RoundedCornerShape(12.dp))) { Icon(Icons.Default.Repeat, null, tint = if (isLoop) Color.Black else ColorGold, modifier = Modifier.size(26.dp)) }
     }
 }
 
 @Composable
 private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: ()->Unit) {
     Dialog(onDismiss) {
-        Surface(shape = RoundedCornerShape(20.dp), color = ColorSurface, contentColor = Color.White, border = BorderStroke(1.dp, ColorSlate)) {
-            Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text("Piano Editor", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = ColorGold)
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(shape = RoundedCornerShape(24.dp), color = ColorSurface, contentColor = Color.White, border = BorderStroke(1.dp, ColorSlate)) {
+            Column(modifier = Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+                Text("Piano Editor", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = ColorGold)
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Transposition", color = ColorTextDim, fontWeight = FontWeight.Bold)
                         Text("${if (offset > 0) "+" else ""}$offset", color = ColorGold, fontWeight = FontWeight.Black, style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 4f)))
                     }
                     Slider(value = offset.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = -12f..12f, steps = 23, colors = SliderDefaults.colors(thumbColor = ColorKeyWhite, activeTrackColor = ColorGold))
                 }
-                Button(onClick = onDismiss, Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black), shape = RoundedCornerShape(12.dp)) { Text("DONE", fontWeight = FontWeight.Black) }
+                Button(onClick = onDismiss, Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black), shape = RoundedCornerShape(14.dp)) { Text("DONE", fontWeight = FontWeight.Black, fontSize = 16.sp) }
             }
         }
     }
