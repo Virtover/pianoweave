@@ -6,6 +6,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -424,10 +426,25 @@ private fun PianoKeyboardRow(start: Int, end: Int, sustainedPitches: Set<Int>) {
 
         Row(Modifier.fillMaxSize()) {
             for (p in start..end) {
-                Box(Modifier.weight(1f).fillMaxHeight().clickable { 
-                    if (MidiInputManager.pressedKeys.contains(p)) { MidiInputManager.simulateNoteOff(p) ; PianoPlayer.noteOff(p) } 
-                    else { MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) } 
-                })
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .pointerInput(p) {
+                            detectTapGestures(
+                                onPress = {
+                                    try {
+                                        MidiInputManager.simulateNoteOn(p)
+                                        PianoPlayer.noteOn(p)
+                                        awaitRelease()
+                                    } finally {
+                                        MidiInputManager.simulateNoteOff(p)
+                                        PianoPlayer.noteOff(p)
+                                    }
+                                }
+                            )
+                        }
+                )
             }
         }
     }
