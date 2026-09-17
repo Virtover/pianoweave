@@ -35,4 +35,4 @@ Open the project in Android Studio and build the `:app` module.
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
