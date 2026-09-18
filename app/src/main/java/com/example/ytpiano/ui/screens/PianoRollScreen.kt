@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,7 +58,7 @@ private val ColorSuccessLight = Color(0xFF69C67E)
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
-private val ColorKeyWhite = Color(0xFFE6E6E6) 
+private val ColorKeyWhite = Color(0xFF808E95) 
 private val ColorKeyBlack = Color(0xFF121212)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,15 +79,13 @@ fun PianoRollScreen(
             }
             noteEvents = parsed
         } catch (e: Exception) {
-            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI load failure"
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
         }
     }
 
-    when {
-        parseError != null -> MidiErrorScreen(song, parseError!!, onBack)
-        noteEvents == null -> MidiLoadingScreen()
-        else -> ModernPianoPlayerContent(song, noteEvents!!, onBack)
-    }
+    if (parseError != null) MidiErrorScreen(song, parseError!!, onBack)
+    else if (noteEvents == null) MidiLoadingScreen()
+    else ModernPianoPlayerContent(song, noteEvents!!, onBack)
 }
 
 @Composable
@@ -195,10 +194,21 @@ private fun ModernPianoPlayerContent(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
-        ModernToolbar(song.metadata.title, playheadMs, songDurationMs, isWaitModeEnabled, speedMultiplier, { speedMultiplier = it }, { isWaitModeEnabled = !isWaitModeEnabled }, { showSettingsDialog = true }, onBack)
-
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             FallingNotesVisualizer(noteEvents, playheadMs, startPitch, endPitch, totalWhiteKeys)
+            
+            ModernToolbar(
+                title = song.metadata.title,
+                head = playheadMs,
+                dur = songDurationMs,
+                isWait = isWaitModeEnabled,
+                speed = speedMultiplier,
+                onSpeedChange = { speedMultiplier = it },
+                onWaitToggle = { isWaitModeEnabled = !isWaitModeEnabled },
+                onSetClick = { showSettingsDialog = true },
+                onBack = onBack
+            )
+
             if (isWaitModeEnabled && notesToStrike.isNotEmpty() && nextRequiredOnset != null && playheadMs >= nextRequiredOnset - 500) {
                 WaitModeOverlay(notes = notesToStrike)
             }
@@ -229,7 +239,7 @@ private fun ModernToolbar(
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 8.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface.copy(alpha = 0.5f)).padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
@@ -240,31 +250,28 @@ private fun ModernToolbar(
             Row(horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 4.dp else 8.dp)) {
                 listOf(0.25f, 0.5f, 1.0f).forEach { s ->
                     val isSelected = speed == s
-                    Box(Modifier.size(if (isPortrait) 32.dp else 36.dp).background(if (isSelected) ColorGold else ColorSlate, CircleShape).clickable { onSpeedChange(s) }, Alignment.Center) {
+                    Box(Modifier.size(if (isPortrait) 32.dp else 36.dp).background(if (isSelected) ColorGold else ColorSlate.copy(alpha = 0.8f), CircleShape).clickable { onSpeedChange(s) }, Alignment.Center) {
                         Text("${s}x", fontSize = 10.sp, fontWeight = FontWeight.Black, color = if (isSelected) Color.Black else Color.White)
                     }
                 }
             }
-            Box(modifier = Modifier.height(38.dp).then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth()).background(if (isWait) ColorGold else ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, if (isWait) ColorGold else ColorSlate, RoundedCornerShape(10.dp)).clickable { onWaitToggle() }.padding(horizontal = if (isPortrait) 0.dp else 14.dp), Alignment.Center) {
+            Box(modifier = Modifier.height(38.dp).then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth()).background(if (isWait) ColorGold else ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp)).border(1.dp, if (isWait) ColorGold else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).clickable { onWaitToggle() }.padding(horizontal = if (isPortrait) 0.dp else 14.dp), Alignment.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(Icons.Default.Timer, null, tint = if (isWait) Color.Black else ColorGold, modifier = Modifier.size(18.dp))
                     if (!isPortrait) { Spacer(Modifier.width(8.dp)) ; Text(text = "Wait mode", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (isWait) Color.Black else ColorGold, maxLines = 1, softWrap = false) }
                 }
             }
-            Box(Modifier.size(38.dp).background(ColorSurface, RoundedCornerShape(10.dp)).border(1.dp, ColorSlate, RoundedCornerShape(10.dp)).clickable { onSetClick() }, Alignment.Center) { Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp)) }
+            Box(Modifier.size(38.dp).background(ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp)).border(1.dp, ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).clickable { onSetClick() }, Alignment.Center) {
+                Icon(Icons.Default.Tune, null, tint = ColorGold, modifier = Modifier.size(20.dp))
+            }
         }
     }
 }
 
-/**
- * Realistic Piano Layout Logic: Map MIDI pitch to horizontal pixels.
- * Based on fixed-width white keys.
- */
 private fun getWhiteIndex(pitch: Int): Int {
-    val octave = pitch / 12
-    val semitone = pitch % 12
+    val octave = pitch / 12 ; val semitone = pitch % 12
     val offset = when (semitone) {
-        0 -> 0 ; 1 -> 0 ; 2 -> 1 ; 3 -> 1 ; 4 -> 2 ; 5 -> 3 ; 6 -> 3 ; 7 -> 4 ; 8 -> 4 ; 9 -> 5 ; 10 -> 5 ; 11 -> 6 ; else -> 0
+        0->0; 1->0; 2->1; 3->1; 4->2; 5->3; 6->3; 7->4; 8->4; 9->5; 10->5; 11->6; else->0
     }
     return (octave * 7) + offset
 }
@@ -277,20 +284,14 @@ private fun getWhiteKeyXPx(whiteIndex: Int, numWhiteKeys: Int, totalWidth: Float
 
 private fun getPitchXRange(pitch: Int, startPitch: Int, totalWidth: Float, numWhiteKeys: Int): Pair<Float, Float> {
     val startWhite = getWhiteIndex(startPitch)
-    
     if (!isPitchBlack(pitch)) {
         val whiteIdx = getWhiteIndex(pitch) - startWhite
-        val x1 = getWhiteKeyXPx(whiteIdx, numWhiteKeys, totalWidth)
-        val x2 = getWhiteKeyXPx(whiteIdx + 1, numWhiteKeys, totalWidth)
-        return x1 to x2
+        return getWhiteKeyXPx(whiteIdx, numWhiteKeys, totalWidth) to getWhiteKeyXPx(whiteIdx + 1, numWhiteKeys, totalWidth)
     } else {
-        // Black key: centered on boundary between neighbors
         val leftWhiteIdx = getWhiteIndex(pitch - 1) - startWhite
-        val xLeft = getWhiteKeyXPx(leftWhiteIdx, numWhiteKeys, totalWidth)
-        val xRight = getWhiteKeyXPx(leftWhiteIdx + 1, numWhiteKeys, totalWidth)
-        val wkW = xRight - xLeft
-        val center = xRight
-        val bkWidth = wkW * 0.65f // Standard black key ratio
+        val center = getWhiteKeyXPx(leftWhiteIdx + 1, numWhiteKeys, totalWidth)
+        val wkW = getWhiteKeyXPx(1, numWhiteKeys, totalWidth) - getWhiteKeyXPx(0, numWhiteKeys, totalWidth)
+        val bkWidth = wkW * 0.65f
         return (center - bkWidth/2) to (center + bkWidth/2)
     }
 }
@@ -304,20 +305,17 @@ private fun FallingNotesVisualizer(
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
 
-        // 1. Precise Grid Lanes (White Key boundaries)
         for (i in 0..numWhiteKeys) {
             val x = getWhiteKeyXPx(i, numWhiteKeys, tw)
             drawLine(color = Color(0xFF161B22), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
-        // 2. Bar Lines
         val barIntervalMs = 2000L ; val firstBar = (head / barIntervalMs) * barIntervalMs ; val lastMs = head + (size.height / scale).toLong()
         for (ms in firstBar..lastMs step barIntervalMs) {
             val y = size.height - ((ms - head) * scale)
             if (y in 0f..size.height) drawLine(color = Color.White.copy(alpha = 0.1f), start = Offset(0f, y), end = Offset(tw, y), strokeWidth = 1.dp.toPx())
         }
 
-        // 3. Falling Note Capsules (Realistic sizing)
         val (blackEvents, whiteEvents) = events.filter { (it.startMs + it.durationMs) >= head && it.startMs <= lastMs }.partition { isPitchBlack(it.pitch) }
 
         fun drawNote(e: MidiNoteEvent) {
@@ -342,14 +340,13 @@ private fun FallingNotesVisualizer(
 
         whiteEvents.forEach { drawNote(it) }
         blackEvents.forEach { drawNote(it) }
-        
         drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(tw, size.height - 1f), 3.dp.toPx())
     }
 }
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 32.dp), Alignment.TopCenter) {
+    Box(Modifier.fillMaxWidth().padding(top = 48.dp), Alignment.TopCenter) {
         Surface(color = ColorGold, shape = RoundedCornerShape(16.dp), shadowElevation = 20.dp, border = BorderStroke(2.dp, Color.White.copy(0.7f))) {
             Text(text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) }, Modifier.padding(horizontal = 32.dp, vertical = 14.dp), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
         }
@@ -389,69 +386,38 @@ private fun PianoKeyboardRow(start: Int, end: Int, numWhiteKeys: Int, sustainedP
             }
         }
 
-        // Interaction Overlay (Multi-touch support)
-        val activePointers = remember { mutableStateMapOf<PointerId, Int>() }
-
+        // Interaction Overlay
         Box(Modifier.fillMaxSize().pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) {
-                    val event = awaitPointerEvent()
-                    event.changes.forEach { change ->
-                        val pointerId = change.id
-                        if (change.changedToDown()) {
-                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys)
-                            if (p != -1) {
-                                activePointers[pointerId] = p
-                                MidiInputManager.simulateNoteOn(p)
-                                PianoPlayer.noteOn(p)
-                            }
-                        } else if (change.changedToUp() || !change.pressed) {
-                            activePointers.remove(pointerId)?.let { oldPitch ->
-                                MidiInputManager.simulateNoteOff(oldPitch)
-                                PianoPlayer.noteOff(oldPitch)
-                            }
-                        } else if (change.positionChanged()) {
-                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys)
-                            val oldP = activePointers[pointerId]
-                            if (newP != oldP) {
-                                if (oldP != null) {
-                                    MidiInputManager.simulateNoteOff(oldP)
-                                    PianoPlayer.noteOff(oldP)
-                                }
-                                if (newP != -1) {
-                                    activePointers[pointerId] = newP
-                                    MidiInputManager.simulateNoteOn(newP)
-                                    PianoPlayer.noteOn(newP)
-                                } else {
-                                    activePointers.remove(pointerId)
-                                }
-                            }
+            detectTapGestures(onPress = { offset ->
+                // Precise pitch detection
+                var hitPitch = -1
+                // Check black keys first (top layer)
+                for (p in start..end) {
+                    if (isPitchBlack(p)) {
+                        val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                        if (offset.x in x1..x2 && offset.y <= 100.dp.toPx() * 0.7f) { hitPitch = p ; break }
+                    }
+                }
+                // Check white keys second
+                if (hitPitch == -1) {
+                    for (p in start..end) {
+                        if (!isPitchBlack(p)) {
+                            val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                            if (offset.x in x1..x2) { hitPitch = p ; break }
                         }
                     }
                 }
-            }
+
+                if (hitPitch != -1) {
+                    try {
+                        MidiInputManager.simulateNoteOn(hitPitch) ; PianoPlayer.noteOn(hitPitch) ; awaitRelease()
+                    } finally {
+                        MidiInputManager.simulateNoteOff(hitPitch) ; PianoPlayer.noteOff(hitPitch)
+                    }
+                }
+            })
         })
     }
-}
-
-private fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKeys: Int): Int {
-    // Check black keys first (top layer)
-    for (p in start..end) {
-        if (isPitchBlack(p)) {
-            val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
-            if (pos.x in x1..x2 && pos.y <= 100.dp.value * 0.7f * 2.5f) { // Approximating height check
-                return p
-            }
-        }
-    }
-    // Check white keys second
-    for (p in start..end) {
-        if (!isPitchBlack(p)) {
-            val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
-            if (pos.x in x1..x2) return p
-        }
-    }
-    return -1
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -464,7 +430,7 @@ private fun MediaTimelineFooter(
     Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             IconButton(onClick = onPlay, Modifier.size(56.dp).background(ColorGold, CircleShape)) { Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(36.dp)) }
-            IconButton(onClick = onRewind, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+            IconButton(onClick = onRewind, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
         }
         Spacer(modifier = Modifier.width(20.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
