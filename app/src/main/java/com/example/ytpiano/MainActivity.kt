@@ -1,10 +1,13 @@
 package com.example.ytpiano
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -18,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.ytpiano.api.PianoApiFactory
+import com.example.ytpiano.audio.AcousticNoteDetector
 import com.example.ytpiano.audio.PianoPlayer
 import com.example.ytpiano.midi.MidiInputManager
 import com.example.ytpiano.ui.components.AdaptiveNavigation
@@ -30,6 +34,10 @@ import com.example.ytpiano.ui.viewmodel.PianoWeaveViewModel
 class MainActivity : ComponentActivity() {
 
     private val viewModel: PianoWeaveViewModel by viewModels()
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +54,11 @@ class MainActivity : ComponentActivity() {
         // Initialize physical hardware MIDI listener framework at application launch
         MidiInputManager.initialize(applicationContext)
 
+        // Request audio permission for acoustic detection (used in Wait Mode)
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+
         setContent {
             PianoWeaveTheme {
                 Surface(
@@ -61,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     if (activeSong != null) {
                         PianoRollScreen(
                             song = activeSong,
+                            viewModel = viewModel,
                             onBack = { viewModel.activePracticeSong = null }
                         )
                     } else {
@@ -72,6 +86,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 }
 

@@ -37,6 +37,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
@@ -58,6 +64,7 @@ dependencies {
     )
 
     implementation(libs.fluidsynth.kmp)
+    implementation("com.github.wendykierp:JTransforms:3.1")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

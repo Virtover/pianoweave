@@ -15,6 +15,7 @@ kotlinxCoroutines = "1.10.2"
 composeMaterialIcons = "1.7.8"
 
 fluidSynth = "1.1.0"
+jtransforms = "3.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -39,6 +40,7 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 
 fluidsynth-kmp = { module = "dev.kotlinds:fluidsynth-kmp", version.ref = "fluidSynth" }
+jtransforms = { group = "com.github.wendykierp", name = "JTransforms", version.ref = "jtransforms" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
