@@ -198,6 +198,11 @@ private fun ModernPianoPlayerContent(
         noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
     }
 
+    // Echo Cancellation: ignore microphone input for notes currently played by the app
+    LaunchedEffect(sustainedPitches) {
+        AcousticNoteDetector.suppressedPitches = sustainedPitches
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys)

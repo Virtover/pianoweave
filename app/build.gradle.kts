@@ -23,9 +23,7 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+
         }
     }
 
@@ -36,12 +34,6 @@ android {
 
     buildFeatures {
         compose = true
-    }
-
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-        }
     }
 }
 

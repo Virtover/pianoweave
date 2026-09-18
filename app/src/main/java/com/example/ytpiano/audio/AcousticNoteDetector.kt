@@ -13,21 +13,24 @@ import kotlin.math.*
 
 /**
  * Advanced real-time acoustic piano note detector.
- * Uses Harmonic Product Spectrum (HPS) and Confidence Filtering to identify 
- * musical fundamental frequencies while rejecting speech and background noise.
+ * Optimized for robustness against speech and background noise.
  */
 object AcousticNoteDetector {
     private const val SAMPLE_RATE = 44100
-    private const val BUFFER_SIZE = 8192 // High resolution for low notes
+    private const val BUFFER_SIZE = 8192 
     
     private var isRunning = false
     private var thread: Thread? = null
     
-    // Stability tracking to prevent flickering and misdetection
     private val detectionConfidence = mutableMapOf<Int, Int>()
     private val activePitches = mutableSetOf<Int>()
-    private const val CONFIDENCE_THRESHOLD = 3 // Frames of consistency before turning ON
-    private const val DECAY_THRESHOLD = 5 // Frames of missing note before turning OFF
+    
+    // Pitches currently played by the app to be suppressed from detection
+    @Volatile
+    var suppressedPitches: Set<Int> = emptySet()
+    
+    private const val CONFIDENCE_THRESHOLD = 5 
+    private const val DECAY_THRESHOLD = 8 
 
     @SuppressLint("MissingPermission")
     fun start(context: Context) {
@@ -66,7 +69,6 @@ object AcousticNoteDetector {
             while (isRunning) {
                 val read = audioRecord.read(audioBuffer, 0, BUFFER_SIZE)
                 if (read > 0) {
-                    // 1. Apply Blackman-Harris window for sharp spectral peaks
                     for (i in 0 until BUFFER_SIZE) {
                         val a0 = 0.35875 ; val a1 = 0.48829 ; val a2 = 0.14128 ; val a3 = 0.01168
                         val t = 2 * PI * i / (BUFFER_SIZE - 1)
@@ -74,10 +76,8 @@ object AcousticNoteDetector {
                         fftBuffer[i] = (audioBuffer[i].toDouble() / Short.MAX_VALUE) * window
                     }
 
-                    // 2. Compute Forward FFT
                     fft.realForward(fftBuffer)
 
-                    // 3. Magnitude Spectrum with Noise Floor Estimation
                     val magnitudes = DoubleArray(BUFFER_SIZE / 2)
                     var totalEnergy = 0.0
                     for (k in 0 until BUFFER_SIZE / 2) {
@@ -86,29 +86,32 @@ object AcousticNoteDetector {
                         magnitudes[k] = sqrt(re * re + im * im)
                         totalEnergy += magnitudes[k]
                     }
-                    val noiseFloor = totalEnergy / (BUFFER_SIZE / 2)
-
-                    // 4. Harmonic Product Spectrum (HPS)
-                    // Isolates fundamental frequency by multiplying with its own harmonics
-                    val hps = DoubleArray(BUFFER_SIZE / 12) // Scan up to ~3.6kHz
-                    for (k in 1 until hps.size) {
-                        // Multiply Fundamental * 2nd Harmonic * 3rd Harmonic
-                        hps[k] = magnitudes[k] * magnitudes[min(k * 2, magnitudes.size - 1)] * magnitudes[min(k * 3, magnitudes.size - 1)]
+                    
+                    val hpsSize = BUFFER_SIZE / 12
+                    val hps = DoubleArray(hpsSize)
+                    for (k in 1 until hpsSize) {
+                        hps[k] = magnitudes[k] * 
+                                 magnitudes[min(k * 2, magnitudes.size - 1)] * 
+                                 magnitudes[min(k * 3, magnitudes.size - 1)] *
+                                 magnitudes[min(k * 4, magnitudes.size - 1)]
                     }
 
-                    // 5. Peak Finding with Adaptive Squelch (Reject speech/background)
-                    val detectedThisFrame = mutableSetOf<Int>()
-                    val squelchThreshold = max(25.0, noiseFloor * 12.0) 
+                    val noiseFloor = totalEnergy / (BUFFER_SIZE / 2)
+                    val squelchThreshold = max(40.0, noiseFloor * 25.0) 
                     
-                    for (k in 2 until hps.size - 2) {
+                    val detectedThisFrame = mutableSetOf<Int>()
+                    for (k in 2 until hpsSize - 2) {
                         if (hps[k] > squelchThreshold && hps[k] > hps[k-1] && hps[k] > hps[k+1]) {
                             val freq = k.toDouble() * SAMPLE_RATE / BUFFER_SIZE
-                            val pitch = frequencyToMidi(freq)
-                            if (pitch in 21..108) detectedThisFrame.add(pitch)
+                            val pitch = (69 + 12 * log2(freq / 440.0)).roundToInt()
+                            
+                            // IGNORE notes that the app itself is currently playing (Echo Cancellation)
+                            if (pitch in 21..108 && pitch !in suppressedPitches) {
+                                detectedThisFrame.add(pitch)
+                            }
                         }
                     }
 
-                    // 6. Hysteresis State Machine (Fixes flickering and speech artifacts)
                     for (p in 21..108) {
                         val count = detectionConfidence[p] ?: 0
                         if (p in detectedThisFrame) {
@@ -132,7 +135,7 @@ object AcousticNoteDetector {
             audioRecord.stop()
             audioRecord.release()
         }.apply { 
-            name = "AcousticDetector"
+            name = "PianoAcousticDetector"
             priority = Thread.MAX_PRIORITY
             start() 
         }
@@ -145,10 +148,5 @@ object AcousticNoteDetector {
         activePitches.forEach { MidiInputManager.simulateNoteOff(it) }
         activePitches.clear()
         detectionConfidence.clear()
-    }
-
-    private fun frequencyToMidi(freq: Double): Int {
-        if (freq <= 0) return -1
-        return (69 + 12 * log2(freq / 440.0)).roundToInt()
     }
 }
