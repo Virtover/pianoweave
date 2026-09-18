@@ -135,7 +135,7 @@ private fun ModernPianoPlayerContent(
     var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
 
     val context = LocalContext.current
-    LaunchedEffect(Unit) { AcousticNoteDetector.start(context) }
+    LaunchedEffect(Unit) { if (viewModel.isWaitModeEnabled) AcousticNoteDetector.start(context) }
     DisposableEffect(Unit) { onDispose { AcousticNoteDetector.stop() } }
 
     val sustainedPitches = remember(noteEvents, viewModel.playheadMs) {
@@ -253,6 +253,7 @@ private fun ModernToolbar(
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+    val current = LocalContext.current
 
     Row(
         modifier = Modifier.fillMaxWidth().background(ColorSurface.copy(alpha = 0.5f)).padding(horizontal = 8.dp, vertical = 4.dp),
@@ -271,7 +272,11 @@ private fun ModernToolbar(
                     }
                 }
             }
-            Box(modifier = Modifier.height(38.dp).then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth()).background(if (viewModel.isWaitModeEnabled) ColorGold else ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp)).border(1.dp, if (viewModel.isWaitModeEnabled) ColorGold else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).clickable { viewModel.isWaitModeEnabled = !viewModel.isWaitModeEnabled }.padding(horizontal = if (isPortrait) 0.dp else 14.dp), Alignment.Center) {
+            Box(modifier = Modifier.height(38.dp).then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth()).background(if (viewModel.isWaitModeEnabled) ColorGold else ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp)).border(1.dp, if (viewModel.isWaitModeEnabled) ColorGold else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).clickable {
+                if (viewModel.isWaitModeEnabled) AcousticNoteDetector.stop()
+                else AcousticNoteDetector.start(current)
+                viewModel.isWaitModeEnabled = !viewModel.isWaitModeEnabled
+            }.padding(horizontal = if (isPortrait) 0.dp else 14.dp), Alignment.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(Icons.Default.Timer, null, tint = if (viewModel.isWaitModeEnabled) Color.Black else ColorGold, modifier = Modifier.size(18.dp))
                     if (!isPortrait) { Spacer(Modifier.width(8.dp)) ; Text(text = "Wait mode", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (viewModel.isWaitModeEnabled) Color.Black else ColorGold, maxLines = 1, softWrap = false) }

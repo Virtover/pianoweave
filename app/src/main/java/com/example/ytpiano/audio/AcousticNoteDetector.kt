@@ -12,25 +12,38 @@ import org.jtransforms.fft.DoubleFFT_1D
 import kotlin.math.*
 
 /**
- * Advanced real-time acoustic piano note detector.
- * Optimized for robustness against speech, self-audio feedback, and overtone misdetection.
+ * High-fidelity acoustic piano note detector.
+ * 
+ * Strategy:
+ * 1. Spectral Flux Onset Detection: Identify sharp energy increases to trigger detection.
+ * 2. Harmonic Product Spectrum (HPS): Identify fundamental frequencies.
+ * 3. Hysteresis State Machine: Ensure stable note-on/off events and suppress speech/noise.
+ * 4. Echo Cancellation: Ignore app-generated audio via time-windowed suppression.
  */
 object AcousticNoteDetector {
     private const val SAMPLE_RATE = 44100
-    private const val BUFFER_SIZE = 8192 
-    
+    private const val FFT_SIZE = 8192
+    private const val HOP_SIZE = 2048 // 4x overlap for better time resolution
+
     private var isRunning = false
     private var thread: Thread? = null
     
-    private val detectionConfidence = mutableMapOf<Int, Int>()
-    private val activePitches = mutableSetOf<Int>()
-    
+    // Echo Cancellation
     @Volatile
     var suppressedPitches: Set<Int> = emptySet()
-    private val suppressionCooldowns = mutableMapOf<Int, Long>()
-    private const val SUPPRESSION_MS = 300L 
+    private val suppressionMap = mutableMapOf<Int, Long>()
+    private const val ECHO_WINDOW_MS = 450L // Increased for safety
 
-    private const val CONFIDENCE_THRESHOLD = 5 
+    // Onset Detection State
+    private val prevMagnitudes = DoubleArray(FFT_SIZE / 2)
+    private var fluxAverage = 0.0
+    private const val FLUX_ALPHA = 0.8 // Smoothing for noise floor estimation
+
+    // State Tracking
+    private val detectionConfidence = mutableMapOf<Int, Int>()
+    private val activePitches = mutableSetOf<Int>()
+    private const val ON_CONFIDENCE = 4  // Number of frames to confirm note-on
+    private const val OFF_CONFIDENCE = 6 // Number of frames to confirm note-off
 
     @SuppressLint("MissingPermission")
     fun start(context: Context) {
@@ -42,18 +55,13 @@ object AcousticNoteDetector {
 
         isRunning = true
         thread = Thread {
-            val minBufferSize = AudioRecord.getMinBufferSize(
-                SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT
-            )
-            
+            val minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
             val audioRecord = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
                 SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT,
-                minBufferSize.coerceAtLeast(BUFFER_SIZE * 2)
+                minBuf.coerceAtLeast(FFT_SIZE * 2)
             )
 
             if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
@@ -62,83 +70,105 @@ object AcousticNoteDetector {
             }
 
             audioRecord.startRecording()
-            val audioBuffer = ShortArray(BUFFER_SIZE)
-            val fftBuffer = DoubleArray(BUFFER_SIZE)
-            val fft = DoubleFFT_1D(BUFFER_SIZE.toLong())
+            
+            // Use a circular buffer or shift-buffer to handle overlaps
+            val processBuffer = ShortArray(FFT_SIZE)
+            val fftData = DoubleArray(FFT_SIZE)
+            val fft = DoubleFFT_1D(FFT_SIZE.toLong())
+            val window = DoubleArray(FFT_SIZE) { i ->
+                // Blackman-Harris window for sharp peak isolation
+                val a0 = 0.35875 ; val a1 = 0.48829 ; val a2 = 0.14128 ; val a3 = 0.01168
+                val t = 2 * PI * i / (FFT_SIZE - 1)
+                a0 - a1 * cos(t) + a2 * cos(2 * t) - a3 * cos(3 * t)
+            }
 
             while (isRunning) {
-                val read = audioRecord.read(audioBuffer, 0, BUFFER_SIZE)
-                if (read > 0) {
-                    val now = System.currentTimeMillis()
-                    
-                    suppressedPitches.forEach { suppressionCooldowns[it] = now + SUPPRESSION_MS }
+                // Read a hop's worth of data
+                val samples = ShortArray(HOP_SIZE)
+                val read = audioRecord.read(samples, 0, HOP_SIZE)
+                if (read <= 0) continue
 
-                    // Windowing
-                    for (i in 0 until BUFFER_SIZE) {
-                        val a0 = 0.35875 ; val a1 = 0.48829 ; val a2 = 0.14128 ; val a3 = 0.01168
-                        val t = 2 * PI * i / (BUFFER_SIZE - 1)
-                        val window = a0 - a1 * cos(t) + a2 * cos(2 * t) - a3 * cos(3 * t)
-                        fftBuffer[i] = (audioBuffer[i].toDouble() / Short.MAX_VALUE) * window
-                    }
+                // Shift and append to process buffer
+                System.arraycopy(processBuffer, HOP_SIZE, processBuffer, 0, FFT_SIZE - HOP_SIZE)
+                System.arraycopy(samples, 0, processBuffer, FFT_SIZE - HOP_SIZE, HOP_SIZE)
 
-                    fft.realForward(fftBuffer)
+                val now = System.currentTimeMillis()
+                
+                // Update suppression list
+                suppressedPitches.forEach { suppressionMap[it] = now + ECHO_WINDOW_MS }
 
-                    val magnitudes = DoubleArray(BUFFER_SIZE / 2)
-                    var maxMag = 0.0
-                    var sumMag = 0.0
-                    for (k in 0 until BUFFER_SIZE / 2) {
-                        val re = fftBuffer[2 * k]
-                        val im = if (k == 0) 0.0 else fftBuffer[2 * k + 1]
-                        magnitudes[k] = sqrt(re * re + im * im)
-                        if (magnitudes[k] > maxMag) maxMag = magnitudes[k]
-                        sumMag += magnitudes[k]
-                    }
-                    val noiseFloor = sumMag / (BUFFER_SIZE / 2)
-                    
-                    // 1. Harmonic Product Spectrum (HPS) with strict fundamental weighting
-                    val hpsSize = BUFFER_SIZE / 12
-                    val hps = DoubleArray(hpsSize)
-                    for (k in 1 until hpsSize) {
-                        // Weighted HPS: emphasize fundamental, de-emphasize high harmonics
-                        hps[k] = magnitudes[k] * 
-                                 sqrt(magnitudes[min(k * 2, magnitudes.size - 1)]) * 
-                                 sqrt(magnitudes[min(k * 3, magnitudes.size - 1)])
-                    }
+                // Prepare FFT data with windowing
+                for (i in 0 until FFT_SIZE) {
+                    fftData[i] = (processBuffer[i].toDouble() / Short.MAX_VALUE) * window[i]
+                }
 
-                    // 2. Peak Finding with Adaptive Normalized Threshold
-                    val detectedThisFrame = mutableSetOf<Int>()
-                    // Peaks must be significantly above noise floor AND have a high HPS score relative to peak energy
-                    val peakThreshold = max(20.0, noiseFloor * 15.0) 
-                    
-                    for (k in 2 until hpsSize - 2) {
+                fft.realForward(fftData)
+
+                // Calculate Magnitudes
+                val mags = DoubleArray(FFT_SIZE / 2)
+                var currentEnergy = 0.0
+                for (k in 0 until FFT_SIZE / 2) {
+                    val re = fftData[2 * k]
+                    val im = if (k == 0) 0.0 else fftData[2 * k + 1]
+                    mags[k] = sqrt(re * re + im * im)
+                    currentEnergy += mags[k]
+                }
+
+                // 1. Spectral Flux (Onset Detection)
+                var flux = 0.0
+                for (k in 0 until FFT_SIZE / 2) {
+                    val diff = mags[k] - prevMagnitudes[k]
+                    if (diff > 0) flux += diff
+                    prevMagnitudes[k] = mags[k]
+                }
+                
+                // Adaptive Flux Threshold
+                fluxAverage = FLUX_ALPHA * fluxAverage + (1 - FLUX_ALPHA) * flux
+                val isOnset = flux > (fluxAverage * 2.5) && flux > 1.5
+
+                // 2. Harmonic Product Spectrum (Frequency Detection)
+                val hpsSize = FFT_SIZE / 16 // Scan up to ~2.7kHz
+                val hps = DoubleArray(hpsSize)
+                var maxHps = 0.0
+                for (k in 4 until hpsSize) { // Start above ~21Hz (A0)
+                    hps[k] = mags[k] * 
+                             sqrt(mags[min(k * 2, mags.size - 1)]) * 
+                             sqrt(mags[min(k * 3, mags.size - 1)])
+                    if (hps[k] > maxHps) maxHps = hps[k]
+                }
+
+                val detectedThisFrame = mutableSetOf<Int>()
+                if (isOnset || currentEnergy > 5.0) {
+                    val peakThreshold = maxHps * 0.4
+                    for (k in 5 until hpsSize - 1) {
                         if (hps[k] > peakThreshold && hps[k] > hps[k-1] && hps[k] > hps[k+1]) {
-                            val freq = k.toDouble() * SAMPLE_RATE / BUFFER_SIZE
+                            val freq = k.toDouble() * SAMPLE_RATE / FFT_SIZE
                             val pitch = (69 + 12 * log2(freq / 440.0)).roundToInt()
                             
-                            val isSuppressed = (suppressionCooldowns[pitch] ?: 0L) > now
+                            val isSuppressed = (suppressionMap[pitch] ?: 0L) > now
                             if (pitch in 21..108 && !isSuppressed) {
                                 detectedThisFrame.add(pitch)
                             }
                         }
                     }
+                }
 
-                    // 3. State Machine (uses simulateExternalNoteOn to prevent virtual key crosstalk)
-                    for (p in 21..108) {
-                        val count = detectionConfidence[p] ?: 0
-                        if (p in detectedThisFrame) {
-                            detectionConfidence[p] = min(CONFIDENCE_THRESHOLD + 2, count + 1)
-                        } else {
-                            detectionConfidence[p] = max(0, count - 1)
-                        }
+                // 3. State Machine & Debouncing
+                for (p in 21..108) {
+                    val currentConf = detectionConfidence[p] ?: 0
+                    if (p in detectedThisFrame) {
+                        detectionConfidence[p] = min(ON_CONFIDENCE + 2, currentConf + 1)
+                    } else {
+                        detectionConfidence[p] = max(0, currentConf - 1)
+                    }
 
-                        val finalCount = detectionConfidence[p] ?: 0
-                        if (finalCount >= CONFIDENCE_THRESHOLD && p !in activePitches) {
-                            MidiInputManager.simulateExternalNoteOn(p)
-                            activePitches.add(p)
-                        } else if (finalCount == 0 && p in activePitches) {
-                            MidiInputManager.simulateExternalNoteOff(p)
-                            activePitches.remove(p)
-                        }
+                    val finalConf = detectionConfidence[p] ?: 0
+                    if (finalConf >= ON_CONFIDENCE && p !in activePitches) {
+                        MidiInputManager.simulateExternalNoteOn(p)
+                        activePitches.add(p)
+                    } else if (finalConf == 0 && p in activePitches) {
+                        MidiInputManager.simulateExternalNoteOff(p)
+                        activePitches.remove(p)
                     }
                 }
             }
@@ -146,7 +176,7 @@ object AcousticNoteDetector {
             audioRecord.stop()
             audioRecord.release()
         }.apply { 
-            name = "PianoAcousticDetector"
+            name = "AcousticPianoDetector"
             priority = Thread.MAX_PRIORITY
             start() 
         }
@@ -159,6 +189,6 @@ object AcousticNoteDetector {
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()
         detectionConfidence.clear()
-        suppressionCooldowns.clear()
+        suppressionMap.clear()
     }
 }
