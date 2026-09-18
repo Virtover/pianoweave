@@ -8,16 +8,26 @@ import android.media.midi.MidiReceiver
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import java.util.concurrent.ConcurrentHashMap
 
 object MidiInputManager {
 
+    // Combined set for UI rendering
     val pressedKeys = mutableStateListOf<Int>()
+    
+    // Exact system time when a key was last struck (any source)
+    val lastPressTimestamps = ConcurrentHashMap<Int, Long>()
+    
+    // Source-specific tracking to prevent crosstalk (e.g. acoustic releasing virtual)
+    private val virtualPresses = mutableSetOf<Int>()
+    private val externalPresses = mutableSetOf<Int>()
+    
     private var activeDevice: MidiDevice? = null
 
     fun initialize(context: Context) {
         val midiManager = context.getSystemService(Context.MIDI_SERVICE) as? MidiManager ?: return
 
-        // Register for hotplug connectivity events
         midiManager.registerDeviceCallback(object : MidiManager.DeviceCallback() {
             override fun onDeviceAdded(device: MidiDeviceInfo) {
                 autoConnectToDevice(midiManager, device)
@@ -27,19 +37,19 @@ object MidiInputManager {
                 if (activeDevice?.info?.id == device.id) {
                     activeDevice?.close()
                     activeDevice = null
-                    pressedKeys.clear()
+                    externalPresses.clear()
+                    syncPressedKeys()
                 }
             }
         }, Handler(Looper.getMainLooper()))
 
-        // Scan existing connected keyboards
         for (device in midiManager.devices) {
             autoConnectToDevice(midiManager, device)
         }
     }
 
     private fun autoConnectToDevice(midiManager: MidiManager, deviceInfo: MidiDeviceInfo) {
-        if (activeDevice != null) return // Already connected to a keyboard
+        if (activeDevice != null) return
 
         midiManager.openDevice(deviceInfo, { device ->
             if (device != null) {
@@ -62,39 +72,54 @@ object MidiInputManager {
             val statusByte = msg[i].toInt() and 0xFF
             val type = statusByte and 0xF0
             
-            if (type == 0x90) { // Note On Event
+            if (type == 0x90) { // Note On
                 if (i + 2 < offset + count) {
                     val pitch = msg[i + 1].toInt() and 0xFF
                     val velocity = msg[i + 2].toInt() and 0xFF
-                    if (velocity > 0) {
-                        if (!pressedKeys.contains(pitch)) {
-                            pressedKeys.add(pitch)
-                        }
-                    } else {
-                        pressedKeys.remove(pitch)
-                    }
+                    if (velocity > 0) simulateExternalNoteOn(pitch) else simulateExternalNoteOff(pitch)
                     i += 3
                 } else break
-            } else if (type == 0x80) { // Note Off Event
+            } else if (type == 0x80) { // Note Off
                 if (i + 2 < offset + count) {
                     val pitch = msg[i + 1].toInt() and 0xFF
-                    pressedKeys.remove(pitch)
+                    simulateExternalNoteOff(pitch)
                     i += 3
                 } else break
             } else {
-                // Advance 1 byte if non-note byte stream encountered
                 i++
             }
         }
     }
 
+    // --- Virtual Keyboard (Touch) ---
     fun simulateNoteOn(pitch: Int) {
-        if (!pressedKeys.contains(pitch)) {
-            pressedKeys.add(pitch)
-        }
+        lastPressTimestamps[pitch] = System.currentTimeMillis()
+        virtualPresses.add(pitch)
+        syncPressedKeys()
     }
 
     fun simulateNoteOff(pitch: Int) {
-        pressedKeys.remove(pitch)
+        virtualPresses.remove(pitch)
+        syncPressedKeys()
+    }
+
+    // --- External (MIDI / Acoustic) ---
+    fun simulateExternalNoteOn(pitch: Int) {
+        lastPressTimestamps[pitch] = System.currentTimeMillis()
+        externalPresses.add(pitch)
+        syncPressedKeys()
+    }
+
+    fun simulateExternalNoteOff(pitch: Int) {
+        externalPresses.remove(pitch)
+        syncPressedKeys()
+    }
+
+    private fun syncPressedKeys() {
+        val combined = virtualPresses + externalPresses
+        // Update the observable list without triggering unnecessary recompositions
+        val toRemove = pressedKeys.filter { it !in combined }
+        pressedKeys.removeAll(toRemove)
+        combined.forEach { if (it !in pressedKeys) pressedKeys.add(it) }
     }
 }

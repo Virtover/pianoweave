@@ -62,7 +62,7 @@ private val ColorSuccessLight = Color(0xFF69C67E)
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
-private val ColorKeyWhite = Color(0xFF808E95) 
+private val ColorKeyWhite = Color(0xFFE6E6E6) 
 private val ColorKeyBlack = Color(0xFF121212)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,7 +84,7 @@ fun PianoRollScreen(
             }
             noteEvents = parsed
         } catch (e: Exception) {
-            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI load failure"
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
         }
     }
 
@@ -131,10 +131,20 @@ private fun ModernPianoPlayerContent(
     }
 
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
+    var arrivalAtWaitPointRealTime by remember { mutableLongStateOf(0L) }
+    var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
 
     val context = LocalContext.current
-    LaunchedEffect(Unit) { if (viewModel.isWaitModeEnabled) AcousticNoteDetector.start(context) }
+    LaunchedEffect(Unit) { AcousticNoteDetector.start(context) }
     DisposableEffect(Unit) { onDispose { AcousticNoteDetector.stop() } }
+
+    val sustainedPitches = remember(noteEvents, viewModel.playheadMs) {
+        noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
+    }
+    
+    LaunchedEffect(sustainedPitches) {
+        AcousticNoteDetector.suppressedPitches = sustainedPitches
+    }
 
     LaunchedEffect(viewModel.isPlaying, isUserSeeking) {
         if (!viewModel.isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
@@ -167,9 +177,25 @@ private fun ModernPianoPlayerContent(
                 val upcoming = noteEvents.filter { it.startMs >= viewModel.playheadMs && it.startMs <= targetNext }.minOfOrNull { it.startMs }
                 if (upcoming != null) {
                     val targetPitches = noteEvents.filter { abs(it.startMs - upcoming) <= 30L }.map { it.pitch }.toSet()
-                    val pressed = MidiInputManager.pressedKeys.toSet()
-                    if (targetPitches.any { it in startPitch..endPitch && it !in pressed }) {
-                        viewModel.playheadMs = upcoming ; delay(10) ; continue
+                    
+                    if (currentWaitOnsetMs != upcoming) {
+                        currentWaitOnsetMs = upcoming
+                        arrivalAtWaitPointRealTime = System.currentTimeMillis()
+                    }
+                    
+                    val requiredToContinue = targetPitches.filter { it in startPitch..endPitch }
+                    val satisfied = requiredToContinue.all { p ->
+                        val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                        // Tight window: note must be struck within 400ms of arriving or while waiting
+                        lastPress >= arrivalAtWaitPointRealTime - 350L
+                    }
+
+                    if (!satisfied) {
+                        viewModel.playheadMs = upcoming
+                        delay(10)
+                        continue
+                    } else {
+                        currentWaitOnsetMs = -1L
                     }
                 }
             }
@@ -192,15 +218,6 @@ private fun ModernPianoPlayerContent(
             }
             delay(10)
         }
-    }
-
-    val sustainedPitches = remember(noteEvents, viewModel.playheadMs) {
-        noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
-    }
-
-    // Echo Cancellation: ignore microphone input for notes currently played by the app
-    LaunchedEffect(sustainedPitches) {
-        AcousticNoteDetector.suppressedPitches = sustainedPitches
     }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
@@ -236,7 +253,6 @@ private fun ModernToolbar(
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-    val context = LocalContext.current
 
     Row(
         modifier = Modifier.fillMaxWidth().background(ColorSurface.copy(alpha = 0.5f)).padding(horizontal = 8.dp, vertical = 4.dp),
@@ -255,19 +271,7 @@ private fun ModernToolbar(
                     }
                 }
             }
-            Box(modifier = Modifier.height(38.dp)
-                .then(
-                    if (isPortrait) Modifier.width(38.dp)
-                    else Modifier.wrapContentWidth()).background(
-                    if (viewModel.isWaitModeEnabled) ColorGold else ColorSurface.copy(alpha = 0.8f),
-                    RoundedCornerShape(10.dp)).border(
-                    1.dp,
-                    if (viewModel.isWaitModeEnabled) ColorGold else ColorSlate.copy(alpha = 0.5f),
-                    RoundedCornerShape(10.dp)).clickable {
-                        if (viewModel.isWaitModeEnabled) AcousticNoteDetector.stop()
-                        else AcousticNoteDetector.start(context)
-                        viewModel.isWaitModeEnabled = !viewModel.isWaitModeEnabled
-                    }.padding(horizontal = if (isPortrait) 0.dp else 14.dp), Alignment.Center) {
+            Box(modifier = Modifier.height(38.dp).then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth()).background(if (viewModel.isWaitModeEnabled) ColorGold else ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp)).border(1.dp, if (viewModel.isWaitModeEnabled) ColorGold else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).clickable { viewModel.isWaitModeEnabled = !viewModel.isWaitModeEnabled }.padding(horizontal = if (isPortrait) 0.dp else 14.dp), Alignment.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(Icons.Default.Timer, null, tint = if (viewModel.isWaitModeEnabled) Color.Black else ColorGold, modifier = Modifier.size(18.dp))
                     if (!isPortrait) { Spacer(Modifier.width(8.dp)) ; Text(text = "Wait mode", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = if (viewModel.isWaitModeEnabled) Color.Black else ColorGold, maxLines = 1, softWrap = false) }
@@ -289,20 +293,24 @@ private fun getWhiteIndex(pitch: Int): Int {
 }
 
 private fun getWhiteKeyXPx(whiteIndex: Int, numWhiteKeys: Int, totalWidth: Float): Float {
-    val bw = (totalWidth / numWhiteKeys).toInt()
-    val rem = (totalWidth % numWhiteKeys).toInt()
-    return (whiteIndex * bw + minOf(whiteIndex, rem)).toFloat()
+    val bw = totalWidth / numWhiteKeys
+    return whiteIndex * bw
 }
 
+/**
+ * Returns horizontal bounds for ANY pitch (black or white) in a fixed-width-white keyboard.
+ */
 private fun getPitchXRange(pitch: Int, startPitch: Int, totalWidth: Float, numWhiteKeys: Int): Pair<Float, Float> {
     val startWhite = getWhiteIndex(startPitch)
+    val wkW = totalWidth / numWhiteKeys
+    
     if (!isPitchBlack(pitch)) {
         val whiteIdx = getWhiteIndex(pitch) - startWhite
-        return getWhiteKeyXPx(whiteIdx, numWhiteKeys, totalWidth) to getWhiteKeyXPx(whiteIdx + 1, numWhiteKeys, totalWidth)
+        return (whiteIdx * wkW) to ((whiteIdx + 1) * wkW)
     } else {
+        // Black keys are centered on the line between their neighbors
         val leftWhiteIdx = getWhiteIndex(pitch - 1) - startWhite
-        val center = getWhiteKeyXPx(leftWhiteIdx + 1, numWhiteKeys, totalWidth)
-        val wkW = getWhiteKeyXPx(1, numWhiteKeys, totalWidth) - getWhiteKeyXPx(0, numWhiteKeys, totalWidth)
+        val center = (leftWhiteIdx + 1) * wkW
         val bkWidth = wkW * 0.65f
         return (center - bkWidth/2) to (center + bkWidth/2)
     }
@@ -317,17 +325,20 @@ private fun FallingNotesVisualizer(
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
 
+        // 1. Grid Lanes (White Key Boundaries)
         for (i in 0..numWhiteKeys) {
-            val x = getWhiteKeyXPx(i, numWhiteKeys, tw)
+            val x = i * (tw / numWhiteKeys)
             drawLine(color = Color(0xFF161B22), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
+        // 2. Bar Lines
         val barIntervalMs = 2000L ; val firstBar = (head / barIntervalMs) * barIntervalMs ; val lastMs = head + (size.height / scale).toLong()
         for (ms in firstBar..lastMs step barIntervalMs) {
             val y = size.height - ((ms - head) * scale)
             if (y in 0f..size.height) drawLine(color = Color.White.copy(alpha = 0.1f), start = Offset(0f, y), end = Offset(tw, y), strokeWidth = 1.dp.toPx())
         }
 
+        // 3. Falling Notes
         val filtered = events.filter { (it.startMs + it.durationMs) >= head && it.startMs <= lastMs }
         val (blackEvents, whiteEvents) = filtered.partition { isPitchBlack(it.pitch) }
 
@@ -371,32 +382,42 @@ private fun PianoKeyboardRow(start: Int, end: Int, numWhiteKeys: Int, sustainedP
     val pressed = MidiInputManager.pressedKeys.toSet()
 
     BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp).background(ColorKeyBlack)) {
-        val realTw = constraints.maxWidth.toFloat()
+        val tw = constraints.maxWidth.toFloat()
         val activePointers = remember { mutableStateMapOf<PointerId, Int>() }
 
         Canvas(Modifier.fillMaxSize()) {
-            // 1. White Key Layer
+            // 1. White Keys (Identical Width Rectangles)
+            val wkW = tw / numWhiteKeys
+            for (i in 0 until numWhiteKeys) {
+                val x1 = i * wkW
+                val x2 = (i + 1) * wkW
+                
+                // Draw white key background
+                drawRoundRect(
+                    color = ColorKeyWhite,
+                    topLeft = Offset(x1 + 0.5f, 0f),
+                    size = Size(x2 - x1 - 1f, size.height),
+                    cornerRadius = CornerRadius(6.dp.toPx())
+                )
+                // Draw separator
+                drawLine(Color.Black.copy(alpha = 0.15f), Offset(x1, 0f), Offset(x1, size.height), 1.2.dp.toPx())
+            }
+
+            // 2. Highlight active white keys (Overlay)
             for (p in start..end) {
                 if (isPitchBlack(p)) continue
-                val whiteIdx = getWhiteIndex(p) - getWhiteIndex(start)
-                val x1 = getWhiteKeyXPx(whiteIdx, numWhiteKeys, realTw)
-                val x2 = getWhiteKeyXPx(whiteIdx + 1, numWhiteKeys, realTw)
-                
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
                 val isPressed = pressed.contains(p) ; val isTarget = sustainedPitches.contains(p)
-                val highlightColor = when { isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; isTarget -> ColorGold.copy(alpha = 0.35f) ; else -> ColorKeyWhite }
-                val shineColor = when { isPressed && isTarget -> ColorSuccessLight ; isPressed -> ColorGoldLight ; isTarget -> highlightColor.copy(alpha = 0.5f) ; else -> ColorKeyWhite }
-                
-                drawRoundRect(brush = Brush.verticalGradient(listOf(shineColor, highlightColor), startY = 0f, endY = size.height), topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, size.height), cornerRadius = CornerRadius(6.dp.toPx()))
-                if (isPressed) drawRect(Color.Black.copy(alpha = 0.1f), topLeft = Offset(x1, 0f), size = Size(x2 - x1, size.height))
-                
-                // VERTICAL BORDERS (Full-height lines at white key boundaries)
-                drawLine(Color.Black.copy(alpha = 0.25f), Offset(x1, 0f), Offset(x1, size.height), 1.2.dp.toPx())
-                if (p == end) drawLine(Color.Black.copy(alpha = 0.25f), Offset(x2, 0f), Offset(x2, size.height), 1.2.dp.toPx())
+                if (isPressed || isTarget) {
+                    val color = when { isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; else -> ColorGold.copy(alpha = 0.35f) }
+                    drawRect(color, topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, size.height))
+                }
             }
-            // 2. Black Key Layer
+
+            // 3. Black Keys (On top of boundaries)
             for (p in start..end) {
                 if (!isPitchBlack(p)) continue
-                val (x1, x2) = getPitchXRange(p, start, realTw, numWhiteKeys)
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
                 val isPressed = pressed.contains(p) ; val isTarget = sustainedPitches.contains(p)
                 val highlightColor = when { isPressed && isTarget -> ColorSuccess ; isPressed -> ColorGold ; isTarget -> ColorGold.copy(alpha = 0.4f) ; else -> ColorKeyBlack }
                 val shineColor = when { isPressed && isTarget -> ColorSuccessLight ; isPressed -> ColorGoldLight ; isTarget -> highlightColor.copy(alpha = 0.7f) ; else -> ColorKeyBlack }
@@ -405,21 +426,19 @@ private fun PianoKeyboardRow(start: Int, end: Int, numWhiteKeys: Int, sustainedP
             }
         }
 
-        Box(Modifier.fillMaxSize().pointerInput(start, end, realTw, numWhiteKeys) {
+        Box(Modifier.fillMaxSize().pointerInput(start, end, tw, numWhiteKeys) {
             awaitPointerEventScope {
                 while (true) {
                     val event = awaitPointerEvent()
                     event.changes.forEach { change ->
                         val pId = change.id
                         if (change.changedToDown()) {
-                            val p = findPitchAt(change.position, start, end, realTw, numWhiteKeys)
-                            if (p != -1) {
-                                activePointers[pId] = p ; MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p)
-                            }
+                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys)
+                            if (p != -1) { activePointers[pId] = p ; MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) }
                         } else if (change.changedToUp() || !change.pressed) {
                             activePointers.remove(pId)?.let { oldP -> MidiInputManager.simulateNoteOff(oldP) ; PianoPlayer.noteOff(oldP) }
                         } else if (change.positionChanged()) {
-                            val newP = findPitchAt(change.position, start, end, realTw, numWhiteKeys)
+                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys)
                             val oldP = activePointers[pId]
                             if (newP != oldP) {
                                 if (oldP != null) { MidiInputManager.simulateNoteOff(oldP) ; PianoPlayer.noteOff(oldP) }
