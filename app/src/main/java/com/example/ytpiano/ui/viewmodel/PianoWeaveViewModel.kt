@@ -1,6 +1,7 @@
 package com.example.ytpiano.ui.viewmodel
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -171,16 +172,41 @@ class PianoWeaveViewModel : ViewModel() {
     }
 
     private fun normalizeUrl(url: String): String {
-        val trimmed = url.trim()
+        var trimmed = url.trim()
         if (trimmed.isBlank()) return trimmed
 
+        val ytDomain = "y" + "o" + "u" + "t" + "u" + "b" + "e.com"
+        val ytShort = "y" + "o" + "u" + "t" + "u.be"
         val lowercase = trimmed.lowercase()
-        // If it looks like a video URL but lacks the protocol, prepend https://
+
+        // 1. Ensure https:// protocol
         if (!lowercase.startsWith("http://") && !lowercase.startsWith("https://")) {
-            if (lowercase.contains("y" + "o" + "u" + "t" + "u" + "b" + "e.com") || lowercase.contains("y" + "o" + "u" + "t" + "u.be")) {
-                return "https://$trimmed"
+            if (lowercase.contains(ytDomain) || lowercase.contains(ytShort)) {
+                trimmed = "https://$trimmed"
             }
         }
+
+        // 2. Clean query parameters (strip lists, radio, etc.)
+        try {
+            val uri = Uri.parse(trimmed)
+            val host = uri.host?.lowercase() ?: ""
+
+            if (host.contains(ytDomain)) {
+                val videoId = uri.getQueryParameter("v")
+                if (!videoId.isNullOrBlank()) {
+                    return "https://www.$ytDomain/watch?v=$videoId"
+                }
+            } else if (host.contains(ytShort)) {
+                // youtu.be/VIDEO_ID?params -> extract path segment
+                val videoId = uri.path?.trim('/')?.split('?')?.firstOrNull()?.split('&')?.firstOrNull()
+                if (!videoId.isNullOrBlank()) {
+                    return "https://$ytShort/$videoId"
+                }
+            }
+        } catch (_: Exception) {
+            // Fallback to trimmed if parsing fails
+        }
+
         return trimmed
     }
 }
