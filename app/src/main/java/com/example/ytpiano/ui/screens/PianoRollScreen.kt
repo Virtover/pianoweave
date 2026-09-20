@@ -177,19 +177,18 @@ private fun ModernPianoPlayerContent(
                 val upcoming = noteEvents.filter { it.startMs >= viewModel.playheadMs && it.startMs <= targetNext }.minOfOrNull { it.startMs }
                 if (upcoming != null) {
                     val targetPitches = noteEvents.filter { abs(it.startMs - upcoming) <= 30L }.map { it.pitch }.toSet()
-                    
+
                     if (currentWaitOnsetMs != upcoming) {
                         currentWaitOnsetMs = upcoming
                         arrivalAtWaitPointRealTime = System.currentTimeMillis()
                     }
-                    
+
                     val requiredToContinue = targetPitches.filter { it in startPitch..endPitch }
                     val satisfied = requiredToContinue.all { p ->
                         val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
                         val consumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
-                        
-                        // Strict window: note must be new AND struck after arriving (or while waiting)
-                        val isRecent = lastPress >= arrivalAtWaitPointRealTime - 350L && lastPress > consumed
+
+                        val isRecent = lastPress >= arrivalAtWaitPointRealTime - 350L && lastPress > consumed - 10L
                         if (isRecent) {
                             MidiInputManager.consumedPressTimestamps[p] = lastPress
                         }

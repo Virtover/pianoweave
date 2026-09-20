@@ -48,6 +48,7 @@ object AcousticNoteDetector {
     @SuppressLint("MissingPermission")
     fun start(context: Context) {
         if (isRunning) return
+        if (MidiInputManager.isMidiDeviceConnected()) return
         
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             return
@@ -83,6 +84,7 @@ object AcousticNoteDetector {
             }
 
             while (isRunning) {
+                if (MidiInputManager.isMidiDeviceConnected()) break
                 // Read a hop's worth of data
                 val samples = ShortArray(HOP_SIZE)
                 val read = audioRecord.read(samples, 0, HOP_SIZE)
