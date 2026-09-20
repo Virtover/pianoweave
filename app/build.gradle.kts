@@ -4,14 +4,14 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ytpiano"
+    namespace = "com.example.pianoweave"
 
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.ytpiano"
+        applicationId = "com.example.pianoweave"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
