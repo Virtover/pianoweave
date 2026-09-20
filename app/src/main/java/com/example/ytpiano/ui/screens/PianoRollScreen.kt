@@ -186,8 +186,14 @@ private fun ModernPianoPlayerContent(
                     val requiredToContinue = targetPitches.filter { it in startPitch..endPitch }
                     val satisfied = requiredToContinue.all { p ->
                         val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
-                        // Tight window: note must be struck within 400ms of arriving or while waiting
-                        lastPress >= arrivalAtWaitPointRealTime - 350L
+                        val consumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
+                        
+                        // Strict window: note must be new AND struck after arriving (or while waiting)
+                        val isRecent = lastPress >= arrivalAtWaitPointRealTime - 350L && lastPress > consumed
+                        if (isRecent) {
+                            MidiInputManager.consumedPressTimestamps[p] = lastPress
+                        }
+                        isRecent
                     }
 
                     if (!satisfied) {

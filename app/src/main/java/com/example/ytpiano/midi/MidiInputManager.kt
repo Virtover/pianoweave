@@ -8,22 +8,22 @@ import android.media.midi.MidiReceiver
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import java.util.concurrent.ConcurrentHashMap
 
 object MidiInputManager {
 
-    // Combined set for UI rendering
     val pressedKeys = mutableStateListOf<Int>()
-    
-    // Exact system time when a key was last struck (any source)
     val lastPressTimestamps = ConcurrentHashMap<Int, Long>()
+    val consumedPressTimestamps = ConcurrentHashMap<Int, Long>()
     
-    // Source-specific tracking to prevent crosstalk (e.g. acoustic releasing virtual)
     private val virtualPresses = mutableSetOf<Int>()
     private val externalPresses = mutableSetOf<Int>()
     
     private var activeDevice: MidiDevice? = null
+
+    fun isMidiDeviceConnected(): Boolean {
+        return activeDevice != null
+    }
 
     fun initialize(context: Context) {
         val midiManager = context.getSystemService(Context.MIDI_SERVICE) as? MidiManager ?: return
@@ -91,7 +91,6 @@ object MidiInputManager {
         }
     }
 
-    // --- Virtual Keyboard (Touch) ---
     fun simulateNoteOn(pitch: Int) {
         lastPressTimestamps[pitch] = System.currentTimeMillis()
         virtualPresses.add(pitch)
@@ -103,7 +102,6 @@ object MidiInputManager {
         syncPressedKeys()
     }
 
-    // --- External (MIDI / Acoustic) ---
     fun simulateExternalNoteOn(pitch: Int) {
         lastPressTimestamps[pitch] = System.currentTimeMillis()
         externalPresses.add(pitch)
@@ -117,7 +115,6 @@ object MidiInputManager {
 
     private fun syncPressedKeys() {
         val combined = virtualPresses + externalPresses
-        // Update the observable list without triggering unnecessary recompositions
         val toRemove = pressedKeys.filter { it !in combined }
         pressedKeys.removeAll(toRemove)
         combined.forEach { if (it !in pressedKeys) pressedKeys.add(it) }
