@@ -126,7 +126,7 @@ private fun PianoWeaveApp(
                     viewModel = viewModel,
                     context = context,
                     onSongSelect = { selectedSong ->
-                        viewModel.activePracticeSong = selectedSong
+                        viewModel.openPracticeSession(selectedSong)
                         viewModel.readySong = null
                     }
                 )
@@ -138,7 +138,7 @@ private fun PianoWeaveApp(
                     onSongsChange = { /* Handled reactively by viewModel state updates */ },
                     context = context,
                     onSongSelect = { clickedSong ->
-                        viewModel.activePracticeSong = clickedSong
+                        viewModel.openPracticeSession(clickedSong)
                     },
                     onDeleteClick = { songToDelete ->
                         viewModel.deleteSong(context, songToDelete)

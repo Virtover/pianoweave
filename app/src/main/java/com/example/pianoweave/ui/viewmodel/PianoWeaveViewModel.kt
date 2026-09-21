@@ -34,9 +34,10 @@ class PianoWeaveViewModel : ViewModel() {
 
     var readySong by mutableStateOf<StoredMidi?>(null)
     var activePracticeSong by mutableStateOf<StoredMidi?>(null)
+    private var lastPlayedSongPath: String? = null
 
     // --- Playback State (Orientation Survival) ---
-    var isPlaying by mutableStateOf(true)
+    var isPlaying by mutableStateOf(false)
     var playheadMs by mutableLongStateOf(0L)
     var speedMultiplier by mutableFloatStateOf(1.0f)
     var isWaitModeEnabled by mutableStateOf(false)
@@ -44,6 +45,15 @@ class PianoWeaveViewModel : ViewModel() {
     var loopStartMs by mutableLongStateOf(0L)
     var loopEndMs by mutableLongStateOf(0L)
     var transposeOffset by mutableIntStateOf(0)
+
+    fun openPracticeSession(song: StoredMidi) {
+        if (lastPlayedSongPath != song.file.absolutePath) {
+            playheadMs = 0L
+            isPlaying = true // Auto-play new songs
+            lastPlayedSongPath = song.file.absolutePath
+        }
+        activePracticeSong = song
+    }
 
     fun updateUrl(url: String) {
         if (!isLoading) {

@@ -16,12 +16,12 @@ import kotlin.math.*
 
 /**
  * State-of-the-Art real-time piano note detector using Spotify's Basic Pitch.
- * Optimized for high-fidelity polyphony and low-latency response.
  */
 object AcousticNoteDetector {
     private const val TAG = "AcousticNoteDetector"
     private const val MODEL_NAME = "basic_pitch.tflite"
     
+    // Model Constraints
     private const val INPUT_SAMPLES = 43844 
     private const val MIDI_KEYS = 88
     private const val MIDI_OFFSET = 21
@@ -34,6 +34,7 @@ object AcousticNoteDetector {
     private var interpreter: Interpreter? = null
     private var gpuDelegate: GpuDelegate? = null
 
+    // Dynamic output mapping
     private var contourIndex = -1
     private var noteIndex = -1
     private var onsetIndex = -1
@@ -46,6 +47,9 @@ object AcousticNoteDetector {
     private val noteOffConfidence = IntArray(128)
     private const val REQUIRED_OFF_FRAMES = 2 
 
+    /**
+     * One-time setup of the model and native engine.
+     */
     fun initialize(context: Context) {
         if (isInitialized) return
         try {
@@ -70,12 +74,16 @@ object AcousticNoteDetector {
             }
             
             val interp = interpreter ?: return
+
+            // Discover output indices based on tensor shapes
             for (i in 0 until interp.outputTensorCount) {
                 val shape = interp.getOutputTensor(i).shape()
                 val lastDim = shape.last()
                 when (lastDim) {
                     CONTOUR_BINS -> contourIndex = i
-                    MIDI_KEYS -> if (noteIndex == -1) noteIndex = i else onsetIndex = i
+                    MIDI_KEYS -> {
+                        if (noteIndex == -1) noteIndex = i else onsetIndex = i
+                    }
                 }
             }
             Log.i(TAG, "Mapped Indices -> Contour: $contourIndex, Note: $noteIndex, Onset: $onsetIndex")
@@ -92,7 +100,9 @@ object AcousticNoteDetector {
     fun start(context: Context) {
         if (!isInitialized) initialize(context)
         if (!isInitialized || isRunning) return
+        
         if (MidiInputManager.isMidiDeviceConnected()) return
+        
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
 
         if (!NativeAudioEngine.startCapture()) return
@@ -128,7 +138,6 @@ object AcousticNoteDetector {
         val captureSamples = INPUT_SAMPLES * 2
         val captureBuffer = ByteBuffer.allocateDirect(captureSamples * 4).order(ByteOrder.nativeOrder())
         val floatData = FloatArray(captureSamples)
-        val resampledInput = FloatArray(INPUT_SAMPLES)
 
         while (isRunning) {
             if (MidiInputManager.isMidiDeviceConnected()) break
@@ -139,38 +148,38 @@ object AcousticNoteDetector {
                 continue
             }
 
+            // Copy data from native bridge
             captureBuffer.rewind()
             NativeAudioEngine.copyLatest(captureBuffer, captureSamples)
             captureBuffer.rewind()
             captureBuffer.asFloatBuffer().get(floatData)
 
-            // --- Enhanced Pre-processing ---
-            // 1. Better Resampling: Mean of 2 samples to reduce aliasing
-            // 2. Gain Normalization: Target 0.6 peak for robust model input
+            // --- Enhanced Normalization & Resampling ---
+            // Decimate 44.1kHz -> 22.05kHz (taking every 2nd sample to keep high end crisp)
+            // Normalize to 0.7 peak amplitude for better sensitivity
             var peak = 0.0001f
             for (s in floatData) { val a = abs(s); if (a > peak) peak = a }
-            val dynamicGain = min(2.5f, 0.6f / peak)
+            val dynamicGain = min(3.0f, 0.7f / peak)
 
             inputBuffer.rewind()
             for (i in 0 until INPUT_SAMPLES) {
-                val averaged = (floatData[i * 2] + floatData[i * 2 + 1]) / 2f
-                inputBuffer.putFloat(averaged * dynamicGain)
-                resampledInput[i] = averaged * dynamicGain
+                inputBuffer.putFloat(floatData[i * 2] * dynamicGain)
             }
 
             interpreter?.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputs)
             processOutputs(noteOutput[0], onsetOutput[0])
             
-            Thread.sleep(35) // High frequency for reactive feel
+            Thread.sleep(30) // Fast inference cycle
         }
     }
 
     private fun processOutputs(notePosteriors: Array<FloatArray>, onsetPosteriors: Array<FloatArray>) {
         val now = System.currentTimeMillis()
-        suppressedPitches.forEach { suppressionMap[it] = now + ECHO_WINDOW_MS }
+        val suppressed = suppressedPitches
+        suppressed.forEach { suppressionMap[it] = now + ECHO_WINDOW_MS }
 
-        // Increase analysis window to ensure no sharp onsets are missed
-        val framesToAnalyze = 12
+        // Large analysis window to ensure onsets are never missed due to loop jitter
+        val framesToAnalyze = 20
         val startFrame = max(0, OUTPUT_FRAMES - framesToAnalyze)
         
         for (p in 0 until MIDI_KEYS) {
@@ -190,20 +199,22 @@ object AcousticNoteDetector {
             }
             avgNote /= framesToAnalyze
 
-            // --- Polyphonic Logic Fix ---
-            // Trigger a strike if there's a strong ONSET attack.
-            // Update timestamp every time a peak onset is detected, even if active,
-            // to allow slightly staggered chords to correctly "refresh" their arrival window.
-            if (peakOnset > 0.40f && peakNote > 0.30f) {
+            // --- Enhanced Sensitivity for High Keys ---
+            // Higher keys are quiet and decay instantly. Onsets are everything.
+            val isOnHighKey = midiPitch > 76
+            val thresholdOnset = if (isOnHighKey) 0.35f else 0.45f
+            val thresholdNote = if (isOnHighKey) 0.25f else 0.35f
+
+            if (peakOnset > thresholdOnset && peakNote > thresholdNote) {
+                // ALWAYS trigger strike event on onset spike
                 MidiInputManager.simulateExternalNoteOn(midiPitch)
                 activePitches.add(midiPitch)
                 noteOffConfidence[midiPitch] = 0
-            } else if (peakNote > 0.35f) {
-                // Sustain: Keep active, but don't re-trigger a "new strike" timestamp
+            } else if (peakNote > (thresholdNote + 0.05f)) {
+                // Sustain: Keep active, no strike event
                 activePitches.add(midiPitch)
                 noteOffConfidence[midiPitch] = 0
-            } else if (peakNote < 0.25f && avgNote < 0.20f && midiPitch in activePitches) {
-                // Hysteresis release
+            } else if (peakNote < 0.20f && avgNote < 0.15f && midiPitch in activePitches) {
                 noteOffConfidence[midiPitch]++
                 if (noteOffConfidence[midiPitch] >= REQUIRED_OFF_FRAMES) {
                     MidiInputManager.simulateExternalNoteOff(midiPitch)

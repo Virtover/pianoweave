@@ -69,12 +69,22 @@ fun PianoRollScreen(
 ) {
     var noteEvents by remember(song) { mutableStateOf<List<MidiNoteEvent>?>(null) }
     var parseError by remember(song) { mutableStateOf<String?>(null) }
+    
+    // Persistent tracking of the current song to avoid resets when coming back to the SAME song
+    var lastSongPath by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(song) {
+        if (lastSongPath != song.file.absolutePath) {
+            // New song detected: perform full reset
+            viewModel.playheadMs = 0L
+            viewModel.isPlaying = true
+            lastSongPath = song.file.absolutePath
+        } else {
+            viewModel.isPlaying = false
+        }
+        
         noteEvents = null
         parseError = null
-        viewModel.playheadMs = 0L
-        viewModel.isPlaying = true
         try {
             val parsed = withContext(Dispatchers.IO) {
                 SimpleMidiReader.parse(song.file)
@@ -129,6 +139,10 @@ private fun ModernPianoPlayerContent(
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
     var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
     var arrivalAtWaitPointRealTime by remember { mutableLongStateOf(0L) }
+    
+    // --- Chord Collector State ---
+    // Tracks which pitches of the current required chord have been hit since arriving
+    val chordHits = remember { mutableStateSetOf<Int>() }
 
     val context = LocalContext.current
     LaunchedEffect(Unit) { if (viewModel.isWaitModeEnabled) AcousticNoteDetector.start(context) }
@@ -150,6 +164,7 @@ private fun ModernPianoPlayerContent(
     LaunchedEffect(viewModel.isPlaying, viewModel.isWaitModeEnabled) {
         if (!viewModel.isPlaying || !viewModel.isWaitModeEnabled) {
             currentWaitOnsetMs = -1L
+            chordHits.clear()
         }
     }
 
@@ -187,38 +202,38 @@ private fun ModernPianoPlayerContent(
                     if (currentWaitOnsetMs != upcoming) {
                         currentWaitOnsetMs = upcoming
                         arrivalAtWaitPointRealTime = System.currentTimeMillis()
+                        chordHits.clear()
                     }
 
-                    // --- Improved Chord Logic: Struck Nearly at Once ---
-                    val pressed = MidiInputManager.pressedKeys.toSet()
-                    val allPressed = required.all { it in pressed }
-                    
-                    var isSuccess = false
-                    if (allPressed && required.isNotEmpty()) {
-                        val strikeTimes = required.map { MidiInputManager.lastPressTimestamps[it] ?: 0L }
-                        val consumedTimes = required.map { MidiInputManager.consumedPressTimestamps[it] ?: 0L }
-                        
-                        val minStrike = strikeTimes.min()
-                        val maxStrike = strikeTimes.max()
-                        
-                        val struckTogether = (maxStrike - minStrike) < 400L
-                        val struckRecently = minStrike >= arrivalAtWaitPointRealTime - 500L
-                        val struckFresh = strikeTimes.indices.all { i -> strikeTimes[i] > consumedTimes[i] }
-
-                        if (struckTogether && struckRecently && struckFresh) {
-                            isSuccess = true
-                            required.forEach { p ->
-                                MidiInputManager.consumedPressTimestamps[p] = strikeTimes[required.indexOf(p)]
+                    // --- Robust Chord Collector Logic ---
+                    // Instead of requiring all to be pressed simultaneously at this very instant,
+                    // we collect "fresh" strikes that have happened since we decided to wait.
+                    required.forEach { p ->
+                        if (p !in chordHits) {
+                            val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                            val lastConsumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
+                            
+                            // A strike counts if it happened just before (400ms) or any time after reaching wait point
+                            // AND it hasn't been consumed by a previous note.
+                            if (lastPress >= arrivalAtWaitPointRealTime - 400L && lastPress > lastConsumed) {
+                                chordHits.add(p)
                             }
                         }
                     }
 
-                    if (!isSuccess && required.isNotEmpty()) {
+                    val isChordSatisfied = required.isNotEmpty() && required.all { it in chordHits }
+
+                    if (!isChordSatisfied && required.isNotEmpty()) {
                         viewModel.playheadMs = upcoming
                         delay(10)
                         continue
                     } else {
+                        // Success! Mark all notes as consumed so they don't double-trigger the NEXT note
+                        required.forEach { p ->
+                            MidiInputManager.consumedPressTimestamps[p] = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                        }
                         currentWaitOnsetMs = -1L
+                        chordHits.clear()
                     }
                 }
             }
@@ -250,17 +265,18 @@ private fun ModernPianoPlayerContent(
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null // No ripple for clean UI
+                indication = null 
             ) {
                 viewModel.isPlaying = !viewModel.isPlaying
             }
         ) {
-            FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches)
+            FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, chordHits.toSet())
             
             ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { showSettingsDialog = true })
 
             if (isWaitingAtBaseline) {
-                WaitModeOverlay(notes = waitTargetPitches)
+                val remaining = waitTargetPitches.filter { it !in chordHits }.toSet()
+                WaitModeOverlay(notes = remaining)
             }
         }
 
@@ -272,7 +288,7 @@ private fun ModernPianoPlayerContent(
                 viewModel.isPlaying = !viewModel.isPlaying
             }
         ) {
-            PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches)
+            PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches, chordHits.toSet())
         }
 
         MediaTimelineFooter(
@@ -282,6 +298,7 @@ private fun ModernPianoPlayerContent(
                 viewModel.playheadMs = if (viewModel.isLoopingEnabled) viewModel.loopStartMs else 0L 
                 lastTriggeredHeadMs = viewModel.playheadMs 
                 currentWaitOnsetMs = -1L
+                chordHits.clear()
                 PianoPlayer.stopAllNotes() 
             }
         )
@@ -368,7 +385,8 @@ private fun getPitchXRange(pitch: Int, startPitch: Int, totalWidth: Float, numWh
 @Composable
 private fun FallingNotesVisualizer(
     events: List<MidiNoteEvent>, head: Long, start: Int, end: Int, numWhiteKeys: Int,
-    waitTargetPitches: Set<Int> = emptySet()
+    waitTargetPitches: Set<Int> = emptySet(),
+    satisfiedPitches: Set<Int> = emptySet()
 ) {
     val scale = 0.25f
     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -401,17 +419,18 @@ private fun FallingNotesVisualizer(
             val isAtBaseline = head >= e.startMs && head <= (e.startMs + e.durationMs)
             val isHitting = head >= e.startMs && head <= (e.startMs + 60L)
             val isWaiting = waitTargetPitches.contains(e.pitch) && head >= e.startMs - 50 && head <= e.startMs + 50
+            val isSatisfied = satisfiedPitches.contains(e.pitch) && isWaiting
             val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
 
             val baseCol = when { 
-                isUserMatch -> ColorSuccess 
+                isSatisfied || isUserMatch -> ColorSuccess 
                 isWaiting -> ColorWaitTarget
                 isHitting -> ColorTarget 
                 isAtBaseline -> ColorGold 
                 else -> ColorUpcomingNote 
             }
             val highlightCol = when { 
-                isUserMatch -> ColorSuccessLight 
+                isSatisfied || isUserMatch -> ColorSuccessLight 
                 isWaiting -> ColorWaitTargetLight
                 isHitting -> ColorGoldLight 
                 isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) 
@@ -421,7 +440,7 @@ private fun FallingNotesVisualizer(
             drawRoundRect(brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)), size = Size(kw - 1f, h), cornerRadius = CornerRadius(6.dp.toPx()))
             
             if (isHitting || isUserMatch || isWaiting) {
-                val glowCol = if (isWaiting) ColorWaitTarget else baseCol
+                val glowCol = if (isWaiting && !isSatisfied) ColorWaitTarget else baseCol
                 drawRect(brush = Brush.verticalGradient(listOf(glowCol.copy(alpha = 0.4f), Color.Transparent)), topLeft = Offset(x1, y.coerceIn(-h, size.height) + h), size = Size(kw, 35.dp.toPx()))
             }
         }
@@ -445,7 +464,8 @@ private fun WaitModeOverlay(notes: Set<Int>) {
 private fun PianoKeyboardRow(
     start: Int, end: Int, numWhiteKeys: Int,
     sustainedPitches: Set<Int>,
-    waitTargetPitches: Set<Int> = emptySet()
+    waitTargetPitches: Set<Int> = emptySet(),
+    satisfiedPitches: Set<Int> = emptySet()
 ) {
     val pressed = MidiInputManager.pressedKeys.toSet()
 
@@ -477,10 +497,12 @@ private fun PianoKeyboardRow(
                 val isPressed = pressed.contains(p)
                 val isTarget = sustainedPitches.contains(p)
                 val isWaiting = waitTargetPitches.contains(p)
+                val isSatisfied = satisfiedPitches.contains(p)
                 
-                if (isPressed || isTarget || isWaiting) {
+                if (isPressed || isTarget || isWaiting || isSatisfied) {
                     val color = when {
-                        isWaiting && isPressed -> ColorSuccess // Target struck!
+                        isSatisfied -> ColorSuccess
+                        isWaiting && isPressed -> ColorSuccess // Struck in chord window
                         isPressed -> ColorGold
                         isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
                         else -> ColorGold.copy(alpha = 0.35f)
@@ -496,8 +518,10 @@ private fun PianoKeyboardRow(
                 val isPressed = pressed.contains(p)
                 val isTarget = sustainedPitches.contains(p)
                 val isWaiting = waitTargetPitches.contains(p)
+                val isSatisfied = satisfiedPitches.contains(p)
                 
                 val highlightColor = when {
+                    isSatisfied -> ColorSuccess
                     isWaiting && isPressed -> ColorSuccess
                     isPressed -> ColorGold
                     isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
@@ -532,8 +556,7 @@ private fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKe
 private fun MediaTimelineFooter(
     viewModel: PianoWeaveViewModel, dur: Long, onSeekState: (Boolean) -> Unit, onResetHead: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp)
-        .clickable(enabled = false) {}, // Consume clicks
+    Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp).clickable(enabled = false) {}, // Consume clicks
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
