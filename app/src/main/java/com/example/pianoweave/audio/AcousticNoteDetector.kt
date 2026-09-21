@@ -4,11 +4,10 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
 import com.example.pianoweave.midi.MidiInputManager
 import org.jtransforms.fft.DoubleFFT_1D
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.*
 
 /**
@@ -41,20 +40,17 @@ object AcousticNoteDetector {
         if (isRunning) return
         if (MidiInputManager.isMidiDeviceConnected()) return
         
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
 
         isRunning = true
-        NativeAudioEngine.startCapture()
+        if (!NativeAudioEngine.startCapture()) {
+            isRunning = false
+            return
+        }
+
         thread = Thread {
-            val minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-            val audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBuf.coerceAtLeast(FFT_SIZE * 2)
-            )
-
-            if (audioRecord.state != AudioRecord.STATE_INITIALIZED) { isRunning = false ; return@Thread }
-
-            audioRecord.startRecording()
-            val processBuffer = ShortArray(FFT_SIZE)
             val fftData = DoubleArray(FFT_SIZE)
             val fft = DoubleFFT_1D(FFT_SIZE.toLong())
             val window = DoubleArray(FFT_SIZE) { i ->
@@ -63,21 +59,32 @@ object AcousticNoteDetector {
                 a0 - a1 * cos(t) + a2 * cos(2 * t) - a3 * cos(3 * t)
             }
 
+            // Buffer for native capture
+            val nativeBuffer = ByteBuffer.allocateDirect(FFT_SIZE * 4).order(ByteOrder.nativeOrder())
+            val floatData = FloatArray(FFT_SIZE)
+
+            var lastProcessedFrame = 0L
+
             while (isRunning) {
                 if (MidiInputManager.isMidiDeviceConnected()) break
 
-                val samples = ShortArray(HOP_SIZE)
-                val read = audioRecord.read(samples, 0, HOP_SIZE)
-                if (read <= 0) continue
+                val availableFrames = NativeAudioEngine.getAvailableFrames().toLong()
+                if (availableFrames < lastProcessedFrame + HOP_SIZE) {
+                    Thread.sleep(5)
+                    continue
+                }
 
-                System.arraycopy(processBuffer, HOP_SIZE, processBuffer, 0, FFT_SIZE - HOP_SIZE)
-                System.arraycopy(samples, 0, processBuffer, FFT_SIZE - HOP_SIZE, HOP_SIZE)
+                // Copy latest FFT_SIZE frames
+                NativeAudioEngine.copyLatest(nativeBuffer, FFT_SIZE)
+                nativeBuffer.rewind()
+                nativeBuffer.asFloatBuffer().get(floatData)
+                lastProcessedFrame = availableFrames
 
                 val now = System.currentTimeMillis()
                 suppressedPitches.forEach { suppressionMap[it] = now + ECHO_WINDOW_MS }
 
                 for (i in 0 until FFT_SIZE) {
-                    fftData[i] = (processBuffer[i].toDouble() / Short.MAX_VALUE) * window[i]
+                    fftData[i] = floatData[i].toDouble() * window[i]
                 }
 
                 fft.realForward(fftData)
@@ -132,18 +139,19 @@ object AcousticNoteDetector {
 
                     val finalCount = detectionConfidence[p] ?: 0
                     if (finalCount >= ON_CONFIDENCE && p !in activePitches) {
-//                        MidiInputManager.simulateExternalNoteOn(p)
+                        MidiInputManager.simulateExternalNoteOn(p)
                         activePitches.add(p)
                     } else if (finalCount == 0 && p in activePitches) {
-//                        MidiInputManager.simulateExternalNoteOff(p)
+                        MidiInputManager.simulateExternalNoteOff(p)
                         activePitches.remove(p)
                     }
                 }
             }
-
-            audioRecord.stop()
-            audioRecord.release()
-        }.apply { name = "PianoDetector" ; priority = Thread.MAX_PRIORITY ; start() }
+        }.apply { 
+            name = "AcousticPianoDetector"
+            priority = Thread.MAX_PRIORITY
+            start() 
+        }
     }
 
     fun stop() {
