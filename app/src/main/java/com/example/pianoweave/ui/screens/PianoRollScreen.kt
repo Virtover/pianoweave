@@ -206,9 +206,7 @@ private fun ModernPianoPlayerContent(
                         if (p !in chordHits) {
                             val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
                             val lastConsumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
-                            
-                            // A strike counts if it happened just before (400ms) or any time after reaching wait point
-                            // AND it hasn't been consumed by a previous note.
+
                             if (lastPress >= arrivalAtWaitPointRealTime - 400L && lastPress > lastConsumed) {
                                 chordHits.add(p)
                             }
