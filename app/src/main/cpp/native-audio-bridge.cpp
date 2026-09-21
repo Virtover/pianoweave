@@ -12,7 +12,8 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 namespace {
-    constexpr int32_t RING_BUFFER_SIZE = 65536;
+    // Increased to 256k to comfortably hold >2 seconds of 44.1kHz audio
+    constexpr int32_t RING_BUFFER_SIZE = 131072;
     float ringBuffer[RING_BUFFER_SIZE];
     std::atomic<int64_t> writeIndex{0};
     AAudioStream *audioStream = nullptr;

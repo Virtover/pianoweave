@@ -15,7 +15,7 @@ import java.nio.channels.FileChannel
 import kotlin.math.*
 
 /**
- * State-of-the-Art real-time piano note detector using Spotify's Basic Pitch.
+ * High-precision real-time piano note detector using Spotify's Basic Pitch.
  */
 object AcousticNoteDetector {
     private const val TAG = "AcousticNoteDetector"
@@ -45,7 +45,7 @@ object AcousticNoteDetector {
 
     private val activePitches = mutableSetOf<Int>()
     private val noteOffConfidence = IntArray(128)
-    private const val REQUIRED_OFF_FRAMES = 3
+    private const val REQUIRED_OFF_FRAMES = 2 // Faster note-off response
 
     /**
      * One-time setup of the model and native engine.
@@ -56,7 +56,7 @@ object AcousticNoteDetector {
             Log.i(TAG, "Initializing Basic Pitch model...")
             val modelBuffer = loadModelFile(context, MODEL_NAME)
 
-            // CRITICAL: Move Interpreter creation INSIDE try-catch to handle delegate application errors
+            // Try initializing with GPU
             try {
                 val options = Interpreter.Options()
                 gpuDelegate = GpuDelegate()
@@ -79,10 +79,14 @@ object AcousticNoteDetector {
             // Discover output indices based on tensor shapes
             for (i in 0 until interp.outputTensorCount) {
                 val shape = interp.getOutputTensor(i).shape()
+                Log.i(TAG, "Output $i shape: ${shape.contentToString()}")
                 val lastDim = shape.last()
                 when (lastDim) {
                     CONTOUR_BINS -> contourIndex = i
                     MIDI_KEYS -> {
+                        // In Basic Pitch TFLite exports:
+                        // Output 1 is usually Note posteriors
+                        // Output 2 is usually Onset posteriors
                         if (noteIndex == -1) noteIndex = i else onsetIndex = i
                     }
                 }
@@ -104,9 +108,15 @@ object AcousticNoteDetector {
         
         if (MidiInputManager.isMidiDeviceConnected()) return
         
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Permission RECORD_AUDIO missing.")
+            return
+        }
 
-        if (!NativeAudioEngine.startCapture()) return
+        if (!NativeAudioEngine.startCapture()) {
+            Log.e(TAG, "Failed to start capture.")
+            return
+        }
 
         isRunning = true
         thread = Thread {
@@ -146,24 +156,33 @@ object AcousticNoteDetector {
 
             val available = NativeAudioEngine.getAvailableFrames()
             if (available < captureSamples) {
-                Thread.sleep(15)
+                Thread.sleep(10)
                 continue
             }
 
+            // Copy data from native bridge
             captureBuffer.rewind()
             NativeAudioEngine.copyLatest(captureBuffer, captureSamples)
             captureBuffer.rewind()
             captureBuffer.asFloatBuffer().get(floatData)
 
+            // Normalize/Gain Boost: Basic Pitch can be sensitive to low volume
+            var maxVal = 0f
+            for (s in floatData) if (abs(s) > maxVal) maxVal = abs(s)
+            val gain = if (maxVal > 0.001f) min(2.0f, 0.5f / maxVal) else 1.0f
+
+            // Resample: Decimate 44.1kHz -> 22.05kHz
             inputBuffer.rewind()
             for (i in 0 until INPUT_SAMPLES) {
-                inputBuffer.putFloat(floatData[i * 2])
+                inputBuffer.putFloat(floatData[i * 2] * gain)
             }
 
             interpreter?.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputs)
+            
+            // Process outputs
             processOutputs(noteOutput[0], onsetOutput[0])
             
-            Thread.sleep(60) 
+            Thread.sleep(40) // Increased frequency for better real-time response
         }
     }
 
@@ -172,30 +191,40 @@ object AcousticNoteDetector {
         val suppressed = suppressedPitches
         suppressed.forEach { suppressionMap[it] = now + ECHO_WINDOW_MS }
 
-        val framesToAnalyze = 8
+        // Look at the trailing window for current state. 
+        // 15 frames = ~174ms. This ensures we don't miss sharp onsets between inferences.
+        val framesToAnalyze = 15
+        val startFrame = max(0, OUTPUT_FRAMES - framesToAnalyze)
         
         for (p in 0 until MIDI_KEYS) {
             val midiPitch = p + MIDI_OFFSET
+            
+            // Check echo cancellation
             if ((suppressionMap[midiPitch] ?: 0L) > now) {
                 if (activePitches.remove(midiPitch)) MidiInputManager.simulateExternalNoteOff(midiPitch)
                 continue
             }
 
             var peakOnset = 0f
-            var avgNoteProb = 0f
-            for (f in (OUTPUT_FRAMES - framesToAnalyze) until OUTPUT_FRAMES) {
+            var peakNote = 0f
+            var avgNote = 0f
+            
+            for (f in startFrame until OUTPUT_FRAMES) {
                 peakOnset = max(peakOnset, onsetPosteriors[f][p])
-                avgNoteProb += notePosteriors[f][p]
+                peakNote = max(peakNote, notePosteriors[f][p])
+                avgNote += notePosteriors[f][p]
             }
-            avgNoteProb /= framesToAnalyze
+            avgNote /= framesToAnalyze
 
-            if (peakOnset > 0.50f && avgNoteProb > 0.30f) {
+            // Optimized thresholds for sensitivity
+            // Onset is very sharp, Note is more persistent.
+            if (peakOnset > 0.45f && peakNote > 0.35f) {
                 if (midiPitch !in activePitches) {
                     MidiInputManager.simulateExternalNoteOn(midiPitch)
                     activePitches.add(midiPitch)
                 }
                 noteOffConfidence[midiPitch] = 0
-            } else if (avgNoteProb < 0.20f && midiPitch in activePitches) {
+            } else if (peakNote < 0.25f && avgNote < 0.20f && midiPitch in activePitches) {
                 noteOffConfidence[midiPitch]++
                 if (noteOffConfidence[midiPitch] >= REQUIRED_OFF_FRAMES) {
                     MidiInputManager.simulateExternalNoteOff(midiPitch)
@@ -214,6 +243,9 @@ object AcousticNoteDetector {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
+    /**
+     * Toggles microphone capture off, but keeps the model loaded.
+     */
     fun stop() {
         isRunning = false
         NativeAudioEngine.stopCapture()
@@ -223,8 +255,12 @@ object AcousticNoteDetector {
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()
         suppressionMap.clear()
+        Log.i(TAG, "Acoustic detection stopped")
     }
 
+    /**
+     * Completely releases resources.
+     */
     fun cleanup() {
         stop()
         interpreter?.close()
