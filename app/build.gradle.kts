@@ -6,24 +6,35 @@ plugins {
 android {
     namespace = "com.example.pianoweave"
 
+    ndkVersion = "30.0.16248370"
+
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
         applicationId = "com.example.pianoweave"
-        minSdk = 24
+
+        minSdk = 26
         targetSdk = 37
+
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
+
+        externalNativeBuild {
+            cmake {
+                arguments(
+                    "-DANDROID_STL=c++_shared"
+                )
+            }
+        }
     }
 
     buildTypes {
         release {
-
         }
     }
 
@@ -35,6 +46,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
+        }
+    }
 }
 
 dependencies {
@@ -42,7 +59,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
 
     implementation(platform(libs.androidx.compose.bom))
-
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.material3)
@@ -50,17 +66,17 @@ dependencies {
 
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
+
     implementation(libs.kotlinx.coroutines.android)
-    implementation(
-        libs.androidx.compose.material.icons.extended
-    )
+    implementation(libs.androidx.compose.material.icons.extended)
 
     implementation(libs.fluidsynth.kmp)
-    implementation("com.github.wendykierp:JTransforms:3.1")
+    implementation(libs.jtransforms)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

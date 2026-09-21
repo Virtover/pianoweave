@@ -44,7 +44,7 @@ object AcousticNoteDetector {
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
 
         isRunning = true
-//        NativeAudioEngine.startCapture()
+        NativeAudioEngine.startCapture()
         thread = Thread {
             val minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
             val audioRecord = AudioRecord(
@@ -148,7 +148,7 @@ object AcousticNoteDetector {
 
     fun stop() {
         isRunning = false
-//        NativeAudioEngine.stopCapture()
+        NativeAudioEngine.stopCapture()
         thread?.interrupt()
         thread = null
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
