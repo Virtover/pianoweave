@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,8 +52,8 @@ private val ColorUpcomingNote = Color(0xFF1F2937)
 private val ColorSlate = Color(0xFF30363D)
 private val ColorSuccess = Color(0xFF2EA043)
 private val ColorSuccessLight = Color(0xFF69C67E)
-private val ColorWaitTarget = Color(0xFF58A6FF)
-private val ColorWaitTargetLight = Color(0xFFA5D6FF)
+private val ColorWaitTarget = Color(0xFF00D2FF) // Neon Cyan
+private val ColorWaitTargetLight = Color(0xFFB3F5FF)
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFF85149) 
 private val ColorTextDim = Color(0xFF8B949E)
@@ -109,7 +108,6 @@ private fun ModernPianoPlayerContent(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var isUserSeeking by remember { mutableStateOf(false) }
 
-    // Range: Full 88-key piano keyboard (MIDI 21 to 108)
     val startPitch = 21
     val endPitch = 108
     val totalWhiteKeys = remember { (startPitch..endPitch).count { !isPitchBlack(it) } }
@@ -127,8 +125,10 @@ private fun ModernPianoPlayerContent(
     }
 
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
-    var arrivalAtWaitPointRealTime by remember { mutableLongStateOf(0L) }
+    
+    // --- Wait Mode Persistence Logic ---
     var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
+    var arrivalAtWaitPointRealTime by remember { mutableLongStateOf(0L) }
 
     val context = LocalContext.current
     LaunchedEffect(Unit) { if (viewModel.isWaitModeEnabled) AcousticNoteDetector.start(context) }
@@ -146,9 +146,17 @@ private fun ModernPianoPlayerContent(
         if (!viewModel.isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
     }
 
+    // --- Reset Wait State on Mode Toggle ---
+    LaunchedEffect(viewModel.isWaitModeEnabled) {
+        if (!viewModel.isWaitModeEnabled) {
+            currentWaitOnsetMs = -1L
+        }
+    }
+
     val nextRequiredOnset = remember(noteEvents, viewModel.playheadMs) {
         noteEvents.filter { it.startMs >= viewModel.playheadMs }.minOfOrNull { it.startMs }
     }
+    
     val notesToStrike = remember(noteEvents, nextRequiredOnset) {
         if (nextRequiredOnset == null) emptySet<Int>()
         else noteEvents.filter { abs(it.startMs - nextRequiredOnset) <= 30L }.map { it.pitch }.toSet()
@@ -169,29 +177,50 @@ private fun ModernPianoPlayerContent(
             lastTime = now
 
             val targetNext = viewModel.playheadMs + (dt * viewModel.speedMultiplier).toLong()
+            
             if (viewModel.isWaitModeEnabled) {
+                // Find strictly the next onset to wait for
                 val upcoming = noteEvents.filter { it.startMs >= viewModel.playheadMs && it.startMs <= targetNext }.minOfOrNull { it.startMs }
+                
                 if (upcoming != null) {
-                    val targetPitches = noteEvents.filter { abs(it.startMs - upcoming) <= 30L }.map { it.pitch }.toSet()
+                    val required = noteEvents.filter { abs(it.startMs - upcoming) <= 30L && it.pitch in startPitch..endPitch }.map { it.pitch }.toSet()
 
                     if (currentWaitOnsetMs != upcoming) {
                         currentWaitOnsetMs = upcoming
+                        // Calibration: Arrival time is the moment we pause the head at 'upcoming'
                         arrivalAtWaitPointRealTime = System.currentTimeMillis()
                     }
 
-                    val requiredToContinue = targetPitches.filter { it in startPitch..endPitch }
-                    val satisfied = requiredToContinue.all { p ->
-                        val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
-                        val consumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
+                    // --- Robust Chord Logic: All notes must be hit nearly at once ---
+                    val pressed = MidiInputManager.pressedKeys.toSet()
+                    val allPressed = required.all { it in pressed }
+                    
+                    var isSuccess = false
+                    if (allPressed && required.isNotEmpty()) {
+                        val strikeTimes = required.map { MidiInputManager.lastPressTimestamps[it] ?: 0L }
+                        val consumedTimes = required.map { MidiInputManager.consumedPressTimestamps[it] ?: 0L }
+                        
+                        val minStrike = strikeTimes.min()
+                        val maxStrike = strikeTimes.max()
+                        
+                        // Condition A: All notes were hit together (within 350ms window)
+                        val struckTogether = (maxStrike - minStrike) < 350L
+                        // Condition B: Strikes are fresh (happened after we reached this onset)
+                        // Use a 400ms buffer to allow hitting "just" before the line visually
+                        val struckRecently = minStrike >= arrivalAtWaitPointRealTime - 400L
+                        // Condition C: Strikes haven't been used for a previous note
+                        val struckFresh = strikeTimes.indices.all { i -> strikeTimes[i] > consumedTimes[i] }
 
-                        val isRecent = lastPress >= arrivalAtWaitPointRealTime - 350L && lastPress > consumed - 10L
-                        if (isRecent) {
-                            MidiInputManager.consumedPressTimestamps[p] = lastPress
+                        if (struckTogether && struckRecently && struckFresh) {
+                            isSuccess = true
+                            // Success! Mark these strikes as consumed
+                            required.forEach { p ->
+                                MidiInputManager.consumedPressTimestamps[p] = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                            }
                         }
-                        isRecent
                     }
 
-                    if (!satisfied) {
+                    if (!isSuccess && required.isNotEmpty()) {
                         viewModel.playheadMs = upcoming
                         delay(10)
                         continue
@@ -221,21 +250,18 @@ private fun ModernPianoPlayerContent(
         }
     }
 
-    val isAwaitingStrike = viewModel.isWaitModeEnabled &&
-            notesToStrike.isNotEmpty() &&
-            nextRequiredOnset != null &&
-            viewModel.playheadMs >= nextRequiredOnset - 500
-
-    val waitTargetPitches = if (isAwaitingStrike) notesToStrike else emptySet()
+    // Visual indicators for keys that need to be hit
+    val isWaitingAtBaseline = viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
+    val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
-            FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys)
+            FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches)
             
             ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { showSettingsDialog = true })
 
-            if (isAwaitingStrike) {
-                WaitModeOverlay(notes = notesToStrike)
+            if (isWaitingAtBaseline) {
+                WaitModeOverlay(notes = waitTargetPitches)
             }
         }
 
@@ -247,6 +273,7 @@ private fun ModernPianoPlayerContent(
             onResetHead = { 
                 viewModel.playheadMs = if (viewModel.isLoopingEnabled) viewModel.loopStartMs else 0L 
                 lastTriggeredHeadMs = viewModel.playheadMs 
+                currentWaitOnsetMs = -1L
                 PianoPlayer.stopAllNotes() 
             }
         )
@@ -331,7 +358,8 @@ private fun getPitchXRange(pitch: Int, startPitch: Int, totalWidth: Float, numWh
 
 @Composable
 private fun FallingNotesVisualizer(
-    events: List<MidiNoteEvent>, head: Long, start: Int, end: Int, numWhiteKeys: Int
+    events: List<MidiNoteEvent>, head: Long, start: Int, end: Int, numWhiteKeys: Int,
+    waitTargetPitches: Set<Int> = emptySet()
 ) {
     val scale = 0.25f
     Canvas(modifier = Modifier.fillMaxSize()) {
@@ -363,15 +391,29 @@ private fun FallingNotesVisualizer(
             
             val isAtBaseline = head >= e.startMs && head <= (e.startMs + e.durationMs)
             val isHitting = head >= e.startMs && head <= (e.startMs + 60L)
+            val isWaiting = waitTargetPitches.contains(e.pitch) && head >= e.startMs - 50 && head <= e.startMs + 50
             val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
 
-            val baseCol = when { isUserMatch -> ColorSuccess ; isHitting -> ColorTarget ; isAtBaseline -> ColorGold ; else -> ColorUpcomingNote }
-            val highlightCol = when { isUserMatch -> ColorSuccessLight ; isHitting -> ColorGoldLight ; isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) ; else -> baseCol.copy(alpha = 0.6f) }
+            val baseCol = when { 
+                isUserMatch -> ColorSuccess 
+                isWaiting -> ColorWaitTarget
+                isHitting -> ColorTarget 
+                isAtBaseline -> ColorGold 
+                else -> ColorUpcomingNote 
+            }
+            val highlightCol = when { 
+                isUserMatch -> ColorSuccessLight 
+                isWaiting -> ColorWaitTargetLight
+                isHitting -> ColorGoldLight 
+                isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) 
+                else -> baseCol.copy(alpha = 0.6f) 
+            }
 
             drawRoundRect(brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)), size = Size(kw - 1f, h), cornerRadius = CornerRadius(6.dp.toPx()))
-            if (isHitting || isUserMatch) {
-                drawRect(brush = Brush.verticalGradient(listOf(baseCol.copy(alpha = 0.4f), Color.Transparent)), topLeft = Offset(x1, y.coerceIn(-h, size.height) + h), size = Size(kw, 35.dp.toPx()))
-                drawCircle(brush = Brush.radialGradient(listOf(baseCol.copy(alpha = 0.3f), Color.Transparent), center = Offset(x1 + kw/2, size.height), radius = 18.dp.toPx()), center = Offset(x1 + kw/2, size.height), radius = 18.dp.toPx())
+            
+            if (isHitting || isUserMatch || isWaiting) {
+                val glowCol = if (isWaiting) ColorWaitTarget else baseCol
+                drawRect(brush = Brush.verticalGradient(listOf(glowCol.copy(alpha = 0.4f), Color.Transparent)), topLeft = Offset(x1, y.coerceIn(-h, size.height) + h), size = Size(kw, 35.dp.toPx()))
             }
         }
 
@@ -383,9 +425,9 @@ private fun FallingNotesVisualizer(
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 48.dp), Alignment.TopCenter) {
-        Surface(color = ColorGold, shape = RoundedCornerShape(16.dp), shadowElevation = 20.dp, border = BorderStroke(2.dp, Color.White.copy(0.7f))) {
-            Text(text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) }, Modifier.padding(horizontal = 32.dp, vertical = 14.dp), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+    Box(Modifier.fillMaxWidth().padding(top = 64.dp), Alignment.TopCenter) {
+        Surface(color = ColorWaitTarget.copy(alpha = 0.9f), shape = RoundedCornerShape(16.dp), shadowElevation = 20.dp, border = BorderStroke(2.dp, Color.White)) {
+            Text(text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) }, Modifier.padding(horizontal = 32.dp, vertical = 14.dp), fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.Black)
         }
     }
 }
@@ -398,15 +440,13 @@ private fun PianoKeyboardRow(
 ) {
     val pressed = MidiInputManager.pressedKeys.toSet()
 
+    // Breathing pulse for waiting keys
     val infiniteTransition = rememberInfiniteTransition(label = "waitPulse")
-    val waitPulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "waitPulseAlpha"
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(animation = tween(600, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+        label = "pulse"
     )
 
     BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp).background(ColorKeyBlack)) {
@@ -414,27 +454,27 @@ private fun PianoKeyboardRow(
         val activePointers = remember { mutableStateMapOf<PointerId, Int>() }
 
         Canvas(Modifier.fillMaxSize()) {
-            // 1. White Keys (Identical Width Rectangles)
             val wkW = tw / numWhiteKeys
+            // 1. White Keys (Identical Width Rectangles)
             for (i in 0 until numWhiteKeys) {
                 val x1 = i * wkW
-                val x2 = (i + 1) * wkW
-                drawRoundRect(color = ColorKeyWhite, topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, size.height), cornerRadius = CornerRadius(6.dp.toPx()))
+                drawRoundRect(color = ColorKeyWhite, topLeft = Offset(x1 + 0.5f, 0f), size = Size(wkW - 1f, size.height), cornerRadius = CornerRadius(6.dp.toPx()))
                 drawLine(Color.Black.copy(alpha = 0.15f), Offset(x1, 0f), Offset(x1, size.height), 1.2.dp.toPx())
             }
 
-            // 2. Highlight active white keys (Overlay)
+            // 2. Active White Key Highlights
             for (p in start..end) {
                 if (isPitchBlack(p)) continue
                 val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
                 val isPressed = pressed.contains(p)
                 val isTarget = sustainedPitches.contains(p)
                 val isWaiting = waitTargetPitches.contains(p)
+                
                 if (isPressed || isTarget || isWaiting) {
                     val color = when {
-                        isPressed && (isTarget || isWaiting) -> ColorSuccess
+                        isWaiting && isPressed -> ColorSuccess // Target struck!
                         isPressed -> ColorGold
-                        isWaiting -> ColorWaitTarget.copy(alpha = waitPulseAlpha)
+                        isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
                         else -> ColorGold.copy(alpha = 0.35f)
                     }
                     drawRect(color, topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, size.height))
@@ -448,22 +488,16 @@ private fun PianoKeyboardRow(
                 val isPressed = pressed.contains(p)
                 val isTarget = sustainedPitches.contains(p)
                 val isWaiting = waitTargetPitches.contains(p)
+                
                 val highlightColor = when {
-                    isPressed && (isTarget || isWaiting) -> ColorSuccess
+                    isWaiting && isPressed -> ColorSuccess
                     isPressed -> ColorGold
-                    isWaiting -> ColorWaitTarget.copy(alpha = waitPulseAlpha)
+                    isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
                     isTarget -> ColorGold.copy(alpha = 0.4f)
                     else -> ColorKeyBlack
                 }
-                val shineColor = when {
-                    isPressed && (isTarget || isWaiting) -> ColorSuccessLight
-                    isPressed -> ColorGoldLight
-                    isWaiting -> ColorWaitTargetLight.copy(alpha = waitPulseAlpha)
-                    isTarget -> highlightColor.copy(alpha = 0.7f)
-                    else -> ColorKeyBlack
-                }
                 val h = size.height * 0.7f
-                drawRoundRect(brush = Brush.verticalGradient(listOf(shineColor, highlightColor), startY = 0f, endY = h), topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, h), cornerRadius = CornerRadius(4.dp.toPx()))
+                drawRoundRect(color = highlightColor, topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, h), cornerRadius = CornerRadius(4.dp.toPx()))
             }
         }
 
@@ -547,7 +581,7 @@ private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: 
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Transposition", color = ColorTextDim, fontWeight = FontWeight.Bold)
-                        Text("${if (offset > 0) "+" else ""}$offset", color = ColorGold, fontWeight = FontWeight.Black, style = TextStyle(shadow = Shadow(Color.Black, blurRadius = 4f)))
+                        Text("${if (offset > 0) "+" else ""}$offset", color = ColorGold, fontWeight = FontWeight.Black)
                     }
                     Slider(value = offset.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = -12f..12f, steps = 23, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold))
                 }
