@@ -76,7 +76,10 @@ class MainActivity : ComponentActivity() {
                         PianoRollScreen(
                             song = activeSong,
                             viewModel = viewModel,
-                            onBack = { viewModel.activePracticeSong = null }
+                            onBack = {
+                                viewModel.activePracticeSong = null
+                                viewModel.isPlaying = false
+                            }
                         )
                     } else {
                         PianoWeaveApp(

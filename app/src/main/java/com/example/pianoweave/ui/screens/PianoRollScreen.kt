@@ -75,8 +75,6 @@ fun PianoRollScreen(
         if (viewModel.activePracticeSong?.file?.absolutePath != song.file.absolutePath) {
             viewModel.playheadMs = 0L
             viewModel.isPlaying = true
-        } else {
-            viewModel.isPlaying = false
         }
         
         noteEvents = null
