@@ -73,9 +73,8 @@ fun PianoRollScreen(
     LaunchedEffect(song) {
         noteEvents = null
         parseError = null
-        // Reset playhead and stop video when switching to a different song
         viewModel.playheadMs = 0L
-        viewModel.isPlaying = false
+        viewModel.isPlaying = true
         try {
             val parsed = withContext(Dispatchers.IO) {
                 SimpleMidiReader.parse(song.file)
