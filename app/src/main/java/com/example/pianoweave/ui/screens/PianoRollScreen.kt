@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,7 +23,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +52,7 @@ private val ColorUpcomingNote = Color(0xFF1F2937)
 private val ColorSlate = Color(0xFF30363D)
 private val ColorSuccess = Color(0xFF2EA043)
 private val ColorSuccessLight = Color(0xFF69C67E)
-private val ColorWaitTarget = Color(0xFF00D2FF) // Neon Cyan
+private val ColorWaitTarget = Color(0xFF00D2FF) 
 private val ColorWaitTargetLight = Color(0xFFB3F5FF)
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFF85149) 
@@ -73,6 +73,9 @@ fun PianoRollScreen(
     LaunchedEffect(song) {
         noteEvents = null
         parseError = null
+        // Reset playhead and stop video when switching to a different song
+        viewModel.playheadMs = 0L
+        viewModel.isPlaying = false
         try {
             val parsed = withContext(Dispatchers.IO) {
                 SimpleMidiReader.parse(song.file)
@@ -125,8 +128,6 @@ private fun ModernPianoPlayerContent(
     }
 
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
-    
-    // --- Wait Mode Persistence Logic ---
     var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
     var arrivalAtWaitPointRealTime by remember { mutableLongStateOf(0L) }
 
@@ -146,9 +147,9 @@ private fun ModernPianoPlayerContent(
         if (!viewModel.isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
     }
 
-    // --- Reset Wait State on Mode Toggle ---
-    LaunchedEffect(viewModel.isWaitModeEnabled) {
-        if (!viewModel.isWaitModeEnabled) {
+    // Reset wait state if playback stops or mode toggles
+    LaunchedEffect(viewModel.isPlaying, viewModel.isWaitModeEnabled) {
+        if (!viewModel.isPlaying || !viewModel.isWaitModeEnabled) {
             currentWaitOnsetMs = -1L
         }
     }
@@ -179,7 +180,6 @@ private fun ModernPianoPlayerContent(
             val targetNext = viewModel.playheadMs + (dt * viewModel.speedMultiplier).toLong()
             
             if (viewModel.isWaitModeEnabled) {
-                // Find strictly the next onset to wait for
                 val upcoming = noteEvents.filter { it.startMs >= viewModel.playheadMs && it.startMs <= targetNext }.minOfOrNull { it.startMs }
                 
                 if (upcoming != null) {
@@ -187,11 +187,10 @@ private fun ModernPianoPlayerContent(
 
                     if (currentWaitOnsetMs != upcoming) {
                         currentWaitOnsetMs = upcoming
-                        // Calibration: Arrival time is the moment we pause the head at 'upcoming'
                         arrivalAtWaitPointRealTime = System.currentTimeMillis()
                     }
 
-                    // --- Robust Chord Logic: All notes must be hit nearly at once ---
+                    // --- Improved Chord Logic: Struck Nearly at Once ---
                     val pressed = MidiInputManager.pressedKeys.toSet()
                     val allPressed = required.all { it in pressed }
                     
@@ -203,19 +202,14 @@ private fun ModernPianoPlayerContent(
                         val minStrike = strikeTimes.min()
                         val maxStrike = strikeTimes.max()
                         
-                        // Condition A: All notes were hit together (within 350ms window)
-                        val struckTogether = (maxStrike - minStrike) < 350L
-                        // Condition B: Strikes are fresh (happened after we reached this onset)
-                        // Use a 400ms buffer to allow hitting "just" before the line visually
-                        val struckRecently = minStrike >= arrivalAtWaitPointRealTime - 400L
-                        // Condition C: Strikes haven't been used for a previous note
+                        val struckTogether = (maxStrike - minStrike) < 400L
+                        val struckRecently = minStrike >= arrivalAtWaitPointRealTime - 500L
                         val struckFresh = strikeTimes.indices.all { i -> strikeTimes[i] > consumedTimes[i] }
 
                         if (struckTogether && struckRecently && struckFresh) {
                             isSuccess = true
-                            // Success! Mark these strikes as consumed
                             required.forEach { p ->
-                                MidiInputManager.consumedPressTimestamps[p] = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                                MidiInputManager.consumedPressTimestamps[p] = strikeTimes[required.indexOf(p)]
                             }
                         }
                     }
@@ -250,12 +244,18 @@ private fun ModernPianoPlayerContent(
         }
     }
 
-    // Visual indicators for keys that need to be hit
     val isWaitingAtBaseline = viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
-        Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null // No ripple for clean UI
+            ) {
+                viewModel.isPlaying = !viewModel.isPlaying
+            }
+        ) {
             FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches)
             
             ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { showSettingsDialog = true })
@@ -265,7 +265,16 @@ private fun ModernPianoPlayerContent(
             }
         }
 
-        PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches)
+        Box(modifier = Modifier.fillMaxWidth().height(100.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                viewModel.isPlaying = !viewModel.isPlaying
+            }
+        ) {
+            PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches)
+        }
 
         MediaTimelineFooter(
             viewModel, songDurationMs, 
@@ -291,7 +300,8 @@ private fun ModernToolbar(
     val current = LocalContext.current
 
     Row(
-        modifier = Modifier.fillMaxWidth().background(ColorSurface.copy(alpha = 0.5f)).padding(horizontal = 8.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().background(ColorSurface.copy(alpha = 0.5f)).padding(horizontal = 8.dp, vertical = 4.dp)
+            .clickable(enabled = false) {}, // Consume clicks so they don't toggle video
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
@@ -366,7 +376,7 @@ private fun FallingNotesVisualizer(
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
 
-        // 1. Grid Lanes (White Key Boundaries)
+        // 1. Grid Lanes
         for (i in 0..numWhiteKeys) {
             val x = i * (tw / numWhiteKeys)
             drawLine(color = Color(0xFF161B22), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
@@ -451,11 +461,10 @@ private fun PianoKeyboardRow(
 
     BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp).background(ColorKeyBlack)) {
         val tw = constraints.maxWidth.toFloat()
-        val activePointers = remember { mutableStateMapOf<PointerId, Int>() }
 
         Canvas(Modifier.fillMaxSize()) {
             val wkW = tw / numWhiteKeys
-            // 1. White Keys (Identical Width Rectangles)
+            // 1. White Keys
             for (i in 0 until numWhiteKeys) {
                 val x1 = i * wkW
                 drawRoundRect(color = ColorKeyWhite, topLeft = Offset(x1 + 0.5f, 0f), size = Size(wkW - 1f, size.height), cornerRadius = CornerRadius(6.dp.toPx()))
@@ -481,7 +490,7 @@ private fun PianoKeyboardRow(
                 }
             }
 
-            // 3. Black Keys (On top of boundaries)
+            // 3. Black Keys
             for (p in start..end) {
                 if (!isPitchBlack(p)) continue
                 val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
@@ -500,31 +509,6 @@ private fun PianoKeyboardRow(
                 drawRoundRect(color = highlightColor, topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, h), cornerRadius = CornerRadius(4.dp.toPx()))
             }
         }
-
-        Box(Modifier.fillMaxSize().pointerInput(start, end, tw, numWhiteKeys) {
-            awaitPointerEventScope {
-                while (true) {
-                    val event = awaitPointerEvent()
-                    event.changes.forEach { change ->
-                        val pId = change.id
-                        if (change.changedToDown()) {
-                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys)
-                            if (p != -1) { activePointers[pId] = p ; MidiInputManager.simulateNoteOn(p) ; PianoPlayer.noteOn(p) }
-                        } else if (change.changedToUp() || !change.pressed) {
-                            activePointers.remove(pId)?.let { oldP -> MidiInputManager.simulateNoteOff(oldP) ; PianoPlayer.noteOff(oldP) }
-                        } else if (change.positionChanged()) {
-                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys)
-                            val oldP = activePointers[pId]
-                            if (newP != oldP) {
-                                if (oldP != null) { MidiInputManager.simulateNoteOff(oldP) ; PianoPlayer.noteOff(oldP) }
-                                if (newP != -1) { activePointers[pId] = newP ; MidiInputManager.simulateNoteOn(newP) ; PianoPlayer.noteOn(newP) }
-                                else activePointers.remove(pId)
-                            }
-                        }
-                    }
-                }
-            }
-        })
     }
 }
 
@@ -549,7 +533,10 @@ private fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKe
 private fun MediaTimelineFooter(
     viewModel: PianoWeaveViewModel, dur: Long, onSeekState: (Boolean) -> Unit, onResetHead: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp)
+        .clickable(enabled = false) {}, // Consume clicks
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             IconButton(onClick = { viewModel.isPlaying = !viewModel.isPlaying }, Modifier.size(56.dp).background(ColorGold, CircleShape)) { Icon(if (viewModel.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(36.dp)) }
             IconButton(onClick = { onResetHead() }, modifier = Modifier.size(44.dp).background(ColorSurface, CircleShape).border(1.dp, ColorSlate, CircleShape)) { Icon(Icons.Default.Replay, null, tint = Color.White, modifier = Modifier.size(24.dp)) }

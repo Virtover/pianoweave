@@ -26,12 +26,18 @@ object AcousticNoteDetector {
     private const val MIDI_KEYS = 88
     private const val MIDI_OFFSET = 21
     private const val OUTPUT_FRAMES = 172
+    private const val CONTOUR_BINS = 264
 
     private var isInitialized = false
     private var isRunning = false
     private var thread: Thread? = null
     private var interpreter: Interpreter? = null
     private var gpuDelegate: GpuDelegate? = null
+
+    // Dynamic output mapping
+    private var contourIndex = -1
+    private var noteIndex = -1
+    private var onsetIndex = -1
 
     @Volatile var suppressedPitches: Set<Int> = emptySet()
     private val suppressionMap = mutableMapOf<Int, Long>()
@@ -47,28 +53,48 @@ object AcousticNoteDetector {
     fun initialize(context: Context) {
         if (isInitialized) return
         try {
-            Log.i(TAG, "Initializing Basic Pitch...")
-            val options = Interpreter.Options()
+            Log.i(TAG, "Initializing Basic Pitch model...")
+            val modelBuffer = loadModelFile(context, MODEL_NAME)
+
+            // CRITICAL: Move Interpreter creation INSIDE try-catch to handle delegate application errors
             try {
+                val options = Interpreter.Options()
                 gpuDelegate = GpuDelegate()
                 options.addDelegate(gpuDelegate)
-                Log.i(TAG, "GPU delegate enabled")
+                interpreter = Interpreter(modelBuffer, options)
+                Log.i(TAG, "Interpreter initialized with GPU delegate.")
             } catch (e: Exception) {
-                Log.w(TAG, "GPU unavailable, using multithreaded CPU")
+                Log.w(TAG, "GPU initialization OR application failed, falling back to CPU", e)
+                gpuDelegate?.close()
+                gpuDelegate = null
+                
+                val options = Interpreter.Options()
                 options.setNumThreads(4)
+                interpreter = Interpreter(modelBuffer, options)
+                Log.i(TAG, "Interpreter initialized with CPU (4 threads).")
             }
             
-            val modelBuffer = loadModelFile(context, MODEL_NAME)
-            interpreter = Interpreter(modelBuffer, options)
-            
+            val interp = interpreter ?: return
+
+            // Discover output indices based on tensor shapes
+            for (i in 0 until interp.outputTensorCount) {
+                val shape = interp.getOutputTensor(i).shape()
+                val lastDim = shape.last()
+                when (lastDim) {
+                    CONTOUR_BINS -> contourIndex = i
+                    MIDI_KEYS -> {
+                        if (noteIndex == -1) noteIndex = i else onsetIndex = i
+                    }
+                }
+            }
+            Log.i(TAG, "Mapped Indices -> Contour: $contourIndex, Note: $noteIndex, Onset: $onsetIndex")
+
             if (NativeAudioEngine.initialize()) {
                 isInitialized = true
                 Log.i(TAG, "AcousticNoteDetector initialized successfully")
-            } else {
-                Log.e(TAG, "NativeAudioEngine initialization failed")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Critical: Basic Pitch initialization failed", e)
+            Log.e(TAG, "Critical: Basic Pitch setup failed", e)
         }
     }
 
@@ -78,15 +104,9 @@ object AcousticNoteDetector {
         
         if (MidiInputManager.isMidiDeviceConnected()) return
         
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "RECORD_AUDIO permission missing")
-            return
-        }
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
 
-        if (!NativeAudioEngine.startCapture()) {
-            Log.e(TAG, "Failed to start native capture")
-            return
-        }
+        if (!NativeAudioEngine.startCapture()) return
 
         isRunning = true
         thread = Thread {
@@ -108,10 +128,14 @@ object AcousticNoteDetector {
     private fun runInferenceLoop() {
         val inputBuffer = ByteBuffer.allocateDirect(INPUT_SAMPLES * 4).order(ByteOrder.nativeOrder())
         
-        // Basic Pitch Outputs: 0: Contour, 1: Note, 2: Onset
+        val contourOutput = Array(1) { Array(OUTPUT_FRAMES) { FloatArray(CONTOUR_BINS) } }
         val noteOutput = Array(1) { Array(OUTPUT_FRAMES) { FloatArray(MIDI_KEYS) } }
         val onsetOutput = Array(1) { Array(OUTPUT_FRAMES) { FloatArray(MIDI_KEYS) } }
-        val outputs = mapOf(1 to noteOutput, 2 to onsetOutput)
+        
+        val outputs = mutableMapOf<Int, Any>()
+        if (contourIndex != -1) outputs[contourIndex] = contourOutput
+        if (noteIndex != -1) outputs[noteIndex] = noteOutput
+        if (onsetIndex != -1) outputs[onsetIndex] = onsetOutput
 
         val captureSamples = INPUT_SAMPLES * 2
         val captureBuffer = ByteBuffer.allocateDirect(captureSamples * 4).order(ByteOrder.nativeOrder())
@@ -131,7 +155,6 @@ object AcousticNoteDetector {
             captureBuffer.rewind()
             captureBuffer.asFloatBuffer().get(floatData)
 
-            // Resample: Decimate 44.1kHz -> 22.05kHz
             inputBuffer.rewind()
             for (i in 0 until INPUT_SAMPLES) {
                 inputBuffer.putFloat(floatData[i * 2])
@@ -191,9 +214,6 @@ object AcousticNoteDetector {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
-    /**
-     * Toggles microphone capture off, but keeps the model loaded.
-     */
     fun stop() {
         isRunning = false
         NativeAudioEngine.stopCapture()
@@ -203,12 +223,8 @@ object AcousticNoteDetector {
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()
         suppressionMap.clear()
-        Log.i(TAG, "Acoustic detection stopped")
     }
 
-    /**
-     * Completely releases resources (call on app exit if needed).
-     */
     fun cleanup() {
         stop()
         interpreter?.close()
