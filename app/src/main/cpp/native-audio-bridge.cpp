@@ -5,6 +5,7 @@
 #include <atomic>
 #include <algorithm>
 #include <cstring>
+#include <memory>
 
 #define LOG_TAG "audiobridge"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -41,7 +42,7 @@ namespace {
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jclass clazz) {
+Java_com_example_pianoweave_audio_NativeAudioEngine_initialize(JNIEnv *env, jclass clazz) {
     if (audioStream != nullptr) return JNI_TRUE;
 
     AAudioStreamBuilder *builder;
@@ -66,15 +67,23 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jc
         return JNI_FALSE;
     }
 
-    result = AAudioStream_requestStart(audioStream);
+    LOGI("NativeAudioEngine: initialize() successful");
+    return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_example_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jclass clazz) {
+    if (audioStream == nullptr) return JNI_FALSE;
+
+    aaudio_stream_state_t state = AAudioStream_getState(audioStream);
+    if (state == AAUDIO_STREAM_STATE_STARTED) return JNI_TRUE;
+
+    aaudio_result_t result = AAudioStream_requestStart(audioStream);
     if (result != AAUDIO_OK) {
         LOGE("Failed to start AAudio stream: %s", AAudio_convertResultToText(result));
-        AAudioStream_close(audioStream);
-        audioStream = nullptr;
         return JNI_FALSE;
     }
 
-    writeIndex.store(0, std::memory_order_relaxed);
     LOGI("NativeAudioEngine: startCapture() successful");
     return JNI_TRUE;
 }
@@ -83,9 +92,7 @@ JNIEXPORT void JNICALL
 Java_com_example_pianoweave_audio_NativeAudioEngine_stopCapture(JNIEnv *env, jclass clazz) {
     if (audioStream != nullptr) {
         AAudioStream_requestStop(audioStream);
-        AAudioStream_close(audioStream);
-        audioStream = nullptr;
-        LOGI("NativeAudioEngine: stopCapture() successful");
+        LOGI("NativeAudioEngine: stopCapture() requested");
     }
 }
 
@@ -111,13 +118,22 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, jcla
 
     int64_t currentWriteIndex = writeIndex.load(std::memory_order_acquire);
     int64_t startReadIndex = currentWriteIndex - frames;
-    if (startReadIndex < 0) startReadIndex = 0; // Or handle underflow by padding with zeros
+    if (startReadIndex < 0) startReadIndex = 0;
 
     for (int32_t i = 0; i < frames; ++i) {
         destPtr[i] = ringBuffer[(startReadIndex + i) % RING_BUFFER_SIZE];
     }
 
     return static_cast<jint>(frames);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_pianoweave_audio_NativeAudioEngine_cleanup(JNIEnv *env, jclass clazz) {
+    if (audioStream != nullptr) {
+        AAudioStream_close(audioStream);
+        audioStream = nullptr;
+        LOGI("NativeAudioEngine: cleanup() successful");
+    }
 }
 
 }

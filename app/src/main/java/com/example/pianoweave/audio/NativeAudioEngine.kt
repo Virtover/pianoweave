@@ -9,6 +9,9 @@ object NativeAudioEngine {
     }
 
     @JvmStatic
+    external fun initialize(): Boolean
+
+    @JvmStatic
     external fun startCapture(): Boolean
 
     @JvmStatic
@@ -25,4 +28,7 @@ object NativeAudioEngine {
         destination: ByteBuffer,
         frames: Int,
     ): Int
+
+    @JvmStatic
+    external fun cleanup()
 }

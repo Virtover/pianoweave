@@ -1,167 +1,221 @@
 package com.example.pianoweave.audio
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import com.example.pianoweave.midi.MidiInputManager
-import org.jtransforms.fft.DoubleFFT_1D
+import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.gpu.GpuDelegate
+import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
 import kotlin.math.*
 
 /**
- * Professional acoustic piano note detector.
- * Optimized for high sensitivity to strikes and robustness against background noise.
+ * State-of-the-Art real-time piano note detector using Spotify's Basic Pitch.
  */
 object AcousticNoteDetector {
-    private const val SAMPLE_RATE = 44100
-    private const val FFT_SIZE = 8192
-    private const val HOP_SIZE = 2048 
+    private const val TAG = "AcousticNoteDetector"
+    private const val MODEL_NAME = "basic_pitch.tflite"
+    
+    // Model Constraints
+    private const val INPUT_SAMPLES = 43844 
+    private const val MIDI_KEYS = 88
+    private const val MIDI_OFFSET = 21
+    private const val OUTPUT_FRAMES = 172
 
+    private var isInitialized = false
     private var isRunning = false
     private var thread: Thread? = null
-    
+    private var interpreter: Interpreter? = null
+    private var gpuDelegate: GpuDelegate? = null
+
     @Volatile var suppressedPitches: Set<Int> = emptySet()
     private val suppressionMap = mutableMapOf<Int, Long>()
-    private const val ECHO_WINDOW_MS = 450L 
+    private const val ECHO_WINDOW_MS = 400L
 
-    private val prevMagnitudes = DoubleArray(FFT_SIZE / 2)
-    private var fluxAverage = 0.0
-    private const val FLUX_ALPHA = 0.8 
-
-    private val detectionConfidence = mutableMapOf<Int, Int>()
     private val activePitches = mutableSetOf<Int>()
-    private const val ON_CONFIDENCE = 3  
-    private const val OFF_CONFIDENCE = 5 
+    private val noteOffConfidence = IntArray(128)
+    private const val REQUIRED_OFF_FRAMES = 3
 
-    @SuppressLint("MissingPermission")
+    /**
+     * One-time setup of the model and native engine.
+     */
+    fun initialize(context: Context) {
+        if (isInitialized) return
+        try {
+            Log.i(TAG, "Initializing Basic Pitch...")
+            val options = Interpreter.Options()
+            try {
+                gpuDelegate = GpuDelegate()
+                options.addDelegate(gpuDelegate)
+                Log.i(TAG, "GPU delegate enabled")
+            } catch (e: Exception) {
+                Log.w(TAG, "GPU unavailable, using multithreaded CPU")
+                options.setNumThreads(4)
+            }
+            
+            val modelBuffer = loadModelFile(context, MODEL_NAME)
+            interpreter = Interpreter(modelBuffer, options)
+            
+            if (NativeAudioEngine.initialize()) {
+                isInitialized = true
+                Log.i(TAG, "AcousticNoteDetector initialized successfully")
+            } else {
+                Log.e(TAG, "NativeAudioEngine initialization failed")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Critical: Basic Pitch initialization failed", e)
+        }
+    }
+
     fun start(context: Context) {
-        if (isRunning) return
+        if (!isInitialized) initialize(context)
+        if (!isInitialized || isRunning) return
+        
         if (MidiInputManager.isMidiDeviceConnected()) return
         
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "RECORD_AUDIO permission missing")
+            return
+        }
+
+        if (!NativeAudioEngine.startCapture()) {
+            Log.e(TAG, "Failed to start native capture")
             return
         }
 
         isRunning = true
-        if (!NativeAudioEngine.startCapture()) {
-            isRunning = false
-            return
-        }
-
         thread = Thread {
-            val fftData = DoubleArray(FFT_SIZE)
-            val fft = DoubleFFT_1D(FFT_SIZE.toLong())
-            val window = DoubleArray(FFT_SIZE) { i ->
-                val a0 = 0.35875 ; val a1 = 0.48829 ; val a2 = 0.14128 ; val a3 = 0.01168
-                val t = 2 * PI * i / (FFT_SIZE - 1)
-                a0 - a1 * cos(t) + a2 * cos(2 * t) - a3 * cos(3 * t)
-            }
-
-            // Buffer for native capture
-            val nativeBuffer = ByteBuffer.allocateDirect(FFT_SIZE * 4).order(ByteOrder.nativeOrder())
-            val floatData = FloatArray(FFT_SIZE)
-
-            var lastProcessedFrame = 0L
-
-            while (isRunning) {
-                if (MidiInputManager.isMidiDeviceConnected()) break
-
-                val availableFrames = NativeAudioEngine.getAvailableFrames().toLong()
-                if (availableFrames < lastProcessedFrame + HOP_SIZE) {
-                    Thread.sleep(5)
-                    continue
-                }
-
-                // Copy latest FFT_SIZE frames
-                NativeAudioEngine.copyLatest(nativeBuffer, FFT_SIZE)
-                nativeBuffer.rewind()
-                nativeBuffer.asFloatBuffer().get(floatData)
-                lastProcessedFrame = availableFrames
-
-                val now = System.currentTimeMillis()
-                suppressedPitches.forEach { suppressionMap[it] = now + ECHO_WINDOW_MS }
-
-                for (i in 0 until FFT_SIZE) {
-                    fftData[i] = floatData[i].toDouble() * window[i]
-                }
-
-                fft.realForward(fftData)
-
-                val mags = DoubleArray(FFT_SIZE / 2)
-                var currentEnergy = 0.0
-                for (k in 0 until FFT_SIZE / 2) {
-                    val re = fftData[2 * k] ; val im = if (k == 0) 0.0 else fftData[2 * k + 1]
-                    mags[k] = sqrt(re * re + im * im)
-                    currentEnergy += mags[k]
-                }
-
-                var flux = 0.0
-                for (k in 0 until FFT_SIZE / 2) {
-                    val diff = mags[k] - prevMagnitudes[k]
-                    if (diff > 0) flux += diff
-                    prevMagnitudes[k] = mags[k]
-                }
-                fluxAverage = FLUX_ALPHA * fluxAverage + (1 - FLUX_ALPHA) * flux
-                val isOnset = flux > (fluxAverage * 2.5) && flux > 1.5
-
-                val hpsSize = FFT_SIZE / 16 
-                val hps = DoubleArray(hpsSize)
-                var maxHps = 0.0
-                for (k in 4 until hpsSize) { 
-                    hps[k] = mags[k] * sqrt(mags[min(k * 2, mags.size - 1)]) * sqrt(mags[min(k * 3, mags.size - 1)])
-                    if (hps[k] > maxHps) maxHps = hps[k]
-                }
-
-                val detectedThisFrame = mutableSetOf<Int>()
-                val dynamicThreshold = if (isOnset) maxHps * 0.4 else maxHps * 0.75
-                
-                if (currentEnergy > 6.0 && maxHps > 0.5) {
-                    for (k in 5 until hpsSize - 1) {
-                        if (hps[k] > dynamicThreshold && hps[k] > hps[k-1] && hps[k] > hps[k+1]) {
-                            val freq = k.toDouble() * SAMPLE_RATE / FFT_SIZE
-                            val pitch = (69 + 12 * log2(freq / 440.0)).roundToInt()
-                            
-                            val isSuppressed = (suppressionMap[pitch] ?: 0L) > now
-                            if (pitch in 21..108 && !isSuppressed) detectedThisFrame.add(pitch)
-                        }
-                    }
-                }
-
-                for (p in 21..108) {
-                    val count = detectionConfidence[p] ?: 0
-                    if (p in detectedThisFrame) {
-                        detectionConfidence[p] = min(ON_CONFIDENCE + 2, count + 1)
-                    } else {
-                        detectionConfidence[p] = max(0, count - 1)
-                    }
-
-                    val finalCount = detectionConfidence[p] ?: 0
-                    if (finalCount >= ON_CONFIDENCE && p !in activePitches) {
-                        MidiInputManager.simulateExternalNoteOn(p)
-                        activePitches.add(p)
-                    } else if (finalCount == 0 && p in activePitches) {
-                        MidiInputManager.simulateExternalNoteOff(p)
-                        activePitches.remove(p)
-                    }
-                }
+            try {
+                runInferenceLoop()
+            } catch (e: Exception) {
+                Log.e(TAG, "Inference loop crashed", e)
+            } finally {
+                isRunning = false
             }
         }.apply { 
-            name = "AcousticPianoDetector"
+            name = "BasicPitchThread"
             priority = Thread.MAX_PRIORITY
             start() 
         }
+        Log.i(TAG, "Acoustic detection started")
     }
 
+    private fun runInferenceLoop() {
+        val inputBuffer = ByteBuffer.allocateDirect(INPUT_SAMPLES * 4).order(ByteOrder.nativeOrder())
+        
+        // Basic Pitch Outputs: 0: Contour, 1: Note, 2: Onset
+        val noteOutput = Array(1) { Array(OUTPUT_FRAMES) { FloatArray(MIDI_KEYS) } }
+        val onsetOutput = Array(1) { Array(OUTPUT_FRAMES) { FloatArray(MIDI_KEYS) } }
+        val outputs = mapOf(1 to noteOutput, 2 to onsetOutput)
+
+        val captureSamples = INPUT_SAMPLES * 2
+        val captureBuffer = ByteBuffer.allocateDirect(captureSamples * 4).order(ByteOrder.nativeOrder())
+        val floatData = FloatArray(captureSamples)
+
+        while (isRunning) {
+            if (MidiInputManager.isMidiDeviceConnected()) break
+
+            val available = NativeAudioEngine.getAvailableFrames()
+            if (available < captureSamples) {
+                Thread.sleep(15)
+                continue
+            }
+
+            captureBuffer.rewind()
+            NativeAudioEngine.copyLatest(captureBuffer, captureSamples)
+            captureBuffer.rewind()
+            captureBuffer.asFloatBuffer().get(floatData)
+
+            // Resample: Decimate 44.1kHz -> 22.05kHz
+            inputBuffer.rewind()
+            for (i in 0 until INPUT_SAMPLES) {
+                inputBuffer.putFloat(floatData[i * 2])
+            }
+
+            interpreter?.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputs)
+            processOutputs(noteOutput[0], onsetOutput[0])
+            
+            Thread.sleep(60) 
+        }
+    }
+
+    private fun processOutputs(notePosteriors: Array<FloatArray>, onsetPosteriors: Array<FloatArray>) {
+        val now = System.currentTimeMillis()
+        val suppressed = suppressedPitches
+        suppressed.forEach { suppressionMap[it] = now + ECHO_WINDOW_MS }
+
+        val framesToAnalyze = 8
+        
+        for (p in 0 until MIDI_KEYS) {
+            val midiPitch = p + MIDI_OFFSET
+            if ((suppressionMap[midiPitch] ?: 0L) > now) {
+                if (activePitches.remove(midiPitch)) MidiInputManager.simulateExternalNoteOff(midiPitch)
+                continue
+            }
+
+            var peakOnset = 0f
+            var avgNoteProb = 0f
+            for (f in (OUTPUT_FRAMES - framesToAnalyze) until OUTPUT_FRAMES) {
+                peakOnset = max(peakOnset, onsetPosteriors[f][p])
+                avgNoteProb += notePosteriors[f][p]
+            }
+            avgNoteProb /= framesToAnalyze
+
+            if (peakOnset > 0.50f && avgNoteProb > 0.30f) {
+                if (midiPitch !in activePitches) {
+                    MidiInputManager.simulateExternalNoteOn(midiPitch)
+                    activePitches.add(midiPitch)
+                }
+                noteOffConfidence[midiPitch] = 0
+            } else if (avgNoteProb < 0.20f && midiPitch in activePitches) {
+                noteOffConfidence[midiPitch]++
+                if (noteOffConfidence[midiPitch] >= REQUIRED_OFF_FRAMES) {
+                    MidiInputManager.simulateExternalNoteOff(midiPitch)
+                    activePitches.remove(midiPitch)
+                }
+            }
+        }
+    }
+
+    private fun loadModelFile(context: Context, modelName: String): MappedByteBuffer {
+        val fileDescriptor = context.assets.openFd(modelName)
+        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        val startOffset = fileDescriptor.startOffset
+        val declaredLength = fileDescriptor.length
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+    }
+
+    /**
+     * Toggles microphone capture off, but keeps the model loaded.
+     */
     fun stop() {
         isRunning = false
         NativeAudioEngine.stopCapture()
         thread?.interrupt()
         thread = null
+        
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()
-        detectionConfidence.clear()
         suppressionMap.clear()
+        Log.i(TAG, "Acoustic detection stopped")
+    }
+
+    /**
+     * Completely releases resources (call on app exit if needed).
+     */
+    fun cleanup() {
+        stop()
+        interpreter?.close()
+        interpreter = null
+        gpuDelegate?.close()
+        gpuDelegate = null
+        NativeAudioEngine.cleanup()
+        isInitialized = false
     }
 }

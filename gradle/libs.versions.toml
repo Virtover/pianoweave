@@ -15,6 +15,7 @@ kotlinxCoroutines = "1.10.2"
 composeMaterialIcons = "1.7.8"
 
 fluidSynth = "1.1.0"
+tensorflowLite = "2.16.1"
 jtransforms = "3.1"
 
 [libraries]
@@ -37,6 +38,9 @@ converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", ve
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "composeMaterialIcons" }
 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+tensorflow-lite = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tensorflowLite" }
+tensorflow-lite-gpu = { group = "org.tensorflow", name = "tensorflow-lite-gpu", version.ref = "tensorflowLite" }
+tensorflow-lite-gpu-delegate-api = { group = "org.tensorflow", name = "tensorflow-lite-gpu-api", version.ref = "tensorflowLite" }
 
 fluidsynth-kmp = { module = "dev.kotlinds:fluidsynth-kmp", version.ref = "fluidSynth" }
 jtransforms = { group = "com.github.wendykierp", name = "JTransforms", version.ref = "jtransforms" }

@@ -45,6 +45,7 @@ android {
 
     buildFeatures {
         compose = true
+        prefab = true
     }
 
     externalNativeBuild {
@@ -72,6 +73,11 @@ dependencies {
 
     implementation(libs.fluidsynth.kmp)
     implementation(libs.jtransforms)
+    
+    // TensorFlow Lite / Basic Pitch dependencies
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
+    implementation("org.tensorflow:tensorflow-lite-gpu-api:2.16.1")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
@@ -79,4 +85,22 @@ dependencies {
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+tasks.register("downloadBasicPitchModel") {
+    val modelUrl = "https://raw.githubusercontent.com/spotify/basic-pitch/main/basic_pitch/saved_models/icassp_2022/nmp.tflite"
+    val targetFile = file("src/main/assets/basic_pitch.tflite")
+    outputs.file(targetFile)
+    doLast {
+        if (!targetFile.exists()) {
+            targetFile.parentFile.mkdirs()
+            println("Downloading Spotify Basic Pitch model...")
+            ant.invokeMethod("get", mapOf("src" to modelUrl, "dest" to targetFile))
+            println("Download complete.")
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("downloadBasicPitchModel")
 }

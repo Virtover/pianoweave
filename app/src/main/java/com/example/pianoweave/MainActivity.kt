@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.pianoweave.api.PianoApiFactory
+import com.example.pianoweave.audio.AcousticNoteDetector
 import com.example.pianoweave.audio.PianoPlayer
 import com.example.pianoweave.midi.MidiInputManager
 import com.example.pianoweave.ui.components.AdaptiveNavigation
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         PianoApiFactory.initialize(application)
         PianoPlayer.initialize(applicationContext)
+        AcousticNoteDetector.initialize(applicationContext)
         enableEdgeToEdge()
 
         // Enable full immersive mode to hide navigation and status bars
@@ -88,6 +90,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        AcousticNoteDetector.cleanup()
         super.onDestroy()
     }
 }
