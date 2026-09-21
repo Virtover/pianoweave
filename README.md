@@ -35,4 +35,10 @@ Open the project in Android Studio and build the `:app` module.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+Piano Weave is licensed under the [PolyForm Noncommercial License](LICENSE).
+
+Copyright (c) 2026 Krzysztof Olszak
+
+The software may be used, modified, and distributed for noncommercial purposes subject to the terms of the license.
+
+Commercial use is not permitted without prior permission from the copyright holder. For the full terms, see the LICENSE file.
