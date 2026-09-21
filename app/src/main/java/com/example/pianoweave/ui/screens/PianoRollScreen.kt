@@ -69,16 +69,12 @@ fun PianoRollScreen(
 ) {
     var noteEvents by remember(song) { mutableStateOf<List<MidiNoteEvent>?>(null) }
     var parseError by remember(song) { mutableStateOf<String?>(null) }
-    
-    // Persistent tracking of the current song to avoid resets when coming back to the SAME song
-    var lastSongPath by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(song) {
-        if (lastSongPath != song.file.absolutePath) {
-            // New song detected: perform full reset
+    LaunchedEffect(song.file.absolutePath) {
+        viewModel.isWaitModeEnabled = false
+        if (viewModel.activePracticeSong?.file?.absolutePath != song.file.absolutePath) {
             viewModel.playheadMs = 0L
             viewModel.isPlaying = true
-            lastSongPath = song.file.absolutePath
         } else {
             viewModel.isPlaying = false
         }
@@ -160,9 +156,9 @@ private fun ModernPianoPlayerContent(
         if (!viewModel.isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
     }
 
-    // Reset wait state if playback stops or mode toggles
-    LaunchedEffect(viewModel.isPlaying, viewModel.isWaitModeEnabled) {
-        if (!viewModel.isPlaying || !viewModel.isWaitModeEnabled) {
+    // Reset wait state if mode toggles
+    LaunchedEffect(viewModel.isWaitModeEnabled) {
+        if (!viewModel.isWaitModeEnabled) {
             currentWaitOnsetMs = -1L
             chordHits.clear()
         }
@@ -206,8 +202,6 @@ private fun ModernPianoPlayerContent(
                     }
 
                     // --- Robust Chord Collector Logic ---
-                    // Instead of requiring all to be pressed simultaneously at this very instant,
-                    // we collect "fresh" strikes that have happened since we decided to wait.
                     required.forEach { p ->
                         if (p !in chordHits) {
                             val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
@@ -228,7 +222,7 @@ private fun ModernPianoPlayerContent(
                         delay(10)
                         continue
                     } else {
-                        // Success! Mark all notes as consumed so they don't double-trigger the NEXT note
+                        // Success! Mark all notes as consumed
                         required.forEach { p ->
                             MidiInputManager.consumedPressTimestamps[p] = MidiInputManager.lastPressTimestamps[p] ?: 0L
                         }
