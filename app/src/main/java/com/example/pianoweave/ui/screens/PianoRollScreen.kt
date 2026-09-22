@@ -27,7 +27,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -363,7 +363,11 @@ private fun ModernPianoPlayerContent(
                 )
             }
         ) {
-            PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches, emptySet())
+            PianoKeyboardRow(
+                startPitch, endPitch, totalWhiteKeys,
+                sustainedPitches, waitTargetPitches, emptySet(),
+                isWaitingAtBaseline
+            )
         }
 
         MediaTimelineFooter(
@@ -607,7 +611,8 @@ private fun PianoKeyboardRow(
     start: Int, end: Int, numWhiteKeys: Int,
     sustainedPitches: Set<Int>,
     waitTargetPitches: Set<Int> = emptySet(),
-    satisfiedPitches: Set<Int> = emptySet()
+    satisfiedPitches: Set<Int> = emptySet(),
+    isInteractive: Boolean = false
 ) {
     val pressed = MidiInputManager.pressedKeys.toSet()
 
@@ -620,7 +625,64 @@ private fun PianoKeyboardRow(
         label = "pulse"
     )
 
-    BoxWithConstraints(Modifier.fillMaxWidth().height(100.dp).background(ColorKeyBlack)) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxWidth()
+            .height(100.dp)
+            .background(ColorKeyBlack)
+            .then(
+                if (isInteractive) {
+                    Modifier.pointerInput(start, end, numWhiteKeys, isInteractive) {
+                        val activePointers = mutableMapOf<PointerId, Int>()
+                        val tw = size.width.toFloat()
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                event.changes.forEach { change ->
+                                    val pId = change.id
+                                    when {
+                                        change.changedToDown() -> {
+                                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys)
+                                            if (p != -1) {
+                                                activePointers[pId] = p
+                                                MidiInputManager.simulateNoteOn(p)
+                                                PianoPlayer.noteOn(p)
+                                            }
+                                            change.consume()
+                                        }
+                                        change.changedToUp() || !change.pressed -> {
+                                            activePointers.remove(pId)?.let { oldP ->
+                                                MidiInputManager.simulateNoteOff(oldP)
+                                                PianoPlayer.noteOff(oldP)
+                                            }
+                                            change.consume()
+                                        }
+                                        change.positionChanged() -> {
+                                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys)
+                                            val oldP = activePointers[pId]
+                                            if (newP != oldP) {
+                                                if (oldP != null) {
+                                                    MidiInputManager.simulateNoteOff(oldP)
+                                                    PianoPlayer.noteOff(oldP)
+                                                }
+                                                if (newP != -1) {
+                                                    activePointers[pId] = newP
+                                                    MidiInputManager.simulateNoteOn(newP)
+                                                    PianoPlayer.noteOn(newP)
+                                                } else {
+                                                    activePointers.remove(pId)
+                                                }
+                                            }
+                                            change.consume()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else Modifier
+            )
+    ) {
         val tw = constraints.maxWidth.toFloat()
 
         Canvas(Modifier.fillMaxSize()) {
