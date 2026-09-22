@@ -201,20 +201,22 @@ object AcousticNoteDetector {
 
             // --- Enhanced Sensitivity for High Keys ---
             // Higher keys are quiet and decay instantly. Onsets are everything.
+            val isNewNote = midiPitch !in activePitches
             val isOnHighKey = midiPitch > 76
-            val thresholdOnset = if (isOnHighKey) 0.35f else 0.45f
-            val thresholdNote = if (isOnHighKey) 0.25f else 0.35f
+            val thresholdOnset = if (isOnHighKey) 0.30f else 0.35f
+            val thresholdNote = if (isOnHighKey) 0.20f else 0.25f
 
-            if (peakOnset > thresholdOnset && peakNote > thresholdNote) {
-                // ALWAYS trigger strike event on onset spike
+            if ((peakOnset > thresholdOnset && peakNote > thresholdNote) ||
+                (isNewNote && peakNote > (thresholdNote + 0.05f))) {
+                
+                // Trigger strike event on new note activation or onset spike
                 MidiInputManager.simulateExternalNoteOn(midiPitch)
                 activePitches.add(midiPitch)
                 noteOffConfidence[midiPitch] = 0
-            } else if (peakNote > (thresholdNote + 0.05f)) {
-                // Sustain: Keep active, no strike event
-                activePitches.add(midiPitch)
+            } else if (peakNote > thresholdNote && !isNewNote) {
+                // Sustain existing active note
                 noteOffConfidence[midiPitch] = 0
-            } else if (peakNote < 0.20f && avgNote < 0.15f && midiPitch in activePitches) {
+            } else if (peakNote < 0.20f && avgNote < 0.15f && !isNewNote) {
                 noteOffConfidence[midiPitch]++
                 if (noteOffConfidence[midiPitch] >= REQUIRED_OFF_FRAMES) {
                     MidiInputManager.simulateExternalNoteOff(midiPitch)

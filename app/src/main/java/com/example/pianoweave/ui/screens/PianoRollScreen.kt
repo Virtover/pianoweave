@@ -147,8 +147,20 @@ private fun ModernPianoPlayerContent(
     LaunchedEffect(Unit) { if (viewModel.isWaitModeEnabled) AcousticNoteDetector.start(context) }
     DisposableEffect(Unit) { onDispose { AcousticNoteDetector.stop() } }
 
-    val sustainedPitches = remember(noteEvents, viewModel.playheadMs) {
-        noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs <= (it.startMs + it.durationMs) }.map { it.pitch }.toSet()
+    val sustainedPitches = remember(noteEvents, viewModel.playheadMs, viewModel.isPlaying, viewModel.isWaitModeEnabled, currentWaitOnsetMs) {
+        if (!viewModel.isPlaying) {
+            emptySet()
+        } else {
+            val waitTargetPitches = if (viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L) {
+                noteEvents.filter { abs(it.startMs - currentWaitOnsetMs) <= 30L }.map { it.pitch }.toSet()
+            } else {
+                emptySet()
+            }
+
+            noteEvents.filter { 
+                viewModel.playheadMs > it.startMs && viewModel.playheadMs <= (it.startMs + it.durationMs) 
+            }.map { it.pitch }.toSet() - waitTargetPitches
+        }
     }
     
     LaunchedEffect(sustainedPitches) {
@@ -210,7 +222,8 @@ private fun ModernPianoPlayerContent(
                             val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
                             val lastConsumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
 
-                            if (lastPress >= arrivalAtWaitPointRealTime - 400L && lastPress > lastConsumed) {
+                            if ((lastPress >= arrivalAtWaitPointRealTime - 400L && lastPress > lastConsumed) ||
+                                p in MidiInputManager.pressedKeys) {
                                 chordHits.add(p)
                             }
                         }
