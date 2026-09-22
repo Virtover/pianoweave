@@ -229,7 +229,6 @@ private fun ModernPianoPlayerContent(
                     if (currentWaitOnsetMs != upcoming) {
                         currentWaitOnsetMs = upcoming
                         arrivalAtWaitPointRealTime = System.currentTimeMillis()
-                        chordHits.clear()
                     }
 
                     // --- Simultaneous Chord Collector Logic ---
@@ -248,16 +247,13 @@ private fun ModernPianoPlayerContent(
                     chordHits.addAll(currentPresses.keys)
 
                     // Satisfied only when ALL required notes are struck together within 350ms
-                    val isChordSatisfied = if (required.isNotEmpty() && currentPresses.size == required.size) {
-                        val times = currentPresses.values
-                        val minT = times.minOrNull() ?: 0L
-                        val maxT = times.maxOrNull() ?: 0L
-                        (maxT - minT) <= 350L
-                    } else {
-                        false
-                    }
+                    val isChordSatisfied = required.isNotEmpty() &&
+                            currentPresses.size == required.size &&
+                            (currentPresses.values.max() - currentPresses.values.min()) <= 350L
 
                     if (!isChordSatisfied && required.isNotEmpty()) {
+                        val now = System.currentTimeMillis()
+                        currentPresses.filterValues { it < now - 350L }.keys.forEach(MidiInputManager::simulateExternalNoteOff)
                         viewModel.playheadMs = upcoming
                         delay(10)
                         continue
