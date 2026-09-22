@@ -236,8 +236,8 @@ object AcousticNoteDetector {
             val onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
             val frameProb = sigmoid(notePosteriors[latestFrame][p])
 
-            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.1f else 0.1f
-            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.05f else 0.08f
+            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.11f else 0.1f
+            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.06f else 0.08f
 
             val isActive = midiPitch in activePitches
 
