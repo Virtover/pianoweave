@@ -209,7 +209,7 @@ private fun ModernPianoPlayerContent(
                 val upcoming = noteEvents.filter { 
                     it.startMs >= viewModel.playheadMs && 
                     it.startMs <= targetNext && 
-                    it.startMs != lastCompletedWaitOnsetMs 
+                    abs(it.startMs - lastCompletedWaitOnsetMs) > 30L 
                 }.minOfOrNull { it.startMs }
                 
                 if (upcoming != null) {
@@ -278,7 +278,9 @@ private fun ModernPianoPlayerContent(
             } else if (!viewModel.isLoopingEnabled && next >= songDurationMs) {
                 viewModel.playheadMs = songDurationMs ; viewModel.isPlaying = false
             } else {
-                viewModel.playheadMs = next
+                if (viewModel.playheadMs < next) {
+                    viewModel.playheadMs = next
+                }
             }
             delay(10)
         }
