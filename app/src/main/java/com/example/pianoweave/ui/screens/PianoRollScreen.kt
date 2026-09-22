@@ -138,9 +138,9 @@ private fun ModernPianoPlayerContent(
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
     var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
     var arrivalAtWaitPointRealTime by remember { mutableLongStateOf(0L) }
+    var lastCompletedWaitOnsetMs by remember { mutableLongStateOf(-1L) }
     
     // --- Chord Collector State ---
-    // Tracks which pitches of the current required chord have been hit since arriving
     val chordHits = remember { mutableStateSetOf<Int>() }
 
     val context = LocalContext.current
@@ -175,6 +175,7 @@ private fun ModernPianoPlayerContent(
     LaunchedEffect(viewModel.isWaitModeEnabled) {
         if (!viewModel.isWaitModeEnabled) {
             currentWaitOnsetMs = -1L
+            lastCompletedWaitOnsetMs = -1L
             chordHits.clear()
         }
     }
@@ -205,7 +206,11 @@ private fun ModernPianoPlayerContent(
             val targetNext = viewModel.playheadMs + (dt * viewModel.speedMultiplier).toLong()
             
             if (viewModel.isWaitModeEnabled) {
-                val upcoming = noteEvents.filter { it.startMs >= viewModel.playheadMs && it.startMs <= targetNext }.minOfOrNull { it.startMs }
+                val upcoming = noteEvents.filter { 
+                    it.startMs >= viewModel.playheadMs && 
+                    it.startMs <= targetNext && 
+                    it.startMs != lastCompletedWaitOnsetMs 
+                }.minOfOrNull { it.startMs }
                 
                 if (upcoming != null) {
                     val required = noteEvents.filter { abs(it.startMs - upcoming) <= 30L && it.pitch in startPitch..endPitch }.map { it.pitch }.toSet()
@@ -216,32 +221,45 @@ private fun ModernPianoPlayerContent(
                         chordHits.clear()
                     }
 
-                    // --- Robust Chord Collector Logic ---
-                    required.forEach { p ->
-                        if (p !in chordHits) {
-                            val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
-                            val lastConsumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
-
-                            if ((lastPress >= arrivalAtWaitPointRealTime - 400L && lastPress > lastConsumed) ||
-                                p in MidiInputManager.pressedKeys) {
-                                chordHits.add(p)
-                            }
+                    // --- Simultaneous Chord Collector Logic ---
+                    val currentPresses = required.mapNotNull { p ->
+                        val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                        val lastConsumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
+                        if (lastPress >= arrivalAtWaitPointRealTime - 150L && lastPress > lastConsumed) {
+                            p to lastPress
+                        } else {
+                            null
                         }
-                    }
+                    }.toMap()
 
-                    val isChordSatisfied = required.isNotEmpty() && required.all { it in chordHits }
+                    // Highlight currently struck keys in UI
+                    chordHits.clear()
+                    chordHits.addAll(currentPresses.keys)
+
+                    // Satisfied only when ALL required notes are struck together within 350ms
+                    val isChordSatisfied = if (required.isNotEmpty() && currentPresses.size == required.size) {
+                        val times = currentPresses.values
+                        val minT = times.minOrNull() ?: 0L
+                        val maxT = times.maxOrNull() ?: 0L
+                        (maxT - minT) <= 350L
+                    } else {
+                        false
+                    }
 
                     if (!isChordSatisfied && required.isNotEmpty()) {
                         viewModel.playheadMs = upcoming
                         delay(10)
                         continue
                     } else {
-                        // Success! Mark all notes as consumed
+                        // Success! Mark all notes as consumed and advance playhead
                         required.forEach { p ->
                             MidiInputManager.consumedPressTimestamps[p] = MidiInputManager.lastPressTimestamps[p] ?: 0L
                         }
+                        lastCompletedWaitOnsetMs = upcoming
                         currentWaitOnsetMs = -1L
                         chordHits.clear()
+                        viewModel.playheadMs = upcoming + 35L
+                        lastTriggeredHeadMs = upcoming + 35L
                     }
                 }
             }
@@ -281,6 +299,7 @@ private fun ModernPianoPlayerContent(
                         val isLeft = offset.x < size.width / 2f
                         PianoPlayer.stopAllNotes()
                         currentWaitOnsetMs = -1L
+                        lastCompletedWaitOnsetMs = -1L
                         chordHits.clear()
                         viewModel.playheadMs = calculateSeekPosition(
                             currentMs = viewModel.playheadMs,
@@ -295,13 +314,12 @@ private fun ModernPianoPlayerContent(
                 )
             }
         ) {
-            FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, chordHits.toSet())
+            FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, emptySet())
             
             ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { viewModel.isPlaying = false ; showSettingsDialog = true })
 
-            if (isWaitingAtBaseline) {
-                val remaining = waitTargetPitches.filter { it !in chordHits }.toSet()
-                WaitModeOverlay(notes = remaining)
+            if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty()) {
+                WaitModeOverlay(notes = waitTargetPitches)
             }
 
             SeekIndicatorOverlay(seekInfo)
@@ -317,6 +335,7 @@ private fun ModernPianoPlayerContent(
                         val isLeft = offset.x < size.width / 2f
                         PianoPlayer.stopAllNotes()
                         currentWaitOnsetMs = -1L
+                        lastCompletedWaitOnsetMs = -1L
                         chordHits.clear()
                         viewModel.playheadMs = calculateSeekPosition(
                             currentMs = viewModel.playheadMs,
@@ -331,7 +350,7 @@ private fun ModernPianoPlayerContent(
                 )
             }
         ) {
-            PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches, chordHits.toSet())
+            PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches, emptySet())
         }
 
         MediaTimelineFooter(
@@ -522,11 +541,15 @@ private fun FallingNotesVisualizer(
             val h = (e.durationMs * scale).coerceAtLeast(12f)
             val y = size.height - ((e.startMs - head) * scale) - h
             
+            val now = System.currentTimeMillis()
             val isAtBaseline = head >= e.startMs && head <= (e.startMs + e.durationMs)
             val isHitting = head >= e.startMs && head <= (e.startMs + 60L)
             val isWaiting = waitTargetPitches.contains(e.pitch) && head >= e.startMs - 50 && head <= e.startMs + 50
             val isSatisfied = satisfiedPitches.contains(e.pitch) && isWaiting
-            val isUserMatch = isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)
+            
+            val lastPress = MidiInputManager.lastPressTimestamps[e.pitch] ?: 0L
+            val isRecentOnset = (now - lastPress <= 350L) && (MidiInputManager.pressedKeys.contains(e.pitch) || now - lastPress <= 250L)
+            val isUserMatch = (isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)) || (isWaiting && isRecentOnset)
 
             val baseCol = when { 
                 isSatisfied || isUserMatch -> ColorSuccess 
@@ -597,6 +620,7 @@ private fun PianoKeyboardRow(
             }
 
             // 2. Active White Key Highlights
+            val now = System.currentTimeMillis()
             for (p in start..end) {
                 if (isPitchBlack(p)) continue
                 val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
@@ -605,10 +629,13 @@ private fun PianoKeyboardRow(
                 val isWaiting = waitTargetPitches.contains(p)
                 val isSatisfied = satisfiedPitches.contains(p)
                 
+                val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L)
+
                 if (isPressed || isTarget || isWaiting || isSatisfied) {
                     val color = when {
                         isSatisfied -> ColorSuccess
-                        isWaiting && isPressed -> ColorSuccess // Struck in chord window
+                        isWaiting && isRecentOnset -> ColorSuccess // Brief onset green highlight
                         isPressed -> ColorGold
                         isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
                         else -> ColorGold.copy(alpha = 0.35f)
@@ -626,9 +653,12 @@ private fun PianoKeyboardRow(
                 val isWaiting = waitTargetPitches.contains(p)
                 val isSatisfied = satisfiedPitches.contains(p)
                 
+                val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L)
+
                 val highlightColor = when {
                     isSatisfied -> ColorSuccess
-                    isWaiting && isPressed -> ColorSuccess
+                    isWaiting && isRecentOnset -> ColorSuccess // Brief onset green highlight
                     isPressed -> ColorGold
                     isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
                     isTarget -> ColorGold.copy(alpha = 0.4f)
