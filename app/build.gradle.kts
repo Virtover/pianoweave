@@ -87,14 +87,14 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-tasks.register("downloadBasicPitchModel") {
-    val modelUrl = "https://raw.githubusercontent.com/spotify/basic-pitch/main/basic_pitch/saved_models/icassp_2022/nmp.tflite"
-    val targetFile = file("src/main/assets/basic_pitch.tflite")
+tasks.register("downloadModel") {
+    val modelUrl = "https://storage.googleapis.com/magentadata/models/onsets_frames_transcription/tflite/onsets_frames_wavinput_no_offset_uni.tflite"
+    val targetFile = file("src/main/assets/onsets_frames_wavinput_no_offset_uni.tflite")
     outputs.file(targetFile)
     doLast {
         if (!targetFile.exists()) {
             targetFile.parentFile.mkdirs()
-            println("Downloading Spotify Basic Pitch model...")
+            println("Downloading model...")
             ant.invokeMethod("get", mapOf("src" to modelUrl, "dest" to targetFile))
             println("Download complete.")
         }
@@ -102,5 +102,5 @@ tasks.register("downloadBasicPitchModel") {
 }
 
 tasks.named("preBuild") {
-    dependsOn("downloadBasicPitchModel")
+    dependsOn("downloadModel")
 }
