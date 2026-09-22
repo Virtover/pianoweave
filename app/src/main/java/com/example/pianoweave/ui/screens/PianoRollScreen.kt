@@ -164,7 +164,7 @@ private fun ModernPianoPlayerContent(
     }
     
     LaunchedEffect(sustainedPitches) {
-        AcousticNoteDetector.suppressedPitches = sustainedPitches
+        AcousticNoteDetector.suppressedPitches = emptySet()
     }
 
     LaunchedEffect(viewModel.isPlaying, isUserSeeking) {

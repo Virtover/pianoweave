@@ -50,6 +50,7 @@ object AcousticNoteDetector {
     @Volatile var suppressedPitches: Set<Int> = emptySet()
 
     private val activePitches = mutableSetOf<Int>()
+    private val pendingPitches = mutableMapOf<Int, Int>()
     private val noteOffConfidence = IntArray(128)
 
     /**
@@ -224,23 +225,25 @@ object AcousticNoteDetector {
                 continue
             }
 
-            // Max onset probability over recent frames (converting logits -> probabilities via sigmoid)
-            var peakOnset = 0.0f
-            for (f in startFrame until outputFrames) {
-                val onsetProb = sigmoid(onsetPosteriors[f][p])
-                if (onsetProb > peakOnset) peakOnset = onsetProb
-            }
-
-            // Latest frame probability
+            val onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
             val frameProb = sigmoid(notePosteriors[latestFrame][p])
+
             val isActive = midiPitch in activePitches
 
             if (!isActive) {
                 // Onset & Frames activation: require explicit onset + frame support
-                if (peakOnset >= ONSET_THRESHOLD && frameProb >= FRAME_THRESHOLD) {
-                    MidiInputManager.simulateExternalNoteOn(midiPitch)
-                    activePitches.add(midiPitch)
-                    noteOffConfidence[midiPitch] = 0
+                if (onsetProb >= ONSET_THRESHOLD && frameProb >= FRAME_THRESHOLD) {
+                    val count = (pendingPitches[midiPitch] ?: 0) + 1
+                    pendingPitches[midiPitch] = count
+
+                    if (count >= 2) {
+                        MidiInputManager.simulateExternalNoteOn(midiPitch)
+                        activePitches.add(midiPitch)
+                        noteOffConfidence[midiPitch] = 0
+                        pendingPitches.remove(midiPitch)
+                    }
+                } else {
+                    pendingPitches.remove(midiPitch)
                 }
             } else {
                 // Sustain or note-off
@@ -273,6 +276,7 @@ object AcousticNoteDetector {
         thread = null
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()
+        pendingPitches.clear()
     }
 
     fun cleanup() {
