@@ -189,6 +189,17 @@ private fun ModernPianoPlayerContent(
         else noteEvents.filter { abs(it.startMs - nextRequiredOnset) <= 30L }.map { it.pitch }.toSet()
     }
 
+    LaunchedEffect(notesToStrike, viewModel.isWaitModeEnabled) {
+        AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled) notesToStrike else emptySet()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            AcousticNoteDetector.targetPitches = emptySet()
+            AcousticNoteDetector.stop()
+        }
+    }
+
     LaunchedEffect(viewModel.isPlaying, viewModel.speedMultiplier, viewModel.isWaitModeEnabled, noteEvents) {
         if (!viewModel.isPlaying) return@LaunchedEffect
 

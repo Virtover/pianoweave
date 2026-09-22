@@ -30,8 +30,8 @@ object AcousticNoteDetector {
     private const val OUTPUT_FRAMES = 172
 
     // Minimal Onset & Frames Thresholds
-    private const val ONSET_THRESHOLD = 0.50f
-    private const val FRAME_THRESHOLD = 0.35f
+    private const val ONSET_THRESHOLD_BASE = 0.50f
+    private const val FRAME_THRESHOLD_BASE = 0.35f
     private const val ANALYSIS_FRAMES = 3
     private const val REQUIRED_OFF_FRAMES = 2
 
@@ -48,7 +48,7 @@ object AcousticNoteDetector {
     private var onsetIndex = -1
 
     @Volatile var suppressedPitches: Set<Int> = emptySet()
-
+    @Volatile var targetPitches: Set<Int> = emptySet()
     private val activePitches = mutableSetOf<Int>()
     private val pendingPitches = mutableMapOf<Int, Int>()
     private val noteOffConfidence = IntArray(128)
@@ -164,41 +164,47 @@ object AcousticNoteDetector {
         val samples = FloatArray(nativeSamples)
         var readIndex = NativeAudioEngine.getAvailableFrames().coerceAtLeast(nativeSamples.toLong()) - nativeSamples
 
-        while (isRunning) {
-            if (MidiInputManager.isMidiDeviceConnected()) break
+        try {
+            while (isRunning) {
+                if (MidiInputManager.isMidiDeviceConnected()) break
 
-            val writeIndex = NativeAudioEngine.getAvailableFrames()
-            val newFrames = (writeIndex - readIndex).toInt()
-            if (newFrames <= 0) {
-                Thread.sleep(10)
-                continue
+                val writeIndex = NativeAudioEngine.getAvailableFrames()
+                val newFrames = (writeIndex - readIndex).toInt()
+                if (newFrames <= 0) {
+                    Thread.sleep(10)
+                    continue
+                }
+
+                val count = newFrames.coerceAtMost(nativeSamples)
+                val start = writeIndex - count
+                if (count < nativeSamples) System.arraycopy(samples, count, samples, 0, nativeSamples - count)
+
+                capture.rewind()
+                if (NativeAudioEngine.copyLatest(capture, count, start) != count) continue
+                capture.rewind()
+                capture.asFloatBuffer().get(samples, nativeSamples - count, count)
+                readIndex = writeIndex
+
+                var peak = 0.0001f
+                for (sample in samples) peak = max(peak, abs(sample))
+                val gain = if (peak < 0.005f) 0f else min(3f, 0.5f / peak)
+
+                input.rewind()
+                for (i in 0 until inputSamples) {
+                    val pos = i * step
+                    val i0 = pos.toInt()
+                    val frac = pos - i0
+                    input.putFloat((samples[i0] * (1f - frac) + samples[min(i0 + 1, nativeSamples - 1)] * frac) * gain)
+                }
+
+                interp.runForMultipleInputsOutputs(arrayOf(input), outputs)
+                processOutputs(notes[0], onsets[0], outputFrames, midiKeys)
+                Thread.sleep(INFERENCE_INTERVAL_MS)
             }
-
-            val count = newFrames.coerceAtMost(nativeSamples)
-            val start = writeIndex - count
-            if (count < nativeSamples) System.arraycopy(samples, count, samples, 0, nativeSamples - count)
-
-            capture.rewind()
-            if (NativeAudioEngine.copyLatest(capture, count, start) != count) continue
-            capture.rewind()
-            capture.asFloatBuffer().get(samples, nativeSamples - count, count)
-            readIndex = writeIndex
-
-            var peak = 0.0001f
-            for (sample in samples) peak = max(peak, abs(sample))
-            val gain = if (peak < 0.005f) 0f else min(3f, 0.5f / peak)
-
-            input.rewind()
-            for (i in 0 until inputSamples) {
-                val pos = i * step
-                val i0 = pos.toInt()
-                val frac = pos - i0
-                input.putFloat((samples[i0] * (1f - frac) + samples[min(i0 + 1, nativeSamples - 1)] * frac) * gain)
-            }
-
-            interp.runForMultipleInputsOutputs(arrayOf(input), outputs)
-            processOutputs(notes[0], onsets[0], outputFrames, midiKeys)
-            Thread.sleep(INFERENCE_INTERVAL_MS)
+        } catch (ie: InterruptedException) {
+            Log.d(TAG, "Inference loop interrupt", ie)
+        } catch (e: Exception) {
+            Log.e(TAG, "Inference loop crashed", e)
         }
     }
 
@@ -225,14 +231,19 @@ object AcousticNoteDetector {
                 continue
             }
 
+            val isTarget = midiPitch in targetPitches
+
             val onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
             val frameProb = sigmoid(notePosteriors[latestFrame][p])
+
+            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.1f else 0.1f
+            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.05f else 0.08f
 
             val isActive = midiPitch in activePitches
 
             if (!isActive) {
                 // Onset & Frames activation: require explicit onset + frame support
-                if (onsetProb >= ONSET_THRESHOLD && frameProb >= FRAME_THRESHOLD) {
+                if (onsetProb >= onsetThreshold && frameProb >= frameThreshold) {
                     val count = (pendingPitches[midiPitch] ?: 0) + 1
                     pendingPitches[midiPitch] = count
 
@@ -247,7 +258,7 @@ object AcousticNoteDetector {
                 }
             } else {
                 // Sustain or note-off
-                if (frameProb >= FRAME_THRESHOLD) {
+                if (frameProb >= frameThreshold) {
                     noteOffConfidence[midiPitch] = 0
                 } else {
                     noteOffConfidence[midiPitch]++
