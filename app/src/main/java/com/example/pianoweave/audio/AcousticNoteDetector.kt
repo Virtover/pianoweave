@@ -35,6 +35,8 @@ object AcousticNoteDetector {
     private const val ANALYSIS_FRAMES = 3
     private const val REQUIRED_OFF_FRAMES = 2
 
+    private const val INFERENCE_INTERVAL_MS = 60L
+
     private var isInitialized = false
     private var isRunning = false
     private var thread: Thread? = null
@@ -133,80 +135,69 @@ object AcousticNoteDetector {
             }
         }.apply { 
             name = "AcousticThread"
-            priority = Thread.MAX_PRIORITY
+            priority = Thread.NORM_PRIORITY + 1
             start() 
         }
     }
 
     private fun runInferenceLoop() {
         val interp = interpreter ?: return
+        val inputSamples = interp.getInputTensor(0).shape().lastOrNull()?.takeIf { it > 0 } ?: INPUT_SAMPLES
+        val noteShape = noteIndex.takeIf { it >= 0 }?.let { interp.getOutputTensor(it).shape() } ?: intArrayOf()
+        val outputFrames = noteShape.getOrNull(noteShape.size - 2) ?: OUTPUT_FRAMES
+        val midiKeys = noteShape.lastOrNull() ?: MIDI_KEYS
 
-        val inShape = interp.getInputTensor(0).shape()
-        val numInputSamples = if (inShape.isNotEmpty() && inShape.last() > 0) inShape.last() else INPUT_SAMPLES
+        Log.i(TAG, "Config: input=$inputSamples, output=$outputFrames, keys=$midiKeys")
 
-        val noteShape = if (noteIndex != -1) interp.getOutputTensor(noteIndex).shape() else intArrayOf()
-        val numOutputFrames = if (noteShape.size >= 2) noteShape[noteShape.size - 2] else OUTPUT_FRAMES
-        val numMidiKeys = if (noteShape.isNotEmpty()) noteShape.last() else MIDI_KEYS
+        val input = ByteBuffer.allocateDirect(inputSamples * 4).order(ByteOrder.nativeOrder())
+        val notes = Array(1) { Array(outputFrames) { FloatArray(midiKeys) } }
+        val onsets = Array(1) { Array(outputFrames) { FloatArray(midiKeys) } }
+        val outputs = buildMap {
+            if (noteIndex >= 0) put(noteIndex, notes)
+            if (onsetIndex >= 0) put(onsetIndex, onsets)
+        }
 
-        Log.i(TAG, "Running Loop Config -> inputSamples: $numInputSamples, outputFrames: $numOutputFrames, midiKeys: $numMidiKeys")
-
-        val inputBuffer = ByteBuffer.allocateDirect(numInputSamples * 4).order(ByteOrder.nativeOrder())
-        
-        val noteOutput = Array(1) { Array(numOutputFrames) { FloatArray(numMidiKeys) } }
-        val onsetOutput = Array(1) { Array(numOutputFrames) { FloatArray(numMidiKeys) } }
-        
-        val outputs = mutableMapOf<Int, Any>()
-        if (noteIndex != -1) outputs[noteIndex] = noteOutput
-        if (onsetIndex != -1) outputs[onsetIndex] = onsetOutput
-
-        // Resampling ratio: AAudio capture (44.1kHz) -> Magenta Onsets & Frames target (16kHz)
-        val targetSampleRate = 16000.0f
-        val nativeSampleRate = 44100.0f
-        val resampleStep = nativeSampleRate / targetSampleRate
-        
-        val requiredNativeSamples = (numInputSamples * resampleStep).toInt() + 2
-        val captureBuffer = ByteBuffer.allocateDirect(requiredNativeSamples * 4).order(ByteOrder.nativeOrder())
-        val floatData = FloatArray(requiredNativeSamples)
+        val step = 44100f / 16000f
+        val nativeSamples = (inputSamples * step).toInt() + 2
+        val capture = ByteBuffer.allocateDirect(nativeSamples * 4).order(ByteOrder.nativeOrder())
+        val samples = FloatArray(nativeSamples)
+        var readIndex = NativeAudioEngine.getAvailableFrames().coerceAtLeast(nativeSamples.toLong()) - nativeSamples
 
         while (isRunning) {
             if (MidiInputManager.isMidiDeviceConnected()) break
 
-            val available = NativeAudioEngine.getAvailableFrames()
-            if (available < requiredNativeSamples) {
+            val writeIndex = NativeAudioEngine.getAvailableFrames()
+            val newFrames = (writeIndex - readIndex).toInt()
+            if (newFrames <= 0) {
                 Thread.sleep(10)
                 continue
             }
 
-            // Copy latest PCM samples from native audio engine
-            captureBuffer.rewind()
-            NativeAudioEngine.copyLatest(captureBuffer, requiredNativeSamples)
-            captureBuffer.rewind()
-            captureBuffer.asFloatBuffer().get(floatData)
+            val count = newFrames.coerceAtMost(nativeSamples)
+            val start = writeIndex - count
+            if (count < nativeSamples) System.arraycopy(samples, count, samples, 0, nativeSamples - count)
 
-            // Calculate peak for noise gate and soft gain
-            var maxPeak = 0.0001f
-            for (s in floatData) {
-                val a = abs(s)
-                if (a > maxPeak) maxPeak = a
-            }
-            // Mute below noise gate (0.005f), otherwise soft-gain normalize peak to ~0.5
-            val gain = if (maxPeak < 0.005f) 0.0f else min(3.0f, 0.5f / maxPeak)
+            capture.rewind()
+            if (NativeAudioEngine.copyLatest(capture, count, start) != count) continue
+            capture.rewind()
+            capture.asFloatBuffer().get(samples, nativeSamples - count, count)
+            readIndex = writeIndex
 
-            // Linear interpolation resampling from 44.1kHz -> 16kHz
-            inputBuffer.rewind()
-            for (i in 0 until numInputSamples) {
-                val srcIdx = i * resampleStep
-                val i0 = srcIdx.toInt()
-                val i1 = min(i0 + 1, requiredNativeSamples - 1)
-                val frac = srcIdx - i0
-                val rawSample = floatData[i0] * (1.0f - frac) + floatData[i1] * frac
-                inputBuffer.putFloat(rawSample * gain)
+            var peak = 0.0001f
+            for (sample in samples) peak = max(peak, abs(sample))
+            val gain = if (peak < 0.005f) 0f else min(3f, 0.5f / peak)
+
+            input.rewind()
+            for (i in 0 until inputSamples) {
+                val pos = i * step
+                val i0 = pos.toInt()
+                val frac = pos - i0
+                input.putFloat((samples[i0] * (1f - frac) + samples[min(i0 + 1, nativeSamples - 1)] * frac) * gain)
             }
 
-            interpreter?.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputs)
-            processOutputs(noteOutput[0], onsetOutput[0], numOutputFrames, numMidiKeys)
-            
-            Thread.sleep(30)
+            interp.runForMultipleInputsOutputs(arrayOf(input), outputs)
+            processOutputs(notes[0], onsets[0], outputFrames, midiKeys)
+            Thread.sleep(INFERENCE_INTERVAL_MS)
         }
     }
 

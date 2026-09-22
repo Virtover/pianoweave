@@ -105,27 +105,29 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_getSampleRate(JNIEnv *env, j
     return 44100;
 }
 
-JNIEXPORT jint JNICALL
+JNIEXPORT jlong JNICALL
 Java_com_example_pianoweave_audio_NativeAudioEngine_getAvailableFrames(JNIEnv *env, jclass clazz) {
-    return static_cast<jint>(writeIndex.load(std::memory_order_acquire));
+    return static_cast<jlong>(writeIndex.load(std::memory_order_acquire));
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, jclass clazz, jobject destination, jint frames) {
+Java_com_example_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, jclass clazz, jobject destination, jint frames, jlong startIndex) {
     if (destination == nullptr || frames <= 0) return 0;
 
     float *destPtr = static_cast<float *>(env->GetDirectBufferAddress(destination));
     if (destPtr == nullptr) return 0;
 
     int64_t currentWriteIndex = writeIndex.load(std::memory_order_acquire);
-    int64_t startReadIndex = currentWriteIndex - frames;
-    if (startReadIndex < 0) startReadIndex = 0;
+    const int64_t availableFrames = currentWriteIndex - startIndex;
+    if (availableFrames <= 0) return 0;
+
+    const int32_t framesToCopy = static_cast<int32_t>(std::min<int64_t>(frames, availableFrames));
 
     for (int32_t i = 0; i < frames; ++i) {
-        destPtr[i] = ringBuffer[(startReadIndex + i) % RING_BUFFER_SIZE];
+        destPtr[i] = ringBuffer[(startIndex + i) % RING_BUFFER_SIZE];
     }
 
-    return static_cast<jint>(frames);
+    return framesToCopy;
 }
 
 JNIEXPORT void JNICALL

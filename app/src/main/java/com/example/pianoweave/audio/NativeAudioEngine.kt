@@ -21,12 +21,13 @@ object NativeAudioEngine {
     external fun getSampleRate(): Int
 
     @JvmStatic
-    external fun getAvailableFrames(): Int
+    external fun getAvailableFrames(): Long
 
     @JvmStatic
     external fun copyLatest(
         destination: ByteBuffer,
         frames: Int,
+        startIndex: Long,
     ): Int
 
     @JvmStatic
