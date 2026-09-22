@@ -1,6 +1,7 @@
 package com.example.pianoweave.ui.screens
 
 import android.content.res.Configuration
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -9,6 +10,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -281,7 +284,7 @@ private fun ModernPianoPlayerContent(
         ) {
             FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, chordHits.toSet())
             
-            ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { showSettingsDialog = true })
+            ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { viewModel.isPlaying = false ; showSettingsDialog = true })
 
             if (isWaitingAtBaseline) {
                 val remaining = waitTargetPitches.filter { it !in chordHits }.toSet()
@@ -331,7 +334,7 @@ private fun ModernPianoPlayerContent(
         )
     }
 
-    if (showSettingsDialog) EditorSettingsDialog(viewModel.transposeOffset, { viewModel.transposeOffset = it }, { showSettingsDialog = false })
+    if (showSettingsDialog) SettingsDialog(viewModel = viewModel, songDurationMs = songDurationMs, onDismiss = { showSettingsDialog = false })
 }
 
 private enum class SeekDirection { BACKWARD, FORWARD }
@@ -672,19 +675,242 @@ private fun MediaTimelineFooter(
 }
 
 @Composable
-private fun EditorSettingsDialog(offset: Int, onChange: (Int)->Unit, onDismiss: ()->Unit) {
-    Dialog(onDismiss) {
-        Surface(shape = RoundedCornerShape(24.dp), color = ColorSurface, contentColor = Color.White, border = BorderStroke(1.dp, ColorSlate)) {
-            Column(modifier = Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-                Text("Piano Editor", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = ColorGold)
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Transposition", color = ColorTextDim, fontWeight = FontWeight.Bold)
-                        Text("${if (offset > 0) "+" else ""}$offset", color = ColorGold, fontWeight = FontWeight.Black)
+private fun SettingsDialog(
+    viewModel: PianoWeaveViewModel,
+    songDurationMs: Long,
+    onDismiss: () -> Unit
+) {
+    LaunchedEffect(Unit) {
+        viewModel.isPlaying = false
+    }
+
+    var startText by remember { mutableStateOf(formatTime(viewModel.loopStartMs)) }
+    var endText by remember { mutableStateOf(formatTime(viewModel.loopEndMs)) }
+    var isLooping by remember { mutableStateOf(viewModel.isLoopingEnabled) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = ColorSurface,
+            contentColor = Color.White,
+            border = BorderStroke(1.dp, ColorSlate)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = ColorGold
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = ColorTextDim)
                     }
-                    Slider(value = offset.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = -12f..12f, steps = 23, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = ColorGold))
                 }
-                Button(onClick = onDismiss, Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black), shape = RoundedCornerShape(14.dp)) { Text("DONE", fontWeight = FontWeight.Black, fontSize = 16.sp) }
+
+                HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                // Transposition Section
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Transposition", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Surface(
+                            color = ColorSlate.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "${if (viewModel.transposeOffset > 0) "+" else ""}${viewModel.transposeOffset} semi",
+                                color = ColorGold,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                    Slider(
+                        value = viewModel.transposeOffset.toFloat(),
+                        onValueChange = { viewModel.transposeOffset = it.toInt() },
+                        valueRange = -12f..12f,
+                        steps = 23,
+                        colors = SliderDefaults.colors(
+                            thumbColor = ColorGold,
+                            activeTrackColor = ColorGold,
+                            inactiveTrackColor = ColorSlate
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                // Loop Section
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Loop Playback", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Repeat section during practice", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                        }
+                        Switch(
+                            checked = isLooping,
+                            onCheckedChange = {
+                                isLooping = it
+                                viewModel.isLoopingEnabled = it
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.Black,
+                                checkedTrackColor = ColorGold,
+                                uncheckedThumbColor = ColorTextDim,
+                                uncheckedTrackColor = ColorSlate
+                            )
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = isLooping,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = startText,
+                                    onValueChange = { newText ->
+                                        startText = newText
+                                        val parsed = parseTimeToMs(newText)
+                                        if (parsed != null) {
+                                            viewModel.loopStartMs = parsed.coerceIn(0L, songDurationMs)
+                                        }
+                                    },
+                                    label = { Text("Start (mm:ss)") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = ColorGold,
+                                        unfocusedBorderColor = ColorSlate,
+                                        focusedLabelColor = ColorGold,
+                                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                        cursorColor = ColorGold,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    )
+                                )
+                                OutlinedTextField(
+                                    value = endText,
+                                    onValueChange = { newText ->
+                                        endText = newText
+                                        val parsed = parseTimeToMs(newText)
+                                        if (parsed != null) {
+                                            viewModel.loopEndMs = parsed.coerceIn(0L, songDurationMs)
+                                        }
+                                    },
+                                    label = { Text("End (mm:ss)") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = ColorGold,
+                                        unfocusedBorderColor = ColorSlate,
+                                        focusedLabelColor = ColorGold,
+                                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                        cursorColor = ColorGold,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    )
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val currentFormatted = formatTime(viewModel.playheadMs)
+                                        startText = currentFormatted
+                                        viewModel.loopStartMs = viewModel.playheadMs
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                    border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.6f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorGold)
+                                ) {
+                                    Text("Start = Current", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        val currentFormatted = formatTime(viewModel.playheadMs)
+                                        endText = currentFormatted
+                                        viewModel.loopEndMs = viewModel.playheadMs
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                    border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.6f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorGold)
+                                ) {
+                                    Text("End = Current", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                Button(
+                    onClick = {
+                        val parsedStart = parseTimeToMs(startText)
+                        val parsedEnd = parseTimeToMs(endText)
+
+                        if (parsedStart != null) {
+                            viewModel.loopStartMs = parsedStart.coerceIn(0L, songDurationMs)
+                        }
+                        if (parsedEnd != null) {
+                            viewModel.loopEndMs = parsedEnd.coerceIn(0L, songDurationMs)
+                        }
+                        viewModel.isLoopingEnabled = isLooping
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -705,6 +931,25 @@ private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit)
 private fun isPitchBlack(p: Int): Boolean { val n = p % 12 ; return n == 1 || n == 3 || n == 6 || n == 8 || n == 10 }
 private fun formatTime(ms: Long): String { val s = (ms / 1000L).coerceAtLeast(0L) ; return "%02d:%02d".format(s / 60, s % 60) }
 private fun midiPitchName(p: Int): String { val n = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B") ; return n[p % 12] + (p / 12 - 1) }
+
+private fun parseTimeToMs(input: String): Long? {
+    val trimmed = input.trim()
+    if (trimmed.isBlank()) return null
+    return try {
+        if (trimmed.contains(":")) {
+            val parts = trimmed.split(":")
+            if (parts.size != 2) return null
+            val mins = parts[0].toLongOrNull() ?: return null
+            val secs = parts[1].toDoubleOrNull() ?: return null
+            ((mins * 60.0 + secs) * 1000.0).toLong()
+        } else {
+            val secs = trimmed.toDoubleOrNull() ?: return null
+            (secs * 1000.0).toLong()
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
 
 private fun calculateSeekPosition(
     currentMs: Long,
