@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -250,14 +252,31 @@ private fun ModernPianoPlayerContent(
 
     val isWaitingAtBaseline = viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
+    var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null 
-            ) {
-                viewModel.isPlaying = !viewModel.isPlaying
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        viewModel.isPlaying = !viewModel.isPlaying
+                    },
+                    onDoubleTap = { offset ->
+                        val isLeft = offset.x < size.width / 2f
+                        PianoPlayer.stopAllNotes()
+                        currentWaitOnsetMs = -1L
+                        chordHits.clear()
+                        viewModel.playheadMs = calculateSeekPosition(
+                            currentMs = viewModel.playheadMs,
+                            deltaMs = if (isLeft) -5000L else 5000L,
+                            songDurationMs = songDurationMs,
+                            isLoopingEnabled = viewModel.isLoopingEnabled,
+                            loopStartMs = viewModel.loopStartMs,
+                            loopEndMs = viewModel.loopEndMs
+                        )
+                        seekInfo = SeekInfo(if (isLeft) SeekDirection.BACKWARD else SeekDirection.FORWARD)
+                    }
+                )
             }
         ) {
             FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, chordHits.toSet())
@@ -268,14 +287,32 @@ private fun ModernPianoPlayerContent(
                 val remaining = waitTargetPitches.filter { it !in chordHits }.toSet()
                 WaitModeOverlay(notes = remaining)
             }
+
+            SeekIndicatorOverlay(seekInfo)
         }
 
         Box(modifier = Modifier.fillMaxWidth().height(100.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                viewModel.isPlaying = !viewModel.isPlaying
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        viewModel.isPlaying = !viewModel.isPlaying
+                    },
+                    onDoubleTap = { offset ->
+                        val isLeft = offset.x < size.width / 2f
+                        PianoPlayer.stopAllNotes()
+                        currentWaitOnsetMs = -1L
+                        chordHits.clear()
+                        viewModel.playheadMs = calculateSeekPosition(
+                            currentMs = viewModel.playheadMs,
+                            deltaMs = if (isLeft) -5000L else 5000L,
+                            songDurationMs = songDurationMs,
+                            isLoopingEnabled = viewModel.isLoopingEnabled,
+                            loopStartMs = viewModel.loopStartMs,
+                            loopEndMs = viewModel.loopEndMs
+                        )
+                        seekInfo = SeekInfo(if (isLeft) SeekDirection.BACKWARD else SeekDirection.FORWARD)
+                    }
+                )
             }
         ) {
             PianoKeyboardRow(startPitch, endPitch, totalWhiteKeys, sustainedPitches, waitTargetPitches, chordHits.toSet())
@@ -297,6 +334,69 @@ private fun ModernPianoPlayerContent(
     if (showSettingsDialog) EditorSettingsDialog(viewModel.transposeOffset, { viewModel.transposeOffset = it }, { showSettingsDialog = false })
 }
 
+private enum class SeekDirection { BACKWARD, FORWARD }
+private data class SeekInfo(val direction: SeekDirection, val id: Long = System.currentTimeMillis())
+
+@Composable
+private fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
+    var visibleInfo by remember { mutableStateOf<SeekInfo?>(null) }
+    var alpha by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(seekInfo) {
+        if (seekInfo != null) {
+            visibleInfo = seekInfo
+            alpha = 1f
+            delay(500)
+            alpha = 0f
+            delay(200)
+            visibleInfo = null
+        }
+    }
+
+    val animatedAlpha by animateFloatAsState(
+        targetValue = alpha,
+        animationSpec = tween(durationMillis = 200),
+        label = "seekAlpha"
+    )
+
+    visibleInfo?.let { info ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { this.alpha = animatedAlpha },
+            contentAlignment = if (info.direction == SeekDirection.BACKWARD) Alignment.CenterStart else Alignment.CenterEnd
+        ) {
+            Surface(
+                modifier = Modifier
+                    .padding(horizontal = 48.dp)
+                    .size(90.dp),
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.7f),
+                border = BorderStroke(1.5.dp, ColorGold.copy(alpha = 0.8f))
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = if (info.direction == SeekDirection.BACKWARD) Icons.Default.FastRewind else Icons.Default.FastForward,
+                        contentDescription = null,
+                        tint = ColorGold,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = if (info.direction == SeekDirection.BACKWARD) "-5s" else "+5s",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ModernToolbar(
     head: Long, dur: Long, viewModel: PianoWeaveViewModel, onBack: () -> Unit, onSetClick: () -> Unit
@@ -307,7 +407,7 @@ private fun ModernToolbar(
 
     Row(
         modifier = Modifier.fillMaxWidth().background(ColorSurface.copy(alpha = 0.5f)).padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable(enabled = false) {}, // Consume clicks so they don't toggle video
+            .pointerInput(Unit) { detectTapGestures { } }, // Consume gestures so UI toolbar doesn't pass taps through
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
@@ -443,7 +543,7 @@ private fun FallingNotesVisualizer(
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 64.dp), Alignment.TopCenter) {
+    Box(Modifier.fillMaxWidth().padding(top = 64.dp).pointerInput(Unit) { detectTapGestures { } }, Alignment.TopCenter) {
         Surface(color = ColorWaitTarget.copy(alpha = 0.9f), shape = RoundedCornerShape(16.dp), shadowElevation = 20.dp, border = BorderStroke(2.dp, Color.White)) {
             Text(text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) }, Modifier.padding(horizontal = 32.dp, vertical = 14.dp), fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.Black)
         }
@@ -546,7 +646,7 @@ private fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKe
 private fun MediaTimelineFooter(
     viewModel: PianoWeaveViewModel, dur: Long, onSeekState: (Boolean) -> Unit, onResetHead: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp).clickable(enabled = false) {}, // Consume clicks
+    Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp).pointerInput(Unit) { detectTapGestures { } }, // Consume gestures
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -605,3 +705,36 @@ private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit)
 private fun isPitchBlack(p: Int): Boolean { val n = p % 12 ; return n == 1 || n == 3 || n == 6 || n == 8 || n == 10 }
 private fun formatTime(ms: Long): String { val s = (ms / 1000L).coerceAtLeast(0L) ; return "%02d:%02d".format(s / 60, s % 60) }
 private fun midiPitchName(p: Int): String { val n = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B") ; return n[p % 12] + (p / 12 - 1) }
+
+private fun calculateSeekPosition(
+    currentMs: Long,
+    deltaMs: Long,
+    songDurationMs: Long,
+    isLoopingEnabled: Boolean,
+    loopStartMs: Long,
+    loopEndMs: Long
+): Long {
+    val rawTarget = currentMs + deltaMs
+    val loopLen = loopEndMs - loopStartMs
+
+    if (!isLoopingEnabled || loopLen <= 0) {
+        return rawTarget.coerceIn(0L, songDurationMs)
+    }
+
+    if (deltaMs < 0) {
+        val wasBeforeLoop = currentMs < loopStartMs
+        return if (wasBeforeLoop) {
+            rawTarget.coerceAtLeast(0L)
+        } else {
+            rawTarget.coerceAtLeast(loopStartMs)
+        }
+    } else {
+        return if (rawTarget >= loopEndMs) {
+            val offsetPastStart = rawTarget - loopStartMs
+            val remainder = offsetPastStart % loopLen
+            loopStartMs + remainder
+        } else {
+            rawTarget
+        }
+    }
+}
