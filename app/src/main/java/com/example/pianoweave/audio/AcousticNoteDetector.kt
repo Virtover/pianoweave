@@ -242,8 +242,8 @@ object AcousticNoteDetector {
             val onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
             val frameProb = sigmoid(notePosteriors[latestFrame][p])
 
-            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.33f - midiPitchModifier(midiPitch) else 0.11f
-            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.25f - midiPitchModifier(midiPitch) / 2 else 0.10f
+            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.25f - midiPitchModifier(midiPitch) else 0.12f
+            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.20f - midiPitchModifier(midiPitch) / 2 else 0.10f
 
             val isActive = midiPitch in activePitches
 
@@ -253,7 +253,7 @@ object AcousticNoteDetector {
                     val count = (pendingPitches[midiPitch] ?: 0) + 1
                     pendingPitches[midiPitch] = count
 
-                    if (count >= 2) {
+                    if (count >= 1) {
                         MidiInputManager.simulateExternalNoteOn(midiPitch)
                         activePitches.add(midiPitch)
                         noteOffConfidence[midiPitch] = 0

@@ -245,14 +245,14 @@ private fun ModernPianoPlayerContent(
                     chordHits.clear()
                     chordHits.addAll(currentPresses.keys)
 
-                    // Satisfied only when ALL required notes are struck together within 350ms
+                    // Satisfied only when ALL required notes are struck together within 1000ms
                     val isChordSatisfied = required.isNotEmpty() &&
                             currentPresses.size == required.size &&
-                            (currentPresses.values.max() - currentPresses.values.min()) <= 350L
+                            (currentPresses.values.max() - currentPresses.values.min()) <= 1000L
 
                     if (!isChordSatisfied && required.isNotEmpty()) {
                         val now = System.currentTimeMillis()
-                        currentPresses.filterValues { it < now - 350L }.keys.forEach(MidiInputManager::simulateExternalNoteOff)
+                        currentPresses.filterValues { it < now - 1000 }.keys.forEach(MidiInputManager::simulateExternalNoteOff)
                         viewModel.playheadMs = upcoming
                         delay(10)
                         continue
