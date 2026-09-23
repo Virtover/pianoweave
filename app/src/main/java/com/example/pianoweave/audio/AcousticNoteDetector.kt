@@ -17,9 +17,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 
-/**
- * Basic real-time piano note detector using lightweight Onset & Frames architecture.
- */
 object AcousticNoteDetector {
     private const val TAG = "AcousticNoteDetector"
     private const val MODEL_NAME = "onsets_frames_wavinput_no_offset_uni.tflite"
@@ -33,7 +30,7 @@ object AcousticNoteDetector {
     // Minimal Onset & Frames Thresholds
     private const val ONSET_THRESHOLD_BASE = 0.50f
     private const val FRAME_THRESHOLD_BASE = 0.35f
-    private const val ANALYSIS_FRAMES = 3
+    private const val ANALYSIS_FRAMES = 5
     private const val REQUIRED_OFF_FRAMES = 2
 
     private const val INFERENCE_INTERVAL_MS = 60L
@@ -239,17 +236,29 @@ object AcousticNoteDetector {
 
             val isTarget = midiPitch in targetPitches
 
-            val onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
-            val frameProb = sigmoid(notePosteriors[latestFrame][p])
-
             val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.25f - midiPitchModifier(midiPitch) else 0.12f
             val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.20f - midiPitchModifier(midiPitch) / 2 else 0.10f
 
             val isActive = midiPitch in activePitches
 
+            var onsetProb = 0f
+            var onsetFrame = latestFrame
+            if (isTarget) {
+                for (frame in startFrame..latestFrame) {
+                    val prob = sigmoid(onsetPosteriors[frame][p])
+                    if (prob > onsetProb) {
+                        onsetProb = prob
+                        onsetFrame = frame
+                    }
+                }
+            } else {
+                onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
+            }
+            val frameProb = sigmoid(notePosteriors[onsetFrame][p])
+
             if (!isActive) {
-                // Onset & Frames activation: require explicit onset + frame support
-                if (onsetProb >= onsetThreshold && frameProb >= frameThreshold) {
+                val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
+                if (detected) {
                     val count = (pendingPitches[midiPitch] ?: 0) + 1
                     pendingPitches[midiPitch] = count
 
