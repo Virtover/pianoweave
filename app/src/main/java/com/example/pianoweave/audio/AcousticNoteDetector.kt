@@ -215,7 +215,7 @@ object AcousticNoteDetector {
 
     private fun midiPitchModifier(pitch: Int): Float {
         val x = max(0f, ((pitch - 79f) / 29f).coerceIn(0f, 1f))
-        return 0.12f * (0.667f + 0.333f * x).pow(8)
+        return 0.11f * (0.667f + 0.333f * x).pow(8)
     }
 
     private fun processOutputs(
@@ -242,8 +242,8 @@ object AcousticNoteDetector {
             val onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
             val frameProb = sigmoid(notePosteriors[latestFrame][p])
 
-            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.22f - midiPitchModifier(midiPitch) else 0.11f
-            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.17f - midiPitchModifier(midiPitch) / 2 else 0.10f
+            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.33f - midiPitchModifier(midiPitch) else 0.11f
+            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.25f - midiPitchModifier(midiPitch) / 2 else 0.10f
 
             val isActive = midiPitch in activePitches
 
