@@ -77,11 +77,6 @@ fun PianoRollScreen(
 
     LaunchedEffect(song.file.absolutePath) {
         viewModel.isWaitModeEnabled = false
-        if (viewModel.activePracticeSong?.file?.absolutePath != song.file.absolutePath) {
-            viewModel.playheadMs = 0L
-            viewModel.isPlaying = true
-        }
-        
         noteEvents = null
         parseError = null
         try {
@@ -89,6 +84,10 @@ fun PianoRollScreen(
                 SimpleMidiReader.parse(song.file)
             }
             noteEvents = parsed
+            val duration = parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L
+            if (viewModel.loopEndMs == 0L) {
+                viewModel.loopEndMs = duration
+            }
         } catch (e: Exception) {
             parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
         }

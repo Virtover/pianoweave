@@ -50,6 +50,9 @@ class PianoWeaveViewModel : ViewModel() {
         if (lastPlayedSongPath != song.file.absolutePath) {
             playheadMs = 0L
             isPlaying = true // Auto-play new songs
+            isLoopingEnabled = false
+            loopStartMs = 0L
+            loopEndMs = 0L
             lastPlayedSongPath = song.file.absolutePath
         }
         activePracticeSong = song
