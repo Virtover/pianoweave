@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -167,7 +166,14 @@ private fun ModernPianoPlayerContent(
     }
 
     LaunchedEffect(viewModel.isPlaying, isUserSeeking) {
-        if (!viewModel.isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
+        if (!viewModel.isPlaying || isUserSeeking) {
+            PianoPlayer.stopAllNotes()
+            if (isUserSeeking) {
+                currentWaitOnsetMs = -1L
+                lastCompletedWaitOnsetMs = -1L
+                chordHits.clear()
+            }
+        }
     }
 
     // Reset wait state if mode toggles
@@ -188,8 +194,8 @@ private fun ModernPianoPlayerContent(
         else noteEvents.filter { abs(it.startMs - nextRequiredOnset) <= 30L }.map { it.pitch }.toSet()
     }
 
-    LaunchedEffect(notesToStrike, viewModel.isWaitModeEnabled) {
-        AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled) notesToStrike else emptySet()
+    LaunchedEffect(notesToStrike, viewModel.isWaitModeEnabled, viewModel.isPlaying) {
+        AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled && viewModel.isPlaying) notesToStrike else emptySet()
     }
 
     DisposableEffect(Unit) {
@@ -245,14 +251,14 @@ private fun ModernPianoPlayerContent(
                     chordHits.clear()
                     chordHits.addAll(currentPresses.keys)
 
-                    // Satisfied only when ALL required notes are struck together within 1000ms
+                    // Satisfied only when ALL required notes are struck within 1500ms
                     val isChordSatisfied = required.isNotEmpty() &&
                             currentPresses.size == required.size &&
-                            (currentPresses.values.max() - currentPresses.values.min()) <= 1000L
+                            (currentPresses.values.max() - currentPresses.values.min()) <= 1500L
 
                     if (!isChordSatisfied && required.isNotEmpty()) {
                         val now = System.currentTimeMillis()
-                        currentPresses.filterValues { it < now - 1000 }.keys.forEach(MidiInputManager::simulateExternalNoteOff)
+                        currentPresses.filterValues { it < now - 1500L }.keys.forEach(MidiInputManager::simulateExternalNoteOff)
                         viewModel.playheadMs = upcoming
                         delay(10)
                         continue
@@ -292,7 +298,10 @@ private fun ModernPianoPlayerContent(
         }
     }
 
-    val isWaitingAtBaseline = viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
+    val isWaitingAtBaseline = viewModel.isPlaying && 
+            viewModel.isWaitModeEnabled && 
+            currentWaitOnsetMs != -1L && 
+            abs(viewModel.playheadMs - currentWaitOnsetMs) <= 40L
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
 
@@ -367,11 +376,20 @@ private fun ModernPianoPlayerContent(
 
         MediaTimelineFooter(
             viewModel, songDurationMs, 
-            onSeekState = { isUserSeeking = it },
+            onSeekState = { seeking ->
+                isUserSeeking = seeking
+                if (seeking) {
+                    currentWaitOnsetMs = -1L
+                    lastCompletedWaitOnsetMs = -1L
+                    chordHits.clear()
+                    PianoPlayer.stopAllNotes()
+                }
+            },
             onResetHead = { 
                 viewModel.playheadMs = if (viewModel.isLoopingEnabled) viewModel.loopStartMs else 0L 
                 lastTriggeredHeadMs = viewModel.playheadMs 
                 currentWaitOnsetMs = -1L
+                lastCompletedWaitOnsetMs = -1L
                 chordHits.clear()
                 PianoPlayer.stopAllNotes() 
             }
@@ -443,6 +461,8 @@ private fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
         }
     }
 }
+
+
 
 @Composable
 private fun ModernToolbar(
@@ -594,7 +614,7 @@ private fun FallingNotesVisualizer(
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 64.dp).pointerInput(Unit) { detectTapGestures { } }, Alignment.TopCenter) {
+    Box(Modifier.fillMaxWidth().padding(top = 64.dp), Alignment.TopCenter) {
         Surface(color = ColorWaitTarget.copy(alpha = 0.9f), shape = RoundedCornerShape(16.dp), shadowElevation = 20.dp, border = BorderStroke(2.dp, Color.White)) {
             Text(text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) }, Modifier.padding(horizontal = 32.dp, vertical = 14.dp), fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.Black)
         }
