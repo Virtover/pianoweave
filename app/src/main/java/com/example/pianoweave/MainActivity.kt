@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         PianoApiFactory.initialize(application)
         PianoPlayer.initialize(applicationContext)
+        AcousticNoteDetector.initialize(applicationContext)
         enableEdgeToEdge()
 
         // Enable full immersive mode to hide navigation and status bars
@@ -61,11 +62,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PianoWeaveTheme {
-                LaunchedEffect(Unit) {
-                    // Defer acoustic engine init until after first frame is up,
-                    // well clear of PianoPlayer's own stream-opening window.
-                    AcousticNoteDetector.initialize(applicationContext)
-                }
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {

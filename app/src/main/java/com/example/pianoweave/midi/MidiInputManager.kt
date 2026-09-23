@@ -9,17 +9,20 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.mutableStateListOf
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 object MidiInputManager {
 
     val pressedKeys = mutableStateListOf<Int>()
     val lastPressTimestamps = ConcurrentHashMap<Int, Long>()
     val consumedPressTimestamps = ConcurrentHashMap<Int, Long>()
-    
-    private val virtualPresses = mutableSetOf<Int>()
-    private val externalPresses = mutableSetOf<Int>()
-    
+
+    private val virtualPresses = ConcurrentHashMap.newKeySet<Int>()
+    private val externalPresses = ConcurrentHashMap.newKeySet<Int>()
+
     private var activeDevice: MidiDevice? = null
+    private val pressedKeysMutex = ReentrantLock()
 
     fun isMidiDeviceConnected(): Boolean {
         return activeDevice != null
@@ -71,7 +74,7 @@ object MidiInputManager {
         while (i < offset + count) {
             val statusByte = msg[i].toInt() and 0xFF
             val type = statusByte and 0xF0
-            
+
             if (type == 0x90) { // Note On
                 if (i + 2 < offset + count) {
                     val pitch = msg[i + 1].toInt() and 0xFF
@@ -114,9 +117,11 @@ object MidiInputManager {
     }
 
     private fun syncPressedKeys() {
-        val combined = virtualPresses + externalPresses
-        val toRemove = pressedKeys.filter { it !in combined }
-        pressedKeys.removeAll(toRemove)
-        combined.forEach { if (it !in pressedKeys) pressedKeys.add(it) }
+        pressedKeysMutex.withLock {
+            val combined = virtualPresses + externalPresses
+            val toRemove = pressedKeys.filter { it !in combined }
+            pressedKeys.removeAll(toRemove)
+            combined.forEach { if (it !in pressedKeys) pressedKeys.add(it) }
+        }
     }
 }
