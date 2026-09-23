@@ -15,6 +15,7 @@ import java.nio.channels.FileChannel
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 
 /**
  * Basic real-time piano note detector using lightweight Onset & Frames architecture.
@@ -212,6 +213,11 @@ object AcousticNoteDetector {
         return 1.0f / (1.0f + kotlin.math.exp(-x))
     }
 
+    private fun midiPitchModifier(pitch: Int): Float {
+        val x = max(0f, ((pitch - 79f) / 29f).coerceIn(0f, 1f))
+        return 0.12f * (0.667f + 0.333f * x).pow(8)
+    }
+
     private fun processOutputs(
         notePosteriors: Array<FloatArray>,
         onsetPosteriors: Array<FloatArray>,
@@ -236,8 +242,8 @@ object AcousticNoteDetector {
             val onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
             val frameProb = sigmoid(notePosteriors[latestFrame][p])
 
-            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.20f else 0.11f
-            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.15f else 0.10f
+            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.22f - midiPitchModifier(midiPitch) else 0.11f
+            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.17f - midiPitchModifier(midiPitch) / 2 else 0.10f
 
             val isActive = midiPitch in activePitches
 
