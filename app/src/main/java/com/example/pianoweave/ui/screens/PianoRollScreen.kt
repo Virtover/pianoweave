@@ -321,6 +321,8 @@ private fun ModernPianoPlayerContent(
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
+        ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { viewModel.isPlaying = false ; showSettingsDialog = true })
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()
             .pointerInput(Unit) {
                 val maxDist = 35.dp.toPx()
@@ -349,8 +351,6 @@ private fun ModernPianoPlayerContent(
             }
         ) {
             FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, emptySet())
-            
-            ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { viewModel.isPlaying = false ; showSettingsDialog = true })
 
             if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty()) {
                 WaitModeOverlay(notes = waitTargetPitches)
@@ -360,31 +360,35 @@ private fun ModernPianoPlayerContent(
         }
 
         Box(modifier = Modifier.fillMaxWidth().height(100.dp)
-            .pointerInput(Unit) {
-                val maxDist = 35.dp.toPx()
-                detectTapAndDoubleTap(
-                    maxDistance = maxDist,
-                    onTap = {
-                        viewModel.isPlaying = !viewModel.isPlaying
-                    },
-                    onDoubleTap = { offset ->
-                        val isLeft = offset.x < size.width / 2f
-                        PianoPlayer.stopAllNotes()
-                        currentWaitOnsetMs = -1L
-                        lastCompletedWaitOnsetMs = -1L
-                        chordHits.clear()
-                        viewModel.playheadMs = calculateSeekPosition(
-                            currentMs = viewModel.playheadMs,
-                            deltaMs = if (isLeft) -5000L else 5000L,
-                            songDurationMs = songDurationMs,
-                            isLoopingEnabled = viewModel.isLoopingEnabled,
-                            loopStartMs = viewModel.loopStartMs,
-                            loopEndMs = viewModel.loopEndMs
+            .then(
+                if (!viewModel.isWaitModeEnabled) {
+                    Modifier.pointerInput(Unit) {
+                        val maxDist = 35.dp.toPx()
+                        detectTapAndDoubleTap(
+                            maxDistance = maxDist,
+                            onTap = {
+                                viewModel.isPlaying = !viewModel.isPlaying
+                            },
+                            onDoubleTap = { offset ->
+                                val isLeft = offset.x < size.width / 2f
+                                PianoPlayer.stopAllNotes()
+                                currentWaitOnsetMs = -1L
+                                lastCompletedWaitOnsetMs = -1L
+                                chordHits.clear()
+                                viewModel.playheadMs = calculateSeekPosition(
+                                    currentMs = viewModel.playheadMs,
+                                    deltaMs = if (isLeft) -5000L else 5000L,
+                                    songDurationMs = songDurationMs,
+                                    isLoopingEnabled = viewModel.isLoopingEnabled,
+                                    loopStartMs = viewModel.loopStartMs,
+                                    loopEndMs = viewModel.loopEndMs
+                                )
+                                seekInfo = SeekInfo(if (isLeft) SeekDirection.BACKWARD else SeekDirection.FORWARD)
+                            }
                         )
-                        seekInfo = SeekInfo(if (isLeft) SeekDirection.BACKWARD else SeekDirection.FORWARD)
                     }
-                )
-            }
+                } else Modifier
+            )
         ) {
             PianoKeyboardRow(
                 startPitch, endPitch, totalWhiteKeys,
@@ -593,23 +597,23 @@ private fun FallingNotesVisualizer(
             val isRecentOnset = (now - lastPress <= 350L) && (MidiInputManager.pressedKeys.contains(e.pitch) || now - lastPress <= 250L)
             val isUserMatch = (isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)) || (isWaiting && isRecentOnset)
 
-            val baseCol = when { 
+            val baseCol = when {
                 isSatisfied || isUserMatch -> ColorSuccess 
                 isWaiting -> ColorWaitTarget
-                isHitting -> ColorTarget 
-                isAtBaseline -> ColorGold 
+                isHitting -> ColorTarget
+                isAtBaseline -> ColorGold
                 else -> ColorUpcomingNote 
             }
-            val highlightCol = when { 
-                isSatisfied || isUserMatch -> ColorSuccessLight 
+            val highlightCol = when {
+                isSatisfied || isUserMatch -> ColorSuccessLight
                 isWaiting -> ColorWaitTargetLight
-                isHitting -> ColorGoldLight 
-                isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f) 
-                else -> baseCol.copy(alpha = 0.6f) 
+                isHitting -> ColorGoldLight
+                isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f)
+                else -> baseCol.copy(alpha = 0.6f)
             }
 
             drawRoundRect(brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)), size = Size(kw - 1f, h), cornerRadius = CornerRadius(6.dp.toPx()))
-            
+
             if (isHitting || isUserMatch || isWaiting) {
                 val glowCol = if (isWaiting && !isSatisfied) ColorWaitTarget else baseCol
                 drawRect(brush = Brush.verticalGradient(listOf(glowCol.copy(alpha = 0.4f), Color.Transparent)), topLeft = Offset(x1, y.coerceIn(-h, size.height) + h), size = Size(kw, 35.dp.toPx()))
