@@ -3,10 +3,10 @@ package com.example.pianoweave.audio
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Process
 import android.util.Log
 import com.example.pianoweave.midi.MidiInputManager
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -39,7 +39,6 @@ object AcousticNoteDetector {
     private var isRunning = false
     private var thread: Thread? = null
     private var interpreter: Interpreter? = null
-    private var gpuDelegate: GpuDelegate? = null
 
     // Dynamic output mapping
     private var noteIndex = -1
@@ -60,22 +59,14 @@ object AcousticNoteDetector {
             Log.i(TAG, "Initializing model...")
             val modelBuffer = loadModelFile(context, MODEL_NAME)
 
-            try {
-                val options = Interpreter.Options()
-                gpuDelegate = GpuDelegate()
-                options.addDelegate(gpuDelegate)
-                interpreter = Interpreter(modelBuffer, options)
-                Log.i(TAG, "Interpreter initialized with GPU delegate.")
-            } catch (e: Exception) {
-                Log.w(TAG, "GPU initialization failed, falling back to CPU", e)
-                gpuDelegate?.close()
-                gpuDelegate = null
-                
-                val options = Interpreter.Options()
-                options.setNumThreads(4)
-                interpreter = Interpreter(modelBuffer, options)
-                Log.i(TAG, "Interpreter initialized with CPU (4 threads).")
+            // CPU with XNNPACK and 4 threads is explicitly chosen over GPU Delegate
+            // for this 72MB LSTM model to avoid GPU graph partitioning and fallback penalties.
+            val options = Interpreter.Options().apply {
+                setNumThreads(4)
+                setUseXNNPACK(true)
             }
+            interpreter = Interpreter(modelBuffer, options)
+            Log.i(TAG, "Interpreter initialized with CPU XNNPACK (4 threads).")
             
             val interp = interpreter ?: return
 
@@ -140,6 +131,8 @@ object AcousticNoteDetector {
     }
 
     private fun runInferenceLoop() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
+
         val interp = interpreter ?: return
         val inputSamples = interp.getInputTensor(0).shape().lastOrNull()?.takeIf { it > 0 } ?: INPUT_SAMPLES
         val noteShape = noteIndex.takeIf { it >= 0 }?.let { interp.getOutputTensor(it).shape() } ?: intArrayOf()
@@ -149,6 +142,7 @@ object AcousticNoteDetector {
         Log.i(TAG, "Config: input=$inputSamples, output=$outputFrames, keys=$midiKeys")
 
         val input = ByteBuffer.allocateDirect(inputSamples * 4).order(ByteOrder.nativeOrder())
+        val inputs = arrayOf<Any>(input)
         val notes = Array(1) { Array(outputFrames) { FloatArray(midiKeys) } }
         val onsets = Array(1) { Array(outputFrames) { FloatArray(midiKeys) } }
         val outputs = buildMap {
@@ -195,7 +189,7 @@ object AcousticNoteDetector {
                     input.putFloat((samples[i0] * (1f - frac) + samples[min(i0 + 1, nativeSamples - 1)] * frac) * gain)
                 }
 
-                interp.runForMultipleInputsOutputs(arrayOf(input), outputs)
+                interp.runForMultipleInputsOutputs(inputs, outputs)
                 processOutputs(notes[0], onsets[0], outputFrames, midiKeys)
                 Thread.sleep(INFERENCE_INTERVAL_MS)
             }
@@ -309,8 +303,6 @@ object AcousticNoteDetector {
         stop()
         interpreter?.close()
         interpreter = null
-        gpuDelegate?.close()
-        gpuDelegate = null
         NativeAudioEngine.cleanup()
         isInitialized = false
     }
