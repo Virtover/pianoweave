@@ -8,7 +8,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -45,6 +47,7 @@ import com.example.pianoweave.midi.MidiNoteEvent
 import com.example.pianoweave.midi.SimpleMidiReader
 import com.example.pianoweave.midi.StoredMidi
 import com.example.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -320,7 +323,9 @@ private fun ModernPianoPlayerContent(
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()
             .pointerInput(Unit) {
-                detectTapGestures(
+                val maxDist = 35.dp.toPx()
+                detectTapAndDoubleTap(
+                    maxDistance = maxDist,
                     onTap = {
                         viewModel.isPlaying = !viewModel.isPlaying
                     },
@@ -356,7 +361,9 @@ private fun ModernPianoPlayerContent(
 
         Box(modifier = Modifier.fillMaxWidth().height(100.dp)
             .pointerInput(Unit) {
-                detectTapGestures(
+                val maxDist = 35.dp.toPx()
+                detectTapAndDoubleTap(
+                    maxDistance = maxDist,
                     onTap = {
                         viewModel.isPlaying = !viewModel.isPlaying
                     },
@@ -1084,6 +1091,94 @@ private fun parseTimeToMs(input: String): Long? {
         }
     } catch (e: Exception) {
         null
+    }
+}
+
+private suspend fun PointerInputScope.detectTapAndDoubleTap(
+    maxDistance: Float,
+    onTap: (Offset) -> Unit,
+    onDoubleTap: (Offset) -> Unit
+) {
+    val doubleTapTimeout = 300L
+    var lastUpTime = 0L
+    var lastUpPos = Offset.Zero
+
+    while (true) {
+        awaitPointerEventScope {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val downPos = down.position
+            val pointer = down
+            var upPos: Offset? = null
+            var exceeded = false
+
+            try {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == pointer.id } ?: break
+                    if (!change.pressed) {
+                        upPos = change.position
+                        change.consume()
+                        break
+                    }
+                    if ((change.position - downPos).getDistance() > maxDistance) {
+                        exceeded = true
+                        break
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            }
+
+            if (!exceeded && upPos != null) {
+                val distance = (upPos - downPos).getDistance()
+                if (distance <= maxDistance) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastUpTime <= doubleTapTimeout && (upPos - lastUpPos).getDistance() <= maxDistance * 2f) {
+                        onDoubleTap(upPos)
+                        lastUpTime = 0L
+                    } else {
+                        val secondDown = withTimeoutOrNull(doubleTapTimeout) {
+                            awaitFirstDown(requireUnconsumed = false)
+                        }
+                        if (secondDown != null) {
+                            val secondDownPos = secondDown.position
+                            val secondPointer = secondDown
+                            var secondUpPos: Offset? = null
+                            var secondExceeded = false
+                            try {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == secondPointer.id } ?: break
+                                    if (!change.pressed) {
+                                        secondUpPos = change.position
+                                        change.consume()
+                                        break
+                                    }
+                                    if ((change.position - secondDownPos).getDistance() > maxDistance) {
+                                        secondExceeded = true
+                                        break
+                                    }
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            }
+                            if (!secondExceeded && secondUpPos != null && (secondUpPos - secondDownPos).getDistance() <= maxDistance) {
+                                onDoubleTap(secondUpPos)
+                                lastUpTime = 0L
+                            } else {
+                                onTap(upPos)
+                                lastUpTime = now
+                                lastUpPos = upPos
+                            }
+                        } else {
+                            onTap(upPos)
+                            lastUpTime = now
+                            lastUpPos = upPos
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
