@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.*
@@ -724,13 +726,25 @@ private fun PianoKeyboardRow(
             )
     ) {
         val tw = constraints.maxWidth.toFloat()
+        val keyPath = remember { Path() }
 
         Canvas(Modifier.fillMaxSize()) {
             val wkW = tw / numWhiteKeys
+            val whiteRadius = 6.dp.toPx()
+            val blackRadius = 4.dp.toPx()
+
             // 1. White Keys
             for (i in 0 until numWhiteKeys) {
                 val x1 = i * wkW
-                drawRoundRect(color = ColorKeyWhite, topLeft = Offset(x1 + 0.5f, 0f), size = Size(wkW - 1f, size.height), cornerRadius = CornerRadius(6.dp.toPx()))
+                keyPath.reset()
+                keyPath.addRoundRect(
+                    RoundRect(
+                        rect = Rect(x1 + 0.5f, 0f, x1 + wkW - 0.5f, size.height),
+                        bottomLeft = CornerRadius(whiteRadius, whiteRadius),
+                        bottomRight = CornerRadius(whiteRadius, whiteRadius)
+                    )
+                )
+                drawPath(path = keyPath, color = ColorKeyWhite)
                 drawLine(Color.Black.copy(alpha = 0.15f), Offset(x1, 0f), Offset(x1, size.height), 1.2.dp.toPx())
             }
 
@@ -755,7 +769,15 @@ private fun PianoKeyboardRow(
                         isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
                         else -> ColorGold.copy(alpha = 0.35f)
                     }
-                    drawRect(color, topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, size.height))
+                    keyPath.reset()
+                    keyPath.addRoundRect(
+                        RoundRect(
+                            rect = Rect(x1 + 0.5f, 0f, x2 - 0.5f, size.height),
+                            bottomLeft = CornerRadius(whiteRadius, whiteRadius),
+                            bottomRight = CornerRadius(whiteRadius, whiteRadius)
+                        )
+                    )
+                    drawPath(path = keyPath, color = color)
                 }
             }
 
@@ -780,7 +802,15 @@ private fun PianoKeyboardRow(
                     else -> ColorKeyBlack
                 }
                 val h = size.height * 0.7f
-                drawRoundRect(color = highlightColor, topLeft = Offset(x1 + 0.5f, 0f), size = Size(x2 - x1 - 1f, h), cornerRadius = CornerRadius(4.dp.toPx()))
+                keyPath.reset()
+                keyPath.addRoundRect(
+                    RoundRect(
+                        rect = Rect(x1 + 0.5f, 0f, x2 - 0.5f, h),
+                        bottomLeft = CornerRadius(blackRadius, blackRadius),
+                        bottomRight = CornerRadius(blackRadius, blackRadius)
+                    )
+                )
+                drawPath(path = keyPath, color = highlightColor)
             }
         }
     }
