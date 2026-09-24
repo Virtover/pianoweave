@@ -41,10 +41,23 @@ class PianoWeaveViewModel : ViewModel() {
     var playheadMs by mutableLongStateOf(0L)
     var speedMultiplier by mutableFloatStateOf(1.0f)
     var isWaitModeEnabled by mutableStateOf(false)
+    var isStrikeOverlayEnabled by mutableStateOf(true)
+        private set
     var isLoopingEnabled by mutableStateOf(false)
     var loopStartMs by mutableLongStateOf(0L)
     var loopEndMs by mutableLongStateOf(0L)
     var transposeOffset by mutableIntStateOf(0)
+
+    fun loadPreferences(context: Context) {
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
+    }
+
+    fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) {
+        isStrikeOverlayEnabled = enabled
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("is_strike_overlay_enabled", enabled).apply()
+    }
 
     fun openPracticeSession(song: StoredMidi) {
         if (lastPlayedSongPath != song.file.absolutePath) {
@@ -68,6 +81,7 @@ class PianoWeaveViewModel : ViewModel() {
 
     fun loadSongs(context: Context) {
         songs = MidiStorage.list(context)
+        loadPreferences(context)
     }
 
     fun deleteSong(context: Context, song: StoredMidi) {

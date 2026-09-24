@@ -352,7 +352,7 @@ private fun ModernPianoPlayerContent(
         ) {
             FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, emptySet())
 
-            if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty()) {
+            if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty() && viewModel.isStrikeOverlayEnabled) {
                 WaitModeOverlay(notes = waitTargetPitches)
             }
 
@@ -628,9 +628,20 @@ private fun FallingNotesVisualizer(
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 64.dp), Alignment.TopCenter) {
-        Surface(color = ColorWaitTarget.copy(alpha = 0.9f), shape = RoundedCornerShape(16.dp), shadowElevation = 20.dp, border = BorderStroke(2.dp, Color.White)) {
-            Text(text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) }, Modifier.padding(horizontal = 32.dp, vertical = 14.dp), fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.Black)
+    Box(Modifier.fillMaxWidth().padding(top = 12.dp), Alignment.TopCenter) {
+        Surface(
+            color = ColorWaitTarget.copy(alpha = 0.8f),
+            shape = RoundedCornerShape(16.dp),
+            shadowElevation = 10.dp,
+            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.8f))
+        ) {
+            Text(
+                text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) },
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 14.dp),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.Black
+            )
         }
     }
 }
@@ -836,94 +847,237 @@ private fun SettingsDialog(
     var isLooping by remember { mutableStateOf(viewModel.isLoopingEnabled) }
 
     Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = ColorSurface,
-            contentColor = Color.White,
-            border = BorderStroke(1.dp, ColorSlate)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                    .fillMaxWidth(0.92f)
+                    .heightIn(max = 650.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = ColorSurface,
+                contentColor = Color.White,
+                border = BorderStroke(1.dp, ColorSlate)
             ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp)
                 ) {
-                    Text(
-                        text = "Settings",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = ColorGold
-                    )
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = ColorTextDim)
-                    }
-                }
-
-                HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
-
-                // Transposition Section
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Transposition", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Surface(
-                            color = ColorSlate.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.4f))
+                        Text(
+                            text = "Settings",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = ColorGold
+                        )
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(32.dp)
                         ) {
-                            Text(
-                                text = "${if (viewModel.transposeOffset > 0) "+" else ""}${viewModel.transposeOffset} semi",
-                                color = ColorGold,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = ColorTextDim)
+                        }
+                    }
+
+                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                    // Transposition Section
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Transposition", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Surface(
+                                color = ColorSlate.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = "${if (viewModel.transposeOffset > 0) "+" else ""}${viewModel.transposeOffset} semi",
+                                    color = ColorGold,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                        Slider(
+                            value = viewModel.transposeOffset.toFloat(),
+                            onValueChange = { viewModel.transposeOffset = it.toInt() },
+                            valueRange = -12f..12f,
+                            steps = 23,
+                            colors = SliderDefaults.colors(
+                                thumbColor = ColorGold,
+                                activeTrackColor = ColorGold,
+                                inactiveTrackColor = ColorSlate
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                    // Loop Section
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Loop Playback", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Repeat section during practice", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = isLooping,
+                                onCheckedChange = {
+                                    isLooping = it
+                                    viewModel.isLoopingEnabled = it
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.Black,
+                                    checkedTrackColor = ColorGold,
+                                    uncheckedThumbColor = ColorTextDim,
+                                    uncheckedTrackColor = ColorSlate
+                                )
                             )
                         }
+
+                        AnimatedVisibility(
+                            visible = isLooping,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = startText,
+                                        onValueChange = { newText ->
+                                            startText = newText
+                                            val parsed = parseTimeToMs(newText)
+                                            if (parsed != null) {
+                                                viewModel.loopStartMs = parsed.coerceIn(0L, songDurationMs)
+                                            }
+                                        },
+                                        label = { Text("Start (mm:ss)") },
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true,
+                                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = ColorGold,
+                                            unfocusedBorderColor = ColorSlate,
+                                            focusedLabelColor = ColorGold,
+                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                            cursorColor = ColorGold,
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        )
+                                    )
+                                    OutlinedTextField(
+                                        value = endText,
+                                        onValueChange = { newText ->
+                                            endText = newText
+                                            val parsed = parseTimeToMs(newText)
+                                            if (parsed != null) {
+                                                viewModel.loopEndMs = parsed.coerceIn(0L, songDurationMs)
+                                            }
+                                        },
+                                        label = { Text("End (mm:ss)") },
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true,
+                                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = ColorGold,
+                                            unfocusedBorderColor = ColorSlate,
+                                            focusedLabelColor = ColorGold,
+                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                            cursorColor = ColorGold,
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        )
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val currentFormatted = formatTime(viewModel.playheadMs)
+                                            startText = currentFormatted
+                                            viewModel.loopStartMs = viewModel.playheadMs
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(38.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                        border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.6f)),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorGold)
+                                    ) {
+                                        Text("Start = Current", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            val currentFormatted = formatTime(viewModel.playheadMs)
+                                            endText = currentFormatted
+                                            viewModel.loopEndMs = viewModel.playheadMs
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(38.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                        border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.6f)),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorGold)
+                                    ) {
+                                        Text("End = Current", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    Slider(
-                        value = viewModel.transposeOffset.toFloat(),
-                        onValueChange = { viewModel.transposeOffset = it.toInt() },
-                        valueRange = -12f..12f,
-                        steps = 23,
-                        colors = SliderDefaults.colors(
-                            thumbColor = ColorGold,
-                            activeTrackColor = ColorGold,
-                            inactiveTrackColor = ColorSlate
-                        )
-                    )
-                }
 
-                HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
 
-                // Loop Section
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Strike Overlay Section
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("Loop Playback", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("Repeat section during practice", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Strike Overlay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Show STRIKE instruction banner in wait mode", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                         }
+                        val currentContext = LocalContext.current
+                        var isStrikeOverlay by remember { mutableStateOf(viewModel.isStrikeOverlayEnabled) }
                         Switch(
-                            checked = isLooping,
+                            checked = isStrikeOverlay,
                             onCheckedChange = {
-                                isLooping = it
-                                viewModel.isLoopingEnabled = it
+                                isStrikeOverlay = it
+                                viewModel.setStrikeOverlayEnabled(currentContext, it)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.Black,
@@ -934,129 +1088,31 @@ private fun SettingsDialog(
                         )
                     }
 
-                    AnimatedVisibility(
-                        visible = isLooping,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                    Spacer(Modifier.height(4.dp))
+
+                    Button(
+                        onClick = {
+                            val parsedStart = parseTimeToMs(startText)
+                            val parsedEnd = parseTimeToMs(endText)
+
+                            if (parsedStart != null) {
+                                viewModel.loopStartMs = parsedStart.coerceIn(0L, songDurationMs)
+                            }
+                            if (parsedEnd != null) {
+                                viewModel.loopEndMs = parsedEnd.coerceIn(0L, songDurationMs)
+                            }
+                            viewModel.isLoopingEnabled = isLooping
+                            onDismiss()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                OutlinedTextField(
-                                    value = startText,
-                                    onValueChange = { newText ->
-                                        startText = newText
-                                        val parsed = parseTimeToMs(newText)
-                                        if (parsed != null) {
-                                            viewModel.loopStartMs = parsed.coerceIn(0L, songDurationMs)
-                                        }
-                                    },
-                                    label = { Text("Start (mm:ss)") },
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true,
-                                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = ColorGold,
-                                        unfocusedBorderColor = ColorSlate,
-                                        focusedLabelColor = ColorGold,
-                                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                                        cursorColor = ColorGold,
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White
-                                    )
-                                )
-                                OutlinedTextField(
-                                    value = endText,
-                                    onValueChange = { newText ->
-                                        endText = newText
-                                        val parsed = parseTimeToMs(newText)
-                                        if (parsed != null) {
-                                            viewModel.loopEndMs = parsed.coerceIn(0L, songDurationMs)
-                                        }
-                                    },
-                                    label = { Text("End (mm:ss)") },
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true,
-                                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = ColorGold,
-                                        unfocusedBorderColor = ColorSlate,
-                                        focusedLabelColor = ColorGold,
-                                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                                        cursorColor = ColorGold,
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White
-                                    )
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = {
-                                        val currentFormatted = formatTime(viewModel.playheadMs)
-                                        startText = currentFormatted
-                                        viewModel.loopStartMs = viewModel.playheadMs
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(38.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                                    border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.6f)),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorGold)
-                                ) {
-                                    Text("Start = Current", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        val currentFormatted = formatTime(viewModel.playheadMs)
-                                        endText = currentFormatted
-                                        viewModel.loopEndMs = viewModel.playheadMs
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(38.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                                    border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.6f)),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorGold)
-                                ) {
-                                    Text("End = Current", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
+                        Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
                     }
-                }
-
-                Spacer(Modifier.height(4.dp))
-
-                Button(
-                    onClick = {
-                        val parsedStart = parseTimeToMs(startText)
-                        val parsedEnd = parseTimeToMs(endText)
-
-                        if (parsedStart != null) {
-                            viewModel.loopStartMs = parsedStart.coerceIn(0L, songDurationMs)
-                        }
-                        if (parsedEnd != null) {
-                            viewModel.loopEndMs = parsedEnd.coerceIn(0L, songDurationMs)
-                        }
-                        viewModel.isLoopingEnabled = isLooping
-                        onDismiss()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                    }
                 }
             }
         }
