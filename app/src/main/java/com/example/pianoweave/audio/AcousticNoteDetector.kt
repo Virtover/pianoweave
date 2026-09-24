@@ -13,6 +13,7 @@ import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -36,7 +37,7 @@ object AcousticNoteDetector {
     private const val INFERENCE_INTERVAL_MS = 60L
 
     private var isInitialized = false
-    private var isRunning = false
+    @Volatile private var isRunning = false
     private var thread: Thread? = null
     private var interpreter: Interpreter? = null
 
@@ -105,14 +106,22 @@ object AcousticNoteDetector {
         }
     }
 
+    @Synchronized
     fun start(context: Context) {
         if (!isInitialized) initialize(context)
-        if (!isInitialized || isRunning) return
+        if (!isInitialized) return
         
         if (MidiInputManager.isMidiDeviceConnected()) return
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
 
-        if (!NativeAudioEngine.startCapture()) return
+        if (isRunning) {
+            stop()
+        }
+
+        if (!NativeAudioEngine.startCapture()) {
+            Log.e(TAG, "Failed to start audio capture in start()")
+            return
+        }
 
         isRunning = true
         thread = Thread {
@@ -201,7 +210,7 @@ object AcousticNoteDetector {
     }
 
     private fun sigmoid(x: Float): Float {
-        return 1.0f / (1.0f + kotlin.math.exp(-x))
+        return 1.0f / (1.0f + exp(-x))
     }
 
     private fun midiPitchModifier(pitch: Int): Float {
@@ -289,10 +298,20 @@ object AcousticNoteDetector {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
+    @Synchronized
     fun stop() {
         isRunning = false
-        NativeAudioEngine.stopCapture()
-        thread?.interrupt()
+        try {
+            NativeAudioEngine.stopCapture()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping capture", e)
+        }
+        thread?.let {
+            it.interrupt()
+            try {
+                it.join(500)
+            } catch (_: InterruptedException) {}
+        }
         thread = null
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()

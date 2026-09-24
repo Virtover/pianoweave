@@ -35,6 +35,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.pianoweave.audio.AcousticNoteDetector
 import com.example.pianoweave.audio.PianoPlayer
 import com.example.pianoweave.midi.MidiInputManager
@@ -142,8 +145,28 @@ private fun ModernPianoPlayerContent(
     val chordHits = remember { mutableStateSetOf<Int>() }
 
     val context = LocalContext.current
-    LaunchedEffect(Unit) { if (viewModel.isWaitModeEnabled) AcousticNoteDetector.start(context) }
-    DisposableEffect(Unit) { onDispose { AcousticNoteDetector.stop() } }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, viewModel.isWaitModeEnabled) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (viewModel.isWaitModeEnabled) {
+                    AcousticNoteDetector.start(context)
+                }
+            } else if (event == Lifecycle.Event.ON_PAUSE) {
+                AcousticNoteDetector.stop()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (viewModel.isWaitModeEnabled) {
+            AcousticNoteDetector.start(context)
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            AcousticNoteDetector.targetPitches = emptySet()
+            AcousticNoteDetector.stop()
+        }
+    }
 
     val sustainedPitches = remember(noteEvents, viewModel.playheadMs, viewModel.isPlaying, viewModel.isWaitModeEnabled, currentWaitOnsetMs) {
         if (!viewModel.isPlaying) {
@@ -191,12 +214,7 @@ private fun ModernPianoPlayerContent(
         AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled && viewModel.isPlaying) notesToStrike else emptySet()
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            AcousticNoteDetector.targetPitches = emptySet()
-            AcousticNoteDetector.stop()
-        }
-    }
+    // Lifecycle-aware capture managed above
 
     LaunchedEffect(viewModel.isPlaying, viewModel.speedMultiplier, viewModel.isWaitModeEnabled, noteEvents) {
         if (!viewModel.isPlaying) return@LaunchedEffect

@@ -1,6 +1,7 @@
 package com.example.pianoweave.audio
 
 import android.content.Context
+import android.util.Log
 import dev.kotlinds.fluidsynthkmp.AudioConfig
 import dev.kotlinds.fluidsynthkmp.FluidSynthPlayer
 import dev.kotlinds.fluidsynthkmp.Interpolation
@@ -13,6 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 object PianoPlayer : AutoCloseable {
 
+    private const val TAG = "PianoPlayer"
     private const val SOUND_FONT = "GeneralUser-GS.sf2"
     private const val CHANNEL = 0
     private const val GRAND_PIANO = 0
@@ -20,55 +22,75 @@ object PianoPlayer : AutoCloseable {
     private var player: FluidSynthPlayer? = null
     private val isInitialized = AtomicBoolean(false)
 
+    @Synchronized
     fun initialize(context: Context) {
-        if (isInitialized.getAndSet(true)) return
+        if (isInitialized.get() && player != null) return
 
-        val soundFontPath = copySoundFont(context)
-        
-        // Stabilized Audio Configuration
-        // periodSize = 512 and periods = 8 are much safer for Emulator/Mobile environments
-        // Interpolation.NORMAL is a good balance between quality and CPU.
-        player = FluidSynthPlayer(
-            AudioConfig(
-                sampleRate = 44100,
-                interpolation = Interpolation.NORMAL, 
-                periodSize = 512, 
-                periods = 8 
-            )
-        ).apply {
-            val soundFontId = loadSoundFont(soundFontPath)
-            if (soundFontId < 0) {
-                isInitialized.set(false)
-                return
+        try {
+            val soundFontPath = copySoundFont(context)
+            
+            player?.close()
+            player = null
+
+            val newPlayer = FluidSynthPlayer(
+                AudioConfig(
+                    sampleRate = 44100,
+                    interpolation = Interpolation.NORMAL, 
+                    periodSize = 512, 
+                    periods = 8 
+                )
+            ).apply {
+                val soundFontId = loadSoundFont(soundFontPath)
+                if (soundFontId < 0) {
+                    Log.e(TAG, "Failed to load SoundFont, id: $soundFontId")
+                    isInitialized.set(false)
+                    return
+                }
+
+                programChange(CHANNEL, GRAND_PIANO)
+                setGain(0.8f) 
+                
+                setReverb(
+                    roomSize = 0.65, 
+                    damping = 0.5, 
+                    width = 0.8, 
+                    level = 0.3
+                )
+                
+                setChorus(
+                    voiceCount = 3,
+                    level = 0.5,
+                    speed = 0.3,
+                    depth = 4.0
+                )
             }
-
-            programChange(CHANNEL, GRAND_PIANO)
-            setGain(0.8f) 
-            
-            setReverb(
-                roomSize = 0.65, 
-                damping = 0.5, 
-                width = 0.8, 
-                level = 0.3
-            )
-            
-            setChorus(
-                voiceCount = 3,
-                level = 0.5,
-                speed = 0.3,
-                depth = 4.0
-            )
+            player = newPlayer
+            isInitialized.set(true)
+            Log.i(TAG, "PianoPlayer initialized successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize PianoPlayer", e)
+            player?.close()
+            player = null
+            isInitialized.set(false)
         }
     }
 
     fun noteOn(pitch: Int, velocity: Int = 80) {
         if (pitch !in 0..127) return
-        player?.noteOn(CHANNEL, pitch, velocity.coerceIn(1, 127))
+        try {
+            player?.noteOn(CHANNEL, pitch, velocity.coerceIn(1, 127))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error playing noteOn($pitch)", e)
+        }
     }
 
     fun noteOff(pitch: Int) {
         if (pitch !in 0..127) return
-        player?.noteOff(CHANNEL, pitch)
+        try {
+            player?.noteOff(CHANNEL, pitch)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error playing noteOff($pitch)", e)
+        }
     }
 
     /**
@@ -76,19 +98,23 @@ object PianoPlayer : AutoCloseable {
      */
     fun stopAllNotes() {
         for (pitch in 0..127) {
-            player?.noteOff(CHANNEL, pitch)
+            try {
+                player?.noteOff(CHANNEL, pitch)
+            } catch (_: Exception) {}
         }
     }
 
     override fun close() {
-        player?.close()
+        try {
+            player?.close()
+        } catch (_: Exception) {}
         player = null
         isInitialized.set(false)
     }
 
     private fun copySoundFont(context: Context): String {
         val destination = File(context.filesDir, SOUND_FONT)
-        if (!destination.exists()) {
+        if (!destination.exists() || destination.length() == 0L) {
             context.assets.open(SOUND_FONT).use { input ->
                 destination.outputStream().use { output ->
                     input.copyTo(output)

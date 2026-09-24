@@ -3,6 +3,7 @@
 #include <aaudio/AAudio.h>
 #include <vector>
 #include <atomic>
+#include <mutex>
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -17,6 +18,19 @@ namespace {
     float ringBuffer[RING_BUFFER_SIZE];
     std::atomic<int64_t> writeIndex{0};
     AAudioStream *audioStream = nullptr;
+    std::mutex streamMutex;
+
+    void errorCallback(AAudioStream *stream, void *userData, aaudio_result_t error) {
+        LOGE("AAudio stream error: %s (%d)", AAudio_convertResultToText(error), error);
+        if (error == AAUDIO_ERROR_DISCONNECTED) {
+            std::lock_guard<std::mutex> lock(streamMutex);
+            if (audioStream == stream) {
+                AAudioStream_close(stream);
+                audioStream = nullptr;
+                LOGI("AAudio stream closed due to disconnection (e.g. phone call interrupt).");
+            }
+        }
+    }
 
     aaudio_data_callback_result_t dataCallback(
             AAudioStream *stream,
@@ -34,17 +48,21 @@ namespace {
         writeIndex.store(currentWriteIndex + numFrames, std::memory_order_release);
         return AAUDIO_CALLBACK_RESULT_CONTINUE;
     }
-
-    void errorCallback(AAudioStream *stream, void *userData, aaudio_result_t error) {
-        LOGE("AAudio stream error: %s", AAudio_convertResultToText(error));
-    }
 }
 
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
 Java_com_example_pianoweave_audio_NativeAudioEngine_initialize(JNIEnv *env, jclass clazz) {
-    if (audioStream != nullptr) return JNI_TRUE;
+    std::lock_guard<std::mutex> lock(streamMutex);
+    if (audioStream != nullptr) {
+        aaudio_stream_state_t state = AAudioStream_getState(audioStream);
+        if (state != AAUDIO_STREAM_STATE_DISCONNECTED && state != AAUDIO_STREAM_STATE_CLOSED && state != AAUDIO_STREAM_STATE_CLOSING) {
+            return JNI_TRUE;
+        }
+        AAudioStream_close(audioStream);
+        audioStream = nullptr;
+    }
 
     AAudioStreamBuilder *builder;
     aaudio_result_t result = AAudio_createStreamBuilder(&builder);
@@ -74,7 +92,31 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_initialize(JNIEnv *env, jcla
 
 JNIEXPORT jboolean JNICALL
 Java_com_example_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jclass clazz) {
-    if (audioStream == nullptr) return JNI_FALSE;
+    std::lock_guard<std::mutex> lock(streamMutex);
+    if (audioStream == nullptr) {
+        // Attempt re-initialization if stream was closed/disconnected
+        AAudioStreamBuilder *builder;
+        aaudio_result_t result = AAudio_createStreamBuilder(&builder);
+        if (result != AAUDIO_OK) return JNI_FALSE;
+
+        AAudioStreamBuilder_setDirection(builder, AAUDIO_DIRECTION_INPUT);
+        AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
+        AAudioStreamBuilder_setSharingMode(builder, AAUDIO_SHARING_MODE_SHARED);
+        AAudioStreamBuilder_setFormat(builder, AAUDIO_FORMAT_PCM_FLOAT);
+        AAudioStreamBuilder_setChannelCount(builder, 1);
+        AAudioStreamBuilder_setSampleRate(builder, 44100);
+        AAudioStreamBuilder_setDataCallback(builder, dataCallback, nullptr);
+        AAudioStreamBuilder_setErrorCallback(builder, errorCallback, nullptr);
+
+        result = AAudioStreamBuilder_openStream(builder, &audioStream);
+        AAudioStreamBuilder_delete(builder);
+
+        if (result != AAUDIO_OK) {
+            LOGE("Failed to reopen AAudio stream in startCapture: %s", AAudio_convertResultToText(result));
+            audioStream = nullptr;
+            return JNI_FALSE;
+        }
+    }
 
     aaudio_stream_state_t state = AAudioStream_getState(audioStream);
     if (state == AAUDIO_STREAM_STATE_STARTED) return JNI_TRUE;
@@ -91,14 +133,19 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jc
 
 JNIEXPORT void JNICALL
 Java_com_example_pianoweave_audio_NativeAudioEngine_stopCapture(JNIEnv *env, jclass clazz) {
+    std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream != nullptr) {
-        AAudioStream_requestStop(audioStream);
-        LOGI("NativeAudioEngine: stopCapture() requested");
+        aaudio_stream_state_t state = AAudioStream_getState(audioStream);
+        if (state == AAUDIO_STREAM_STATE_STARTED || state == AAUDIO_STREAM_STATE_STARTING) {
+            AAudioStream_requestStop(audioStream);
+            LOGI("NativeAudioEngine: stopCapture() requested");
+        }
     }
 }
 
 JNIEXPORT jint JNICALL
 Java_com_example_pianoweave_audio_NativeAudioEngine_getSampleRate(JNIEnv *env, jclass clazz) {
+    std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream != nullptr) {
         return AAudioStream_getSampleRate(audioStream);
     }
@@ -132,6 +179,7 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, jcla
 
 JNIEXPORT void JNICALL
 Java_com_example_pianoweave_audio_NativeAudioEngine_cleanup(JNIEnv *env, jclass clazz) {
+    std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream != nullptr) {
         AAudioStream_close(audioStream);
         audioStream = nullptr;
