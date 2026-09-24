@@ -83,7 +83,7 @@ fun PianoRollScreen(
                 SimpleMidiReader.parse(song.file)
             }
             noteEvents = parsed
-            val duration = parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L
+            val duration = (parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
             if (viewModel.loopEndMs == 0L) {
                 viewModel.loopEndMs = duration
             }
@@ -126,7 +126,7 @@ private fun ModernPianoPlayerContent(
     }
 
     val songDurationMs = remember(noteEvents) {
-        noteEvents.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L
+        (noteEvents.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
     }
 
     LaunchedEffect(songDurationMs) {
@@ -166,14 +166,7 @@ private fun ModernPianoPlayerContent(
     }
 
     LaunchedEffect(viewModel.isPlaying, isUserSeeking) {
-        if (!viewModel.isPlaying || isUserSeeking) {
-            PianoPlayer.stopAllNotes()
-            if (isUserSeeking) {
-                currentWaitOnsetMs = -1L
-                lastCompletedWaitOnsetMs = -1L
-                chordHits.clear()
-            }
-        }
+        if (!viewModel.isPlaying || isUserSeeking) PianoPlayer.stopAllNotes()
     }
 
     // Reset wait state if mode toggles
@@ -298,10 +291,7 @@ private fun ModernPianoPlayerContent(
         }
     }
 
-    val isWaitingAtBaseline = viewModel.isPlaying && 
-            viewModel.isWaitModeEnabled && 
-            currentWaitOnsetMs != -1L && 
-            abs(viewModel.playheadMs - currentWaitOnsetMs) <= 40L
+    val isWaitingAtBaseline = viewModel.isPlaying && viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
 
@@ -376,20 +366,11 @@ private fun ModernPianoPlayerContent(
 
         MediaTimelineFooter(
             viewModel, songDurationMs, 
-            onSeekState = { seeking ->
-                isUserSeeking = seeking
-                if (seeking) {
-                    currentWaitOnsetMs = -1L
-                    lastCompletedWaitOnsetMs = -1L
-                    chordHits.clear()
-                    PianoPlayer.stopAllNotes()
-                }
-            },
+            onSeekState = { isUserSeeking = it },
             onResetHead = { 
                 viewModel.playheadMs = if (viewModel.isLoopingEnabled) viewModel.loopStartMs else 0L 
                 lastTriggeredHeadMs = viewModel.playheadMs 
                 currentWaitOnsetMs = -1L
-                lastCompletedWaitOnsetMs = -1L
                 chordHits.clear()
                 PianoPlayer.stopAllNotes() 
             }
