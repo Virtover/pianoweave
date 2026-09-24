@@ -1,6 +1,9 @@
 package com.example.pianoweave.audio
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.AudioFocusRequest
 import android.util.Log
 import dev.kotlinds.fluidsynthkmp.AudioConfig
 import dev.kotlinds.fluidsynthkmp.FluidSynthPlayer
@@ -22,10 +25,13 @@ object PianoPlayer : AutoCloseable {
     private var player: FluidSynthPlayer? = null
     private val isInitialized = AtomicBoolean(false)
     private var appContext: Context? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     @Synchronized
     fun initialize(context: Context) {
         appContext = context.applicationContext
+        requestAudioFocus(context)
+
         if (isInitialized.get() && player != null) return
 
         try {
@@ -50,7 +56,7 @@ object PianoPlayer : AutoCloseable {
                 }
 
                 programChange(CHANNEL, GRAND_PIANO)
-                setGain(0.8f) 
+                setGain(0.9f) 
                 
                 setReverb(
                     roomSize = 0.65, 
@@ -74,6 +80,41 @@ object PianoPlayer : AutoCloseable {
             player?.close()
             player = null
             isInitialized.set(false)
+        }
+    }
+
+    fun requestAudioFocus(context: Context) {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                .setOnAudioFocusChangeListener { focusChange ->
+                    if (focusChange == AudioManager.AUDIOFOCUS_LOSS ||
+                        focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        stopAllNotes()
+                    }
+                }
+                .build()
+            audioFocusRequest = request
+            audioManager.requestAudioFocus(request)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error requesting audio focus", e)
+        }
+    }
+
+    fun abandonAudioFocus(context: Context) {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioFocusRequest?.let {
+                audioManager.abandonAudioFocusRequest(it)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error abandoning audio focus", e)
         }
     }
 
@@ -113,6 +154,7 @@ object PianoPlayer : AutoCloseable {
 
     override fun close() {
         try {
+            appContext?.let { abandonAudioFocus(it) }
             player?.close()
         } catch (_: Exception) {}
         player = null
