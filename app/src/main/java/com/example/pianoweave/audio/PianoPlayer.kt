@@ -21,9 +21,11 @@ object PianoPlayer : AutoCloseable {
 
     private var player: FluidSynthPlayer? = null
     private val isInitialized = AtomicBoolean(false)
+    private var appContext: Context? = null
 
     @Synchronized
     fun initialize(context: Context) {
+        appContext = context.applicationContext
         if (isInitialized.get() && player != null) return
 
         try {
@@ -77,10 +79,15 @@ object PianoPlayer : AutoCloseable {
 
     fun noteOn(pitch: Int, velocity: Int = 80) {
         if (pitch !in 0..127) return
+        if (player == null) {
+            appContext?.let { initialize(it) }
+        }
         try {
             player?.noteOn(CHANNEL, pitch, velocity.coerceIn(1, 127))
         } catch (e: Exception) {
             Log.e(TAG, "Error playing noteOn($pitch)", e)
+            player = null
+            isInitialized.set(false)
         }
     }
 

@@ -147,6 +147,10 @@ private fun ModernPianoPlayerContent(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    LaunchedEffect(Unit) {
+        PianoPlayer.initialize(context)
+    }
+
     DisposableEffect(lifecycleOwner, viewModel.isWaitModeEnabled) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
