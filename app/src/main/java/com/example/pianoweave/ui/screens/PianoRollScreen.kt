@@ -68,10 +68,11 @@ private val ColorSuccessLight = Color(0xFF69C67E)
 private val ColorWaitTarget = Color(0xFF00D2FF) 
 private val ColorWaitTargetLight = Color(0xFFB3F5FF)
 private val ColorTarget = Color(0xFFF39C12) 
-private val ColorBaseline = Color(0xFFF85149) 
+private val ColorBaseline = Color(0xFFFD9B4A)
+private val ColorBLGlow = Color(0xFFE53935)
 private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6) 
-private val ColorKeyBlack = Color(0xFF121212)
+private val ColorKeyBlack = Color(0xFF030507)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -563,10 +564,22 @@ private fun FallingNotesVisualizer(
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
 
+        // Rich vertical background gradient for falling notes section
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF090D14),
+                    Color(0xFF0D1117),
+                    Color(0xFF070A0F)
+                )
+            ),
+            size = size
+        )
+
         // 1. Grid Lanes
         for (i in 0..numWhiteKeys) {
             val x = i * (tw / numWhiteKeys)
-            drawLine(color = Color(0xFF161B22), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
+            drawLine(color = Color(0xFF161B22).copy(alpha = 0.6f), start = Offset(x, 0f), end = Offset(x, size.height), strokeWidth = 1f)
         }
 
         // 2. Bar Lines
@@ -618,6 +631,15 @@ private fun FallingNotesVisualizer(
                 cornerRadius = CornerRadius(10.dp.toPx())
             )
 
+            if (isAtBaseline || isHitting) {
+                drawRoundRect(
+                    color = baseCol.copy(alpha = 0.3f),
+                    topLeft = Offset(x1 - 4f, (y - 8f).coerceIn(-h, size.height)),
+                    size = Size(kw + 8f, h + 16f),
+                    cornerRadius = CornerRadius(12.dp.toPx())
+                )
+            }
+
             // Existing sharp note body on top
             drawRoundRect(
                 brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h),
@@ -632,9 +654,25 @@ private fun FallingNotesVisualizer(
             }
         }
 
+        // Baseline glow aura drawn first, so falling notes are drawn OVER it (decays faster, 14.dp)
+        val baselineY = size.height - 1f
+        val glowUp = 14.dp.toPx()
+        val glowDown = 2.dp.toPx()
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, ColorBLGlow.copy(alpha = 0.15f), ColorBaseline.copy(alpha = 0.2f)),
+                startY = baselineY - glowUp,
+                endY = baselineY
+            ),
+            topLeft = Offset(0f, baselineY - glowUp),
+            size = Size(tw, glowUp)
+        )
+
+        drawLine(ColorBaseline, Offset(0f, baselineY), Offset(tw, baselineY), 3.dp.toPx())
+
         whiteEvents.forEach { drawNote(it) }
         blackEvents.forEach { drawNote(it) }
-        drawLine(ColorBaseline, Offset(0f, size.height - 1f), Offset(tw, size.height - 1f), 3.dp.toPx())
     }
 }
 
@@ -687,7 +725,7 @@ private fun PianoKeyboardRow(
         Modifier
             .fillMaxWidth()
             .height(100.dp)
-            .background(ColorKeyBlack)
+            .background(Color(0xFF030507))
             .then(
                 if (isInteractive) {
                     Modifier.pointerInput(start, end, numWhiteKeys, isInteractive) {
@@ -749,7 +787,7 @@ private fun PianoKeyboardRow(
             val whiteRadius = 6.dp.toPx()
             val blackRadius = 4.dp.toPx()
 
-            // 1. White Keys
+            // 1. Base White Keys
             for (i in 0 until numWhiteKeys) {
                 val x1 = i * wkW
                 keyPath.reset()
@@ -764,7 +802,23 @@ private fun PianoKeyboardRow(
                 drawLine(Color.Black.copy(alpha = 0.15f), Offset(x1, 0f), Offset(x1, size.height), 1.2.dp.toPx())
             }
 
-            // 2. Active White Key Highlights
+            // 2. Subtle Top Keyboard Shadow Gradient (drapes over idle keys)
+            val shadowHeight = 24.dp.toPx()
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.5f),
+                        Color.Black.copy(alpha = 0.15f),
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = shadowHeight
+                ),
+                topLeft = Offset(0f, 0f),
+                size = Size(tw, shadowHeight)
+            )
+
+            // 3. Active White Key Glow Auras & Highlights (drawn AFTER shadow so shadow doesn't affect them)
             val now = System.currentTimeMillis()
             for (p in start..end) {
                 if (isPitchBlack(p)) continue
@@ -780,11 +834,24 @@ private fun PianoKeyboardRow(
                 if (isPressed || isTarget || isWaiting || isSatisfied) {
                     val color = when {
                         isSatisfied -> ColorSuccess
-                        isWaiting && isRecentOnset -> ColorSuccess // Brief onset green highlight
+                        isWaiting && isRecentOnset -> ColorSuccess
                         isPressed -> ColorGold
                         isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
-                        else -> ColorGold.copy(alpha = 0.35f)
+                        else -> ColorGold.copy(alpha = 0.5f)
                     }
+
+                    // Glow aura around white key
+                    keyPath.reset()
+                    keyPath.addRoundRect(
+                        RoundRect(
+                            rect = Rect(x1 - 1f, -1f, x2 + 1f, size.height + 1f),
+                            bottomLeft = CornerRadius(whiteRadius + 1f, whiteRadius + 1f),
+                            bottomRight = CornerRadius(whiteRadius + 1f, whiteRadius + 1f)
+                        )
+                    )
+                    drawPath(path = keyPath, color = color.copy(alpha = 0.4f))
+
+                    // Crisp white key highlight
                     keyPath.reset()
                     keyPath.addRoundRect(
                         RoundRect(
@@ -797,7 +864,7 @@ private fun PianoKeyboardRow(
                 }
             }
 
-            // 3. Black Keys
+            // 4. Black Keys (Base or Highlight replacing normal black completely, with glow aura)
             for (p in start..end) {
                 if (!isPitchBlack(p)) continue
                 val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
@@ -811,12 +878,13 @@ private fun PianoKeyboardRow(
 
                 val highlightColor = when {
                     isSatisfied -> ColorSuccess
-                    isWaiting && isRecentOnset -> ColorSuccess // Brief onset green highlight
+                    isWaiting && isRecentOnset -> ColorSuccess
                     isPressed -> ColorGold
                     isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
-                    isTarget -> ColorGold.copy(alpha = 0.4f)
-                    else -> ColorKeyBlack
+                    isTarget -> ColorGold.copy(alpha = 0.5f)
+                    else -> null
                 }
+
                 val h = size.height * 0.7f
                 keyPath.reset()
                 keyPath.addRoundRect(
@@ -826,10 +894,29 @@ private fun PianoKeyboardRow(
                         bottomRight = CornerRadius(blackRadius, blackRadius)
                     )
                 )
-                drawPath(path = keyPath, color = highlightColor)
+
+                if (highlightColor != null) {
+                    // Glow aura around black key
+                    Path().apply {
+                        addRoundRect(
+                            RoundRect(
+                                rect = Rect(x1 - 1.5f, -1.5f, x2 + 1.5f, h + 1.5f),
+                                bottomLeft = CornerRadius(blackRadius + 1f, blackRadius + 1f),
+                                bottomRight = CornerRadius(blackRadius + 1f, blackRadius + 1f)
+                            )
+                        )
+                        drawPath(this, color = highlightColor.copy(alpha = 0.45f))
+                    }
+
+                    // Highlight replaces normal black completely (no base ColorKeyBlack drawn, no mixing with black)
+                    drawPath(path = keyPath, color = highlightColor)
+                } else {
+                    // Normal idle black key
+                    drawPath(path = keyPath, color = ColorKeyBlack)
+                }
             }
 
-            // 4. C Key Annotations (C1, C2, C3, etc.)
+            // 6. C Key Annotations
             val textPaint = Paint().apply {
                 color = android.graphics.Color.parseColor("#777777")
                 textSize = 10.sp.toPx()
