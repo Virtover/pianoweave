@@ -145,6 +145,13 @@ private fun PianoWeaveApp(
                     },
                     onDeleteClick = { songToDelete ->
                         viewModel.deleteSong(context, songToDelete)
+                    },
+                    onImportMidi = { uri ->
+                        viewModel.importMidiFile(context, uri)
+                    },
+                    importError = viewModel.importError,
+                    onClearImportError = {
+                        viewModel.clearImportError()
                     }
                 )
             }

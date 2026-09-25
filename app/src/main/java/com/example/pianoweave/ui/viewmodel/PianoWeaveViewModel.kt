@@ -180,6 +180,28 @@ class PianoWeaveViewModel : ViewModel() {
         }
     }
 
+    var importError by mutableStateOf<String?>(null)
+        private set
+
+    fun clearImportError() {
+        importError = null
+    }
+
+    fun importMidiFile(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                MidiStorage.importFile(context, uri)
+                withContext(Dispatchers.Main) {
+                    loadSongs(context)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    importError = e.message ?: "Failed to import file. Please select a valid MIDI file."
+                }
+            }
+        }
+    }
+
     fun startTranscription(context: Context) {
         val stableUrl = normalizeUrl(videoUrl)
         if (stableUrl.isBlank() || isLoading) return
