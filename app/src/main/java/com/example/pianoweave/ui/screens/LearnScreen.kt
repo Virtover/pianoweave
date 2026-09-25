@@ -429,7 +429,7 @@ fun ServerSettingsDialog(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            text = "Official Server",
+                                            text = "PianoWeave Cloud",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             color = Color.White
@@ -501,7 +501,7 @@ fun ServerSettingsDialog(
                                             color = Color.White
                                         )
                                         Text(
-                                            text = "Connect to self-hosted server instance",
+                                            text = "Connect to custom server instance",
                                             fontSize = 12.sp,
                                             color = ColorTextDim
                                         )
