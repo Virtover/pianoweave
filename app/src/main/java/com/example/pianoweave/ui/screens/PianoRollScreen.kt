@@ -1,6 +1,7 @@
 package com.example.pianoweave.ui.screens
 
 import android.content.res.Configuration
+import android.graphics.Paint
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -178,19 +179,15 @@ private fun ModernPianoPlayerContent(
     }
 
     val sustainedPitches = remember(noteEvents, viewModel.playheadMs, viewModel.isPlaying, viewModel.isWaitModeEnabled, currentWaitOnsetMs) {
-        if (!viewModel.isPlaying) {
-            emptySet()
+        val waitTargetPitches = if (viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L) {
+            noteEvents.filter { abs(it.startMs - currentWaitOnsetMs) <= 30L }.map { it.pitch }.toSet()
         } else {
-            val waitTargetPitches = if (viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L) {
-                noteEvents.filter { abs(it.startMs - currentWaitOnsetMs) <= 30L }.map { it.pitch }.toSet()
-            } else {
-                emptySet()
-            }
-
-            noteEvents.filter { 
-                viewModel.playheadMs > it.startMs && viewModel.playheadMs <= (it.startMs + it.durationMs) 
-            }.map { it.pitch }.toSet() - waitTargetPitches
+            emptySet()
         }
+
+        noteEvents.filter { 
+            viewModel.playheadMs >= it.startMs && viewModel.playheadMs <= (it.startMs + it.durationMs) 
+        }.map { it.pitch }.toSet() - waitTargetPitches
     }
     
     LaunchedEffect(sustainedPitches) {
@@ -830,6 +827,23 @@ private fun PianoKeyboardRow(
                     )
                 )
                 drawPath(path = keyPath, color = highlightColor)
+            }
+
+            // 4. C Key Annotations (C1, C2, C3, etc.)
+            val textPaint = Paint().apply {
+                color = android.graphics.Color.parseColor("#777777")
+                textSize = 10.sp.toPx()
+                textAlign = Paint.Align.CENTER
+                setAntiAlias(true)
+            }
+            for (p in start..end) {
+                if (!isPitchBlack(p) && p % 12 == 0) {
+                    val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                    val centerX = (x1 + x2) / 2f
+                    val name = midiPitchName(p)
+                    val y = size.height - 10.dp.toPx()
+                    drawContext.canvas.nativeCanvas.drawText(name, centerX, y, textPaint)
+                }
             }
         }
     }
