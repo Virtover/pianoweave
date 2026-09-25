@@ -60,7 +60,7 @@ private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
 private val ColorGold = Color(0xFFD4AF37)
 private val ColorGoldLight = Color(0xFFFFE082) 
-private val ColorUpcomingNote = Color(0xFF1F2937) 
+private val ColorUpcomingNote = Color(0xFFD29E37)
 private val ColorSlate = Color(0xFF30363D)
 private val ColorSuccess = Color(0xFF2EA043)
 private val ColorSuccessLight = Color(0xFF69C67E)
@@ -614,7 +614,20 @@ private fun FallingNotesVisualizer(
                 else -> baseCol.copy(alpha = 0.6f)
             }
 
-            drawRoundRect(brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h), topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)), size = Size(kw - 1f, h), cornerRadius = CornerRadius(6.dp.toPx()))
+            drawRoundRect(
+                color = baseCol.copy(alpha = 0.25f),
+                topLeft = Offset(x1 - 2f, (y - 4f).coerceIn(-h, size.height)),
+                size = Size(kw + 4f, h + 8f),
+                cornerRadius = CornerRadius(10.dp.toPx())
+            )
+
+            // Existing sharp note body on top
+            drawRoundRect(
+                brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h),
+                topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)),
+                size = Size(kw - 1f, h),
+                cornerRadius = CornerRadius(6.dp.toPx())
+            )
 
             if (isHitting || isUserMatch || isWaiting) {
                 val glowCol = if (isWaiting && !isSatisfied) ColorWaitTarget else baseCol
