@@ -7,12 +7,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pianoweave.api.CreateTranscriptionRequest
 import com.example.pianoweave.api.PianoApiFactory
+import com.example.pianoweave.api.config.AppConfig
 import com.example.pianoweave.midi.MidiStorage
 import com.example.pianoweave.midi.StoredMidi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+enum class ServerStatus {
+    ONLINE,
+    OFFLINE,
+    CHECKING,
+    UNKNOWN
+}
 
 class PianoWeaveViewModel : ViewModel() {
 
@@ -48,9 +56,89 @@ class PianoWeaveViewModel : ViewModel() {
     var loopEndMs by mutableLongStateOf(0L)
     var transposeOffset by mutableIntStateOf(0)
 
+    // --- Server Settings State ---
+    var defaultServerUrl by mutableStateOf("")
+        private set
+    var customServerUrl by mutableStateOf("")
+        private set
+    var isCustomServer by mutableStateOf(false)
+        private set
+    var serverStatus by mutableStateOf(ServerStatus.UNKNOWN)
+        private set
+
+    val activeServerUrl: String
+        get() {
+            if (isCustomServer && customServerUrl.isNotBlank()) {
+                return if (customServerUrl.endsWith("/")) customServerUrl else "$customServerUrl/"
+            }
+            return if (defaultServerUrl.isNotBlank()) {
+                if (defaultServerUrl.endsWith("/")) defaultServerUrl else "$defaultServerUrl/"
+            } else {
+                "http://localhost:8000/"
+            }
+        }
+
+    val isUsingDefaultServer: Boolean
+        get() = !isCustomServer || customServerUrl.isBlank() || activeServerUrl == (if (defaultServerUrl.endsWith("/")) defaultServerUrl else "$defaultServerUrl/")
+
+    suspend fun testServerConnection(url: String): ServerStatus = withContext(Dispatchers.IO) {
+        if (url.isBlank()) return@withContext ServerStatus.OFFLINE
+        try {
+            val api = PianoApiFactory.getApi(url)
+            val response = api.checkHealth()
+            if (response.code() > 0) {
+                ServerStatus.ONLINE
+            } else {
+                ServerStatus.OFFLINE
+            }
+        } catch (_: Exception) {
+            ServerStatus.OFFLINE
+        }
+    }
+
+    fun checkServerHealth() {
+        val url = activeServerUrl
+        viewModelScope.launch {
+            serverStatus = ServerStatus.CHECKING
+            serverStatus = testServerConnection(url)
+        }
+    }
+
     fun loadPreferences(context: Context) {
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
         isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
+
+        defaultServerUrl = try {
+            AppConfig.loadDefaultBaseUrl(context)
+        } catch (_: Exception) {
+            ""
+        }
+        isCustomServer = prefs.getBoolean("use_custom_server", false)
+        customServerUrl = prefs.getString("custom_server_url", "") ?: ""
+
+        checkServerHealth()
+    }
+
+    fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String) {
+        var formattedUrl = customUrl.trim()
+        if (formattedUrl.isNotEmpty()) {
+            if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
+                formattedUrl = "http://$formattedUrl"
+            }
+            if (!formattedUrl.endsWith("/")) {
+                formattedUrl = "$formattedUrl/"
+            }
+        }
+        isCustomServer = useCustom
+        customServerUrl = formattedUrl
+
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("use_custom_server", useCustom)
+            .putString("custom_server_url", formattedUrl)
+            .apply()
+
+        checkServerHealth()
     }
 
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) {
@@ -115,7 +203,8 @@ class PianoWeaveViewModel : ViewModel() {
                 }
 
                 status = "Submitting request to server..."
-                val response = PianoApiFactory.api.createTranscription(
+                val api = PianoApiFactory.getApi(activeServerUrl)
+                val response = api.createTranscription(
                     CreateTranscriptionRequest(source_url = stableUrl)
                 )
 
@@ -123,7 +212,7 @@ class PianoWeaveViewModel : ViewModel() {
                 status = "Job successfully queued..."
 
                 while (true) {
-                    val job = PianoApiFactory.api.getTranscription(jobId)
+                    val job = api.getTranscription(jobId)
                     progress = job.progress
 
                     status = when (job.status) {
@@ -139,7 +228,7 @@ class PianoWeaveViewModel : ViewModel() {
                     if (job.status == "completed") {
                         status = "Downloading completed MIDI file..."
                         withContext(Dispatchers.IO) {
-                            val midiResponse = PianoApiFactory.api.downloadMidi(jobId)
+                            val midiResponse = api.downloadMidi(jobId)
                             MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
                         }
                         progress = 1f

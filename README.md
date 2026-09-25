@@ -19,8 +19,8 @@ This app requires the [Piano Transcription Server](https://github.com/Virtover/p
 
 ### Configuration
 
-1. Copy `app/src/main/assets/config.example.txt` to `app/src/main/assets/config/config.txt`.
-2. Set your `API_BASE_URL` in the config file (e.g., `http://10.0.2.2:8000/` for a local emulator).
+1. Copy `app/src/main/assets/config/config.example.txt` to `app/src/main/assets/config/config.txt`.
+2. Set your `DEFAULT_API_BASE_URL` in the config file (e.g., `http://10.0.2.2:8000/` for a local emulator).
 
 ### Build
 

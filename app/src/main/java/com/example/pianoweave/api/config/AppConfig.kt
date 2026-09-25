@@ -5,9 +5,10 @@ import android.content.Context
 object AppConfig {
 
     private const val CONFIG_FILE = "config/config.txt"
-    private const val API_BASE_URL = "API_BASE_URL"
+    private const val DEFAULT_API_BASE_URL = "DEFAULT_API_BASE_URL"
+    private const val LEGACY_API_BASE_URL = "API_BASE_URL"
 
-    fun loadBaseUrl(
+    fun loadDefaultBaseUrl(
         context: Context
     ): String {
         val values = context.assets
@@ -44,16 +45,16 @@ object AppConfig {
                     .toMap()
             }
 
-        val url = values[API_BASE_URL]
+        val url = values[DEFAULT_API_BASE_URL] ?: values[LEGACY_API_BASE_URL]
 
         require(!url.isNullOrBlank()) {
-            "Missing API_BASE_URL in $CONFIG_FILE"
+            "Missing DEFAULT_API_BASE_URL in $CONFIG_FILE"
         }
 
         require(
             url.endsWith("/")
         ) {
-            "API_BASE_URL must end with '/'"
+            "DEFAULT_API_BASE_URL must end with '/'"
         }
 
         return url
