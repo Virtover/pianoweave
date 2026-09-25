@@ -323,8 +323,6 @@ private fun ModernPianoPlayerContent(
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
 
     Column(modifier = Modifier.fillMaxSize().background(ColorBg)) {
-        ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { viewModel.isPlaying = false ; showSettingsDialog = true })
-
         Box(modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds()
             .pointerInput(Unit) {
                 val maxDist = 35.dp.toPx()
@@ -353,6 +351,8 @@ private fun ModernPianoPlayerContent(
             }
         ) {
             FallingNotesVisualizer(noteEvents, viewModel.playheadMs, startPitch, endPitch, totalWhiteKeys, waitTargetPitches, emptySet())
+
+            ModernToolbar(viewModel.playheadMs, songDurationMs, viewModel, onBack, { viewModel.isPlaying = false ; showSettingsDialog = true })
 
             if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty() && viewModel.isStrikeOverlayEnabled) {
                 WaitModeOverlay(notes = waitTargetPitches)
@@ -643,7 +643,13 @@ private fun FallingNotesVisualizer(
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
-    Box(Modifier.fillMaxWidth().padding(top = 12.dp), Alignment.TopCenter) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 56.dp)
+            .pointerInput(Unit) { detectTapGestures { } },
+        Alignment.TopCenter
+    ) {
         Surface(
             color = ColorWaitTarget.copy(alpha = 0.8f),
             shape = RoundedCornerShape(16.dp),
@@ -1208,7 +1214,7 @@ private suspend fun PointerInputScope.detectTapAndDoubleTap(
 
     while (true) {
         awaitPointerEventScope {
-            val down = awaitFirstDown(requireUnconsumed = false)
+            val down = awaitFirstDown(requireUnconsumed = true)
             val downPos = down.position
             val pointer = down
             var upPos: Offset? = null
@@ -1241,7 +1247,7 @@ private suspend fun PointerInputScope.detectTapAndDoubleTap(
                         lastUpTime = 0L
                     } else {
                         val secondDown = withTimeoutOrNull(doubleTapTimeout) {
-                            awaitFirstDown(requireUnconsumed = false)
+                            awaitFirstDown(requireUnconsumed = true)
                         }
                         if (secondDown != null) {
                             val secondDownPos = secondDown.position
