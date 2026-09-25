@@ -12,8 +12,9 @@ object PianoApiFactory {
     private var cachedBaseUrl: String? = null
     private var cachedApi: PianoApi? = null
 
-    fun initialize(application: Application) {
+    fun initialize(application: Application, context: Context) {
         this.application = application
+        AppConfig.initialize(context)
     }
 
     fun getApi(baseUrl: String): PianoApi {
@@ -33,7 +34,8 @@ object PianoApiFactory {
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
         val useCustom = prefs.getBoolean("use_custom_server", false)
         val customUrl = prefs.getString("custom_server_url", "") ?: ""
-        val defaultUrl = AppConfig.loadDefaultBaseUrl(context)
+        AppConfig.initialize(context)
+        val defaultUrl = AppConfig.getConfig().baseUrl
 
         val activeUrl = if (useCustom && customUrl.isNotBlank()) {
             customUrl

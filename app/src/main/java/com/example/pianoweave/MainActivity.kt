@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        PianoApiFactory.initialize(application)
+        PianoApiFactory.initialize(application, applicationContext)
         PianoPlayer.initialize(applicationContext)
         AcousticNoteDetector.initialize(applicationContext)
         enableEdgeToEdge()

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.pianoweave.api.config.AppConfig
 import com.example.pianoweave.midi.StoredMidi
 import com.example.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.example.pianoweave.ui.viewmodel.ServerStatus
@@ -432,7 +433,7 @@ fun ServerSettingsDialog(
                                     Spacer(Modifier.width(8.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "PianoWeave Cloud",
+                                            text = AppConfig.getConfig().name,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             color = Color.White

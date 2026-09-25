@@ -109,7 +109,8 @@ class PianoWeaveViewModel : ViewModel() {
         isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
 
         defaultServerUrl = try {
-            AppConfig.loadDefaultBaseUrl(context)
+            AppConfig.initialize(context)
+            AppConfig.getConfig().baseUrl
         } catch (_: Exception) {
             ""
         }
