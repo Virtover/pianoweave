@@ -392,68 +392,60 @@ fun ServerSettingsDialog(
                         )
 
                         // --- Default Server Card ---
-                        Surface(
-                            onClick = {
-                                selectedUseCustom = false
-                                validateUrl(false, customUrlText)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (!selectedUseCustom) ColorSlate.copy(alpha = 0.4f) else ColorSurface,
-                            border = BorderStroke(
-                                1.dp,
-                                if (!selectedUseCustom) ColorGold else ColorSlate
-                            )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
                         ) {
-                            Row(
+                            Surface(
+                                onClick = {
+                                    selectedUseCustom = false
+                                    validateUrl(false, customUrlText)
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = !selectedUseCustom,
-                                    onClick = {
-                                        selectedUseCustom = false
-                                        validateUrl(false, customUrlText)
-                                    },
-                                    colors = RadioButtonDefaults.colors(
-                                        selectedColor = ColorGold,
-                                        unselectedColor = ColorTextDim
-                                    )
+                                    .padding(top = 8.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (!selectedUseCustom) ColorSlate.copy(alpha = 0.4f) else ColorSurface,
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (!selectedUseCustom) ColorGold else ColorSlate
                                 )
-                                Spacer(Modifier.width(8.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = !selectedUseCustom,
+                                        onClick = {
+                                            selectedUseCustom = false
+                                            validateUrl(false, customUrlText)
+                                        },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = ColorGold,
+                                            unselectedColor = ColorTextDim
+                                        )
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "PianoWeave Cloud",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             color = Color.White
                                         )
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = ColorGold.copy(alpha = 0.2f)
-                                        ) {
-                                            Text(
-                                                text = "DEFAULT",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = ColorGold,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                            )
-                                        }
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = viewModel.defaultServerUrl.ifBlank { "Configured in assets/config/config.txt" },
+                                            fontSize = 12.sp,
+                                            color = ColorTextDim,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
-                                    Text(
-                                        text = viewModel.defaultServerUrl.ifBlank { "Configured in assets/config/config.txt" },
-                                        fontSize = 12.sp,
-                                        color = ColorTextDim,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
                                 }
                             }
                         }
@@ -498,12 +490,15 @@ fun ServerSettingsDialog(
                                             text = "Custom Server",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
-                                            color = Color.White
+                                            color = Color.White,
+                                            maxLines = 1
                                         )
                                         Text(
                                             text = "Connect to custom server instance",
                                             fontSize = 12.sp,
-                                            color = ColorTextDim
+                                            color = ColorTextDim,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
