@@ -101,7 +101,7 @@ fun StorageScreen(
             value = searchQuery,
             onValueChange = { searchQuery = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search url histories...") },
+            placeholder = { Text("Search library...") },
             leadingIcon = {
                 Icon(
                     Icons.Default.Search,
