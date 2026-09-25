@@ -49,13 +49,13 @@ fun LearnScreen(
 
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .padding(top = 16.dp, bottom = 32.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -181,15 +181,24 @@ fun LearnScreen(
                         }
                     }
 
+                    Text(
+                        text = "Enter a video URL you have the right to use",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     OutlinedTextField(
                         value = viewModel.videoUrl,
                         onValueChange = { viewModel.updateUrl(it) },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Enter a video URL you have the right to use") },
-                        placeholder = { Text("Paste link here...") },
+                        placeholder = { Text("https://www.youtube.com/watch?v=...") },
                         singleLine = true,
                         enabled = !viewModel.isLoading,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                            cursorColor = MaterialTheme.colorScheme.secondary
+                        ),
                         leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary) },
                         trailingIcon = {
                             if (viewModel.videoUrl.isNotEmpty() && !viewModel.isLoading) {
