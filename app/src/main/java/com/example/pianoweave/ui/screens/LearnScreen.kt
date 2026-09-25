@@ -191,7 +191,7 @@ fun LearnScreen(
                         value = viewModel.videoUrl,
                         onValueChange = { viewModel.updateUrl(it) },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("https://www.youtube.com/watch?v=...") },
+                        placeholder = { Text("https://www.youtube.com/watch?v=...", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         singleLine = true,
                         enabled = !viewModel.isLoading,
                         shape = RoundedCornerShape(14.dp),
