@@ -25,9 +25,11 @@ import com.example.pianoweave.audio.AcousticNoteDetector
 import com.example.pianoweave.audio.PianoPlayer
 import com.example.pianoweave.midi.MidiInputManager
 import com.example.pianoweave.ui.components.AdaptiveNavigation
+import com.example.pianoweave.ui.components.AppThemeDialog
 import com.example.pianoweave.ui.screens.LearnScreen
 import com.example.pianoweave.ui.screens.PianoRollScreen
 import com.example.pianoweave.ui.screens.StorageScreen
+import com.example.pianoweave.ui.theme.AppThemeManager
 import com.example.pianoweave.ui.theme.PianoWeaveTheme
 import com.example.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
@@ -46,6 +48,9 @@ class MainActivity : ComponentActivity() {
         AcousticNoteDetector.initialize(applicationContext)
         enableEdgeToEdge()
 
+        // Load saved preferences (including theme & server settings) early
+        viewModel.loadPreferences(applicationContext)
+
         // Enable full immersive mode to hide navigation and status bars
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -61,7 +66,8 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            PianoWeaveTheme {
+            val currentTheme = AppThemeManager.getTheme(viewModel.selectedThemeId)
+            PianoWeaveTheme(theme = currentTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -109,6 +115,7 @@ private fun PianoWeaveApp(
     context: Context
 ) {
     var selectedTab by remember { mutableStateOf(AppTab.Learn) }
+    var showThemeDialog by remember { mutableStateOf(false) }
 
     // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
     LaunchedEffect(selectedTab) {
@@ -121,7 +128,8 @@ private fun PianoWeaveApp(
         isLearnSelected = selectedTab == AppTab.Learn,
         onLearnSelect = { selectedTab = AppTab.Learn },
         isStorageSelected = selectedTab == AppTab.Storage,
-        onStorageSelect = { selectedTab = AppTab.Storage }
+        onStorageSelect = { selectedTab = AppTab.Storage },
+        onOpenThemeDialog = { showThemeDialog = true }
     ) {
         when (selectedTab) {
             AppTab.Learn -> {
@@ -156,5 +164,15 @@ private fun PianoWeaveApp(
                 )
             }
         }
+    }
+
+    if (showThemeDialog) {
+        AppThemeDialog(
+            currentThemeId = viewModel.selectedThemeId,
+            onSelectTheme = { themeId ->
+                viewModel.setSelectedTheme(context, themeId)
+            },
+            onDismiss = { showThemeDialog = false }
+        )
     }
 }

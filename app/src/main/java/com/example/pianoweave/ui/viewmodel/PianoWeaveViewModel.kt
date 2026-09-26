@@ -54,6 +54,15 @@ class PianoWeaveViewModel : ViewModel() {
     var transcriptionError by mutableStateOf<String?>(null)
         private set
 
+    var selectedThemeId by mutableStateOf("gold")
+        private set
+
+    fun setSelectedTheme(context: Context, themeId: String) {
+        selectedThemeId = themeId
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("selected_theme_id", themeId).apply()
+    }
+
     fun clearTranscriptionError() {
         transcriptionError = null
         status = if (videoUrl.isNotBlank()) "Ready to convert." else "Paste a video link above to begin."
@@ -123,6 +132,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun loadPreferences(context: Context) {
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
         isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
+        selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
 
         defaultServerUrl = try {
             AppConfig.initialize(context)

@@ -3,6 +3,7 @@ package com.example.pianoweave.ui.components
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,7 @@ fun AdaptiveNavigation(
     onLearnSelect: () -> Unit,
     isStorageSelected: Boolean,
     onStorageSelect: () -> Unit,
+    onOpenThemeDialog : () -> Unit,
     content: @Composable () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -42,7 +44,7 @@ fun AdaptiveNavigation(
                         modifier = Modifier.padding(top = 32.dp, bottom = 16.dp)
                     ) {
                         Surface(
-                            modifier = Modifier.size(56.dp), // Increased slightly for the custom icon
+                            modifier = Modifier.size(56.dp).clickable(onClick = onOpenThemeDialog), // Increased slightly for the custom icon
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))

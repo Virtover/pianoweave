@@ -49,6 +49,8 @@ import com.example.pianoweave.midi.MidiInputManager
 import com.example.pianoweave.midi.MidiNoteEvent
 import com.example.pianoweave.midi.SimpleMidiReader
 import com.example.pianoweave.midi.StoredMidi
+import com.example.pianoweave.ui.components.AppThemeDialog
+import com.example.pianoweave.ui.theme.LocalAppTheme
 import com.example.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -59,17 +61,7 @@ import kotlin.math.abs
 // --- Ultra Pro Piano Theme (Max Fidelity Visuals) ---
 private val ColorBg = Color(0xFF0D1117)
 private val ColorSurface = Color(0xFF161B22)
-private val ColorGold = Color(0xFFD4AF37)
-private val ColorGoldLight = Color(0xFFFFE082) 
-private val ColorUpcomingNote = Color(0xFFD29E37)
 private val ColorSlate = Color(0xFF30363D)
-private val ColorSuccess = Color(0xFF2EA043)
-private val ColorSuccessLight = Color(0xFF69C67E)
-private val ColorWaitTarget = Color(0xFF00D2FF) 
-private val ColorWaitTargetLight = Color(0xFFB3F5FF)
-private val ColorTarget = Color(0xFFF39C12) 
-private val ColorBaseline = Color(0xFFFD9B4A)
-private val ColorBLGlow = Color(0xFFE55E35)
 private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6) 
 private val ColorKeyBlack = Color(0xFF030507)
@@ -109,6 +101,8 @@ fun PianoRollScreen(
 
 @Composable
 private fun MidiLoadingScreen() {
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
     Box(modifier = Modifier.fillMaxSize().background(ColorBg), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CircularProgressIndicator(color = ColorGold, strokeWidth = 4.dp, modifier = Modifier.size(56.dp))
@@ -124,6 +118,18 @@ private fun ModernPianoPlayerContent(
     viewModel: PianoWeaveViewModel,
     onBack: () -> Unit
 ) {
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
+    val ColorGoldLight = appTheme.lightColor
+    val ColorUpcomingNote = appTheme.upcomingColor
+    val ColorWaitTarget = appTheme.waitTargetColor
+    val ColorWaitTargetLight = appTheme.waitTargetLightColor
+    val ColorTarget = appTheme.targetColor
+    val ColorBaseline = appTheme.baselineColor
+    val ColorBLGlow = appTheme.baselineGlowColor
+    val ColorSuccess = appTheme.successColor
+    val ColorSuccessLight = appTheme.successLightColor
+
     var showSettingsDialog by remember { mutableStateOf(false) }
     var isUserSeeking by remember { mutableStateOf(false) }
 
@@ -418,6 +424,9 @@ private data class SeekInfo(val direction: SeekDirection, val id: Long = System.
 
 @Composable
 private fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
+
     var visibleInfo by remember { mutableStateOf<SeekInfo?>(null) }
     var alpha by remember { mutableFloatStateOf(0f) }
 
@@ -482,6 +491,10 @@ private fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
 private fun ModernToolbar(
     head: Long, dur: Long, viewModel: PianoWeaveViewModel, onBack: () -> Unit, onSetClick: () -> Unit
 ) {
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
+    val ColorSlate = Color(0xFF30363D)
+
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val current = LocalContext.current
@@ -559,6 +572,18 @@ private fun FallingNotesVisualizer(
     waitTargetPitches: Set<Int> = emptySet(),
     satisfiedPitches: Set<Int> = emptySet()
 ) {
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
+    val ColorGoldLight = appTheme.lightColor
+    val ColorUpcomingNote = appTheme.upcomingColor
+    val ColorWaitTarget = appTheme.waitTargetColor
+    val ColorWaitTargetLight = appTheme.waitTargetLightColor
+    val ColorTarget = appTheme.targetColor
+    val ColorBaseline = appTheme.baselineColor
+    val ColorBLGlow = appTheme.baselineGlowColor
+    val ColorSuccess = appTheme.successColor
+    val ColorSuccessLight = appTheme.successLightColor
+
     val scale = 0.25f
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
@@ -668,6 +693,8 @@ private fun FallingNotesVisualizer(
 
 @Composable
 private fun WaitModeOverlay(notes: Set<Int>) {
+    val appTheme = LocalAppTheme.current
+    val ColorWaitTarget = appTheme.waitTargetColor
     Box(
         Modifier
             .fillMaxWidth()
@@ -700,6 +727,11 @@ private fun PianoKeyboardRow(
     satisfiedPitches: Set<Int> = emptySet(),
     isInteractive: Boolean = false
 ) {
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
+    val ColorWaitTarget = appTheme.waitTargetColor
+    val ColorSuccess = appTheme.successColor
+
     val pressed = MidiInputManager.pressedKeys.toSet()
 
     // Breathing pulse for waiting keys
@@ -947,6 +979,9 @@ private fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKe
 private fun MediaTimelineFooter(
     viewModel: PianoWeaveViewModel, dur: Long, onSeekState: (Boolean) -> Unit, onResetHead: () -> Unit
 ) {
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
+    val ColorSlate = Color(0xFF30363D)
     Row(modifier = Modifier.fillMaxWidth().background(ColorSurface).padding(horizontal = 20.dp, vertical = 10.dp).pointerInput(Unit) { detectTapGestures { } }, // Consume gestures
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1069,6 +1104,22 @@ private fun SettingsDialog(
     songDurationMs: Long,
     onDismiss: () -> Unit
 ) {
+    val currentContext = LocalContext.current
+    var showThemeDialog by remember { mutableStateOf(false) }
+    val appTheme = LocalAppTheme.current
+    val ColorGold = appTheme.primaryColor
+    val ColorGoldLight = appTheme.lightColor
+    val ColorUpcomingNote = appTheme.upcomingColor
+    val ColorWaitTarget = appTheme.waitTargetColor
+    val ColorWaitTargetLight = appTheme.waitTargetLightColor
+    val ColorTarget = appTheme.targetColor
+    val ColorBaseline = appTheme.baselineColor
+    val ColorBLGlow = appTheme.baselineGlowColor
+    val ColorSuccess = appTheme.successColor
+    val ColorSuccessLight = appTheme.successLightColor
+    val ColorSlate = Color(0xFF30363D)
+    val ColorTextDim = Color(0xFF8B949E)
+
     LaunchedEffect(Unit) {
         viewModel.isPlaying = false
     }
@@ -1123,6 +1174,55 @@ private fun SettingsDialog(
                         ) {
                             Icon(Icons.Default.Close, contentDescription = "Close", tint = ColorTextDim)
                         }
+                    }
+
+                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                    // App Color Theme Option
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f).padding(end = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text("App Color Theme", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Current: ${appTheme.name}", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = { showThemeDialog = true },
+                                border = BorderStroke(1.dp, ColorGold),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .background(ColorGold, CircleShape)
+                                            .border(1.dp, Color.White, CircleShape)
+                                    )
+                                    Text("Change", color = ColorGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    if (showThemeDialog) {
+                        AppThemeDialog(
+                            currentThemeId = viewModel.selectedThemeId,
+                            onSelectTheme = { themeId ->
+                                viewModel.setSelectedTheme(currentContext, themeId)
+                            },
+                            onDismiss = { showThemeDialog = false }
+                        )
                     }
 
                     HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
@@ -1359,6 +1459,9 @@ private fun SettingsDialog(
 
 @Composable
 private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit) {
+    val appTheme = LocalAppTheme.current
+    val ColorBaseline = appTheme.baselineColor
+    val ColorTextDim = Color(0xFF8B949E)
     Box(Modifier.fillMaxSize().background(ColorBg).padding(32.dp), Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Icon(Icons.Default.Warning, null, tint = ColorBaseline, modifier = Modifier.size(72.dp))
