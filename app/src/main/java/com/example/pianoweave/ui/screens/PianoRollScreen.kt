@@ -1117,8 +1117,8 @@ private fun SettingsDialog(
     val ColorBLGlow = appTheme.baselineGlowColor
     val ColorSuccess = appTheme.successColor
     val ColorSuccessLight = appTheme.successLightColor
-    val ColorSlate = Color(0xFF30363D)
-    val ColorTextDim = Color(0xFF8B949E)
+    val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
+    val ColorTextDim = MaterialTheme.colorScheme.tertiary
 
     LaunchedEffect(Unit) {
         viewModel.isPlaying = false
@@ -1446,7 +1446,10 @@ private fun SettingsDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ColorGold, contentColor = Color.Black),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ColorGold,
+                            contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
+                        ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)

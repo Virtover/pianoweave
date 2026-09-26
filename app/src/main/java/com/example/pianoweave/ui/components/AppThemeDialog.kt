@@ -180,7 +180,7 @@ fun AppThemeDialog(
                             contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
                         )
                     ) {
-                        Text("DONE", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                        Text("DONE", fontWeight = FontWeight.Black, fontSize = 15.sp)
                     }
                 }
             }

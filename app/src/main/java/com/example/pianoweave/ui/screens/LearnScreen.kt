@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.pianoweave.api.config.AppConfig
 import com.example.pianoweave.midi.StoredMidi
+import com.example.pianoweave.ui.theme.LocalAppTheme
 import com.example.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.example.pianoweave.ui.viewmodel.ServerStatus
 
@@ -307,7 +308,7 @@ fun LearnScreen(
                                 Icon(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = "Server Settings",
-                                    tint = Color(0xFFD4AF37), // Gold accent matching piano roll UI
+                                    tint = MaterialTheme.colorScheme.secondary,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -516,15 +517,16 @@ fun ServerSettingsDialog(
     context: Context,
     onDismiss: () -> Unit
 ) {
+    val appTheme = LocalAppTheme.current
     var selectedUseCustom by remember { mutableStateOf(viewModel.isCustomServer) }
     var customUrlText by remember { mutableStateOf(viewModel.customServerUrl) }
     var urlError by remember { mutableStateOf<String?>(null) }
     var dialogTestStatus by remember { mutableStateOf(ServerStatus.CHECKING) }
 
-    val ColorSurface = Color(0xFF161B22)
-    val ColorGold = Color(0xFFD4AF37)
-    val ColorSlate = Color(0xFF30363D)
-    val ColorTextDim = Color(0xFF8B949E)
+    val ColorSurface = MaterialTheme.colorScheme.surface
+    val ColorGold = MaterialTheme.colorScheme.secondary
+    val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
+    val ColorTextDim = MaterialTheme.colorScheme.tertiary
 
     val candidateUrl = if (selectedUseCustom && customUrlText.isNotBlank()) {
         var u = customUrlText.trim()
@@ -853,7 +855,7 @@ fun ServerSettingsDialog(
                                 .height(46.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = ColorGold,
-                                contentColor = Color.Black
+                                contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                             ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
