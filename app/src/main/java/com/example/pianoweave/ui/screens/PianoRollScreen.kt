@@ -624,22 +624,6 @@ private fun FallingNotesVisualizer(
                 else -> baseCol.copy(alpha = 0.6f)
             }
 
-            drawRoundRect(
-                color = baseCol.copy(alpha = 0.25f),
-                topLeft = Offset(x1 - 2f, (y - 4f).coerceIn(-h, size.height)),
-                size = Size(kw + 4f, h + 8f),
-                cornerRadius = CornerRadius(10.dp.toPx())
-            )
-
-            if (isAtBaseline || isHitting) {
-                drawRoundRect(
-                    color = baseCol.copy(alpha = 0.3f),
-                    topLeft = Offset(x1 - 4f, (y - 8f).coerceIn(-h, size.height)),
-                    size = Size(kw + 8f, h + 16f),
-                    cornerRadius = CornerRadius(12.dp.toPx())
-                )
-            }
-
             // Existing sharp note body on top
             drawRoundRect(
                 brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h),
