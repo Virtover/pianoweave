@@ -69,7 +69,7 @@ private val ColorWaitTarget = Color(0xFF00D2FF)
 private val ColorWaitTargetLight = Color(0xFFB3F5FF)
 private val ColorTarget = Color(0xFFF39C12) 
 private val ColorBaseline = Color(0xFFFD9B4A)
-private val ColorBLGlow = Color(0xFFE53935)
+private val ColorBLGlow = Color(0xFFE55E35)
 private val ColorTextDim = Color(0xFF8B949E)
 private val ColorKeyWhite = Color(0xFFE6E6E6) 
 private val ColorKeyBlack = Color(0xFF030507)
@@ -640,18 +640,24 @@ private fun FallingNotesVisualizer(
 
         // Baseline glow aura drawn first, so falling notes are drawn OVER it (decays faster, 14.dp)
         val baselineY = size.height - 1f
-        val glowUp = 14.dp.toPx()
-        val glowDown = 2.dp.toPx()
-
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(Color.Transparent, ColorBLGlow.copy(alpha = 0.15f), ColorBaseline.copy(alpha = 0.2f)),
-                startY = baselineY - glowUp,
-                endY = baselineY
-            ),
-            topLeft = Offset(0f, baselineY - glowUp),
-            size = Size(tw, glowUp)
-        )
+//        val glowUp = 20.dp.toPx()
+//        val glowDown = 2.dp.toPx()
+//
+//        drawRect(
+//            brush = Brush.verticalGradient(
+//                colorStops = arrayOf(
+//                    0.0f to Color.Transparent,
+//                    0.6f to ColorBLGlow.copy(alpha = 0.15f),
+//                    0.8f to ColorBLGlow.copy(alpha = 0.25f),
+//                    0.9f to ColorBLGlow.copy(alpha = 0.6f),
+//                    1.0f to ColorBaseline.copy(alpha = 0.6f),
+//                ),
+//                startY = baselineY - glowUp,
+//                endY = baselineY
+//            ),
+//            topLeft = Offset(0f, baselineY - glowUp),
+//            size = Size(tw, glowUp)
+//        )
 
         drawLine(ColorBaseline, Offset(0f, baselineY), Offset(tw, baselineY), 3.dp.toPx())
 
