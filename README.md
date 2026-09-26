@@ -4,7 +4,7 @@ Upgrade your piano learning experience with high-fidelity practice tools. Piano 
 
 ## ✨ Features
 
-* **AI Transcription:** Integrated with a FastAPI backend to transcribe piano performances into MIDI data.
+* **AI Transcription:** Uses a FastAPI backend to transcribe piano performances from online video URLs (e.g. YouTube) into MIDI data.
 * **Ultra-Pro Piano Roll:** Practice with a high-fidelity interactive roll featuring A/B looping, speed control, and transposition.
 * **Grand Piano Sound:** Powered by FluidSynth and high-quality SoundFonts for a rich, realistic acoustic piano experience.
 * **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations.
