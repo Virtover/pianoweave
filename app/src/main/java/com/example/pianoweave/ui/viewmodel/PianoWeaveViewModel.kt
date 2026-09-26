@@ -10,9 +10,11 @@ import com.example.pianoweave.api.PianoApiFactory
 import com.example.pianoweave.api.config.AppConfig
 import com.example.pianoweave.midi.MidiStorage
 import com.example.pianoweave.midi.StoredMidi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 
 enum class ServerStatus {
@@ -40,9 +42,23 @@ class PianoWeaveViewModel : ViewModel() {
     var songs by mutableStateOf<List<StoredMidi>>(emptyList())
         private set
 
+    var currentJobId by mutableStateOf<String?>(null)
+        private set
+
+    private var transcriptionJob: Job? = null
+
     var readySong by mutableStateOf<StoredMidi?>(null)
     var activePracticeSong by mutableStateOf<StoredMidi?>(null)
     private var lastPlayedSongPath: String? = null
+
+    var transcriptionError by mutableStateOf<String?>(null)
+        private set
+
+    fun clearTranscriptionError() {
+        transcriptionError = null
+        status = if (videoUrl.isNotBlank()) "Ready to convert." else "Paste a video link above to begin."
+        progress = 0f
+    }
 
     // --- Playback State (Orientation Survival) ---
     var isPlaying by mutableStateOf(false)
@@ -163,14 +179,19 @@ class PianoWeaveViewModel : ViewModel() {
     fun updateUrl(url: String) {
         if (!isLoading) {
             videoUrl = url
-            status = "Ready to convert."
-            progress = 0f
+            if (url.isBlank()) {
+                status = "Paste a video link above to begin."
+                progress = 0f
+            } else if (!status.startsWith("Error") && !status.startsWith("Failed")) {
+                status = "Ready to convert."
+            }
         }
     }
 
     fun loadSongs(context: Context) {
         songs = MidiStorage.list(context)
         loadPreferences(context)
+        resumeActiveJobIfAny(context)
     }
 
     fun deleteSong(context: Context, song: StoredMidi) {
@@ -203,13 +224,127 @@ class PianoWeaveViewModel : ViewModel() {
         }
     }
 
+    private fun saveActiveJob(context: Context, jobId: String, url: String) {
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("active_job_id", jobId)
+            .putString("active_job_url", url)
+            .apply()
+    }
+
+    private fun clearActiveJob(context: Context) {
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .remove("active_job_id")
+            .remove("active_job_url")
+            .apply()
+    }
+
+    fun resumeActiveJobIfAny(context: Context) {
+        if (isLoading || transcriptionJob?.isActive == true) return
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        val savedJobId = prefs.getString("active_job_id", null)
+        val savedUrl = prefs.getString("active_job_url", null)
+
+        if (!savedJobId.isNullOrBlank() && !savedUrl.isNullOrBlank()) {
+            videoUrl = savedUrl
+            currentJobId = savedJobId
+            isLoading = true
+            status = "Resuming transcription job..."
+
+            transcriptionJob = viewModelScope.launch {
+                pollTranscriptionJob(context, savedJobId, savedUrl)
+            }
+        }
+    }
+
+    fun cancelTranscription(context: Context) {
+        val jobId = currentJobId
+        transcriptionJob?.cancel()
+        transcriptionJob = null
+
+        if (jobId != null) {
+            val serverUrl = activeServerUrl
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val api = PianoApiFactory.getApi(serverUrl)
+                    api.deleteTranscription(jobId)
+                } catch (_: Exception) {}
+            }
+        }
+
+        currentJobId = null
+        isLoading = false
+        progress = 0f
+        status = "Transcription cancelled."
+        transcriptionError = null
+        clearActiveJob(context)
+    }
+
+    private suspend fun pollTranscriptionJob(context: Context, jobId: String, stableUrl: String) {
+        val api = PianoApiFactory.getApi(activeServerUrl)
+        try {
+            while (true) {
+                val job = api.getTranscription(jobId)
+                progress = job.progress
+
+                status = when (job.status) {
+                    "queued" -> "Queued in server pipeline..."
+                    "running", "processing" ->
+                        if (job.metadata != null) "Transcribing \"${job.metadata.title}\"..."
+                        else "AI model transcribing notes..."
+                    "completed" -> "Transcription completed."
+                    "failed" -> {
+                        val errMsg = job.error ?: "Failed: Server processing error"
+                        transcriptionError = errMsg
+                        "Error: $errMsg"
+                    }
+                    else -> job.status
+                }
+
+                if (job.status == "completed") {
+                    status = "Downloading completed MIDI file..."
+                    withContext(Dispatchers.IO) {
+                        val midiResponse = api.downloadMidi(jobId)
+                        MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
+                    }
+                    progress = 1f
+                    val updatedSongs = MidiStorage.list(context)
+                    songs = updatedSongs
+                    readySong = updatedSongs.firstOrNull { it.videoUrl == stableUrl }
+                    status = "Ready to learn!"
+                    transcriptionError = null
+                    clearActiveJob(context)
+                    currentJobId = null
+                    break
+                }
+                if (job.status == "failed") {
+                    clearActiveJob(context)
+                    currentJobId = null
+                    break
+                }
+                delay(1000)
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            val errMsg = e.localizedMessage ?: "Connection error"
+            transcriptionError = errMsg
+            status = "Error: $errMsg"
+            clearActiveJob(context)
+            currentJobId = null
+        } finally {
+            isLoading = false
+        }
+    }
+
     fun startTranscription(context: Context) {
         val stableUrl = normalizeUrl(videoUrl)
         if (stableUrl.isBlank() || isLoading) return
         
         videoUrl = stableUrl
+        transcriptionError = null
 
-        viewModelScope.launch {
+        transcriptionJob = viewModelScope.launch {
             isLoading = true
             progress = 0f
             status = "Checking local cache..."
@@ -232,42 +367,18 @@ class PianoWeaveViewModel : ViewModel() {
                 )
 
                 val jobId = response.job_id
+                currentJobId = jobId
+                saveActiveJob(context, jobId, stableUrl)
                 status = "Job successfully queued..."
 
-                while (true) {
-                    val job = api.getTranscription(jobId)
-                    progress = job.progress
-
-                    status = when (job.status) {
-                        "queued" -> "Queued in server pipeline..."
-                        "running", "processing" ->
-                            if (job.metadata != null) "Transcribing \"${job.metadata.title}\"..."
-                            else "AI model transcribing notes..."
-                        "completed" -> "Transcription completed."
-                        "failed" -> job.error ?: "Failed: Server processing error"
-                        else -> job.status
-                    }
-
-                    if (job.status == "completed") {
-                        status = "Downloading completed MIDI file..."
-                        withContext(Dispatchers.IO) {
-                            val midiResponse = api.downloadMidi(jobId)
-                            MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
-                        }
-                        progress = 1f
-                        val updatedSongs = MidiStorage.list(context)
-                        songs = updatedSongs
-                        readySong = updatedSongs.firstOrNull { it.videoUrl == stableUrl }
-                        status = "Ready to learn!"
-                        loadSongs(context)
-                        break
-                    }
-                    if (job.status == "failed") break
-                    delay(1000)
-                }
+                pollTranscriptionJob(context, jobId, stableUrl)
             } catch (e: Exception) {
-                status = "Error: ${e.localizedMessage ?: "Connection error"}"
-            } finally {
+                if (e is CancellationException) throw e
+                val errMsg = e.localizedMessage ?: "Connection error"
+                transcriptionError = errMsg
+                status = "Error: $errMsg"
+                clearActiveJob(context)
+                currentJobId = null
                 isLoading = false
             }
         }

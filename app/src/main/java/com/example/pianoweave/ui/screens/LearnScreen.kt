@@ -32,6 +32,12 @@ import com.example.pianoweave.midi.StoredMidi
 import com.example.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.example.pianoweave.ui.viewmodel.ServerStatus
 
+private val ColorSurface = Color(0xFF161B22)
+private val  ColorGold = Color(0xFFD4AF37)
+private val  ColorSlate = Color(0xFF30363D)
+private val  ColorTextDim = Color(0xFF8B949E)
+private val  ColorError = Color(0xFFD74749)
+
 @Composable
 fun LearnScreen(
     viewModel: PianoWeaveViewModel,
@@ -39,6 +45,132 @@ fun LearnScreen(
     onSongSelect: (StoredMidi) -> Unit = {}
 ) {
     var showServerSettingsDialog by remember { mutableStateOf(false) }
+    var showCancelConfirmDialog by remember { mutableStateOf(false) }
+
+    fun handleCancelClick() {
+        if (viewModel.progress > 0.05f) {
+            showCancelConfirmDialog = true
+        } else {
+            viewModel.cancelTranscription(context)
+        }
+    }
+
+    if (showCancelConfirmDialog) {
+
+        Dialog(onDismissRequest = { showCancelConfirmDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.98f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = ColorSurface,
+                    contentColor = Color.White,
+                    border = BorderStroke(1.dp, ColorSlate)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Cancel Transcription?",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = ColorGold
+                            )
+                            IconButton(
+                                onClick = { showCancelConfirmDialog = false },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = ColorTextDim
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                        Text(
+                            text = "Are you sure you want to cancel this transcription job? Progress (${(viewModel.progress * 100).toInt()}%) will be lost.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.85f),
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Primary action button (Gold accent matching rest of app)
+                            Button(
+                                onClick = { showCancelConfirmDialog = false },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ColorGold,
+                                    contentColor = Color.Black
+                                )
+                            ) {
+                                Text(
+                                    text = "Keep Transcribing",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+
+                            // Secondary action button (Dark crimson outline)
+                            OutlinedButton(
+                                onClick = {
+                                    showCancelConfirmDialog = false
+                                    viewModel.cancelTranscription(context)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                border = BorderStroke(1.dp, Color(0xFF8C3235).copy(alpha = 0.8f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color(0xFF221B1C),
+                                    contentColor = Color(0xFFE57373)
+                                )
+                            ) {
+                                Text(
+                                    text = "Cancel Job",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     if (showServerSettingsDialog) {
         ServerSettingsDialog(
@@ -210,32 +342,63 @@ fun LearnScreen(
                         }
                     )
 
-                    Button(
-                        onClick = { viewModel.startTranscription(context) },
-                        enabled = viewModel.videoUrl.isNotBlank() && !viewModel.isLoading,
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.onSecondary
-                        )
-                    ) {
-                        if (viewModel.isLoading) {
-                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
-                        } else {
-                            Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
+                    if (viewModel.isLoading) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {},
+                                enabled = false,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    disabledContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
+                                    disabledContentColor = MaterialTheme.colorScheme.onSecondary
+                                )
+                            ) {
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Processing...", fontWeight = FontWeight.ExtraBold)
+                            }
+
+                            OutlinedButton(
+                                onClick = { handleCancelClick() },
+                                modifier = Modifier.height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                                border = BorderStroke(1.dp, Color(0xFF8C3235).copy(alpha = 0.6f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color(0xFF221B1C),
+                                    contentColor = Color(0xFFE57373)
+                                )
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Cancel", modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Cancel", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
                         }
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = if (viewModel.isLoading) "Processing..." else "Transcribe to MIDI",
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                    } else {
+                        Button(
+                            onClick = { viewModel.startTranscription(context) },
+                            enabled = viewModel.videoUrl.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                contentColor = MaterialTheme.colorScheme.onSecondary
+                            )
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text("Transcribe to MIDI", fontWeight = FontWeight.ExtraBold)
+                        }
                     }
                 }
             }
 
             // 3. PROGRESS CARD - Active loading feedback
-            AnimatedVisibility(visible = viewModel.isLoading || viewModel.status.contains("Error")) {
+            AnimatedVisibility(visible = viewModel.isLoading) {
                 OutlinedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
@@ -245,31 +408,98 @@ fun LearnScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        val isError = viewModel.status.contains("Error")
                         Icon(
-                            imageVector = if (isError) Icons.Default.Error else Icons.Default.Info,
+                            imageVector = Icons.Default.Info,
                             contentDescription = null,
-                            tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(32.dp)
                         )
 
                         Column(modifier = Modifier.weight(1f)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (viewModel.progress > 0f && !isError) {
+                                if (viewModel.progress > 0f) {
                                     Text("${(viewModel.progress * 100).toInt()}%", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
                                 }
                             }
                             Text(viewModel.status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, maxLines = 2)
-                            if (viewModel.isLoading && viewModel.progress < 1f) {
+                            if (viewModel.progress < 1f) {
                                 Spacer(Modifier.height(8.dp))
                                 LinearProgressIndicator(
                                     progress = { viewModel.progress },
                                     modifier = Modifier.fillMaxWidth(),
                                     color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. ERROR CARD - Persistent error feedback (dismissible with top-right 'X')
+            AnimatedVisibility(
+                visible = !viewModel.isLoading && (viewModel.transcriptionError != null || viewModel.status.startsWith("Error")),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = Color(0xFF221B1C),
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFF8C3235))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Error,
+                                    contentDescription = "Error",
+                                    tint = Color(0xFFE57373),
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Transcription Failed",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFE57373)
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = viewModel.transcriptionError ?: viewModel.status.removePrefix("Error: "),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White.copy(alpha = 0.9f)
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.clearTranscriptionError() },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close Error",
+                                    tint = Color(0xFF8B949E),
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }

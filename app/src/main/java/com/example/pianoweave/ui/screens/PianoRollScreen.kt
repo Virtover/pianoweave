@@ -1165,7 +1165,10 @@ private fun SettingsDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Column(
+                                modifier = Modifier.weight(1f).padding(end = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
                                 Text("Loop Playback", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text("Repeat section during practice", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
                             }
@@ -1287,17 +1290,21 @@ private fun SettingsDialog(
                     HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
 
                     // Strike Overlay Section
+                    val currentContext = LocalContext.current
+                    var isStrikeOverlay by remember { mutableStateOf(viewModel.isStrikeOverlayEnabled) }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier.weight(1f).padding(end = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
                             Text("Strike Overlay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Text("Show STRIKE instruction banner in wait mode", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
                         }
-                        val currentContext = LocalContext.current
-                        var isStrikeOverlay by remember { mutableStateOf(viewModel.isStrikeOverlayEnabled) }
                         Switch(
                             checked = isStrikeOverlay,
                             onCheckedChange = {
