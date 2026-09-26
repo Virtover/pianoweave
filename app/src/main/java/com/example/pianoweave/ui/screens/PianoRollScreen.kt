@@ -1178,55 +1178,6 @@ private fun SettingsDialog(
 
                     HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
 
-                    // App Color Theme Option
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f).padding(end = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Text("App Color Theme", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("Current: ${appTheme.name}", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
-                            }
-
-                            OutlinedButton(
-                                onClick = { showThemeDialog = true },
-                                border = BorderStroke(1.dp, ColorGold),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .background(ColorGold, CircleShape)
-                                            .border(1.dp, Color.White, CircleShape)
-                                    )
-                                    Text("Change", color = ColorGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                }
-                            }
-                        }
-                    }
-
-                    if (showThemeDialog) {
-                        AppThemeDialog(
-                            currentThemeId = viewModel.selectedThemeId,
-                            onSelectTheme = { themeId ->
-                                viewModel.setSelectedTheme(currentContext, themeId)
-                            },
-                            onDismiss = { showThemeDialog = false }
-                        )
-                    }
-
-                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
-
                     // Transposition Section
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
@@ -1423,6 +1374,56 @@ private fun SettingsDialog(
                                 uncheckedThumbColor = ColorTextDim,
                                 uncheckedTrackColor = ColorSlate
                             )
+                        )
+                    }
+
+
+                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                    // App Color Theme Option
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f).padding(end = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text("Theme", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Current: ${appTheme.name}", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = { showThemeDialog = true },
+                                border = BorderStroke(1.dp, ColorGold),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .background(ColorGold, CircleShape)
+                                            .border(1.dp, Color.White, CircleShape)
+                                    )
+                                    Text("Change", color = ColorGold, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    if (showThemeDialog) {
+                        AppThemeDialog(
+                            currentThemeId = viewModel.selectedThemeId,
+                            onSelectTheme = { themeId ->
+                                viewModel.setSelectedTheme(currentContext, themeId)
+                            },
+                            onDismiss = { showThemeDialog = false }
                         )
                     }
 
