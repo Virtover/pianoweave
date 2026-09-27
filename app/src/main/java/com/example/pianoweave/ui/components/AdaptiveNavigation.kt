@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pianoweave.R
@@ -27,7 +28,7 @@ fun AdaptiveNavigation(
     onLearnSelect: () -> Unit,
     isStorageSelected: Boolean,
     onStorageSelect: () -> Unit,
-    onOpenThemeDialog : () -> Unit,
+    onOpenThemeDialog: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -36,15 +37,20 @@ fun AdaptiveNavigation(
     if (isLandscape) {
         Row(modifier = Modifier.fillMaxSize()) {
             NavigationRail(
-                modifier = Modifier.fillMaxHeight().width(100.dp),
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(min = 88.dp, max = 110.dp),
                 containerColor = MaterialTheme.colorScheme.surface,
+                windowInsets = NavigationRailDefaults.windowInsets,
                 header = {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(top = 32.dp, bottom = 16.dp)
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     ) {
                         Surface(
-                            modifier = Modifier.size(56.dp).clickable(onClick = onOpenThemeDialog), // Increased slightly for the custom icon
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clickable(onClick = onOpenThemeDialog),
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
@@ -53,24 +59,32 @@ fun AdaptiveNavigation(
                                 Image(
                                     painter = painterResource(id = R.drawable.app_icon),
                                     contentDescription = null,
-                                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         // Styled Logo Text: Stacked for better Rail fit
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "PIANO",
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Clip,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Light,
-                                    letterSpacing = 2.sp
+                                    letterSpacing = 1.5.sp
                                 ),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "WEAVE",
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Clip,
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     letterSpacing = 1.sp
@@ -87,7 +101,16 @@ fun AdaptiveNavigation(
                     selected = isLearnSelected,
                     onClick = onLearnSelect,
                     icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-                    label = { Text("Transcribe", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                    label = {
+                        Text(
+                            text = "Transcribe",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     colors = NavigationRailItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                         selectedTextColor = MaterialTheme.colorScheme.secondary,
@@ -96,13 +119,22 @@ fun AdaptiveNavigation(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 NavigationRailItem(
                     selected = isStorageSelected,
                     onClick = onStorageSelect,
                     icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
-                    label = { Text("Library", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+                    label = {
+                        Text(
+                            text = "Library",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     colors = NavigationRailItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                         selectedTextColor = MaterialTheme.colorScheme.secondary,
@@ -116,8 +148,9 @@ fun AdaptiveNavigation(
 
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 16.dp, end = 32.dp, top = 24.dp, bottom = 24.dp)
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 12.dp, end = 24.dp, top = 16.dp, bottom = 16.dp)
             ) {
                 content()
             }
@@ -132,7 +165,7 @@ fun AdaptiveNavigation(
                         selected = isLearnSelected,
                         onClick = onLearnSelect,
                         icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
-                        label = { Text("Transcribe") },
+                        label = { Text("Transcribe", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                             selectedTextColor = MaterialTheme.colorScheme.secondary,
@@ -143,7 +176,7 @@ fun AdaptiveNavigation(
                         selected = isStorageSelected,
                         onClick = onStorageSelect,
                         icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
-                        label = { Text("Library") },
+                        label = { Text("Library", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                             selectedTextColor = MaterialTheme.colorScheme.secondary,
@@ -153,7 +186,7 @@ fun AdaptiveNavigation(
                 }
             },
             containerColor = MaterialTheme.colorScheme.background,
-            contentWindowInsets = WindowInsets(0.dp) // Fixed: Remove ghost space for system bars
+            contentWindowInsets = WindowInsets(0.dp)
         ) { paddingValues ->
             Box(
                 modifier = Modifier
