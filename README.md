@@ -1,6 +1,29 @@
-# Piano Weave 🎹
+<p align="center">
+  <img src="docs/screenshots/app_icon.png" width="128" alt="Piano Weave Icon" />
+</p>
 
-Upgrade your piano learning experience with high-fidelity practice tools. Piano Weave transcribes piano performances from online videos into interactive practice sessions with a professional piano roll and a high-quality Grand Piano audio engine.
+<h1 align="center">Piano Weave</h1>
+
+<p align="center">
+  <b>Upgrade your piano learning experience with high-fidelity practice tools.</b><br>
+  Piano Weave transcribes piano performances from online videos into interactive practice sessions with an ultra-pro piano roll and a high-quality Grand Piano audio engine.
+</p>
+
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#%EF%B8%8F-setup">Setup</a> •
+  <a href="#-key-modules">Key Modules</a> •
+  <a href="#license">License</a>
+</p>
+
+---
+
+## 📱 Screenshots
+
+| AI Transcription | Interactive Piano Roll & Wait Mode |
+| :---: | :---: |
+| <img src="docs/screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="docs/screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
 
 ## ✨ Features
 
