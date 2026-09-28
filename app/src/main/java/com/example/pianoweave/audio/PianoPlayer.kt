@@ -109,9 +109,12 @@ object PianoPlayer : AutoCloseable {
                         .build()
                 )
                 .setOnAudioFocusChangeListener { focusChange ->
-                    if (focusChange == AudioManager.AUDIOFOCUS_LOSS ||
-                        focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                        stopAllNotes()
+                    when (focusChange) {
+                        AudioManager.AUDIOFOCUS_LOSS -> stopAllNotes()
+                        // Transient loss (notifications, short prompts): let notes ring out
+                        // rather than cutting the player off mid-phrase.
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> { /* no-op, or optionally duck gain */ }
                     }
                 }
                 .build()
