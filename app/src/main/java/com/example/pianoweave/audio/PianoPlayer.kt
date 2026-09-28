@@ -2,8 +2,8 @@ package com.example.pianoweave.audio
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.util.Log
 import dev.kotlinds.fluidsynthkmp.AudioConfig
 import dev.kotlinds.fluidsynthkmp.FluidSynthPlayer
@@ -13,14 +13,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * High-quality Grand Piano player using FluidSynth and SoundFonts.
- * Optimized for high stability on Android and Emulators.
+ * Optimized for pristine audio fidelity, low-latency playback, and acoustic realism.
  */
 object PianoPlayer : AutoCloseable {
 
     private const val TAG = "PianoPlayer"
-    private const val SOUND_FONT = "GeneralUser-GS.sf2"
+    private const val SOUND_FONT = "Full Grand Piano.sf2"
     private const val CHANNEL = 0
     private const val GRAND_PIANO = 0
+
+    // Master gain configured to 0.82f to give headroom for polyphonic chords without digital clipping
+    private const val MASTER_GAIN = 0.82f
 
     private var player: FluidSynthPlayer? = null
     private val isInitialized = AtomicBoolean(false)
@@ -40,12 +43,22 @@ object PianoPlayer : AutoCloseable {
             player?.close()
             player = null
 
+            // Detect device native sample rate & buffer size for zero-resampling low latency audio
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            val nativeSampleRate = audioManager?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull() ?: 48000
+            val nativeBufferSize = audioManager?.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER)?.toIntOrNull() ?: 256
+
+            // Clamp buffer size for stability across devices (between 128 and 512 frames)
+            val periodSize = nativeBufferSize.coerceIn(128, 512)
+
+            Log.i(TAG, "Initializing FluidSynth with SampleRate: $nativeSampleRate Hz, PeriodSize: $periodSize, Interpolation: HIGH")
+
             val newPlayer = FluidSynthPlayer(
                 AudioConfig(
-                    sampleRate = 44100,
-                    interpolation = Interpolation.NORMAL, 
-                    periodSize = 512, 
-                    periods = 8 
+                    sampleRate = nativeSampleRate,
+                    interpolation = Interpolation.HIGH, // 7th-order sinc interpolation for highest audio fidelity
+                    periodSize = periodSize,
+                    periods = 4 // Balanced 4-period buffer to prevent underruns while ensuring low latency
                 )
             ).apply {
                 val soundFontId = loadSoundFont(soundFontPath)
@@ -56,20 +69,22 @@ object PianoPlayer : AutoCloseable {
                 }
 
                 programChange(CHANNEL, GRAND_PIANO)
-                setGain(0.9f) 
-                
+                setGain(MASTER_GAIN)
+
+                // High-quality acoustic concert grand reverb tuning
                 setReverb(
-                    roomSize = 0.65, 
-                    damping = 0.5, 
-                    width = 0.8, 
-                    level = 0.3
+                    roomSize = 0.65, // Concert hall spatial feel
+                    damping = 0.40,  // Smooth acoustic wood reflection decay
+                    width = 1.00,    // Full stereo panorama
+                    level = 0.32     // Natural ambient depth without obscuring note attack
                 )
-                
+
+                // Subtle warm chorus (subtle depth without unnatural acoustic modulation)
                 setChorus(
                     voiceCount = 3,
-                    level = 0.5,
-                    speed = 0.3,
-                    depth = 4.0
+                    level = 0.15,
+                    speed = 0.30,
+                    depth = 1.50
                 )
             }
             player = newPlayer
@@ -118,9 +133,10 @@ object PianoPlayer : AutoCloseable {
         }
     }
 
+    @Synchronized
     fun noteOn(pitch: Int, velocity: Int = 80) {
         if (pitch !in 0..127) return
-        if (player == null) {
+        if (player == null || !isInitialized.get()) {
             appContext?.let { initialize(it) }
         }
         try {
@@ -132,6 +148,7 @@ object PianoPlayer : AutoCloseable {
         }
     }
 
+    @Synchronized
     fun noteOff(pitch: Int) {
         if (pitch !in 0..127) return
         try {
@@ -144,6 +161,7 @@ object PianoPlayer : AutoCloseable {
     /**
      * Stop all notes instantly.
      */
+    @Synchronized
     fun stopAllNotes() {
         for (pitch in 0..127) {
             try {
@@ -152,6 +170,7 @@ object PianoPlayer : AutoCloseable {
         }
     }
 
+    @Synchronized
     override fun close() {
         try {
             appContext?.let { abandonAudioFocus(it) }
