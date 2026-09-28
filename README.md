@@ -21,7 +21,7 @@
 
 ## 📱 Screenshots
 
-| AI Transcription | Interactive Piano Roll & Wait Mode |
+| AI Transcription | Piano Roll & Wait Mode |
 | :---: | :---: |
 | <img src="docs/screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="docs/screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
 
@@ -32,7 +32,7 @@
 * **Grand Piano Sound:** Powered by FluidSynth and high-quality SoundFonts for a rich, realistic acoustic piano experience.
 * **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations.
 * **MIDI Integration:** Support for hardware MIDI input (USB/Bluetooth) and touch-simulated piano keys.
-* **Wait Mode:** Intelligent onset detection that pauses playback until you strike the correct notes.
+* **Wait Mode:** Acoustic note detection that pauses playback until you strike the correct notes.
 
 ## 🛠️ Setup
 
