@@ -71,21 +71,21 @@ object PianoPlayer : AutoCloseable {
                 programChange(CHANNEL, GRAND_PIANO)
                 setGain(MASTER_GAIN)
 
-                // High-quality acoustic concert grand reverb tuning
+                // Concert-hall depth, pulled back so fast passages/pedal don't turn to mud
                 setReverb(
-                    roomSize = 0.65, // Concert hall spatial feel
+                    roomSize = 0.55, // Concert hall spatial feel
                     damping = 0.40,  // Smooth acoustic wood reflection decay
                     width = 1.00,    // Full stereo panorama
-                    level = 0.32     // Natural ambient depth without obscuring note attack
+                    level = 0.22     // Natural ambient depth without obscuring note attack
                 )
 
                 // Subtle warm chorus (subtle depth without unnatural acoustic modulation)
-                setChorus(
-                    voiceCount = 3,
-                    level = 0.15,
-                    speed = 0.30,
-                    depth = 1.50
-                )
+//                setChorus(
+//                    voiceCount = 3,
+//                    level = 0.15,
+//                    speed = 0.30,
+//                    depth = 1.50
+//                )
             }
             player = newPlayer
             isInitialized.set(true)
