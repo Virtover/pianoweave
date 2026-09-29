@@ -68,17 +68,20 @@ dependencies {
 
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.compose.material.icons.extended)
 
     implementation(libs.fluidsynth.kmp)
     implementation(libs.jtransforms)
-    
-    // TensorFlow Lite / Basic Pitch dependencies
+
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-gpu-api:2.16.1")
+
+//    implementation("com.google.android.filament:filament-android:1.77.1")
+//    implementation("io.github.sceneview:sceneview:4.47.0")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

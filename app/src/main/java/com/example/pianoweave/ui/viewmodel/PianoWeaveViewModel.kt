@@ -10,6 +10,13 @@ import com.example.pianoweave.api.PianoApiFactory
 import com.example.pianoweave.api.config.AppConfig
 import com.example.pianoweave.midi.MidiStorage
 import com.example.pianoweave.midi.StoredMidi
+import com.example.pianoweave.worker.TranscriptionWorker
+import androidx.work.WorkManager
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import androidx.work.workDataOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -257,15 +264,45 @@ class PianoWeaveViewModel : ViewModel() {
         val savedUrl = prefs.getString("active_job_url", null)
 
         if (!savedJobId.isNullOrBlank() && !savedUrl.isNullOrBlank()) {
+            val storedFile = MidiStorage.find(context, savedUrl)
+            if (storedFile != null) {
+                clearActiveJob(context)
+                loadSongs(context)
+                readySong = songs.firstOrNull { it.file.absolutePath == storedFile.absolutePath }
+                status = "Ready to learn!"
+                progress = 1f
+                return
+            }
+
             videoUrl = savedUrl
             currentJobId = savedJobId
             isLoading = true
             status = "Resuming transcription job..."
 
+            enqueueTranscriptionWorker(context, savedJobId, savedUrl)
+
             transcriptionJob = viewModelScope.launch {
                 pollTranscriptionJob(context, savedJobId, savedUrl)
             }
         }
+    }
+
+    private fun enqueueTranscriptionWorker(context: Context, jobId: String, stableUrl: String) {
+        val workRequest = OneTimeWorkRequestBuilder<TranscriptionWorker>()
+            .setInputData(workDataOf(
+                TranscriptionWorker.KEY_JOB_ID to jobId,
+                TranscriptionWorker.KEY_URL to stableUrl,
+                TranscriptionWorker.KEY_SERVER_URL to activeServerUrl
+            ))
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .addTag("transcription_$jobId")
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "transcription_$jobId",
+            ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
     }
 
     fun cancelTranscription(context: Context) {
@@ -275,6 +312,7 @@ class PianoWeaveViewModel : ViewModel() {
 
         if (jobId != null) {
             val serverUrl = activeServerUrl
+            WorkManager.getInstance(context).cancelUniqueWork("transcription_$jobId")
             viewModelScope.launch(Dispatchers.IO) {
                 try {
                     val api = PianoApiFactory.getApi(serverUrl)
@@ -379,6 +417,7 @@ class PianoWeaveViewModel : ViewModel() {
                 val jobId = response.job_id
                 currentJobId = jobId
                 saveActiveJob(context, jobId, stableUrl)
+                enqueueTranscriptionWorker(context, jobId, stableUrl)
                 status = "Job successfully queued..."
 
                 pollTranscriptionJob(context, jobId, stableUrl)
