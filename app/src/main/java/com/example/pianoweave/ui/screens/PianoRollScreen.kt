@@ -381,7 +381,7 @@ private fun ModernPianoPlayerContent(
             }
 
             if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty() && viewModel.isStrikeOverlayEnabled) {
-                WaitModeOverlay(notes = waitTargetPitches)
+                WaitModeOverlay(notes = waitTargetPitches, isUiHidden = isUiHidden)
             }
 
             SeekIndicatorOverlay(seekInfo)

@@ -230,13 +230,17 @@ internal fun ModernToolbar(
 }
 
 @Composable
-internal fun WaitModeOverlay(notes: Set<Int>) {
+internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false) {
     val appTheme = LocalAppTheme.current
     val ColorWaitTarget = appTheme.waitTargetColor
+    val configuration = LocalConfiguration.current
+    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+    val topPadding = if (isPortrait || !isUiHidden) 56.dp else 12.dp
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 56.dp)
+            .padding(top = topPadding)
             .pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.TopCenter
     ) {
