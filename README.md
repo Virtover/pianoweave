@@ -21,9 +21,9 @@
 
 ## 📱 Screenshots
 
-| AI Transcription |                                          Piano Roll & Wait Mode                                           |
-| :---: |:---------------------------------------------------------------------------------------------------------:|
-| <img src="docs/screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="docs/screenshots/piano_roll_landscape2.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
+| AI Transcription |                                          Piano Roll & Wait Mode                                          |
+| :---: |:--------------------------------------------------------------------------------------------------------:|
+| <img src="docs/screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="docs/screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
 
 ## ✨ Features
 
