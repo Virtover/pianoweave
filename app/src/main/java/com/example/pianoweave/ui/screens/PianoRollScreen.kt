@@ -389,7 +389,7 @@ private fun ModernPianoPlayerContent(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = 12.dp, top = if (isUiHidden) 12.dp else 56.dp)
+                    .padding(end = 12.dp, top = if (isUiHidden) 12.dp else 58.dp)
                     .size(38.dp)
                     .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                     .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
