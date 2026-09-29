@@ -31,6 +31,7 @@ import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pianoweave.audio.PianoPlayer
@@ -45,7 +46,8 @@ internal fun PianoKeyboardRow(
     sustainedPitches: Set<Int>,
     waitTargetPitches: Set<Int> = emptySet(),
     satisfiedPitches: Set<Int> = emptySet(),
-    isInteractive: Boolean = false
+    isInteractive: Boolean = false,
+    keyboardHeight: Dp = 100.dp
 ) {
     val appTheme = LocalAppTheme.current
     val ColorGold = appTheme.primaryColor
@@ -69,13 +71,14 @@ internal fun PianoKeyboardRow(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(100.dp)
+            .height(keyboardHeight)
             .background(Color(0xFF030507))
             .then(
                 if (isInteractive) {
-                    Modifier.pointerInput(start, end, numWhiteKeys, isInteractive) {
+                    Modifier.pointerInput(start, end, numWhiteKeys, isInteractive, keyboardHeight) {
                         val activePointers = mutableMapOf<PointerId, Int>()
                         val tw = size.width.toFloat()
+                        val th = size.height.toFloat()
                         awaitPointerEventScope {
                             while (true) {
                                 val event = awaitPointerEvent()
@@ -83,7 +86,7 @@ internal fun PianoKeyboardRow(
                                     val pId = change.id
                                     when {
                                         change.changedToDown() -> {
-                                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys)
+                                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys, th)
                                             if (p != -1) {
                                                 activePointers[pId] = p
                                                 MidiInputManager.simulateNoteOn(p)
@@ -99,7 +102,7 @@ internal fun PianoKeyboardRow(
                                             change.consume()
                                         }
                                         change.positionChanged() -> {
-                                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys)
+                                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys, th)
                                             val oldP = activePointers[pId]
                                             if (newP != oldP) {
                                                 if (oldP != null) {

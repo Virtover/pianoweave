@@ -1,8 +1,15 @@
 package com.example.pianoweave.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -296,6 +303,11 @@ private fun ModernPianoPlayerContent(
     val isWaitingAtBaseline = viewModel.isPlaying && viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
+    var isUiHidden by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isUiHidden) {
+        isUiHidden = false
+    }
 
     Column(
         modifier = Modifier
@@ -307,7 +319,7 @@ private fun ModernPianoPlayerContent(
                 .weight(1f)
                 .fillMaxWidth()
                 .clipToBounds()
-                .pointerInput(songDurationMs) {
+                .pointerInput(songDurationMs, isUiHidden) {
                     val scale = 0.25f
                     val maxDist = 35.dp.toPx()
                     detectPianoRollGestures(
@@ -355,28 +367,50 @@ private fun ModernPianoPlayerContent(
                 satisfiedPitches = emptySet()
             )
 
-            ModernToolbar(
-                head = viewModel.playheadMs,
-                dur = songDurationMs,
-                viewModel = viewModel,
-                onBack = onBack,
-                onSetClick = {
-                    viewModel.isPlaying = false
-                    showSettingsDialog = true
-                }
-            )
+            if (!isUiHidden) {
+                ModernToolbar(
+                    head = viewModel.playheadMs,
+                    dur = songDurationMs,
+                    viewModel = viewModel,
+                    onBack = onBack,
+                    onSetClick = {
+                        viewModel.isPlaying = false
+                        showSettingsDialog = true
+                    }
+                )
+            }
 
             if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty() && viewModel.isStrikeOverlayEnabled) {
                 WaitModeOverlay(notes = waitTargetPitches)
             }
 
             SeekIndicatorOverlay(seekInfo)
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 12.dp, top = if (isUiHidden) 12.dp else 56.dp)
+                    .size(38.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                    .clickable { isUiHidden = !isUiHidden },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isUiHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    contentDescription = if (isUiHidden) "Show UI bars" else "Hide UI bars",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
+
+        val keyboardHeight = if (isUiHidden) 100.dp else 70.dp
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp)
+                .height(keyboardHeight)
                 .then(
                     if (!viewModel.isWaitModeEnabled) {
                         Modifier.pointerInput(Unit) {
@@ -414,22 +448,25 @@ private fun ModernPianoPlayerContent(
                 sustainedPitches = sustainedPitches,
                 waitTargetPitches = waitTargetPitches,
                 satisfiedPitches = emptySet(),
-                isInteractive = isWaitingAtBaseline
+                isInteractive = isWaitingAtBaseline,
+                keyboardHeight = keyboardHeight
             )
         }
 
-        MediaTimelineFooter(
-            viewModel = viewModel,
-            dur = songDurationMs,
-            onSeekState = { isUserSeeking = it },
-            onResetHead = {
-                viewModel.playheadMs = if (viewModel.isLoopingEnabled) viewModel.loopStartMs else 0L
-                lastTriggeredHeadMs = viewModel.playheadMs
-                currentWaitOnsetMs = -1L
-                chordHits.clear()
-                PianoPlayer.stopAllNotes()
-            }
-        )
+        if (!isUiHidden) {
+            MediaTimelineFooter(
+                viewModel = viewModel,
+                dur = songDurationMs,
+                onSeekState = { isUserSeeking = it },
+                onResetHead = {
+                    viewModel.playheadMs = if (viewModel.isLoopingEnabled) viewModel.loopStartMs else 0L
+                    lastTriggeredHeadMs = viewModel.playheadMs
+                    currentWaitOnsetMs = -1L
+                    chordHits.clear()
+                    PianoPlayer.stopAllNotes()
+                }
+            )
+        }
     }
 
     if (showSettingsDialog) {

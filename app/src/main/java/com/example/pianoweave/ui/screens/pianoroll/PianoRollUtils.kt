@@ -74,11 +74,11 @@ internal fun getPitchXRange(pitch: Int, startPitch: Int, totalWidth: Float, numW
     }
 }
 
-internal fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKeys: Int): Int {
+internal fun findPitchAt(pos: Offset, start: Int, end: Int, tw: Float, numWhiteKeys: Int, containerHeight: Float): Int {
     for (p in start..end) {
         if (isPitchBlack(p)) {
             val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
-            if (pos.x in x1..x2 && pos.y <= 100.dp.value * 0.7f * 2.5f) return p
+            if (pos.x in x1..x2 && pos.y <= containerHeight * 0.7f) return p
         }
     }
     for (p in start..end) {
