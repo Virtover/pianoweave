@@ -6,6 +6,7 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.abs
 
 internal fun isPitchBlack(p: Int): Boolean {
     val n = p % 12
@@ -200,6 +201,109 @@ internal suspend fun PointerInputScope.detectTapAndDoubleTap(
                             }
                         } else {
                             onTap(upPos)
+                            lastUpTime = now
+                            lastUpPos = upPos
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+internal suspend fun PointerInputScope.detectPianoRollGestures(
+    maxDistance: Float,
+    onTap: () -> Unit,
+    onDoubleTap: (Offset) -> Unit,
+    onDragStart: () -> Unit,
+    onVerticalDrag: (Float) -> Unit
+) {
+    val doubleTapTimeout = 300L
+    var lastUpTime = 0L
+    var lastUpPos = Offset.Zero
+
+    while (true) {
+        awaitPointerEventScope {
+            val down = awaitFirstDown(requireUnconsumed = true)
+            val downPos = down.position
+            val pointer = down
+            var upPos: Offset? = null
+            var isDragging = false
+            var lastY = downPos.y
+
+            try {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == pointer.id } ?: break
+                    if (!change.pressed) {
+                        upPos = change.position
+                        change.consume()
+                        break
+                    }
+                    val currentPos = change.position
+                    val offsetDelta = currentPos - downPos
+                    if (offsetDelta.getDistance() > maxDistance) {
+                        if (!isDragging) {
+                            if (abs(offsetDelta.y) > abs(offsetDelta.x)) {
+                                isDragging = true
+                                onDragStart()
+                            }
+                        }
+                        if (isDragging) {
+                            val dy = currentPos.y - lastY
+                            lastY = currentPos.y
+                            onVerticalDrag(dy)
+                            change.consume()
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            }
+
+            if (!isDragging && upPos != null) {
+                val distance = (upPos - downPos).getDistance()
+                if (distance <= maxDistance) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastUpTime <= doubleTapTimeout && (upPos - lastUpPos).getDistance() <= maxDistance * 2f) {
+                        onDoubleTap(upPos)
+                        lastUpTime = 0L
+                    } else {
+                        val secondDown = withTimeoutOrNull(doubleTapTimeout) {
+                            awaitFirstDown(requireUnconsumed = true)
+                        }
+                        if (secondDown != null) {
+                            val secondDownPos = secondDown.position
+                            val secondPointer = secondDown
+                            var secondUpPos: Offset? = null
+                            var secondExceeded = false
+                            try {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == secondPointer.id } ?: break
+                                    if (!change.pressed) {
+                                        secondUpPos = change.position
+                                        change.consume()
+                                        break
+                                    }
+                                    if ((change.position - secondDownPos).getDistance() > maxDistance) {
+                                        secondExceeded = true
+                                        break
+                                    }
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            }
+                            if (!secondExceeded && secondUpPos != null && (secondUpPos - secondDownPos).getDistance() <= maxDistance) {
+                                onDoubleTap(secondUpPos)
+                                lastUpTime = 0L
+                            } else {
+                                onTap()
+                                lastUpTime = now
+                                lastUpPos = upPos
+                            }
+                        } else {
+                            onTap()
                             lastUpTime = now
                             lastUpPos = upPos
                         }

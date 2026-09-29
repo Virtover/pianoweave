@@ -307,9 +307,10 @@ private fun ModernPianoPlayerContent(
                 .weight(1f)
                 .fillMaxWidth()
                 .clipToBounds()
-                .pointerInput(Unit) {
+                .pointerInput(songDurationMs) {
+                    val scale = 0.25f
                     val maxDist = 35.dp.toPx()
-                    detectTapAndDoubleTap(
+                    detectPianoRollGestures(
                         maxDistance = maxDist,
                         onTap = {
                             viewModel.isPlaying = !viewModel.isPlaying
@@ -329,6 +330,18 @@ private fun ModernPianoPlayerContent(
                                 loopEndMs = viewModel.loopEndMs
                             )
                             seekInfo = SeekInfo(if (isLeft) SeekDirection.BACKWARD else SeekDirection.FORWARD)
+                        },
+                        onDragStart = {
+                            viewModel.isPlaying = false
+                            PianoPlayer.stopAllNotes()
+                            currentWaitOnsetMs = -1L
+                            chordHits.clear()
+                        },
+                        onVerticalDrag = { dy ->
+                            val deltaMs = (dy / scale).toLong()
+                            val newHead = (viewModel.playheadMs + deltaMs).coerceIn(0L, songDurationMs)
+                            viewModel.playheadMs = newHead
+                            lastTriggeredHeadMs = newHead
                         }
                     )
                 }
