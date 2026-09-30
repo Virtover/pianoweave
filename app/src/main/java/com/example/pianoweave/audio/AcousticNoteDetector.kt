@@ -48,8 +48,8 @@ object AcousticNoteDetector {
     @Volatile var suppressedPitches: Set<Int> = emptySet()
     @Volatile var targetPitches: Set<Int> = emptySet()
     private val activePitches = mutableSetOf<Int>()
-    private val pendingPitches = mutableMapOf<Int, Int>()
     private val noteOffConfidence = IntArray(128)
+    private var lastDetected = IntArray(128) {-1}
 
     /**
      * One-time setup of the model and native engine.
@@ -242,8 +242,6 @@ object AcousticNoteDetector {
             val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.25f - midiPitchModifier(midiPitch) else 0.12f
             val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.20f - midiPitchModifier(midiPitch) / 2 else 0.10f
 
-            val isActive = midiPitch in activePitches
-
             var onsetProb = 0f
             var onsetFrame = latestFrame
             if (isTarget) {
@@ -259,20 +257,16 @@ object AcousticNoteDetector {
             }
             val frameProb = sigmoid(notePosteriors[onsetFrame][p])
 
-            if (!isActive) {
+            val isActive = midiPitch in activePitches
+            val newTargetDetection = onsetFrame > lastDetected[midiPitch] && isTarget
+
+            if (!isActive || newTargetDetection) {
                 val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
                 if (detected) {
-                    val count = (pendingPitches[midiPitch] ?: 0) + 1
-                    pendingPitches[midiPitch] = count
-
-                    if (count >= 1) {
-                        MidiInputManager.simulateExternalNoteOn(midiPitch)
-                        activePitches.add(midiPitch)
-                        noteOffConfidence[midiPitch] = 0
-                        pendingPitches.remove(midiPitch)
-                    }
-                } else {
-                    pendingPitches.remove(midiPitch)
+                    MidiInputManager.simulateExternalNoteOn(midiPitch)
+                    activePitches.add(midiPitch)
+                    noteOffConfidence[midiPitch] = 0
+                    lastDetected[midiPitch] = onsetFrame
                 }
             } else {
                 // Sustain or note-off
@@ -315,7 +309,6 @@ object AcousticNoteDetector {
         thread = null
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()
-        pendingPitches.clear()
     }
 
     fun cleanup() {
