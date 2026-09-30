@@ -39,13 +39,13 @@
 
 <p align="center">
   <a href="https://discord.gg/vzMyRZewmb">
-    <img src="https://img.shields.io/badge/Join%20Discord-%235865F2?style=flat&logo=discord&logoColor=white" alt="Discord" height="30" />
+    <img src="https://img.shields.io/badge/Discord-%235865F2?style=flat&logo=discord&logoColor=white" alt="Discord" height="28" />
   </a>
   <a href="https://ko-fi.com/Y3G527Q9PN">
-    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi" height="30" />
+    <img src="https://img.shields.io/badge/Ko--fi-%23FF5E5B?style=flat&logo=ko-fi&logoColor=white" alt="Ko-fi" height="28" />
   </a>
   <a href="https://www.patreon.com/cw/ChristopherOlszak/membership">
-    <img src="https://img.shields.io/badge/Support%20on%20Patreon-%23F96854?style=flat&logo=patreon&logoColor=white" alt="Patreon" height="30" />
+    <img src="https://img.shields.io/badge/Patreon-%23F96854?style=flat&logo=patreon&logoColor=white" alt="Patreon" height="28" />
   </a>
 </p>
 
