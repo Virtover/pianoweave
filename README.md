@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="#-features">Features</a> •
+  <a href="#-community--support">Community & Support</a> •
   <a href="#-screenshots">Screenshots</a> •
   <a href="#%EF%B8%8F-setup">Setup</a> •
   <a href="#-key-modules">Key Modules</a> •
@@ -19,12 +20,10 @@
 
 ---
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y3G527Q9PN)
-
 ## 📱 Screenshots
 
-| AI Transcription |                                          Piano Roll & Wait Mode                                          |
-| :---: |:--------------------------------------------------------------------------------------------------------:|
+|                                            AI Transcription                                           |                                          Piano Roll & Wait Mode                                          |
+| :---------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
 | <img src="docs/screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="docs/screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
 
 ## ✨ Features
@@ -35,6 +34,18 @@
 * **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations.
 * **MIDI Integration:** Support for hardware MIDI input (USB/Bluetooth) and touch-simulated piano keys.
 * **Wait Mode:** Acoustic note detection that pauses playback until you strike the correct notes.
+
+## 💬 Community & Support
+
+Join the Piano Weave community, share feedback, report issues, and follow the project's development.
+
+<p align="center">
+  <a href="https://discord.gg/vzMyRZewmb"><b>💬 Join the Discord</b></a>
+  &nbsp; • &nbsp;
+  <a href="https://ko-fi.com/Y3G527Q9PN"><b>☕ Support on Ko-fi</b></a>
+  &nbsp; • &nbsp;
+  <a href="https://www.patreon.com/cw/ChristopherOlszak/membership"><b>❤️ Support on Patreon</b></a>
+</p>
 
 ## 🛠️ Setup
 
