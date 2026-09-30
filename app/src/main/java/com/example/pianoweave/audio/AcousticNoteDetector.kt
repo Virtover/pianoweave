@@ -49,7 +49,6 @@ object AcousticNoteDetector {
     @Volatile var targetPitches: Set<Int> = emptySet()
     private val activePitches = mutableSetOf<Int>()
     private val noteOffConfidence = IntArray(128)
-    private var lastDetected = IntArray(128) {-1}
 
     /**
      * One-time setup of the model and native engine.
@@ -258,18 +257,19 @@ object AcousticNoteDetector {
             val frameProb = sigmoid(notePosteriors[onsetFrame][p])
 
             val isActive = midiPitch in activePitches
-            val newTargetDetection = onsetFrame > lastDetected[midiPitch] && isTarget
-
-            if (!isActive || newTargetDetection) {
-                val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
+            val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
+            if (!isActive) {
                 if (detected) {
                     MidiInputManager.simulateExternalNoteOn(midiPitch)
                     activePitches.add(midiPitch)
                     noteOffConfidence[midiPitch] = 0
-                    lastDetected[midiPitch] = onsetFrame
                 }
             } else {
-                // Sustain or note-off
+                val targetRedetected = isTarget
+                        && onsetProb >= ONSET_THRESHOLD_BASE + 0.12f
+                        && frameProb >= FRAME_THRESHOLD_BASE + 0.1f
+                if (targetRedetected) MidiInputManager.simulateExternalNoteOn(midiPitch)
+
                 if (frameProb >= frameThreshold) {
                     noteOffConfidence[midiPitch] = 0
                 } else {

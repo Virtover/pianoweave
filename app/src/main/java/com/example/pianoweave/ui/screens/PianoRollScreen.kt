@@ -242,7 +242,7 @@ private fun ModernPianoPlayerContent(
                     val currentPresses = required.mapNotNull { p ->
                         val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
                         val lastConsumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
-                        if (lastPress >= arrivalAtWaitPointRealTime - 150L && lastPress > lastConsumed) {
+                        if (lastPress >= arrivalAtWaitPointRealTime - 300L && lastPress > lastConsumed) {
                             p to lastPress
                         } else {
                             null
