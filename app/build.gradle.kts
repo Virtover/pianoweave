@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.pianoweave"
+    namespace = "com.lumenchord.pianoweave"
 
     ndkVersion = "30.0.16248370"
 
@@ -13,7 +13,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.pianoweave"
+        applicationId = "com.lumenchord.pianoweave"
 
         minSdk = 26
         targetSdk = 37

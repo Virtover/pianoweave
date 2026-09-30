@@ -53,7 +53,7 @@ namespace {
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_initialize(JNIEnv *env, jclass clazz) {
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_initialize(JNIEnv *env, jclass clazz) {
     std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream != nullptr) {
         aaudio_stream_state_t state = AAudioStream_getState(audioStream);
@@ -91,7 +91,7 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_initialize(JNIEnv *env, jcla
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jclass clazz) {
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jclass clazz) {
     std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream == nullptr) {
         // Attempt re-initialization if stream was closed/disconnected
@@ -132,7 +132,7 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_startCapture(JNIEnv *env, jc
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_stopCapture(JNIEnv *env, jclass clazz) {
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_stopCapture(JNIEnv *env, jclass clazz) {
     std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream != nullptr) {
         aaudio_stream_state_t state = AAudioStream_getState(audioStream);
@@ -144,7 +144,7 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_stopCapture(JNIEnv *env, jcl
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_getSampleRate(JNIEnv *env, jclass clazz) {
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_getSampleRate(JNIEnv *env, jclass clazz) {
     std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream != nullptr) {
         return AAudioStream_getSampleRate(audioStream);
@@ -153,12 +153,12 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_getSampleRate(JNIEnv *env, j
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_getAvailableFrames(JNIEnv *env, jclass clazz) {
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_getAvailableFrames(JNIEnv *env, jclass clazz) {
     return static_cast<jlong>(writeIndex.load(std::memory_order_acquire));
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, jclass clazz, jobject destination, jint frames, jlong startIndex) {
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, jclass clazz, jobject destination, jint frames, jlong startIndex) {
     if (destination == nullptr || frames <= 0) return 0;
 
     float *destPtr = static_cast<float *>(env->GetDirectBufferAddress(destination));
@@ -178,7 +178,7 @@ Java_com_example_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, jcla
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_pianoweave_audio_NativeAudioEngine_cleanup(JNIEnv *env, jclass clazz) {
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_cleanup(JNIEnv *env, jclass clazz) {
     std::lock_guard<std::mutex> lock(streamMutex);
     if (audioStream != nullptr) {
         AAudioStream_close(audioStream);
