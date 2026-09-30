@@ -37,14 +37,16 @@
 
 ## 💬 Community & Support
 
-Join the Piano Weave community, share feedback, report issues, and follow the project's development.
-
 <p align="center">
-  <a href="https://discord.gg/vzMyRZewmb"><b>💬 Join the Discord</b></a>
-  &nbsp; • &nbsp;
-  <a href="https://ko-fi.com/Y3G527Q9PN"><b>☕ Support on Ko-fi</b></a>
-  &nbsp; • &nbsp;
-  <a href="https://www.patreon.com/cw/ChristopherOlszak/membership"><b>❤️ Support on Patreon</b></a>
+  <a href="https://discord.gg/vzMyRZewmb">
+    <img src="https://img.shields.io/badge/Discord-Join_the_community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Piano Weave Discord" />
+  </a>
+  <a href="https://ko-fi.com/Y3G527Q9PN">
+    <img src="https://img.shields.io/badge/Ko--fi-Support_Piano_Weave-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support Piano Weave on Ko-fi" />
+  </a>
+  <a href="https://www.patreon.com/cw/ChristopherOlszak/membership">
+    <img src="https://img.shields.io/badge/Patreon-Support_Piano_Weave-F96854?style=for-the-badge&logo=patreon&logoColor=white" alt="Support Piano Weave on Patreon" />
+  </a>
 </p>
 
 ## 🛠️ Setup
