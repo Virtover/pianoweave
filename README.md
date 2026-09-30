@@ -19,6 +19,8 @@
 
 ---
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Y3G527Q9PN)
+
 ## 📱 Screenshots
 
 | AI Transcription |                                          Piano Roll & Wait Mode                                          |
