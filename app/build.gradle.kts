@@ -1,3 +1,12 @@
+import java.util.Properties
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -33,9 +42,18 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug") //temp
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -65,10 +83,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.fragment.ktx)
 
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
-    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.compose.material.icons.extended)
@@ -76,12 +95,14 @@ dependencies {
     implementation(libs.fluidsynth.kmp)
     implementation(libs.jtransforms)
 
-    implementation("org.tensorflow:tensorflow-lite:2.16.1")
-    implementation("org.tensorflow:tensorflow-lite-gpu:2.16.1")
-    implementation("org.tensorflow:tensorflow-lite-gpu-api:2.16.1")
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.gpu)
+    implementation(libs.tensorflow.lite.gpu.delegate.api)
 
 //    implementation("com.google.android.filament:filament-android:1.77.1")
 //    implementation("io.github.sceneview:sceneview:4.47.0")
+
+    implementation(libs.billing.ktx)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
