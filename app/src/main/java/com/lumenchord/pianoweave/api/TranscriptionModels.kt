@@ -33,3 +33,41 @@ data class VideoMetadata(
     val view_count: Long,
     val like_count: Long
 )
+
+data class ServerOffer(
+    @SerializedName("product_id") val productId: String,
+    @SerializedName("transcription_minutes") val transcriptionMinutes: Int
+)
+
+data class ServerInfoResponse(
+    @SerializedName("billing_provider") val billingProvider: String? = "none",
+    val offers: List<ServerOffer>? = emptyList(),
+    @SerializedName("cleanup_interval_seconds") val cleanupIntervalSeconds: Long? = null,
+    @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Int? = null,
+    @SerializedName("free_minutes") val freeMinutes: Int? = null,
+    @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
+    @SerializedName("support_me_url") val supportMeUrl: String? = null
+)
+
+data class UserBalanceResponse(
+    @SerializedName("user_id") val userId: String,
+    val minutes: Int,
+    @SerializedName("free_minutes_seconds_until_next_grant") val freeMinutesSecondsUntilNextGrant: Long? = null,
+    @SerializedName("free_minutes_next_grant_at") val freeMinutesNextGrantAt: Long? = null
+)
+
+data class BillingCostResponse(
+    @SerializedName("duration_seconds") val durationSeconds: Float,
+    @SerializedName("cost_minutes") val costMinutes: Int
+)
+
+data class VerifyPurchaseRequest(
+    @SerializedName("product_id") val productId: String,
+    @SerializedName("purchase_token") val purchaseToken: String
+)
+
+data class VerifyPurchaseResponse(
+    @SerializedName("user_id") val userId: String,
+    @SerializedName("credited_minutes") val creditedMinutes: Int,
+    val minutes: Int
+)

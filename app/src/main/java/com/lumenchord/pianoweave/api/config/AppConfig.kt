@@ -4,7 +4,8 @@ import android.content.Context
 
 data class ServerConfig(
     val baseUrl: String,
-    val name: String
+    val name: String,
+    val supportMeLink: String? = null
 )
 
 object AppConfig {
@@ -13,6 +14,8 @@ object AppConfig {
     private const val DEFAULT_API_BASE_URL = "DEFAULT_API_BASE_URL"
     private const val LEGACY_API_BASE_URL = "API_BASE_URL"
     private const val DEFAULT_SERVER_NAME = "DEFAULT_SERVER_NAME"
+    private const val SUPPORT_ME_LINK = "SUPPORT_ME_LINK"
+    private const val SUPPORT_ME_URL = "SUPPORT_ME_URL"
     private var config: ServerConfig? = null
 
     fun initialize(
@@ -67,7 +70,9 @@ object AppConfig {
             "Missing DEFAULT_SERVER_NAME in $CONFIG_FILE"
         }
 
-        config = ServerConfig(url, name)
+        val supportMeLink = values[SUPPORT_ME_LINK] ?: values[SUPPORT_ME_URL]
+
+        config = ServerConfig(url, name, supportMeLink)
     }
 
     fun getConfig(): ServerConfig {

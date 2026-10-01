@@ -32,7 +32,6 @@ internal fun ServerSettingsDialog(
     context: Context,
     onDismiss: () -> Unit
 ) {
-    val appTheme = LocalAppTheme.current
     var selectedUseCustom by remember { mutableStateOf(viewModel.isCustomServer) }
     var customUrlText by remember { mutableStateOf(viewModel.customServerUrl) }
     var urlError by remember { mutableStateOf<String?>(null) }
@@ -42,6 +41,12 @@ internal fun ServerSettingsDialog(
     val ColorGold = MaterialTheme.colorScheme.secondary
     val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
     val ColorTextDim = MaterialTheme.colorScheme.tertiary
+
+    LaunchedEffect(viewModel.isLoading) {
+        if (viewModel.isLoading) {
+            onDismiss()
+        }
+    }
 
     val candidateUrl = if (selectedUseCustom && customUrlText.isNotBlank()) {
         var u = customUrlText.trim()
@@ -76,6 +81,13 @@ internal fun ServerSettingsDialog(
         }
         urlError = null
         return true
+    }
+
+    fun updateSettings(useCustom: Boolean, url: String) {
+        selectedUseCustom = useCustom
+        customUrlText = url
+        validateUrl(useCustom, url)
+        viewModel.updateServerSettings(context, useCustom, url)
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -147,8 +159,7 @@ internal fun ServerSettingsDialog(
                         ) {
                             Surface(
                                 onClick = {
-                                    selectedUseCustom = false
-                                    validateUrl(false, customUrlText)
+                                    updateSettings(false, customUrlText)
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -169,8 +180,7 @@ internal fun ServerSettingsDialog(
                                     RadioButton(
                                         selected = !selectedUseCustom,
                                         onClick = {
-                                            selectedUseCustom = false
-                                            validateUrl(false, customUrlText)
+                                            updateSettings(false, customUrlText)
                                         },
                                         colors = RadioButtonDefaults.colors(
                                             selectedColor = ColorGold,
@@ -201,8 +211,7 @@ internal fun ServerSettingsDialog(
                         // --- Custom Server Card ---
                         Surface(
                             onClick = {
-                                selectedUseCustom = true
-                                validateUrl(true, customUrlText)
+                                updateSettings(true, customUrlText)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -224,8 +233,7 @@ internal fun ServerSettingsDialog(
                                     RadioButton(
                                         selected = selectedUseCustom,
                                         onClick = {
-                                            selectedUseCustom = true
-                                            validateUrl(true, customUrlText)
+                                            updateSettings(true, customUrlText)
                                         },
                                         colors = RadioButtonDefaults.colors(
                                             selectedColor = ColorGold,
@@ -257,6 +265,7 @@ internal fun ServerSettingsDialog(
                                         onValueChange = {
                                             customUrlText = it
                                             validateUrl(true, it)
+                                            viewModel.updateServerSettings(context, true, it)
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         label = { Text("Server URL") },
@@ -273,8 +282,7 @@ internal fun ServerSettingsDialog(
                                         trailingIcon = {
                                             if (customUrlText.isNotEmpty()) {
                                                 IconButton(onClick = {
-                                                    customUrlText = ""
-                                                    validateUrl(true, "")
+                                                    updateSettings(true, "")
                                                 }) {
                                                     Icon(Icons.Default.Clear, "Clear", tint = ColorTextDim)
                                                 }
@@ -353,28 +361,6 @@ internal fun ServerSettingsDialog(
                                     }
                                 }
                             }
-                        }
-
-                        Spacer(Modifier.height(4.dp))
-
-                        Button(
-                            onClick = {
-                                if (validateUrl(selectedUseCustom, customUrlText)) {
-                                    viewModel.updateServerSettings(context, selectedUseCustom, customUrlText)
-                                    onDismiss()
-                                }
-                            },
-                            enabled = !selectedUseCustom || (customUrlText.isNotBlank() && urlError == null),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ColorGold,
-                                contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("SAVE", fontWeight = FontWeight.Black, fontSize = 14.sp)
                         }
                     }
                 }

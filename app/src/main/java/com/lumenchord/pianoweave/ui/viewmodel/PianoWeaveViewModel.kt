@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.api.ServerOffer
+import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
@@ -23,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 enum class ServerStatus {
     ONLINE,
@@ -88,7 +91,7 @@ class PianoWeaveViewModel : ViewModel() {
     var loopEndMs by mutableLongStateOf(0L)
     var transposeOffset by mutableIntStateOf(0)
 
-    // --- Server Settings State ---
+    // --- Server Settings & Billing State ---
     var defaultServerUrl by mutableStateOf("")
         private set
     var customServerUrl by mutableStateOf("")
@@ -97,6 +100,44 @@ class PianoWeaveViewModel : ViewModel() {
         private set
     var serverStatus by mutableStateOf(ServerStatus.UNKNOWN)
         private set
+
+    var userId by mutableStateOf("")
+        private set
+
+    var billingProvider by mutableStateOf("none")
+        private set
+
+    val isBilledServer: Boolean
+        get() = billingProvider.equals("google_play", ignoreCase = true)
+
+    var userCredits by mutableIntStateOf(0)
+        private set
+
+    var freeMinutesSecondsUntilNextGrant by mutableStateOf<Long?>(null)
+        private set
+
+    var freeMinutesNextGrantAt by mutableStateOf<Long?>(null)
+        private set
+
+    var serverOffers by mutableStateOf<List<ServerOffer>>(emptyList())
+        private set
+
+    var cleanupIntervalSeconds by mutableStateOf<Long?>(null)
+        private set
+
+    var estimatedCostCredits by mutableStateOf<Int?>(null)
+        private set
+
+    var isCalculatingCost by mutableStateOf(false)
+        private set
+
+    var supportMeLink by mutableStateOf<String?>(null)
+        private set
+
+    // Dialog flags
+    var showShopDialog by mutableStateOf(false)
+    var showSupportDialog by mutableStateOf(false)
+    var showNotEnoughCreditsDialog by mutableStateOf(false)
 
     val activeServerUrl: String
         get() {
@@ -113,6 +154,18 @@ class PianoWeaveViewModel : ViewModel() {
     val isUsingDefaultServer: Boolean
         get() = !isCustomServer || customServerUrl.isBlank() || activeServerUrl == (if (defaultServerUrl.endsWith("/")) defaultServerUrl else "$defaultServerUrl/")
 
+    fun getOrCreateUserId(context: Context): String {
+        if (userId.isNotBlank()) return userId
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        var id = prefs.getString("user_id", null)
+        if (id.isNullOrBlank()) {
+            id = UUID.randomUUID().toString()
+            prefs.edit().putString("user_id", id).apply()
+        }
+        userId = id
+        return id
+    }
+
     suspend fun testServerConnection(url: String): ServerStatus = withContext(Dispatchers.IO) {
         if (url.isBlank()) return@withContext ServerStatus.OFFLINE
         try {
@@ -128,16 +181,56 @@ class PianoWeaveViewModel : ViewModel() {
         }
     }
 
-    fun checkServerHealth() {
+    fun checkServerHealthAndInfo(context: Context? = null) {
         val url = activeServerUrl
         viewModelScope.launch {
             serverStatus = ServerStatus.CHECKING
             serverStatus = testServerConnection(url)
+            if (serverStatus == ServerStatus.ONLINE && context != null) {
+                try {
+                    val api = PianoApiFactory.getApi(url)
+                    val info = api.getServerInfo()
+                    billingProvider = info.billingProvider ?: "none"
+                    serverOffers = info.offers ?: emptyList()
+                    cleanupIntervalSeconds = info.cleanupIntervalSeconds
+
+                    val configSupport = try {
+                        AppConfig.initialize(context)
+                        AppConfig.getConfig().supportMeLink
+                    } catch (_: Exception) {
+                        null
+                    }
+
+                    supportMeLink = info.supportMeUrl.takeIf { !it.isNullOrBlank() } ?: configSupport
+
+                    if (isBilledServer) {
+                        refreshUserBalance(context)
+                    }
+                } catch (_: Exception) {
+                    billingProvider = "none"
+                }
+            }
+        }
+    }
+
+    fun refreshUserBalance(context: Context) {
+        if (!isBilledServer) return
+        val uId = getOrCreateUserId(context)
+        val url = activeServerUrl
+        viewModelScope.launch {
+            try {
+                val api = PianoApiFactory.getApi(url)
+                val balance = api.getUserBalance(uId)
+                userCredits = balance.minutes
+                freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
+                freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
+            } catch (_: Exception) {}
         }
     }
 
     fun loadPreferences(context: Context) {
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        getOrCreateUserId(context)
         isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
         selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
 
@@ -150,10 +243,11 @@ class PianoWeaveViewModel : ViewModel() {
         isCustomServer = prefs.getBoolean("use_custom_server", false)
         customServerUrl = prefs.getString("custom_server_url", "") ?: ""
 
-        checkServerHealth()
+        checkServerHealthAndInfo(context)
     }
 
     fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String) {
+        if (isLoading) return
         var formattedUrl = customUrl.trim()
         if (formattedUrl.isNotEmpty()) {
             if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
@@ -172,7 +266,7 @@ class PianoWeaveViewModel : ViewModel() {
             .putString("custom_server_url", formattedUrl)
             .apply()
 
-        checkServerHealth()
+        checkServerHealthAndInfo(context)
     }
 
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) {
@@ -193,15 +287,68 @@ class PianoWeaveViewModel : ViewModel() {
         activePracticeSong = song
     }
 
+    private var costJob: Job? = null
+
+    fun calculateCostForUrl(url: String) {
+        costJob?.cancel()
+        val stableUrl = normalizeUrl(url)
+        if (stableUrl.isBlank() || !isBilledServer) {
+            estimatedCostCredits = null
+            isCalculatingCost = false
+            return
+        }
+        isCalculatingCost = true
+        costJob = viewModelScope.launch {
+            try {
+                val api = PianoApiFactory.getApi(activeServerUrl)
+                val cost = api.getBillingCost(stableUrl)
+                estimatedCostCredits = cost.costMinutes
+            } catch (_: Exception) {
+                estimatedCostCredits = null
+            } finally {
+                isCalculatingCost = false
+            }
+        }
+    }
+
     fun updateUrl(url: String) {
         if (!isLoading) {
             videoUrl = url
             if (url.isBlank()) {
                 status = "Paste a video link above to begin."
                 progress = 0f
+                estimatedCostCredits = null
             } else if (!status.startsWith("Error") && !status.startsWith("Failed")) {
                 status = "Ready to convert."
+                calculateCostForUrl(url)
             }
+        }
+    }
+
+    fun openShop() { showShopDialog = true }
+    fun dismissShop() { showShopDialog = false }
+    fun openSupport() { showSupportDialog = true }
+    fun dismissSupport() { showSupportDialog = false }
+    fun dismissNotEnoughCredits() { showNotEnoughCreditsDialog = false }
+
+    suspend fun verifyGooglePlayPurchase(
+        context: Context,
+        productId: String,
+        purchaseToken: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val uId = getOrCreateUserId(context)
+            val api = PianoApiFactory.getApi(activeServerUrl)
+            val resp = api.verifyPurchase(
+                uId,
+                VerifyPurchaseRequest(productId, purchaseToken)
+            )
+            withContext(Dispatchers.Main) {
+                userCredits = resp.minutes
+            }
+            true
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -318,6 +465,9 @@ class PianoWeaveViewModel : ViewModel() {
                     val api = PianoApiFactory.getApi(serverUrl)
                     api.deleteTranscription(jobId)
                 } catch (_: Exception) {}
+                withContext(Dispatchers.Main) {
+                    refreshUserBalance(context)
+                }
             }
         }
 
@@ -327,6 +477,7 @@ class PianoWeaveViewModel : ViewModel() {
         status = "Transcription cancelled."
         transcriptionError = null
         clearActiveJob(context)
+        refreshUserBalance(context)
     }
 
     private suspend fun pollTranscriptionJob(context: Context, jobId: String, stableUrl: String) {
@@ -364,11 +515,13 @@ class PianoWeaveViewModel : ViewModel() {
                     transcriptionError = null
                     clearActiveJob(context)
                     currentJobId = null
+                    refreshUserBalance(context)
                     break
                 }
                 if (job.status == "failed") {
                     clearActiveJob(context)
                     currentJobId = null
+                    refreshUserBalance(context)
                     break
                 }
                 delay(1000)
@@ -380,6 +533,7 @@ class PianoWeaveViewModel : ViewModel() {
             status = "Error: $errMsg"
             clearActiveJob(context)
             currentJobId = null
+            refreshUserBalance(context)
         } finally {
             isLoading = false
         }
@@ -391,6 +545,14 @@ class PianoWeaveViewModel : ViewModel() {
         
         videoUrl = stableUrl
         transcriptionError = null
+
+        if (isBilledServer) {
+            val cost = estimatedCostCredits
+            if (cost != null && userCredits < cost) {
+                showNotEnoughCreditsDialog = true
+                return
+            }
+        }
 
         transcriptionJob = viewModelScope.launch {
             isLoading = true
@@ -410,8 +572,10 @@ class PianoWeaveViewModel : ViewModel() {
 
                 status = "Submitting request to server..."
                 val api = PianoApiFactory.getApi(activeServerUrl)
+                val uId = getOrCreateUserId(context)
                 val response = api.createTranscription(
-                    CreateTranscriptionRequest(source_url = stableUrl)
+                    CreateTranscriptionRequest(source_url = stableUrl),
+                    userId = if (isBilledServer) uId else null
                 )
 
                 val jobId = response.job_id
@@ -419,6 +583,8 @@ class PianoWeaveViewModel : ViewModel() {
                 saveActiveJob(context, jobId, stableUrl)
                 enqueueTranscriptionWorker(context, jobId, stableUrl)
                 status = "Job successfully queued..."
+
+                refreshUserBalance(context)
 
                 pollTranscriptionJob(context, jobId, stableUrl)
             } catch (e: Exception) {
@@ -429,6 +595,7 @@ class PianoWeaveViewModel : ViewModel() {
                 clearActiveJob(context)
                 currentJobId = null
                 isLoading = false
+                refreshUserBalance(context)
             }
         }
     }

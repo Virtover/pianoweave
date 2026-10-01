@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,6 +89,9 @@ internal fun TranscriptionInputCard(
     onCancelClick: () -> Unit
 ) {
     val isSuccess = !viewModel.isLoading && viewModel.readySong != null
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -120,7 +125,11 @@ internal fun TranscriptionInputCard(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                    modifier = Modifier.clickable { onOpenServerSettings() }
+                    modifier = Modifier.clickable {
+                        if (!viewModel.isLoading) {
+                            onOpenServerSettings()
+                        }
+                    }
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -230,9 +239,25 @@ internal fun TranscriptionInputCard(
                     }
                 }
             } else {
+                val buttonText = when {
+                    viewModel.isBilledServer -> {
+                        if (viewModel.isCalculatingCost) {
+                            "Calculating cost..."
+                        } else {
+                            val cost = viewModel.estimatedCostCredits
+                            if (cost != null) {
+                                if (isLandscape) "Transcribe to MIDI $cost 🪙" else "Transcribe $cost 🪙"
+                            } else {
+                                if (isLandscape) "Transcribe to MIDI" else "Transcribe"
+                            }
+                        }
+                    }
+                    else -> "Transcribe to MIDI"
+                }
+
                 Button(
                     onClick = { viewModel.startTranscription(context) },
-                    enabled = viewModel.videoUrl.isNotBlank(),
+                    enabled = viewModel.videoUrl.isNotBlank() && !viewModel.isCalculatingCost,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -244,7 +269,7 @@ internal fun TranscriptionInputCard(
                 ) {
                     Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Transcribe to MIDI", fontWeight = FontWeight.ExtraBold)
+                    Text(buttonText, fontWeight = FontWeight.ExtraBold)
                 }
             }
         }

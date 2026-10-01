@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,10 +18,10 @@ import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 
 @Composable
-internal fun CancelTranscriptionDialog(
-    progressPercent: Int,
-    isBilledServer: Boolean = false,
-    onConfirmCancel: () -> Unit,
+internal fun NotEnoughCreditsDialog(
+    requiredCredits: Int,
+    availableCredits: Int,
+    onBuyCredits: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val appTheme = LocalAppTheme.current
@@ -48,8 +49,8 @@ internal fun CancelTranscriptionDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Header
                     Row(
@@ -57,12 +58,23 @@ internal fun CancelTranscriptionDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Cancel Transcription?",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = ColorGold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MonetizationOn,
+                                contentDescription = null,
+                                tint = ColorGold,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Text(
+                                text = "More Credits Needed",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = ColorGold
+                            )
+                        }
                         IconButton(
                             onClick = onDismiss,
                             modifier = Modifier.size(32.dp)
@@ -77,17 +89,11 @@ internal fun CancelTranscriptionDialog(
 
                     HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
 
-                    val bodyText = if (isBilledServer) {
-                        "Are you sure you want to cancel this transcription job? Progress ($progressPercent%) will be lost and part of your credits will be consumed for the work already processed."
-                    } else {
-                        "Are you sure you want to cancel this transcription job? Progress ($progressPercent%) will be lost."
-                    }
-
                     Text(
-                        text = bodyText,
+                        text = "This transcription requires $requiredCredits credits (1 credit = 1 minute), but you only have $availableCredits credits remaining.\n\nWould you like to buy more credits in the shop?",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.85f),
-                        lineHeight = 20.sp
+                        color = Color.White.copy(alpha = 0.9f),
+                        lineHeight = 22.sp
                     )
 
                     Spacer(Modifier.height(4.dp))
@@ -96,46 +102,42 @@ internal fun CancelTranscriptionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Button(
+                        OutlinedButton(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
                             shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                            border = BorderStroke(1.dp, ColorSlate),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onBuyCredits()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = ColorGold,
                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                             )
                         ) {
                             Text(
-                                text = "Keep Transcribing",
+                                text = "BUY CREDITS",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = onConfirmCancel,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                            border = BorderStroke(1.dp, Color(0xFF8C3235).copy(alpha = 0.8f)),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color(0xFF221B1C),
-                                contentColor = Color(0xFFE57373)
-                            )
-                        ) {
-                            Text(
-                                text = "Cancel Job",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                maxLines = 1,
-                                softWrap = false
+                                fontSize = 13.sp
                             )
                         }
                     }
