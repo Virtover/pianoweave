@@ -113,6 +113,9 @@ class PianoWeaveViewModel : ViewModel() {
     var userCredits by mutableIntStateOf(0)
         private set
 
+    var freeMinutes by mutableIntStateOf(0)
+        private set
+
     var freeMinutesSecondsUntilNextGrant by mutableStateOf<Long?>(null)
         private set
 
@@ -206,6 +209,7 @@ class PianoWeaveViewModel : ViewModel() {
                     billingProvider = info.billingProvider ?: "none"
                     serverOffers = info.offers ?: emptyList()
                     cleanupIntervalSeconds = info.cleanupIntervalSeconds
+                    freeMinutes = info.freeMinutes ?: 0
 
                     val configSupport = try {
                         AppConfig.initialize(context)

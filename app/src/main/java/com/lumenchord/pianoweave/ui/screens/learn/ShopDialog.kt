@@ -124,7 +124,7 @@ internal fun ShopDialog(
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // Header
                         Row(
@@ -162,84 +162,76 @@ internal fun ShopDialog(
                             }
                         }
 
-                        HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
-
-                        // Balance Card
+                        // Compact Combined Balance & Renewal Card
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = ColorSlate.copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(14.dp),
+                            color = ColorSlate.copy(alpha = 0.3f),
                             border = BorderStroke(1.dp, ColorGold)
                         ) {
                             Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = "AVAILABLE BALANCE",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = ColorTextDim,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(Modifier.height(4.dp))
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.MonetizationOn,
-                                        contentDescription = null,
-                                        tint = ColorGold,
-                                        modifier = Modifier.size(28.dp)
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MonetizationOn,
+                                            contentDescription = null,
+                                            tint = ColorGold,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Column {
+                                            Text(
+                                                text = "AVAILABLE BALANCE",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = ColorTextDim,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "${viewModel.userCredits} Credits",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
                                     Text(
-                                        text = "${viewModel.userCredits} Credits",
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Black,
-                                        color = Color.White
+                                        text = "1 Min = 1 Credit",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = ColorGold,
+                                        fontWeight = FontWeight.Medium
                                     )
                                 }
-                                Text(
-                                    text = "1 Credit = 1 Minute of Piano Transcription",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = ColorGold,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
 
-                        // Free minutes grant renewal info
-                        val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
-                        if (grantSec != null) {
-                            val infoText = if (grantSec <= 0) {
-                                "Free credits grant is ready"
-                            } else {
-                                "Next free credits grant in: ${formatRenewalTime(grantSec)}"
-                            }
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                                border = BorderStroke(1.dp, ColorSlate)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = ColorGold,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Column {
-                                        Text(
-                                            text = "Free Credits Renewal",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
+                                val fm = viewModel.freeMinutes
+                                if (grantSec != null && viewModel.userCredits <= fm && fm > 0) {
+                                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.4f))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = null,
+                                            tint = ColorGold,
+                                            modifier = Modifier.size(16.dp)
                                         )
+                                        val fm = viewModel.freeMinutes
+                                        val infoText = if (grantSec <= 0) {
+                                            "Free $fm credits renewal ready"
+                                        } else {
+                                            "Free $fm credits renewal in: ${formatRenewalTime(grantSec)}"
+                                        }
                                         Text(
                                             text = infoText,
                                             style = MaterialTheme.typography.bodySmall,
@@ -251,6 +243,7 @@ internal fun ShopDialog(
                         }
 
                         // Offers / Credit packages list
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             text = "BUY MORE CREDITS",
                             style = MaterialTheme.typography.labelSmall,
