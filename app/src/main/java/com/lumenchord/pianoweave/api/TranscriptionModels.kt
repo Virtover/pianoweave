@@ -17,7 +17,8 @@ data class TranscriptionStatusResponse(
     val status: String,
     val progress: Float,
     val error: String?,
-    val metadata: VideoMetadata? = null
+    val metadata: VideoMetadata? = null,
+    val minutes: Int? = null
 )
 
 data class VideoMetadata(

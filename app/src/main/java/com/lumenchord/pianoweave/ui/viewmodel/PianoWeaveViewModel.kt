@@ -138,6 +138,8 @@ class PianoWeaveViewModel : ViewModel() {
     var showShopDialog by mutableStateOf(false)
     var showSupportDialog by mutableStateOf(false)
     var showNotEnoughCreditsDialog by mutableStateOf(false)
+    var showRetentionWarningDialog by mutableStateOf(false)
+        private set
 
     val activeServerUrl: String
         get() {
@@ -153,6 +155,40 @@ class PianoWeaveViewModel : ViewModel() {
 
     val isUsingDefaultServer: Boolean
         get() = !isCustomServer || customServerUrl.isBlank() || activeServerUrl == (if (defaultServerUrl.endsWith("/")) defaultServerUrl else "$defaultServerUrl/")
+
+    fun formatRetentionTime(seconds: Long? = cleanupIntervalSeconds): String {
+        val s = seconds ?: 86400L
+        val hours = s / 3600
+        val mins = s / 60
+        return when {
+            hours >= 1 -> "$hours hour${if (hours > 1) "s" else ""}"
+            mins >= 1 -> "$mins minute${if (mins > 1) "s" else ""}"
+            else -> "$s seconds"
+        }
+    }
+
+    fun hasAcknowledgedRetentionForServer(context: Context, url: String = activeServerUrl): Boolean {
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        val currentInterval = cleanupIntervalSeconds ?: 86400L
+        val lastAckInterval = prefs.getLong("retention_ack_$url", -1L)
+        return lastAckInterval == currentInterval
+    }
+
+    fun acknowledgeRetentionForServer(context: Context, url: String = activeServerUrl) {
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        val currentInterval = cleanupIntervalSeconds ?: 86400L
+        prefs.edit().putLong("retention_ack_$url", currentInterval).apply()
+    }
+
+    fun confirmRetentionWarning(context: Context) {
+        acknowledgeRetentionForServer(context)
+        showRetentionWarningDialog = false
+        proceedStartTranscription(context)
+    }
+
+    fun dismissRetentionWarning() {
+        showRetentionWarningDialog = false
+    }
 
     fun getOrCreateUserId(context: Context): String {
         if (userId.isNotBlank()) return userId
@@ -213,6 +249,28 @@ class PianoWeaveViewModel : ViewModel() {
         }
     }
 
+    private var balanceTickerJob: Job? = null
+
+    private fun startBalanceTicker(context: Context) {
+        balanceTickerJob?.cancel()
+        balanceTickerJob = viewModelScope.launch {
+            while (isBilledServer) {
+                val nextGrant = freeMinutesNextGrantAt
+                if (nextGrant != null && nextGrant > 0) {
+                    val nowSec = System.currentTimeMillis() / 1000
+                    val remaining = (nextGrant - nowSec).coerceAtLeast(0L)
+                    freeMinutesSecondsUntilNextGrant = remaining
+                    if (remaining <= 0L) {
+                        refreshUserBalance(context)
+                        delay(10000)
+                        continue
+                    }
+                }
+                delay(1000)
+            }
+        }
+    }
+
     fun refreshUserBalance(context: Context) {
         if (!isBilledServer) return
         val uId = getOrCreateUserId(context)
@@ -224,6 +282,7 @@ class PianoWeaveViewModel : ViewModel() {
                 userCredits = balance.minutes
                 freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
                 freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
+                startBalanceTicker(context)
             } catch (_: Exception) {}
         }
     }
@@ -452,32 +511,48 @@ class PianoWeaveViewModel : ViewModel() {
         )
     }
 
+    var isCancelling by mutableStateOf(false)
+        private set
+
     fun cancelTranscription(context: Context) {
-        val jobId = currentJobId
-        transcriptionJob?.cancel()
-        transcriptionJob = null
+        if (isCancelling) return
+        isCancelling = true
+        status = "Cancelling transcription job..."
 
-        if (jobId != null) {
-            val serverUrl = activeServerUrl
-            WorkManager.getInstance(context).cancelUniqueWork("transcription_$jobId")
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    val api = PianoApiFactory.getApi(serverUrl)
-                    api.deleteTranscription(jobId)
-                } catch (_: Exception) {}
-                withContext(Dispatchers.Main) {
-                    refreshUserBalance(context)
+        viewModelScope.launch {
+            var jobId = currentJobId
+            if (jobId.isNullOrBlank()) {
+                val startTime = System.currentTimeMillis()
+                while (currentJobId.isNullOrBlank() && (System.currentTimeMillis() - startTime) < 10000L && transcriptionJob?.isActive == true) {
+                    delay(100)
                 }
+                jobId = currentJobId
             }
-        }
 
-        currentJobId = null
-        isLoading = false
-        progress = 0f
-        status = "Transcription cancelled."
-        transcriptionError = null
-        clearActiveJob(context)
-        refreshUserBalance(context)
+            transcriptionJob?.cancel()
+            transcriptionJob = null
+
+            if (!jobId.isNullOrBlank()) {
+                val serverUrl = activeServerUrl
+                val uId = if (isBilledServer) getOrCreateUserId(context) else null
+                WorkManager.getInstance(context).cancelUniqueWork("transcription_$jobId")
+                try {
+                    val api = withContext(Dispatchers.IO) { PianoApiFactory.getApi(serverUrl) }
+                    val resp = withContext(Dispatchers.IO) { api.deleteTranscription(jobId, userId = uId) }
+                    if (resp.minutes != null) {
+                        userCredits = resp.minutes
+                    }
+                } catch (_: Exception) {}
+            }
+
+            currentJobId = null
+            isLoading = false
+            isCancelling = false
+            progress = 0f
+            status = "Transcription cancelled."
+            transcriptionError = null
+            clearActiveJob(context)
+        }
     }
 
     private suspend fun pollTranscriptionJob(context: Context, jobId: String, stableUrl: String) {
@@ -486,6 +561,10 @@ class PianoWeaveViewModel : ViewModel() {
             while (true) {
                 val job = api.getTranscription(jobId)
                 progress = job.progress
+
+                if (job.minutes != null) {
+                    userCredits = job.minutes
+                }
 
                 status = when (job.status) {
                     "queued" -> "Queued in server pipeline..."
@@ -515,13 +594,11 @@ class PianoWeaveViewModel : ViewModel() {
                     transcriptionError = null
                     clearActiveJob(context)
                     currentJobId = null
-                    refreshUserBalance(context)
                     break
                 }
                 if (job.status == "failed") {
                     clearActiveJob(context)
                     currentJobId = null
-                    refreshUserBalance(context)
                     break
                 }
                 delay(1000)
@@ -533,7 +610,6 @@ class PianoWeaveViewModel : ViewModel() {
             status = "Error: $errMsg"
             clearActiveJob(context)
             currentJobId = null
-            refreshUserBalance(context)
         } finally {
             isLoading = false
         }
@@ -552,7 +628,19 @@ class PianoWeaveViewModel : ViewModel() {
                 showNotEnoughCreditsDialog = true
                 return
             }
+
+            if (!hasAcknowledgedRetentionForServer(context)) {
+                showRetentionWarningDialog = true
+                return
+            }
         }
+
+        proceedStartTranscription(context)
+    }
+
+    private fun proceedStartTranscription(context: Context) {
+        val stableUrl = normalizeUrl(videoUrl)
+        if (stableUrl.isBlank() || isLoading) return
 
         transcriptionJob = viewModelScope.launch {
             isLoading = true
@@ -584,8 +672,6 @@ class PianoWeaveViewModel : ViewModel() {
                 enqueueTranscriptionWorker(context, jobId, stableUrl)
                 status = "Job successfully queued..."
 
-                refreshUserBalance(context)
-
                 pollTranscriptionJob(context, jobId, stableUrl)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -595,7 +681,6 @@ class PianoWeaveViewModel : ViewModel() {
                 clearActiveJob(context)
                 currentJobId = null
                 isLoading = false
-                refreshUserBalance(context)
             }
         }
     }

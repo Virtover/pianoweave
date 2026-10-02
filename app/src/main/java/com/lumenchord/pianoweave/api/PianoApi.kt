@@ -48,8 +48,9 @@ interface PianoApi {
 
     @DELETE("api/transcriptions/{jobId}")
     suspend fun deleteTranscription(
-        @Path("jobId") jobId: String
-    ): Response<ResponseBody>
+        @Path("jobId") jobId: String,
+        @Header("X-User-Id") userId: String? = null
+    ): TranscriptionStatusResponse
 
     @Streaming
     @GET("api/transcriptions/{jobId}/midi")

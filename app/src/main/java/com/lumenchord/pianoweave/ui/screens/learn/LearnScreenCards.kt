@@ -218,6 +218,7 @@ internal fun TranscriptionInputCard(
 
                     OutlinedButton(
                         onClick = onCancelClick,
+                        enabled = !viewModel.isCancelling,
                         modifier = Modifier.height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
@@ -227,33 +228,33 @@ internal fun TranscriptionInputCard(
                             contentColor = Color(0xFFE57373)
                         )
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel", modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "Cancel",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        if (viewModel.isCancelling) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFE57373))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Cancelling...",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        } else {
+                            Icon(Icons.Default.Close, contentDescription = "Cancel", modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Cancel",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             } else {
-                val buttonText = when {
-                    viewModel.isBilledServer -> {
-                        if (viewModel.isCalculatingCost) {
-                            "Calculating cost..."
-                        } else {
-                            val cost = viewModel.estimatedCostCredits
-                            if (cost != null) {
-                                if (isLandscape) "Transcribe to MIDI $cost 🪙" else "Transcribe $cost 🪙"
-                            } else {
-                                if (isLandscape) "Transcribe to MIDI" else "Transcribe"
-                            }
-                        }
-                    }
-                    else -> "Transcribe to MIDI"
-                }
+                val isBilled = viewModel.isBilledServer
+                val cost = viewModel.estimatedCostCredits
+                val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
 
                 Button(
                     onClick = { viewModel.startTranscription(context) },
@@ -267,9 +268,45 @@ internal fun TranscriptionInputCard(
                         contentColor = MaterialTheme.colorScheme.onSecondary
                     )
                 ) {
-                    Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(buttonText, fontWeight = FontWeight.ExtraBold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        if (isBilled && viewModel.isCalculatingCost) {
+                            Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
+                        } else {
+                            Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
+                            if (isBilled && cost != null) {
+                                Spacer(Modifier.width(10.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.15f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.35f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MonetizationOn,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSecondary,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Text(
+                                            text = "$cost",
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSecondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -278,6 +315,7 @@ internal fun TranscriptionInputCard(
 
 @Composable
 internal fun TranscriptionProgressCard(
+    viewModel: PianoWeaveViewModel,
     progress: Float,
     status: String
 ) {
@@ -285,37 +323,69 @@ internal fun TranscriptionProgressCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(32.dp)
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(32.dp)
+                )
 
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (progress > 0f) {
-                        Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (progress > 0f) {
+                            Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                    Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                    if (progress < 1f) {
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
                     }
                 }
-                Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, maxLines = 2)
-                if (progress < 1f) {
-                    Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+            }
+
+            if (viewModel.isBilledServer) {
+                val retentionText = viewModel.formatRetentionTime()
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.Black.copy(alpha = 0.25f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFFFA726),
+                            modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                        )
+                        Text(
+                            text = "Completed transcriptions are kept on the server for $retentionText. If you close the app and do not reconnect to the internet within $retentionText, the transcription will be removed and spent credits lost.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 16.sp
+                        )
+                    }
                 }
             }
         }

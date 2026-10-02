@@ -73,14 +73,17 @@ internal fun ShopDialog(
     }
 
     fun formatRenewalTime(seconds: Long?): String {
-        if (seconds == null || seconds <= 0) return "Free credits active"
+        if (seconds == null) return "Free credits active"
+        if (seconds <= 0) return "Free credits ready"
         val days = seconds / 86400
         val hours = (seconds % 86400) / 3600
         val mins = (seconds % 3600) / 60
+        val secs = seconds % 60
         return when {
             days > 0 -> "$days day${if (days > 1) "s" else ""}, $hours hr${if (hours > 1) "s" else ""}"
             hours > 0 -> "$hours hr${if (hours > 1) "s" else ""}, $mins min${if (mins > 1) "s" else ""}"
-            else -> "$mins minute${if (mins > 1) "s" else ""}"
+            mins > 0 -> "$mins min${if (mins > 1) "s" else ""}, $secs sec"
+            else -> "$secs second${if (secs != 1L) "s" else ""}"
         }
     }
 
@@ -207,7 +210,12 @@ internal fun ShopDialog(
 
                         // Free minutes grant renewal info
                         val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
-                        if (grantSec != null && grantSec > 0) {
+                        if (grantSec != null) {
+                            val infoText = if (grantSec <= 0) {
+                                "Free credits grant is ready"
+                            } else {
+                                "Next free credits grant in: ${formatRenewalTime(grantSec)}"
+                            }
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
@@ -233,7 +241,7 @@ internal fun ShopDialog(
                                             color = Color.White
                                         )
                                         Text(
-                                            text = "Next free credits grant in: ${formatRenewalTime(grantSec)}",
+                                            text = infoText,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = ColorTextDim
                                         )
@@ -316,31 +324,31 @@ internal fun ShopDialog(
                         }
 
                         // Warning about file retention
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.Black.copy(alpha = 0.3f),
-                            border = BorderStroke(1.dp, ColorSlate)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = ColorTextDim,
-                                    modifier = Modifier.size(16.dp).padding(top = 2.dp)
-                                )
-                                Text(
-                                    text = "Completed transcriptions are kept on the server for ${formatRetention(viewModel.cleanupIntervalSeconds)}. Transcribed songs saved to your local library remain accessible permanently.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = ColorTextDim,
-                                    lineHeight = 16.sp
-                                )
-                            }
-                        }
+//                        Surface(
+//                            modifier = Modifier.fillMaxWidth(),
+//                            shape = RoundedCornerShape(12.dp),
+//                            color = Color.Black.copy(alpha = 0.3f),
+//                            border = BorderStroke(1.dp, ColorSlate)
+//                        ) {
+//                            Row(
+//                                modifier = Modifier.padding(12.dp),
+//                                verticalAlignment = Alignment.Top,
+//                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+//                            ) {
+//                                Icon(
+//                                    imageVector = Icons.Default.Info,
+//                                    contentDescription = null,
+//                                    tint = ColorTextDim,
+//                                    modifier = Modifier.size(16.dp).padding(top = 2.dp)
+//                                )
+//                                Text(
+//                                    text = "Completed transcriptions are kept on the server for ${formatRetention(viewModel.cleanupIntervalSeconds)}. If you close the app and do not reconnect to the internet within ${formatRetention(viewModel.cleanupIntervalSeconds)}, the transcription will be removed and spent credits lost.",
+//                                    style = MaterialTheme.typography.bodySmall,
+//                                    color = ColorTextDim,
+//                                    lineHeight = 16.sp
+//                                )
+//                            }
+//                        }
                     }
                 }
             }
