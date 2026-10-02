@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -53,9 +54,9 @@ internal fun RetentionWarningDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Warning,
+                            imageVector = Icons.Default.Info,
                             contentDescription = null,
-                            tint = Color(0xFFFFA726),
+                            tint = Color.Black.copy(alpha = 0.3f),
                             modifier = Modifier.size(28.dp)
                         )
                         Text(

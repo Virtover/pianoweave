@@ -96,125 +96,152 @@ fun LearnScreen(
         )
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
     ) {
+        val viewportHeight = maxHeight
+
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Right Action Button (Inside scrollable column so it moves out on scroll)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = viewportHeight)
+                    .padding(bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                if (viewModel.isBilledServer) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.Transparent,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                        modifier = Modifier.clickable { viewModel.openShop() }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                // Top Right Action Button (Far top right edge, moves out on scroll)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (viewModel.isBilledServer) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.Transparent,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier.clickable { viewModel.openShop() }
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.MonetizationOn,
-                                contentDescription = "Credits",
-                                tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Text(
-                                text = "${viewModel.userCredits} Credits",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
-                            )
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Credits",
-                                tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
-                                modifier = Modifier.size(15.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MonetizationOn,
+                                    contentDescription = "Credits",
+                                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Text(
+                                    text = "${viewModel.userCredits} Credits",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add Credits",
+                                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+                    } else if (viewModel.isUsingDefaultServer && !viewModel.supportMeLink.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.Transparent,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier.clickable { viewModel.openSupport() }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Favorite,
+                                    contentDescription = "Support",
+                                    tint = Color(0xFFE57373).copy(alpha = 0.75f),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Support",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                                )
+                            }
                         }
                     }
-                } else if (viewModel.isUsingDefaultServer && !viewModel.supportMeLink.isNullOrBlank()) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.Transparent,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                        modifier = Modifier.clickable { viewModel.openSupport() }
+                }
+
+                // Cards Container (Centered in viewport when un-scrolled, expands freely when scrolled)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        // 1. SUCCESS HERO - High visibility practicing prompt
+                        AnimatedVisibility(
+                            visible = !viewModel.isLoading && viewModel.readySong != null,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Favorite,
-                                contentDescription = "Support",
-                                tint = Color(0xFFE57373).copy(alpha = 0.75f),
-                                modifier = Modifier.size(14.dp)
+                            viewModel.readySong?.let { song ->
+                                TranscriptionSuccessCard(
+                                    song = song,
+                                    onSongSelect = onSongSelect
+                                )
+                            }
+                        }
+
+                        // 2. INPUT CARD - Primary conversion entry
+                        TranscriptionInputCard(
+                            viewModel = viewModel,
+                            context = context,
+                            onOpenServerSettings = { showServerSettingsDialog = true },
+                            onCancelClick = { handleCancelClick() }
+                        )
+
+                        // 3. PROGRESS CARD - Active loading feedback
+                        AnimatedVisibility(visible = viewModel.isLoading) {
+                            TranscriptionProgressCard(
+                                viewModel = viewModel,
+                                progress = viewModel.progress,
+                                status = viewModel.status
                             )
-                            Text(
-                                text = "Support",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                        }
+
+                        // 4. ERROR CARD - Persistent error feedback (dismissible)
+                        AnimatedVisibility(
+                            visible = !viewModel.isLoading && (viewModel.transcriptionError != null || viewModel.status.startsWith("Error")),
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            val errorMsg = viewModel.transcriptionError ?: viewModel.status.removePrefix("Error: ")
+                            TranscriptionErrorCard(
+                                errorMessage = errorMsg,
+                                onErrorDismiss = { viewModel.clearTranscriptionError() }
                             )
                         }
                     }
                 }
-            }
 
-            // 1. SUCCESS HERO - High visibility practicing prompt
-            AnimatedVisibility(
-                visible = !viewModel.isLoading && viewModel.readySong != null,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                viewModel.readySong?.let { song ->
-                    TranscriptionSuccessCard(
-                        song = song,
-                        onSongSelect = onSongSelect
-                    )
-                }
-            }
-
-            // 2. INPUT CARD - Primary conversion entry
-            TranscriptionInputCard(
-                viewModel = viewModel,
-                context = context,
-                onOpenServerSettings = { showServerSettingsDialog = true },
-                onCancelClick = { handleCancelClick() }
-            )
-
-            // 3. PROGRESS CARD - Active loading feedback
-            AnimatedVisibility(visible = viewModel.isLoading) {
-                TranscriptionProgressCard(
-                    viewModel = viewModel,
-                    progress = viewModel.progress,
-                    status = viewModel.status
-                )
-            }
-
-            // 4. ERROR CARD - Persistent error feedback (dismissible)
-            AnimatedVisibility(
-                visible = !viewModel.isLoading && (viewModel.transcriptionError != null || viewModel.status.startsWith("Error")),
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                val errorMsg = viewModel.transcriptionError ?: viewModel.status.removePrefix("Error: ")
-                TranscriptionErrorCard(
-                    errorMessage = errorMsg,
-                    onErrorDismiss = { viewModel.clearTranscriptionError() }
-                )
+                // Spacer at bottom to balance top action bar
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
