@@ -43,6 +43,7 @@ internal fun ShopDialog(
     val activity = context as? Activity
     var productDetailsMap by remember { mutableStateOf<Map<String, ProductDetails>>(emptyMap()) }
     var isLoadingProducts by remember { mutableStateOf(true) }
+    var isBillingConnected by remember { mutableStateOf(false) }
 
     val billingManager = remember {
         GooglePlayBillingManager(context) { token, productId ->
@@ -55,20 +56,25 @@ internal fun ShopDialog(
         }
     }
 
+
     DisposableEffect(Unit) {
         billingManager.startConnection {
-            val productIds = viewModel.serverOffers.map { it.productId }
-            if (productIds.isNotEmpty()) {
-                billingManager.queryProductDetails(productIds) { detailsList ->
-                    productDetailsMap = detailsList.associateBy { it.productId }
-                    isLoadingProducts = false
-                }
-            } else {
-                isLoadingProducts = false
-            }
+            isBillingConnected = true
         }
-        onDispose {
-            billingManager.destroy()
+        onDispose { billingManager.destroy() }
+    }
+
+    LaunchedEffect(isBillingConnected, viewModel.serverOffers) {
+        if (!isBillingConnected) return@LaunchedEffect
+        val productIds = viewModel.serverOffers.map { it.productId }
+        if (productIds.isEmpty()) {
+            isLoadingProducts = false
+            return@LaunchedEffect
+        }
+        isLoadingProducts = true
+        billingManager.queryProductDetails(productIds) { detailsList ->
+            productDetailsMap = detailsList.associateBy { it.productId }
+            isLoadingProducts = false
         }
     }
 
