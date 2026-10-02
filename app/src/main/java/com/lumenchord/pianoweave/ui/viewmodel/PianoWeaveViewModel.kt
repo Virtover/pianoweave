@@ -535,8 +535,17 @@ class PianoWeaveViewModel : ViewModel() {
     private suspend fun pollTranscriptionJob(context: Context, jobId: String, stableUrl: String) {
         val api = PianoApiFactory.getApi(activeServerUrl)
         try {
-            while (true) {
-                val job = api.getTranscription(jobId)
+            while (currentJobId == jobId) {
+                val job = try {
+                    api.getTranscription(jobId)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    // Network error / not getting response during progress tracking should retry instead of failing immediately
+                    status = "Reconnecting to server..."
+                    delay(2000)
+                    continue
+                }
+
                 progress = job.progress
 
                 if (job.minutes != null) {
@@ -559,10 +568,23 @@ class PianoWeaveViewModel : ViewModel() {
 
                 if (job.status == "completed") {
                     status = "Downloading completed MIDI file..."
-                    withContext(Dispatchers.IO) {
-                        val midiResponse = api.downloadMidi(jobId)
-                        MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
+                    var midiDownloaded = false
+                    while (currentJobId == jobId && !midiDownloaded) {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                val midiResponse = api.downloadMidi(jobId)
+                                MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
+                            }
+                            midiDownloaded = true
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                            // Final MIDI getting retry on network error / no response
+                            status = "Retrying MIDI download..."
+                            delay(2000)
+                        }
                     }
+                    if (!midiDownloaded) break
+
                     progress = 1f
                     val updatedSongs = MidiStorage.list(context)
                     songs = updatedSongs
@@ -578,15 +600,10 @@ class PianoWeaveViewModel : ViewModel() {
                     currentJobId = null
                     break
                 }
-                delay(1000)
+                delay(2000)
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            val errMsg = e.localizedMessage ?: "Connection error"
-            transcriptionError = errMsg
-            status = "Error: $errMsg"
-            clearActiveJob(context)
-            currentJobId = null
         } finally {
             isLoading = false
         }
