@@ -316,7 +316,7 @@ internal fun TranscriptionProgressCard(
                             modifier = Modifier.size(16.dp).padding(top = 2.dp)
                         )
                         Text(
-                            text = "Completed transcriptions are kept on the server for $retentionText. If you close the app and do not reconnect to the internet within $retentionText, the transcription will be removed and spent credits lost.",
+                            text = "Completed transcriptions are kept on the server for $retentionText. If you close the app DURING transcription and do not reconnect to the internet within $retentionText, the transcription will be removed and spent credits lost.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 16.sp
