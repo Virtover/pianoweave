@@ -85,8 +85,7 @@ internal fun TranscriptionSuccessCard(
 internal fun TranscriptionInputCard(
     viewModel: PianoWeaveViewModel,
     context: Context,
-    onOpenServerSettings: () -> Unit,
-    onCancelClick: () -> Unit
+    onOpenServerSettings: () -> Unit
 ) {
     val isSuccess = !viewModel.isLoading && viewModel.readySong != null
     val configuration = LocalConfiguration.current
@@ -186,72 +185,7 @@ internal fun TranscriptionInputCard(
                 }
             )
 
-            if (viewModel.isLoading) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = {},
-                        enabled = false,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            disabledContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
-                            disabledContentColor = MaterialTheme.colorScheme.onSecondary
-                        )
-                    ) {
-                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Processing...",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = onCancelClick,
-                        enabled = !viewModel.isCancelling,
-                        modifier = Modifier.height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                        border = BorderStroke(1.dp, Color(0xFF8C3235).copy(alpha = 0.6f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color(0xFF221B1C),
-                            contentColor = Color(0xFFE57373)
-                        )
-                    ) {
-                        if (viewModel.isCancelling) {
-                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFE57373))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "Cancelling...",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        } else {
-                            Icon(Icons.Default.Close, contentDescription = "Cancel", modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Cancel",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                    }
-                }
-            } else {
+            if (!viewModel.isLoading) {
                 val isBilled = viewModel.isBilledServer
                 val cost = viewModel.estimatedCostCredits
                 val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
@@ -317,10 +251,12 @@ internal fun TranscriptionInputCard(
 internal fun TranscriptionProgressCard(
     viewModel: PianoWeaveViewModel,
     progress: Float,
-    status: String
+    status: String,
+    onCancelClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(
@@ -374,9 +310,9 @@ internal fun TranscriptionProgressCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Warning,
+                            imageVector = Icons.Default.Api,
                             contentDescription = null,
-                            tint = Color(0xFFFFA726),
+                            tint = Color.White.copy(alpha = 0.7f),
                             modifier = Modifier.size(16.dp).padding(top = 2.dp)
                         )
                         Text(
@@ -384,6 +320,71 @@ internal fun TranscriptionProgressCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        disabledContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
+                        disabledContentColor = MaterialTheme.colorScheme.onSecondary
+                    )
+                ) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Processing...",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onCancelClick,
+                    enabled = !viewModel.isCancelling,
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    border = BorderStroke(1.dp, Color(0xFF8C3235).copy(alpha = 0.6f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color(0xFF221B1C),
+                        contentColor = Color(0xFFE57373)
+                    )
+                ) {
+                    if (viewModel.isCancelling) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFE57373))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Cancelling...",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    } else {
+                        Icon(Icons.Default.Close, contentDescription = "Cancel", modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Cancel",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }

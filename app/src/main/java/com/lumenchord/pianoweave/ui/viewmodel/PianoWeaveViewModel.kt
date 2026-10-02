@@ -138,8 +138,6 @@ class PianoWeaveViewModel : ViewModel() {
     var showShopDialog by mutableStateOf(false)
     var showSupportDialog by mutableStateOf(false)
     var showNotEnoughCreditsDialog by mutableStateOf(false)
-    var showRetentionWarningDialog by mutableStateOf(false)
-        private set
 
     val activeServerUrl: String
         get() {
@@ -167,28 +165,7 @@ class PianoWeaveViewModel : ViewModel() {
         }
     }
 
-    fun hasAcknowledgedRetentionForServer(context: Context, url: String = activeServerUrl): Boolean {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        val currentInterval = cleanupIntervalSeconds ?: 86400L
-        val lastAckInterval = prefs.getLong("retention_ack_$url", -1L)
-        return lastAckInterval == currentInterval
-    }
-
-    fun acknowledgeRetentionForServer(context: Context, url: String = activeServerUrl) {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        val currentInterval = cleanupIntervalSeconds ?: 86400L
-        prefs.edit().putLong("retention_ack_$url", currentInterval).apply()
-    }
-
-    fun confirmRetentionWarning(context: Context) {
-        acknowledgeRetentionForServer(context)
-        showRetentionWarningDialog = false
-        proceedStartTranscription(context)
-    }
-
-    fun dismissRetentionWarning() {
-        showRetentionWarningDialog = false
-    }
+    // Retention warning dialog removed
 
     fun getOrCreateUserId(context: Context): String {
         if (userId.isNotBlank()) return userId
@@ -626,11 +603,6 @@ class PianoWeaveViewModel : ViewModel() {
             val cost = estimatedCostCredits
             if (cost != null && userCredits < cost) {
                 showNotEnoughCreditsDialog = true
-                return
-            }
-
-            if (!hasAcknowledgedRetentionForServer(context)) {
-                showRetentionWarningDialog = true
                 return
             }
         }

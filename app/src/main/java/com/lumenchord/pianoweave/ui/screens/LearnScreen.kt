@@ -9,6 +9,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun LearnScreen(
@@ -35,6 +38,16 @@ fun LearnScreen(
 ) {
     var showServerSettingsDialog by remember { mutableStateOf(false) }
     var showCancelConfirmDialog by remember { mutableStateOf(false) }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+
+    LaunchedEffect(viewModel.isLoading) {
+        if (viewModel.isLoading) {
+            delay(100)
+            bringIntoViewRequester.bringIntoView()
+            delay(200)
+            bringIntoViewRequester.bringIntoView()
+        }
+    }
 
     fun handleCancelClick() {
         if (viewModel.progress >= 0.03f) {
@@ -86,13 +99,6 @@ fun LearnScreen(
             availableCredits = viewModel.userCredits,
             onBuyCredits = { viewModel.openShop() },
             onDismiss = { viewModel.dismissNotEnoughCredits() }
-        )
-    }
-
-    if (viewModel.showRetentionWarningDialog) {
-        RetentionWarningDialog(
-            retentionTimeText = viewModel.formatRetentionTime(),
-            onUnderstand = { viewModel.confirmRetentionWarning(context) }
         )
     }
 
@@ -212,8 +218,7 @@ fun LearnScreen(
                         TranscriptionInputCard(
                             viewModel = viewModel,
                             context = context,
-                            onOpenServerSettings = { showServerSettingsDialog = true },
-                            onCancelClick = { handleCancelClick() }
+                            onOpenServerSettings = { showServerSettingsDialog = true }
                         )
 
                         // 3. PROGRESS CARD - Active loading feedback
@@ -221,7 +226,9 @@ fun LearnScreen(
                             TranscriptionProgressCard(
                                 viewModel = viewModel,
                                 progress = viewModel.progress,
-                                status = viewModel.status
+                                status = viewModel.status,
+                                onCancelClick = { handleCancelClick() },
+                                modifier = Modifier.bringIntoViewRequester(bringIntoViewRequester)
                             )
                         }
 
