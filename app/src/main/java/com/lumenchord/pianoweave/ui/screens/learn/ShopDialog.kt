@@ -315,33 +315,6 @@ internal fun ShopDialog(
                                 }
                             }
                         }
-
-                        // Warning about file retention
-//                        Surface(
-//                            modifier = Modifier.fillMaxWidth(),
-//                            shape = RoundedCornerShape(12.dp),
-//                            color = Color.Black.copy(alpha = 0.3f),
-//                            border = BorderStroke(1.dp, ColorSlate)
-//                        ) {
-//                            Row(
-//                                modifier = Modifier.padding(12.dp),
-//                                verticalAlignment = Alignment.Top,
-//                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                            ) {
-//                                Icon(
-//                                    imageVector = Icons.Default.Info,
-//                                    contentDescription = null,
-//                                    tint = ColorTextDim,
-//                                    modifier = Modifier.size(16.dp).padding(top = 2.dp)
-//                                )
-//                                Text(
-//                                    text = "Completed transcriptions are kept on the server for ${formatRetention(viewModel.cleanupIntervalSeconds)}. If you close the app and do not reconnect to the internet within ${formatRetention(viewModel.cleanupIntervalSeconds)}, the transcription will be removed and spent credits lost.",
-//                                    style = MaterialTheme.typography.bodySmall,
-//                                    color = ColorTextDim,
-//                                    lineHeight = 16.sp
-//                                )
-//                            }
-//                        }
                     }
                 }
             }
