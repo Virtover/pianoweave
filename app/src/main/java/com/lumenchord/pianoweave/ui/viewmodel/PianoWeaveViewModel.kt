@@ -83,6 +83,15 @@ class PianoWeaveViewModel : ViewModel() {
     var isPlaying by mutableStateOf(false)
     var playheadMs by mutableLongStateOf(0L)
     var speedMultiplier by mutableFloatStateOf(1.0f)
+    var topBarSpeed by mutableFloatStateOf(1.0f)
+        private set
+
+    fun setTopBarSpeed(context: Context, speed: Float) {
+        topBarSpeed = speed
+        speedMultiplier = speed
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putFloat("top_bar_speed", speed).apply()
+    }
     var isWaitModeEnabled by mutableStateOf(false)
     var isStrikeOverlayEnabled by mutableStateOf(true)
         private set
@@ -273,6 +282,7 @@ class PianoWeaveViewModel : ViewModel() {
         getOrCreateUserId(context)
         isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
         selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
+        topBarSpeed = prefs.getFloat("top_bar_speed", 1.0f)
 
         defaultServerUrl = try {
             AppConfig.initialize(context)
@@ -315,13 +325,17 @@ class PianoWeaveViewModel : ViewModel() {
         prefs.edit().putBoolean("is_strike_overlay_enabled", enabled).apply()
     }
 
-    fun openPracticeSession(song: StoredMidi) {
+    fun openPracticeSession(context: Context, song: StoredMidi) {
         if (lastPlayedSongPath != song.file.absolutePath) {
             playheadMs = 0L
             isPlaying = true // Auto-play new songs
             isLoopingEnabled = false
             loopStartMs = 0L
             loopEndMs = 0L
+            speedMultiplier = 1.0f
+            topBarSpeed = 1.0f
+            val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putFloat("top_bar_speed", 1.0f).apply()
             lastPlayedSongPath = song.file.absolutePath
         }
         activePracticeSong = song

@@ -155,17 +155,31 @@ internal fun ModernToolbar(
             horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 6.dp else 12.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 4.dp else 8.dp)) {
-                listOf(0.25f, 0.5f, 1.0f).forEach { s ->
+                listOf(0.25f, 0.5f, viewModel.topBarSpeed).forEach { s ->
                     val isSelected = viewModel.speedMultiplier == s
+                    val text = when (s) {
+                        1.0f -> "1.0x"
+                        1.25f -> "1.25x"
+                        1.5f -> "1.5x"
+                        2.0f -> "2.0x"
+                        else -> "${s}x"
+                    }
                     Box(
                         modifier = Modifier
                             .size(if (isPortrait) 32.dp else 36.dp)
                             .background(if (isSelected) ColorGold else ColorSlate.copy(alpha = 0.8f), CircleShape)
-                            .clickable { viewModel.speedMultiplier = s },
+                            .clickable {
+                                if (s == 0.25f || s == 0.5f) {
+                                    viewModel.setTopBarSpeed(current, 1.0f)
+                                    viewModel.speedMultiplier = s
+                                } else {
+                                    viewModel.speedMultiplier = s
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "${s}x",
+                            text = text,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Black,
                             color = if (isSelected) Color.Black else Color.White

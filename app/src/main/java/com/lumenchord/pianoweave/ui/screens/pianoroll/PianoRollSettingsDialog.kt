@@ -8,6 +8,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -300,6 +301,80 @@ internal fun SettingsDialog(
                                     uncheckedTrackColor = ColorSlate
                                 )
                             )
+                        }
+
+                        HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                        // Speed Section (New Option)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text("Speed", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text("Set speed (0.25x - 2.0x)", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
+                                }
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val speedRows = listOf(
+                                    listOf(0.25f, 0.5f, 1.0f),
+                                    listOf(1.25f, 1.5f, 2.0f)
+                                )
+                                speedRows.forEach { rowSpeeds ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        rowSpeeds.forEach { s ->
+                                            val isSelected = viewModel.speedMultiplier == s
+                                            val text = when (s) {
+                                                0.25f -> "0.25x"
+                                                0.5f -> "0.5x"
+                                                1.0f -> "1.0x"
+                                                1.25f -> "1.25x"
+                                                1.5f -> "1.5x"
+                                                2.0f -> "2.0x"
+                                                else -> "${s}x"
+                                            }
+                                            Surface(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(38.dp)
+                                                    .clickable {
+                                                        if (s == 0.25f || s == 0.5f) {
+                                                            viewModel.setTopBarSpeed(currentContext, 1.0f)
+                                                            viewModel.speedMultiplier = s
+                                                        } else {
+                                                            viewModel.setTopBarSpeed(currentContext, s)
+                                                        }
+                                                    },
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isSelected) ColorGold else ColorSlate.copy(alpha = 0.5f),
+                                                border = BorderStroke(1.dp, if (isSelected) ColorGold else ColorGold.copy(alpha = 0.4f))
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = text,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = if (isSelected) Color.Black else Color.White
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
