@@ -2,6 +2,7 @@ package com.lumenchord.pianoweave.ui.screens.learn
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +28,12 @@ import com.lumenchord.pianoweave.billing.GooglePlayBillingManager
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.launch
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 @Composable
 internal fun ShopDialog(
@@ -40,7 +48,8 @@ internal fun ShopDialog(
     val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
     val ColorTextDim = MaterialTheme.colorScheme.tertiary
 
-    val activity = context as? Activity
+    val currentContext = LocalContext.current
+    val activity = currentContext.findActivity() ?: context.findActivity()
     var productDetailsMap by remember { mutableStateOf<Map<String, ProductDetails>>(emptyMap()) }
     var isLoadingProducts by remember { mutableStateOf(true) }
     var isBillingConnected by remember { mutableStateOf(false) }

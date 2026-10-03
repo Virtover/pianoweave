@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         PianoWeaveApp(
                             viewModel = viewModel,
-                            context = applicationContext
+                            context = this@MainActivity
                         )
                     }
                 }
