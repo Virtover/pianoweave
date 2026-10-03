@@ -8,7 +8,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +28,9 @@ import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.ui.components.AppThemeDialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 internal fun SettingsDialog(
@@ -305,7 +307,7 @@ internal fun SettingsDialog(
 
                         HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
 
-                        // Speed Section (New Option)
+                        // Speed Section
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -319,62 +321,53 @@ internal fun SettingsDialog(
                                     verticalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     Text("Speed", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text("Set speed (0.25x - 2.0x)", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
+                                    Text("Set playback speed (0.25x - 2.0x)", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
                                 }
-                            }
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val speedRows = listOf(
-                                    listOf(0.25f, 0.5f, 1.0f),
-                                    listOf(1.25f, 1.5f, 2.0f)
-                                )
-                                speedRows.forEach { rowSpeeds ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        rowSpeeds.forEach { s ->
-                                            val isSelected = viewModel.speedMultiplier == s
-                                            val text = when (s) {
-                                                0.25f -> "0.25x"
-                                                0.5f -> "0.5x"
-                                                1.0f -> "1.0x"
-                                                1.25f -> "1.25x"
-                                                1.5f -> "1.5x"
-                                                2.0f -> "2.0x"
-                                                else -> "${s}x"
-                                            }
-                                            Surface(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(38.dp)
-                                                    .clickable {
-                                                        if (s == 0.25f || s == 0.5f) {
-                                                            viewModel.setTopBarSpeed(currentContext, 1.0f)
-                                                            viewModel.speedMultiplier = s
-                                                        } else {
-                                                            viewModel.setTopBarSpeed(currentContext, s)
-                                                        }
-                                                    },
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = if (isSelected) ColorGold else ColorSlate.copy(alpha = 0.5f),
-                                                border = BorderStroke(1.dp, if (isSelected) ColorGold else ColorGold.copy(alpha = 0.4f))
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Text(
-                                                        text = text,
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.Black,
-                                                        color = if (isSelected) Color.Black else Color.White
-                                                    )
-                                                }
-                                            }
-                                        }
+                                Surface(
+                                    color = ColorSlate.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, ColorGold.copy(alpha = 0.4f))
+                                ) {
+                                    val speedText = when (viewModel.speedMultiplier) {
+                                        0.25f -> "0.25x"
+                                        0.5f -> "0.5x"
+                                        1.0f -> "1.0x"
+                                        1.25f -> "1.25x"
+                                        1.5f -> "1.5x"
+                                        2.0f -> "2.0x"
+                                        else -> String.format(Locale.US, "%.2fx", viewModel.speedMultiplier)
                                     }
+                                    Text(
+                                        text = speedText,
+                                        color = ColorGold,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
                                 }
                             }
+                            val speedValues = listOf(0.25f, 0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
+                            val currentIndex = speedValues.indices.minByOrNull { abs(speedValues[it] - viewModel.speedMultiplier) } ?: 2
+                            Slider(
+                                value = currentIndex.toFloat(),
+                                onValueChange = { newValue ->
+                                    val index = newValue.roundToInt().coerceIn(0, speedValues.size - 1)
+                                    val newSpeed = speedValues[index]
+                                    if (newSpeed >= 1.0f) {
+                                        viewModel.setTopBarSpeed(currentContext, newSpeed)
+                                    } else {
+                                        viewModel.setTopBarSpeed(currentContext, 1.0f)
+                                    }
+                                    viewModel.speedMultiplier = newSpeed
+                                },
+                                valueRange = 0f..(speedValues.size - 1).toFloat(),
+                                steps = speedValues.size - 2,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = ColorGold,
+                                    activeTrackColor = ColorGold,
+                                    inactiveTrackColor = ColorSlate
+                                )
+                            )
                         }
 
                         HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
