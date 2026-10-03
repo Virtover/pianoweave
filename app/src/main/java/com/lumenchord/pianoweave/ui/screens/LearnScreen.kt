@@ -1,16 +1,10 @@
 package com.lumenchord.pianoweave.ui.screens
 
 import android.content.Context
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,12 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
-import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 @Composable
 fun LearnScreen(
@@ -38,14 +34,39 @@ fun LearnScreen(
 ) {
     var showServerSettingsDialog by remember { mutableStateOf(false) }
     var showCancelConfirmDialog by remember { mutableStateOf(false) }
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
-    LaunchedEffect(viewModel.isLoading) {
-        if (viewModel.isLoading) {
-            delay(100)
-            bringIntoViewRequester.bringIntoView()
-            delay(200)
-            bringIntoViewRequester.bringIntoView()
+    val scrollState = rememberScrollState()
+
+    var viewportHeightPx by remember { mutableFloatStateOf(0f) }
+    var scrollContainerTopInRoot by remember { mutableFloatStateOf(0f) }
+    var progressCardTopInRoot by remember { mutableFloatStateOf(0f) }
+    var progressCardHeightPx by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(
+        viewModel.isLoading,
+        viewportHeightPx,
+        scrollContainerTopInRoot,
+        progressCardTopInRoot,
+        progressCardHeightPx,
+        scrollState.maxValue
+    ) {
+        if (viewModel.isLoading && viewportHeightPx > 0f && progressCardHeightPx > 0f) {
+            val cardCenterInRoot = progressCardTopInRoot + (progressCardHeightPx / 2f)
+            val viewportCenterInRoot = scrollContainerTopInRoot + (viewportHeightPx / 2f)
+            val deltaOnScreen = cardCenterInRoot - viewportCenterInRoot
+
+            if (abs(deltaOnScreen) > 2f) {
+                val targetScroll = (scrollState.value + deltaOnScreen)
+                    .toInt()
+                    .coerceIn(0, scrollState.maxValue)
+                scrollState.animateScrollTo(targetScroll, animationSpec = tween(durationMillis = 50))
+            }
+        }
+    }
+
+    LaunchedEffect(viewModel.isLoading, viewModel.readySong) {
+        if (!viewModel.isLoading && viewModel.readySong != null) {
+            scrollState.animateScrollTo(0, animationSpec = tween(durationMillis = 150))
         }
     }
 
@@ -110,7 +131,11 @@ fun LearnScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState)
+                .onGloballyPositioned { coordinates ->
+                    viewportHeightPx = coordinates.size.height.toFloat()
+                    scrollContainerTopInRoot = coordinates.positionInRoot().y
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
@@ -201,11 +226,7 @@ fun LearnScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // 1. SUCCESS HERO - High visibility practicing prompt
-                        AnimatedVisibility(
-                            visible = !viewModel.isLoading && viewModel.readySong != null,
-                            enter = fadeIn() + expandVertically(),
-                            exit = fadeOut() + shrinkVertically()
-                        ) {
+                        if (!viewModel.isLoading && viewModel.readySong != null) {
                             viewModel.readySong?.let { song ->
                                 TranscriptionSuccessCard(
                                     song = song,
@@ -222,22 +243,21 @@ fun LearnScreen(
                         )
 
                         // 3. PROGRESS CARD - Active loading feedback
-                        AnimatedVisibility(visible = viewModel.isLoading) {
+                        if (viewModel.isLoading) {
                             TranscriptionProgressCard(
                                 viewModel = viewModel,
                                 progress = viewModel.progress,
                                 status = viewModel.status,
                                 onCancelClick = { handleCancelClick() },
-                                modifier = Modifier.bringIntoViewRequester(bringIntoViewRequester)
+                                modifier = Modifier.onGloballyPositioned { coordinates ->
+                                    progressCardTopInRoot = coordinates.positionInRoot().y
+                                    progressCardHeightPx = coordinates.size.height.toFloat()
+                                }
                             )
                         }
 
                         // 4. ERROR CARD - Persistent error feedback (dismissible)
-                        AnimatedVisibility(
-                            visible = !viewModel.isLoading && (viewModel.transcriptionError != null || viewModel.status.startsWith("Error")),
-                            enter = fadeIn() + expandVertically(),
-                            exit = fadeOut() + shrinkVertically()
-                        ) {
+                        if (!viewModel.isLoading && (viewModel.transcriptionError != null || viewModel.status.startsWith("Error"))) {
                             val errorMsg = viewModel.transcriptionError ?: viewModel.status.removePrefix("Error: ")
                             TranscriptionErrorCard(
                                 errorMessage = errorMsg,

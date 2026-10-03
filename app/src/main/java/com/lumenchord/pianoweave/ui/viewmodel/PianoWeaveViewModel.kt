@@ -637,6 +637,7 @@ class PianoWeaveViewModel : ViewModel() {
 
         transcriptionJob = viewModelScope.launch {
             isLoading = true
+            readySong = null
             progress = 0f
             status = "Checking local cache..."
 
