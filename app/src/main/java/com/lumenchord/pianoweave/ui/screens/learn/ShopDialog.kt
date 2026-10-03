@@ -324,6 +324,8 @@ internal fun ShopDialog(
                                             )
                                         }
 
+                                        Spacer(Modifier.width(12.dp))
+
                                         Button(
                                             onClick = {
                                                 if (activity != null && details != null) {
@@ -332,6 +334,7 @@ internal fun ShopDialog(
                                             },
                                             enabled = details != null && activity != null,
                                             shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = ColorGold,
                                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
