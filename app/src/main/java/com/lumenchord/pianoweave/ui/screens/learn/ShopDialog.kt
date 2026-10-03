@@ -53,16 +53,25 @@ internal fun ShopDialog(
     var productDetailsMap by remember { mutableStateOf<Map<String, ProductDetails>>(emptyMap()) }
     var isLoadingProducts by remember { mutableStateOf(true) }
     var isBillingConnected by remember { mutableStateOf(false) }
+    var purchaseErrorMessage by remember { mutableStateOf<String?>(null) }
 
     val billingManager = remember {
-        GooglePlayBillingManager(context) { token, productId ->
-            coroutineScope.launch {
-                val success = viewModel.verifyGooglePlayPurchase(context, productId, token)
-                if (success) {
-                    viewModel.refreshUserBalance(context)
+        GooglePlayBillingManager(
+            context = context,
+            onPurchaseCompleted = { token, productId ->
+                coroutineScope.launch {
+                    val success = viewModel.verifyGooglePlayPurchase(context, productId, token)
+                    if (success) {
+                        viewModel.refreshUserBalance(context)
+                    } else {
+                        purchaseErrorMessage = "Failed to verify purchase with server."
+                    }
                 }
+            },
+            onPurchaseError = { errorMsg ->
+                purchaseErrorMessage = errorMsg
             }
-        }
+        )
     }
 
 
@@ -190,40 +199,44 @@ internal fun ShopDialog(
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    Icon(
+                                        imageVector = Icons.Default.MonetizationOn,
+                                        contentDescription = null,
+                                        tint = ColorGold,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Column(
+                                        modifier = Modifier.weight(1f)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.MonetizationOn,
-                                            contentDescription = null,
-                                            tint = ColorGold,
-                                            modifier = Modifier.size(24.dp)
+                                        Text(
+                                            text = "AVAILABLE BALANCE",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ColorTextDim,
+                                            fontWeight = FontWeight.Bold
                                         )
-                                        Column {
-                                            Text(
-                                                text = "AVAILABLE BALANCE",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = ColorTextDim,
-                                                fontWeight = FontWeight.Bold
-                                            )
+                                        Spacer(Modifier.height(2.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Text(
                                                 text = "${viewModel.userCredits} Credits",
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Black,
                                                 color = Color.White
                                             )
+                                            Text(
+                                                text = "1 Min = 1 Credit",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = ColorGold,
+                                                fontWeight = FontWeight.Medium
+                                            )
                                         }
                                     }
-                                    Text(
-                                        text = "1 Min = 1 Credit",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = ColorGold,
-                                        fontWeight = FontWeight.Medium
-                                    )
                                 }
 
                                 val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
@@ -329,6 +342,86 @@ internal fun ShopDialog(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (purchaseErrorMessage != null) {
+        Dialog(onDismissRequest = { purchaseErrorMessage = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.98f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = ColorSurface,
+                    contentColor = Color.White,
+                    border = BorderStroke(1.dp, ColorSlate)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Purchase Failed",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = ColorGold
+                            )
+                            IconButton(
+                                onClick = { purchaseErrorMessage = null },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = ColorTextDim
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+
+                        Text(
+                            text = purchaseErrorMessage ?: "An unknown error occurred during purchase.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f),
+                            lineHeight = 22.sp
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Button(
+                            onClick = { purchaseErrorMessage = null },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ColorGold,
+                                contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
+                            )
+                        ) {
+                            Text(
+                                text = "OK",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
                         }
                     }
                 }

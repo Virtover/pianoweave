@@ -18,7 +18,8 @@ import kotlinx.coroutines.launch
 
 class GooglePlayBillingManager(
     private val context: Context,
-    private val onPurchaseCompleted: (purchaseToken: String, productId: String) -> Unit
+    private val onPurchaseCompleted: (purchaseToken: String, productId: String) -> Unit,
+    private val onPurchaseError: (errorMessage: String) -> Unit = {}
 ) : PurchasesUpdatedListener {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -91,7 +92,12 @@ class GooglePlayBillingManager(
             .build()
 
         val result = billingClient.launchBillingFlow(activity, billingFlowParams)
-        return result.responseCode == BillingClient.BillingResponseCode.OK
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+            val msg = if (result.debugMessage.isNotBlank()) result.debugMessage else "Failed to launch purchase flow (code: ${result.responseCode})"
+            onPurchaseError(msg)
+            return false
+        }
+        return true
     }
 
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: MutableList<Purchase>?) {
@@ -104,6 +110,11 @@ class GooglePlayBillingManager(
                         onPurchaseCompleted(token, productId)
                     }
                 }
+            }
+        } else if (billingResult.responseCode != BillingClient.BillingResponseCode.USER_CANCELED) {
+            val msg = if (billingResult.debugMessage.isNotBlank()) billingResult.debugMessage else "Purchase failed (code: ${billingResult.responseCode})"
+            coroutineScope.launch {
+                onPurchaseError(msg)
             }
         }
     }
