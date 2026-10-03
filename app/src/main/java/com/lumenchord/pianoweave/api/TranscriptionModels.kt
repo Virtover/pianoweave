@@ -3,36 +3,35 @@ package com.lumenchord.pianoweave.api
 import com.google.gson.annotations.SerializedName
 
 data class CreateTranscriptionRequest(
-    @SerializedName("source_url")
-    val source_url: String
+    @SerializedName("source_url") val source_url: String
 )
 
 data class CreateTranscriptionResponse(
-    val job_id: String,
-    val status: String
+    @SerializedName("job_id") val job_id: String,
+    @SerializedName("status") val status: String
 )
 
 data class TranscriptionStatusResponse(
-    val job_id: String,
-    val status: String,
-    val progress: Float,
-    val error: String?,
-    val metadata: VideoMetadata? = null,
-    val minutes: Int? = null
+    @SerializedName("job_id") val job_id: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("progress") val progress: Float,
+    @SerializedName("error") val error: String?,
+    @SerializedName("metadata") val metadata: VideoMetadata? = null,
+    @SerializedName("minutes") val minutes: Int? = null
 )
 
 data class VideoMetadata(
-    val title: String,
-    val author: String,
-    val channel: String,
-    val channel_id: String,
-    val channel_url: String,
-    val upload_date: String,
-    val duration: Float,
-    val thumbnail: String,
-    val webpage_url: String,
-    val view_count: Long,
-    val like_count: Long
+    @SerializedName("title") val title: String,
+    @SerializedName("author") val author: String,
+    @SerializedName("channel") val channel: String,
+    @SerializedName("channel_id") val channel_id: String,
+    @SerializedName("channel_url") val channel_url: String,
+    @SerializedName("upload_date") val upload_date: String,
+    @SerializedName("duration") val duration: Float,
+    @SerializedName("thumbnail") val thumbnail: String,
+    @SerializedName("webpage_url") val webpage_url: String,
+    @SerializedName("view_count") val view_count: Long,
+    @SerializedName("like_count") val like_count: Long
 )
 
 data class ServerOffer(
@@ -42,7 +41,7 @@ data class ServerOffer(
 
 data class ServerInfoResponse(
     @SerializedName("billing_provider") val billingProvider: String? = "none",
-    val offers: List<ServerOffer>? = emptyList(),
+    @SerializedName("offers") val offers: List<ServerOffer>? = emptyList(),
     @SerializedName("cleanup_interval_seconds") val cleanupIntervalSeconds: Long? = null,
     @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Int? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
@@ -52,7 +51,7 @@ data class ServerInfoResponse(
 
 data class UserBalanceResponse(
     @SerializedName("user_id") val userId: String,
-    val minutes: Int,
+    @SerializedName("minutes") val minutes: Int,
     @SerializedName("free_minutes_seconds_until_next_grant") val freeMinutesSecondsUntilNextGrant: Long? = null,
     @SerializedName("free_minutes_next_grant_at") val freeMinutesNextGrantAt: Long? = null
 )
@@ -70,5 +69,5 @@ data class VerifyPurchaseRequest(
 data class VerifyPurchaseResponse(
     @SerializedName("user_id") val userId: String,
     @SerializedName("credited_minutes") val creditedMinutes: Int,
-    val minutes: Int
+    @SerializedName("minutes") val minutes: Int
 )
