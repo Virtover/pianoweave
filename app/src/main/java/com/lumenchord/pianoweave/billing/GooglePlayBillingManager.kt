@@ -119,17 +119,18 @@ class GooglePlayBillingManager(
         }
     }
 
-    fun consumePurchase(purchaseToken: String, onConsumed: (() -> Unit)? = null) {
-        val consumeParams = ConsumeParams.newBuilder()
-            .setPurchaseToken(purchaseToken)
-            .build()
-
-        billingClient.consumeAsync(consumeParams) { result, _ ->
-            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                onConsumed?.invoke()
-            }
-        }
-    }
+    //DONE ON SERVER
+//    fun consumePurchase(purchaseToken: String, onConsumed: (() -> Unit)? = null) {
+//        val consumeParams = ConsumeParams.newBuilder()
+//            .setPurchaseToken(purchaseToken)
+//            .build()
+//
+//        billingClient.consumeAsync(consumeParams) { result, _ ->
+//            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+//                onConsumed?.invoke()
+//            }
+//        }
+//    }
 
     fun destroy() {
         if (billingClient.isReady) {
