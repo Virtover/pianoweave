@@ -21,7 +21,8 @@ interface PianoApi {
 
     @GET("api/billing/balance")
     suspend fun getUserBalance(
-        @Header("X-User-Id") userId: String
+        @Header("Authorization") authHeader: String? = null,
+        @Header("X-User-Id") userId: String? = null
     ): UserBalanceResponse
 
     @GET("api/billing/cost")
@@ -31,30 +32,35 @@ interface PianoApi {
 
     @POST("api/billing/google-play/verify")
     suspend fun verifyPurchase(
-        @Header("X-User-Id") userId: String,
+        @Header("Authorization") authHeader: String? = null,
+        @Header("X-User-Id") userId: String? = null,
         @Body request: VerifyPurchaseRequest
     ): VerifyPurchaseResponse
 
     @POST("api/transcriptions")
     suspend fun createTranscription(
         @Body request: CreateTranscriptionRequest,
+        @Header("Authorization") authHeader: String? = null,
         @Header("X-User-Id") userId: String? = null
     ): CreateTranscriptionResponse
 
     @GET("api/transcriptions/{jobId}")
     suspend fun getTranscription(
-        @Path("jobId") jobId: String
+        @Path("jobId") jobId: String,
+        @Header("Authorization") authHeader: String? = null
     ): TranscriptionStatusResponse
 
     @DELETE("api/transcriptions/{jobId}")
     suspend fun deleteTranscription(
         @Path("jobId") jobId: String,
+        @Header("Authorization") authHeader: String? = null,
         @Header("X-User-Id") userId: String? = null
     ): TranscriptionStatusResponse
 
     @Streaming
     @GET("api/transcriptions/{jobId}/midi")
     suspend fun downloadMidi(
-        @Path("jobId") jobId: String
+        @Path("jobId") jobId: String,
+        @Header("Authorization") authHeader: String? = null
     ): ResponseBody
 }

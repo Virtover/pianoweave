@@ -22,13 +22,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdaptiveNavigation(
     isLearnSelected: Boolean,
     onLearnSelect: () -> Unit,
     isStorageSelected: Boolean,
     onStorageSelect: () -> Unit,
-    onOpenThemeDialog: () -> Unit,
+    onOpenSettingsDialog: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -50,7 +51,7 @@ fun AdaptiveNavigation(
                         Surface(
                             modifier = Modifier
                                 .size(52.dp)
-                                .clickable(onClick = onOpenThemeDialog),
+                                .clickable(onClick = onOpenSettingsDialog),
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
@@ -58,7 +59,7 @@ fun AdaptiveNavigation(
                             Box(contentAlignment = Alignment.Center) {
                                 Image(
                                     painter = painterResource(id = R.drawable.app_icon),
-                                    contentDescription = null,
+                                    contentDescription = "Piano Weave Settings",
                                     modifier = Modifier
                                         .size(38.dp)
                                         .clip(CircleShape)
@@ -67,7 +68,7 @@ fun AdaptiveNavigation(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Styled Logo Text: Stacked for better Rail fit
+                        // Styled Logo Text
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "PIANO",
@@ -157,6 +158,57 @@ fun AdaptiveNavigation(
         }
     } else {
         Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clickable(onClick = onOpenSettingsDialog),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.app_icon),
+                                        contentDescription = "Piano Weave Settings",
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "PIANO ",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Light,
+                                        letterSpacing = 1.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "WEAVE",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+            },
             bottomBar = {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -192,7 +244,7 @@ fun AdaptiveNavigation(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 24.dp, vertical = 20.dp)
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
             ) {
                 content()
             }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.midi.MidiStorage
 import kotlinx.coroutines.delay
 
@@ -18,11 +19,13 @@ class TranscriptionWorker(
         val serverUrl = inputData.getString(KEY_SERVER_URL) ?: "http://localhost:8000/"
 
         val api = PianoApiFactory.getApi(serverUrl)
+        val token = GoogleAuthManager.getSavedIdToken(applicationContext)
+        val authHeader = GoogleAuthManager.getAuthHeader(token)
 
         try {
             while (!isStopped) {
                 val job = try {
-                    api.getTranscription(jobId)
+                    api.getTranscription(jobId, authHeader = authHeader)
                 } catch (e: Exception) {
                     return Result.retry()
                 }
@@ -30,7 +33,7 @@ class TranscriptionWorker(
                 when (job.status) {
                     "completed" -> {
                         val midiResponse = try {
-                            api.downloadMidi(jobId)
+                            api.downloadMidi(jobId, authHeader = authHeader)
                         } catch (e: Exception) {
                             return Result.retry()
                         }

@@ -25,7 +25,7 @@ import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.PianoPlayer
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.AdaptiveNavigation
-import com.lumenchord.pianoweave.ui.components.AppThemeDialog
+import com.lumenchord.pianoweave.ui.components.AppSettingsDialog
 import com.lumenchord.pianoweave.ui.screens.LearnScreen
 import com.lumenchord.pianoweave.ui.screens.PianoRollScreen
 import com.lumenchord.pianoweave.ui.screens.StorageScreen
@@ -115,7 +115,7 @@ private fun PianoWeaveApp(
     context: Context
 ) {
     var selectedTab by remember { mutableStateOf(AppTab.Learn) }
-    var showThemeDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
     LaunchedEffect(selectedTab) {
@@ -129,7 +129,7 @@ private fun PianoWeaveApp(
         onLearnSelect = { selectedTab = AppTab.Learn },
         isStorageSelected = selectedTab == AppTab.Storage,
         onStorageSelect = { selectedTab = AppTab.Storage },
-        onOpenThemeDialog = { showThemeDialog = true }
+        onOpenSettingsDialog = { showSettingsDialog = true }
     ) {
         when (selectedTab) {
             AppTab.Learn -> {
@@ -166,13 +166,11 @@ private fun PianoWeaveApp(
         }
     }
 
-    if (showThemeDialog) {
-        AppThemeDialog(
-            currentThemeId = viewModel.selectedThemeId,
-            onSelectTheme = { themeId ->
-                viewModel.setSelectedTheme(context, themeId)
-            },
-            onDismiss = { showThemeDialog = false }
+    if (showSettingsDialog) {
+        AppSettingsDialog(
+            viewModel = viewModel,
+            context = context,
+            onDismiss = { showSettingsDialog = false }
         )
     }
 }

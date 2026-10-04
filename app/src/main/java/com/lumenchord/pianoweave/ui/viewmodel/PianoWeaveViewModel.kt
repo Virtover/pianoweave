@@ -10,6 +10,7 @@ import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerOffer
 import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
 import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.worker.TranscriptionWorker
@@ -146,6 +147,36 @@ class PianoWeaveViewModel : ViewModel() {
     var supportMeLink by mutableStateOf<String?>(null)
         private set
 
+    // --- Google OAuth State ---
+    var serverGoogleClientId by mutableStateOf("")
+        private set
+    var customGoogleClientId by mutableStateOf("")
+        private set
+    var googleUserEmail by mutableStateOf("")
+        private set
+    var googleIdToken by mutableStateOf("")
+        private set
+    var isGoogleAuthLoading by mutableStateOf(false)
+        private set
+    var googleAuthError by mutableStateOf<String?>(null)
+        private set
+
+    val requireGoogleAccount: Boolean
+        get() = try { AppConfig.getConfig().requireGoogleAccount } catch (_: Exception) { false }
+
+    val appWebClientId: String
+        get() = try { AppConfig.getConfig().webClientId ?: "" } catch (_: Exception) { "" }
+
+    val activeGoogleClientId: String
+        get() {
+            if (customGoogleClientId.isNotBlank()) return customGoogleClientId
+            if (appWebClientId.isNotBlank()) return appWebClientId
+            return serverGoogleClientId
+        }
+
+    val isGoogleSignedIn: Boolean
+        get() = googleIdToken.isNotBlank()
+
     // Dialog flags
     var showShopDialog by mutableStateOf(false)
     var showSupportDialog by mutableStateOf(false)
@@ -177,8 +208,6 @@ class PianoWeaveViewModel : ViewModel() {
         }
     }
 
-    // Retention warning dialog removed
-
     fun getOrCreateUserId(context: Context): String {
         if (userId.isNotBlank()) return userId
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
@@ -189,6 +218,63 @@ class PianoWeaveViewModel : ViewModel() {
         }
         userId = id
         return id
+    }
+
+    fun signInWithGoogle(context: Context, onResult: ((Boolean) -> Unit)? = null) {
+        val clientId = activeGoogleClientId
+        if (clientId.isBlank()) {
+            googleAuthError = "Google WEB_CLIENT_ID is not configured in Piano Weave config."
+            onResult?.invoke(false)
+            return
+        }
+
+        viewModelScope.launch {
+            isGoogleAuthLoading = true
+            googleAuthError = null
+            val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = false)
+            result.fold(
+                onSuccess = { user ->
+                    googleIdToken = user.idToken
+                    googleUserEmail = user.email
+                    googleAuthError = null
+                    isGoogleAuthLoading = false
+                    if (isBilledServer) {
+                        refreshUserBalance(context)
+                    }
+                    onResult?.invoke(true)
+                },
+                onFailure = { err ->
+                    isGoogleAuthLoading = false
+                    // Do NOT sign out or clear existing account if user cancels selection pop-up!
+                    val msg = err.localizedMessage ?: "Google account selection cancelled."
+                    googleAuthError = msg
+                    onResult?.invoke(false)
+                }
+            )
+        }
+    }
+
+    fun signOutGoogle(context: Context) {
+        GoogleAuthManager.clearAuthData(context)
+        googleIdToken = ""
+        googleUserEmail = ""
+        googleAuthError = null
+        if (isBilledServer) {
+            userCredits = 0
+        }
+    }
+
+    suspend fun ensureGoogleAuthToken(context: Context): String? {
+        if (googleIdToken.isNotBlank()) return googleIdToken
+        val clientId = activeGoogleClientId
+        if (clientId.isBlank()) return null
+
+        val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = true)
+        return result.getOrNull()?.let { user ->
+            googleIdToken = user.idToken
+            googleUserEmail = user.email
+            user.idToken
+        }
     }
 
     suspend fun testServerConnection(url: String): ServerStatus = withContext(Dispatchers.IO) {
@@ -219,18 +305,30 @@ class PianoWeaveViewModel : ViewModel() {
                     serverOffers = info.offers ?: emptyList()
                     cleanupIntervalSeconds = info.cleanupIntervalSeconds
                     freeMinutes = info.freeMinutes ?: 0
+                    serverGoogleClientId = info.googleClientId ?: ""
 
-                    val configSupport = try {
+                    supportMeLink = try {
                         AppConfig.initialize(context)
                         AppConfig.getConfig().supportMeLink
                     } catch (_: Exception) {
                         null
                     }
 
-                    supportMeLink = info.supportMeUrl.takeIf { !it.isNullOrBlank() } ?: configSupport
-
                     if (isBilledServer) {
-                        refreshUserBalance(context)
+                        val appClientId = activeGoogleClientId
+                        val srvClientId = serverGoogleClientId
+                        if (srvClientId.isNotBlank() && appClientId.isNotBlank() && !srvClientId.equals(appClientId, ignoreCase = true)) {
+                            serverStatus = ServerStatus.OFFLINE
+                            transcriptionError = "Google OAuth Client ID mismatch: Server specifies '$srvClientId' but app configuration uses '$appClientId'."
+                            return@launch
+                        }
+
+                        val token = ensureGoogleAuthToken(context)
+                        if (token.isNullOrBlank() && appClientId.isNotBlank()) {
+                            signInWithGoogle(context)
+                        } else {
+                            refreshUserBalance(context)
+                        }
                     }
                 } catch (_: Exception) {
                     billingProvider = "none"
@@ -263,12 +361,17 @@ class PianoWeaveViewModel : ViewModel() {
 
     fun refreshUserBalance(context: Context) {
         if (!isBilledServer) return
-        val uId = getOrCreateUserId(context)
         val url = activeServerUrl
+        val uId = getOrCreateUserId(context)
         viewModelScope.launch {
             try {
+                val token = ensureGoogleAuthToken(context)
+                val authHeader = GoogleAuthManager.getAuthHeader(token)
                 val api = PianoApiFactory.getApi(url)
-                val balance = api.getUserBalance(uId)
+                val balance = api.getUserBalance(
+                    authHeader = authHeader,
+                    userId = if (authHeader == null) uId else null
+                )
                 userCredits = balance.minutes
                 freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
                 freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
@@ -284,6 +387,10 @@ class PianoWeaveViewModel : ViewModel() {
         selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
         topBarSpeed = prefs.getFloat("top_bar_speed", 1.0f)
 
+        googleIdToken = GoogleAuthManager.getSavedIdToken(context) ?: ""
+        googleUserEmail = GoogleAuthManager.getSavedEmail(context) ?: ""
+        customGoogleClientId = prefs.getString("custom_google_client_id", "") ?: ""
+
         defaultServerUrl = try {
             AppConfig.initialize(context)
             AppConfig.getConfig().baseUrl
@@ -293,10 +400,19 @@ class PianoWeaveViewModel : ViewModel() {
         isCustomServer = prefs.getBoolean("use_custom_server", false)
         customServerUrl = prefs.getString("custom_server_url", "") ?: ""
 
+        if (requireGoogleAccount && !isGoogleSignedIn && activeGoogleClientId.isNotBlank()) {
+            viewModelScope.launch {
+                ensureGoogleAuthToken(context)
+                if (!isGoogleSignedIn) {
+                    signInWithGoogle(context)
+                }
+            }
+        }
+
         checkServerHealthAndInfo(context)
     }
 
-    fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String) {
+    fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) {
         if (isLoading) return
         var formattedUrl = customUrl.trim()
         if (formattedUrl.isNotEmpty()) {
@@ -309,11 +425,19 @@ class PianoWeaveViewModel : ViewModel() {
         }
         isCustomServer = useCustom
         customServerUrl = formattedUrl
+        customGoogleClientId = customClientId.trim()
+
+        // Requirement 1: Close shop dialog and reset credits/offers when connecting to another server
+        showShopDialog = false
+        userCredits = 0
+        serverOffers = emptyList()
+        billingProvider = "none"
 
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
         prefs.edit()
             .putBoolean("use_custom_server", useCustom)
             .putString("custom_server_url", formattedUrl)
+            .putString("custom_google_client_id", customGoogleClientId)
             .apply()
 
         checkServerHealthAndInfo(context)
@@ -392,10 +516,13 @@ class PianoWeaveViewModel : ViewModel() {
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val uId = getOrCreateUserId(context)
+            val token = ensureGoogleAuthToken(context)
+            val authHeader = GoogleAuthManager.getAuthHeader(token)
             val api = PianoApiFactory.getApi(activeServerUrl)
             val resp = api.verifyPurchase(
-                uId,
-                VerifyPurchaseRequest(productId, purchaseToken)
+                authHeader = authHeader,
+                userId = if (authHeader == null) uId else null,
+                request = VerifyPurchaseRequest(productId, purchaseToken)
             )
             withContext(Dispatchers.Main) {
                 userCredits = resp.minutes
@@ -529,11 +656,15 @@ class PianoWeaveViewModel : ViewModel() {
 
             if (!jobId.isNullOrBlank()) {
                 val serverUrl = activeServerUrl
-                val uId = if (isBilledServer) getOrCreateUserId(context) else null
+                val uId = if (!isBilledServer) getOrCreateUserId(context) else null
+                val token = if (isBilledServer) ensureGoogleAuthToken(context) else null
+                val authHeader = GoogleAuthManager.getAuthHeader(token)
                 WorkManager.getInstance(context).cancelUniqueWork("transcription_$jobId")
                 try {
                     val api = withContext(Dispatchers.IO) { PianoApiFactory.getApi(serverUrl) }
-                    val resp = withContext(Dispatchers.IO) { api.deleteTranscription(jobId, userId = uId) }
+                    val resp = withContext(Dispatchers.IO) {
+                        api.deleteTranscription(jobId, authHeader = authHeader, userId = uId)
+                    }
                     if (resp.minutes != null) {
                         userCredits = resp.minutes
                     }
@@ -552,13 +683,14 @@ class PianoWeaveViewModel : ViewModel() {
 
     private suspend fun pollTranscriptionJob(context: Context, jobId: String, stableUrl: String) {
         val api = PianoApiFactory.getApi(activeServerUrl)
+        val token = if (isBilledServer) GoogleAuthManager.getSavedIdToken(context) else null
+        val authHeader = GoogleAuthManager.getAuthHeader(token)
         try {
             while (currentJobId == jobId) {
                 val job = try {
-                    api.getTranscription(jobId)
+                    api.getTranscription(jobId, authHeader = authHeader)
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    // Network error / not getting response during progress tracking should retry instead of failing immediately
                     status = "Reconnecting to server..."
                     delay(2000)
                     continue
@@ -590,13 +722,12 @@ class PianoWeaveViewModel : ViewModel() {
                     while (currentJobId == jobId && !midiDownloaded) {
                         try {
                             withContext(Dispatchers.IO) {
-                                val midiResponse = api.downloadMidi(jobId)
+                                val midiResponse = api.downloadMidi(jobId, authHeader = authHeader)
                                 MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
                             }
                             midiDownloaded = true
                         } catch (e: Exception) {
                             if (e is CancellationException) throw e
-                            // Final MIDI getting retry on network error / no response
                             status = "Retrying MIDI download..."
                             delay(2000)
                         }
@@ -634,6 +765,18 @@ class PianoWeaveViewModel : ViewModel() {
         videoUrl = stableUrl
         transcriptionError = null
 
+        if (requireGoogleAccount && !isGoogleSignedIn) {
+            signInWithGoogle(context) { success ->
+                if (success) {
+                    startTranscription(context)
+                } else {
+                    status = "Google account setup required."
+                    transcriptionError = "A Google account is required by configuration."
+                }
+            }
+            return
+        }
+
         if (isBilledServer) {
             val cost = estimatedCostCredits
             if (cost != null && userCredits < cost) {
@@ -669,9 +812,32 @@ class PianoWeaveViewModel : ViewModel() {
                 status = "Submitting request to server..."
                 val api = PianoApiFactory.getApi(activeServerUrl)
                 val uId = getOrCreateUserId(context)
+                var token = if (isBilledServer || requireGoogleAccount) ensureGoogleAuthToken(context) else null
+
+                if (isBilledServer && token.isNullOrBlank() && activeGoogleClientId.isNotBlank()) {
+                    // Trigger interactive account selector
+                    var authSuccess = false
+                    signInWithGoogle(context) { success ->
+                        authSuccess = success
+                    }
+                    if (!authSuccess) {
+                        token = googleIdToken.takeIf { it.isNotBlank() }
+                    }
+                }
+
+                val authHeader = GoogleAuthManager.getAuthHeader(token)
+
+                if ((isBilledServer || requireGoogleAccount) && authHeader == null) {
+                    status = "Google authentication required."
+                    transcriptionError = "Please select a Google Account to proceed with transcription."
+                    isLoading = false
+                    return@launch
+                }
+
                 val response = api.createTranscription(
-                    CreateTranscriptionRequest(source_url = stableUrl),
-                    userId = if (isBilledServer) uId else null
+                    request = CreateTranscriptionRequest(source_url = stableUrl),
+                    authHeader = authHeader,
+                    userId = if (!isBilledServer) uId else null
                 )
 
                 val jobId = response.job_id

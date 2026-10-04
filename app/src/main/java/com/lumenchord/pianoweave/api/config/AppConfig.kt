@@ -5,7 +5,9 @@ import android.content.Context
 data class ServerConfig(
     val baseUrl: String,
     val name: String,
-    val supportMeLink: String? = null
+    val supportMeLink: String? = null,
+    val webClientId: String? = null,
+    val requireGoogleAccount: Boolean = false
 )
 
 object AppConfig {
@@ -16,6 +18,10 @@ object AppConfig {
     private const val DEFAULT_SERVER_NAME = "DEFAULT_SERVER_NAME"
     private const val SUPPORT_ME_LINK = "SUPPORT_ME_LINK"
     private const val SUPPORT_ME_URL = "SUPPORT_ME_URL"
+    private const val WEB_CLIENT_ID = "WEB_CLIENT_ID"
+    private const val GOOGLE_CLIENT_ID = "GOOGLE_CLIENT_ID"
+    private const val CLIENT_ID = "CLIENT_ID"
+    private const val REQUIRE_GOOGLE_ACCOUNT = "REQUIRE_GOOGLE_ACCOUNT"
     private var config: ServerConfig? = null
 
     fun initialize(
@@ -71,8 +77,10 @@ object AppConfig {
         }
 
         val supportMeLink = values[SUPPORT_ME_LINK] ?: values[SUPPORT_ME_URL]
+        val webClientId = values[WEB_CLIENT_ID] ?: values[GOOGLE_CLIENT_ID] ?: values[CLIENT_ID]
+        val requireGoogleAccount = values[REQUIRE_GOOGLE_ACCOUNT]?.toBooleanStrictOrNull() ?: false
 
-        config = ServerConfig(url, name, supportMeLink)
+        config = ServerConfig(url, name, supportMeLink, webClientId, requireGoogleAccount)
     }
 
     fun getConfig(): ServerConfig {

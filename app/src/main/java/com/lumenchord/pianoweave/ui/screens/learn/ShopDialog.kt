@@ -74,7 +74,6 @@ internal fun ShopDialog(
         )
     }
 
-
     DisposableEffect(Unit) {
         billingManager.startConnection {
             isBillingConnected = true
@@ -108,17 +107,6 @@ internal fun ShopDialog(
             hours > 0 -> "$hours hr${if (hours > 1) "s" else ""}, $mins min${if (mins > 1) "s" else ""}"
             mins > 0 -> "$mins min${if (mins > 1) "s" else ""}, $secs sec"
             else -> "$secs second${if (secs != 1L) "s" else ""}"
-        }
-    }
-
-    fun formatRetention(seconds: Long?): String {
-        val s = seconds ?: 86400L
-        val hours = s / 3600
-        val mins = s / 60
-        return when {
-            hours >= 1 -> "$hours hour${if (hours > 1) "s" else ""}"
-            mins >= 1 -> "$mins minute${if (mins > 1) "s" else ""}"
-            else -> "$s seconds"
         }
     }
 
@@ -254,7 +242,6 @@ internal fun ShopDialog(
                                             tint = ColorGold,
                                             modifier = Modifier.size(16.dp)
                                         )
-                                        val fm = viewModel.freeMinutes
                                         val infoText = if (grantSec <= 0) {
                                             "Free $fm credits renewal ready"
                                         } else {

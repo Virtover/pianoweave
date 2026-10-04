@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.api.config.AppConfig
-import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 
@@ -34,6 +33,7 @@ internal fun ServerSettingsDialog(
 ) {
     var selectedUseCustom by remember { mutableStateOf(viewModel.isCustomServer) }
     var customUrlText by remember { mutableStateOf(viewModel.customServerUrl) }
+    var customClientIdText by remember { mutableStateOf(viewModel.customGoogleClientId) }
     var urlError by remember { mutableStateOf<String?>(null) }
     var dialogTestStatus by remember { mutableStateOf(ServerStatus.CHECKING) }
 
@@ -83,11 +83,12 @@ internal fun ServerSettingsDialog(
         return true
     }
 
-    fun updateSettings(useCustom: Boolean, url: String) {
+    fun updateSettings(useCustom: Boolean, url: String, clientId: String) {
         selectedUseCustom = useCustom
         customUrlText = url
+        customClientIdText = clientId
         validateUrl(useCustom, url)
-        viewModel.updateServerSettings(context, useCustom, url)
+        viewModel.updateServerSettings(context, useCustom, url, clientId)
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -159,7 +160,7 @@ internal fun ServerSettingsDialog(
                         ) {
                             Surface(
                                 onClick = {
-                                    updateSettings(false, customUrlText)
+                                    updateSettings(false, customUrlText, customClientIdText)
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -180,7 +181,7 @@ internal fun ServerSettingsDialog(
                                     RadioButton(
                                         selected = !selectedUseCustom,
                                         onClick = {
-                                            updateSettings(false, customUrlText)
+                                            updateSettings(false, customUrlText, customClientIdText)
                                         },
                                         colors = RadioButtonDefaults.colors(
                                             selectedColor = ColorGold,
@@ -211,7 +212,7 @@ internal fun ServerSettingsDialog(
                         // --- Custom Server Card ---
                         Surface(
                             onClick = {
-                                updateSettings(true, customUrlText)
+                                updateSettings(true, customUrlText, customClientIdText)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -233,7 +234,7 @@ internal fun ServerSettingsDialog(
                                     RadioButton(
                                         selected = selectedUseCustom,
                                         onClick = {
-                                            updateSettings(true, customUrlText)
+                                            updateSettings(true, customUrlText, customClientIdText)
                                         },
                                         colors = RadioButtonDefaults.colors(
                                             selectedColor = ColorGold,
@@ -265,7 +266,7 @@ internal fun ServerSettingsDialog(
                                         onValueChange = {
                                             customUrlText = it
                                             validateUrl(true, it)
-                                            viewModel.updateServerSettings(context, true, it)
+                                            viewModel.updateServerSettings(context, true, it, customClientIdText)
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         label = { Text("Server URL") },
@@ -282,7 +283,41 @@ internal fun ServerSettingsDialog(
                                         trailingIcon = {
                                             if (customUrlText.isNotEmpty()) {
                                                 IconButton(onClick = {
-                                                    updateSettings(true, "")
+                                                    updateSettings(true, "", customClientIdText)
+                                                }) {
+                                                    Icon(Icons.Default.Clear, "Clear", tint = ColorTextDim)
+                                                }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = ColorGold,
+                                            unfocusedBorderColor = ColorSlate,
+                                            focusedLabelColor = ColorGold,
+                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                            cursorColor = ColorGold,
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        )
+                                    )
+
+                                    OutlinedTextField(
+                                        value = customClientIdText,
+                                        onValueChange = {
+                                            customClientIdText = it
+                                            viewModel.updateServerSettings(context, true, customUrlText, it)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text("Google OAuth Client ID (Optional)") },
+                                        placeholder = { Text("xxxx.apps.googleusercontent.com") },
+                                        singleLine = true,
+                                        supportingText = {
+                                            Text("Required if Google Play billing and OAuth auth are enabled")
+                                        },
+                                        trailingIcon = {
+                                            if (customClientIdText.isNotEmpty()) {
+                                                IconButton(onClick = {
+                                                    updateSettings(true, customUrlText, "")
                                                 }) {
                                                     Icon(Icons.Default.Clear, "Clear", tint = ColorTextDim)
                                                 }
