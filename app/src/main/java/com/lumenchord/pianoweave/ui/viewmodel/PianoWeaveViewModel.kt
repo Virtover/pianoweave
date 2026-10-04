@@ -221,6 +221,12 @@ class PianoWeaveViewModel : ViewModel() {
     }
 
     fun signInWithGoogle(context: Context, onResult: ((Boolean) -> Unit)? = null) {
+        if (isLoading) {
+            googleAuthError = "Cannot switch account during active transcription."
+            onResult?.invoke(false)
+            return
+        }
+
         val clientId = activeGoogleClientId
         if (clientId.isBlank()) {
             googleAuthError = "Google WEB_CLIENT_ID is not configured in Piano Weave config."
@@ -255,6 +261,7 @@ class PianoWeaveViewModel : ViewModel() {
     }
 
     fun signOutGoogle(context: Context) {
+        if (isLoading) return
         GoogleAuthManager.clearAuthData(context)
         googleIdToken = ""
         googleUserEmail = ""
@@ -427,7 +434,7 @@ class PianoWeaveViewModel : ViewModel() {
         customServerUrl = formattedUrl
         customGoogleClientId = customClientId.trim()
 
-        // Requirement 1: Close shop dialog and reset credits/offers when connecting to another server
+        // Close shop dialog and reset credits/offers when connecting to another server
         showShopDialog = false
         userCredits = 0
         serverOffers = emptyList()
@@ -682,11 +689,12 @@ class PianoWeaveViewModel : ViewModel() {
     }
 
     private suspend fun pollTranscriptionJob(context: Context, jobId: String, stableUrl: String) {
-        val api = PianoApiFactory.getApi(activeServerUrl)
-        val token = if (isBilledServer) GoogleAuthManager.getSavedIdToken(context) else null
-        val authHeader = GoogleAuthManager.getAuthHeader(token)
         try {
             while (currentJobId == jobId) {
+                val token = if (isBilledServer) ensureGoogleAuthToken(context) else null
+                val authHeader = GoogleAuthManager.getAuthHeader(token)
+                val api = PianoApiFactory.getApi(activeServerUrl)
+
                 val job = try {
                     api.getTranscription(jobId, authHeader = authHeader)
                 } catch (e: Exception) {
@@ -721,8 +729,11 @@ class PianoWeaveViewModel : ViewModel() {
                     var midiDownloaded = false
                     while (currentJobId == jobId && !midiDownloaded) {
                         try {
+                            val dlToken = if (isBilledServer) ensureGoogleAuthToken(context) else null
+                            val dlAuthHeader = GoogleAuthManager.getAuthHeader(dlToken)
+                            val dlApi = PianoApiFactory.getApi(activeServerUrl)
                             withContext(Dispatchers.IO) {
-                                val midiResponse = api.downloadMidi(jobId, authHeader = authHeader)
+                                val midiResponse = dlApi.downloadMidi(jobId, authHeader = dlAuthHeader)
                                 MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
                             }
                             midiDownloaded = true

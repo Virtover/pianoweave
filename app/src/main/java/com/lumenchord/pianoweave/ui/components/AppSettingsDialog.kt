@@ -46,13 +46,13 @@ fun AppSettingsDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp, vertical = 16.dp),
+                .padding(horizontal = 8.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
-                    .heightIn(max = 620.dp),
+                    .heightIn(max = 580.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = Color(0xFF161B22),
                 contentColor = Color.White,
@@ -77,7 +77,7 @@ fun AppSettingsDialog(
                                 Icons.Default.Settings,
                                 contentDescription = null,
                                 tint = previewTheme.primaryColor,
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                             Text(
                                 text = "Settings",
@@ -100,7 +100,7 @@ fun AppSettingsDialog(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
+                        modifier = Modifier.padding(vertical = 10.dp),
                         color = Color(0xFF30363D).copy(alpha = 0.6f)
                     )
 
@@ -108,7 +108,7 @@ fun AppSettingsDialog(
                         modifier = Modifier
                             .weight(1f)
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         // --- Google Account Section ---
                         Text(
@@ -120,102 +120,249 @@ fun AppSettingsDialog(
 
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = Color(0xFF0D1117),
                             border = BorderStroke(1.dp, Color(0xFF30363D))
                         ) {
-                            Column(
-                                modifier = Modifier.padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            BoxWithConstraints(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp)
                             ) {
-                                Row(
+                                val showSignOut = viewModel.isGoogleSignedIn && !viewModel.isBilledServer && !viewModel.requireGoogleAccount
+                                val emailLength = viewModel.googleUserEmail.length
+                                // Detect if horizontal spacing is tight for email + buttons
+                                val isTightSpace = maxWidth < 220.dp || (showSignOut && maxWidth < 300.dp) || (emailLength > 20 && maxWidth < 260.dp)
+
+                                Column(
                                     modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.AccountCircle,
-                                            contentDescription = null,
-                                            tint = previewTheme.primaryColor,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                        Column {
-                                            Text(
-                                                text = if (viewModel.isGoogleSignedIn) viewModel.googleUserEmail else "Not signed in",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                    if (isTightSpace) {
+                                        // Stacked layout: Full-width email header row, action buttons below aligned right
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.AccountCircle,
+                                                contentDescription = null,
+                                                tint = previewTheme.primaryColor,
+                                                modifier = Modifier.size(26.dp)
                                             )
-                                            Text(
-                                                text = if (viewModel.isGoogleSignedIn) "Signed in" else "Select a Google account",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color(0xFF8B949E)
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(Modifier.width(8.dp))
-
-                                    if (viewModel.isGoogleSignedIn) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            OutlinedButton(
-                                                onClick = { viewModel.signInWithGoogle(context) },
-                                                enabled = !viewModel.isGoogleAuthLoading,
-                                                shape = RoundedCornerShape(8.dp),
-                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                                border = BorderStroke(1.dp, Color(0xFF30363D))
-                                            ) {
-                                                Text("Switch", fontSize = 12.sp, color = Color.White)
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = if (viewModel.isGoogleSignedIn) viewModel.googleUserEmail else "Not signed in",
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                                    fontSize = 13.sp,
+                                                    color = Color.White,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = if (viewModel.isGoogleSignedIn) "Signed in" else "Select account",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 10.sp,
+                                                    color = Color(0xFF8B949E)
+                                                )
                                             }
+                                        }
 
-                                            if (!viewModel.isBilledServer && !viewModel.requireGoogleAccount) {
-                                                OutlinedButton(
-                                                    onClick = { viewModel.signOutGoogle(context) },
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                                    border = BorderStroke(1.dp, Color(0xFF8C3235))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.End,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (viewModel.isGoogleSignedIn) {
+                                                val isTranscribing = viewModel.isLoading
+                                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                    OutlinedButton(
+                                                        onClick = { viewModel.signInWithGoogle(context) },
+                                                        enabled = !viewModel.isGoogleAuthLoading && !isTranscribing,
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                        modifier = Modifier.height(30.dp),
+                                                        border = BorderStroke(
+                                                            1.dp,
+                                                            if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF30363D)
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "Switch",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Medium,
+                                                            color = if (isTranscribing) Color.Gray else Color.White
+                                                        )
+                                                    }
+
+                                                    if (showSignOut) {
+                                                        OutlinedButton(
+                                                            onClick = { viewModel.signOutGoogle(context) },
+                                                            enabled = !isTranscribing,
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                            modifier = Modifier.height(30.dp),
+                                                            border = BorderStroke(
+                                                                1.dp,
+                                                                if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF8C3235)
+                                                            )
+                                                        ) {
+                                                            Text(
+                                                                text = "Sign Out",
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.Medium,
+                                                                color = if (isTranscribing) Color.Gray else Color(0xFFE57373)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                Button(
+                                                    onClick = { viewModel.signInWithGoogle(context) },
+                                                    enabled = !viewModel.isGoogleAuthLoading,
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                                                    modifier = Modifier.height(30.dp),
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = previewTheme.primaryColor,
+                                                        contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
+                                                    )
                                                 ) {
-                                                    Text("Sign Out", fontSize = 12.sp, color = Color(0xFFE57373))
+                                                    if (viewModel.isGoogleAuthLoading) {
+                                                        CircularProgressIndicator(
+                                                            modifier = Modifier.size(12.dp),
+                                                            strokeWidth = 2.dp,
+                                                            color = Color.White
+                                                        )
+                                                    } else {
+                                                        Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
                                                 }
                                             }
                                         }
                                     } else {
-                                        Button(
-                                            onClick = { viewModel.signInWithGoogle(context) },
-                                            enabled = !viewModel.isGoogleAuthLoading,
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = previewTheme.primaryColor,
-                                                contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
-                                            )
+                                        // Single row layout when horizontal space is plentiful
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            if (viewModel.isGoogleAuthLoading) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(16.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = Color.White
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.AccountCircle,
+                                                    contentDescription = null,
+                                                    tint = previewTheme.primaryColor,
+                                                    modifier = Modifier.size(26.dp)
                                                 )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = if (viewModel.isGoogleSignedIn) viewModel.googleUserEmail else "Not signed in",
+                                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                                        fontSize = 13.sp,
+                                                        color = Color.White,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = if (viewModel.isGoogleSignedIn) "Signed in" else "Select account",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontSize = 10.sp,
+                                                        color = Color(0xFF8B949E)
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(Modifier.width(6.dp))
+
+                                            if (viewModel.isGoogleSignedIn) {
+                                                val isTranscribing = viewModel.isLoading
+                                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    OutlinedButton(
+                                                        onClick = { viewModel.signInWithGoogle(context) },
+                                                        enabled = !viewModel.isGoogleAuthLoading && !isTranscribing,
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                        modifier = Modifier.height(30.dp),
+                                                        border = BorderStroke(
+                                                            1.dp,
+                                                            if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF30363D)
+                                                        )
+                                                    ) {
+                                                        Text(
+                                                            text = "Switch",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Medium,
+                                                            color = if (isTranscribing) Color.Gray else Color.White
+                                                        )
+                                                    }
+
+                                                    if (showSignOut) {
+                                                        OutlinedButton(
+                                                            onClick = { viewModel.signOutGoogle(context) },
+                                                            enabled = !isTranscribing,
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                                            modifier = Modifier.height(30.dp),
+                                                            border = BorderStroke(
+                                                                1.dp,
+                                                                if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF8C3235)
+                                                            )
+                                                        ) {
+                                                            Text(
+                                                                text = "Sign Out",
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.Medium,
+                                                                color = if (isTranscribing) Color.Gray else Color(0xFFE57373)
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                             } else {
-                                                Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                                Button(
+                                                    onClick = { viewModel.signInWithGoogle(context) },
+                                                    enabled = !viewModel.isGoogleAuthLoading,
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                    modifier = Modifier.height(30.dp),
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = previewTheme.primaryColor,
+                                                        contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
+                                                    )
+                                                ) {
+                                                    if (viewModel.isGoogleAuthLoading) {
+                                                        CircularProgressIndicator(
+                                                            modifier = Modifier.size(12.dp),
+                                                            strokeWidth = 2.dp,
+                                                            color = Color.White
+                                                        )
+                                                    } else {
+                                                        Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                }
                                             }
                                         }
                                     }
-                                }
 
-                                if (viewModel.googleAuthError != null) {
-                                    Text(
-                                        text = viewModel.googleAuthError!!,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
+                                    if (viewModel.isLoading) {
+                                        Text(
+                                            text = "Account switching disabled during transcription",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF8B949E)
+                                        )
+                                    } else if (viewModel.googleAuthError != null) {
+                                        Text(
+                                            text = viewModel.googleAuthError!!,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -231,7 +378,7 @@ fun AppSettingsDialog(
                                 Icons.Default.Palette,
                                 contentDescription = null,
                                 tint = previewTheme.primaryColor,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = "APP THEME",
@@ -242,24 +389,24 @@ fun AppSettingsDialog(
                         }
 
                         LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 65.dp),
+                            columns = GridCells.Adaptive(minSize = 60.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 240.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .heightIn(max = 220.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             items(AppThemeManager.themes) { theme ->
                                 val isSelected = theme.id == selectedThemeId
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .clip(RoundedCornerShape(10.dp))
                                         .clickable {
                                             selectedThemeId = theme.id
                                             viewModel.setSelectedTheme(context, theme.id)
                                         },
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(10.dp),
                                     color = if (isSelected) Color(0xFF22272E) else Color(0xFF0D1117),
                                     border = BorderStroke(
                                         width = if (isSelected) 2.dp else 1.dp,
@@ -267,20 +414,20 @@ fun AppSettingsDialog(
                                     )
                                 ) {
                                     Column(
-                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(34.dp)
+                                                .size(32.dp)
                                                 .background(theme.primaryColor, CircleShape)
                                                 .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
                                             contentAlignment = Alignment.BottomEnd
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .size(13.dp)
+                                                    .size(12.dp)
                                                     .background(theme.waitTargetColor, CircleShape)
                                                     .border(1.dp, Color.Black, CircleShape)
                                             )
@@ -295,7 +442,7 @@ fun AppSettingsDialog(
                                                         Icons.Default.Check,
                                                         contentDescription = "Selected",
                                                         tint = if (theme.isLightAccent) Color.Black else Color.White,
-                                                        modifier = Modifier.size(18.dp)
+                                                        modifier = Modifier.size(16.dp)
                                                     )
                                                 }
                                             }
@@ -306,20 +453,20 @@ fun AppSettingsDialog(
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
 
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
+                            .height(44.dp),
+                        shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = previewTheme.primaryColor,
                             contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
                         )
                     ) {
-                        Text("DONE", fontWeight = FontWeight.Black, fontSize = 15.sp)
+                        Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
                     }
                 }
             }
