@@ -301,39 +301,39 @@ internal fun ServerSettingsDialog(
                                         )
                                     )
 
-                                    OutlinedTextField(
-                                        value = customClientIdText,
-                                        onValueChange = {
-                                            customClientIdText = it
-                                            viewModel.updateServerSettings(context, true, customUrlText, it)
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        label = { Text("Google OAuth Client ID (Optional)") },
-                                        placeholder = { Text("xxxx.apps.googleusercontent.com") },
-                                        singleLine = true,
-                                        supportingText = {
-                                            Text("Required if Google Play billing and OAuth auth are enabled")
-                                        },
-                                        trailingIcon = {
-                                            if (customClientIdText.isNotEmpty()) {
-                                                IconButton(onClick = {
-                                                    updateSettings(true, customUrlText, "")
-                                                }) {
-                                                    Icon(Icons.Default.Clear, "Clear", tint = ColorTextDim)
-                                                }
-                                            }
-                                        },
-                                        shape = RoundedCornerShape(8.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = ColorGold,
-                                            unfocusedBorderColor = ColorSlate,
-                                            focusedLabelColor = ColorGold,
-                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                                            cursorColor = ColorGold,
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
-                                        )
-                                    )
+//                                    OutlinedTextField(
+//                                        value = customClientIdText,
+//                                        onValueChange = {
+//                                            customClientIdText = it
+//                                            viewModel.updateServerSettings(context, true, customUrlText, it)
+//                                        },
+//                                        modifier = Modifier.fillMaxWidth(),
+//                                        label = { Text("Google OAuth Client ID (Optional)") },
+//                                        placeholder = { Text("xxxx.apps.googleusercontent.com") },
+//                                        singleLine = true,
+//                                        supportingText = {
+//                                            Text("Required if Google Play billing and OAuth auth are enabled")
+//                                        },
+//                                        trailingIcon = {
+//                                            if (customClientIdText.isNotEmpty()) {
+//                                                IconButton(onClick = {
+//                                                    updateSettings(true, customUrlText, "")
+//                                                }) {
+//                                                    Icon(Icons.Default.Clear, "Clear", tint = ColorTextDim)
+//                                                }
+//                                            }
+//                                        },
+//                                        shape = RoundedCornerShape(8.dp),
+//                                        colors = OutlinedTextFieldDefaults.colors(
+//                                            focusedBorderColor = ColorGold,
+//                                            unfocusedBorderColor = ColorSlate,
+//                                            focusedLabelColor = ColorGold,
+//                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+//                                            cursorColor = ColorGold,
+//                                            focusedTextColor = Color.White,
+//                                            unfocusedTextColor = Color.White
+//                                        )
+//                                    )
                                 }
                             }
                         }
