@@ -43,10 +43,10 @@ object GoogleAuthManager {
         return prefs.getString(KEY_USER_EMAIL, null)
     }
 
-    fun saveAuthData(context: Context, idToken: String?, email: String?) {
+    fun saveAuthData(context: Context, token: String?, email: String?) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
-            .putString(KEY_TOKEN, idToken)
+            .putString(KEY_TOKEN, token)
             .putString(KEY_USER_EMAIL, email)
             .apply()
     }
