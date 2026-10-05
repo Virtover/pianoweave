@@ -344,7 +344,6 @@ class PianoWeaveViewModel : ViewModel() {
                     serverOffers = info.offers ?: emptyList()
                     cleanupIntervalSeconds = info.cleanupIntervalSeconds
                     freeMinutes = info.freeMinutes ?: 0
-                    serverGoogleClientId = info.googleClientId ?: ""
 
                     supportMeLink = try {
                         AppConfig.initialize(context)
@@ -355,12 +354,6 @@ class PianoWeaveViewModel : ViewModel() {
 
                     if (isBilledServer) {
                         val appClientId = activeGoogleClientId
-                        val srvClientId = serverGoogleClientId
-                        if (srvClientId.isNotBlank() && appClientId.isNotBlank() && !srvClientId.equals(appClientId, ignoreCase = true)) {
-                            serverStatus = ServerStatus.OFFLINE
-                            transcriptionError = "Google OAuth Client ID mismatch: Server specifies '$srvClientId' but app configuration uses '$appClientId'."
-                            return@launch
-                        }
 
                         val token = ensureGoogleAuthToken(context)
                         if (token.isNullOrBlank() && appClientId.isNotBlank()) {

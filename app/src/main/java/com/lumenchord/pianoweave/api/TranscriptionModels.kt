@@ -46,7 +46,7 @@ data class ServerInfoResponse(
     @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Int? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
     @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
-    @SerializedName("google_oauth_client_id", alternate = ["google_client_id", "oauth_client_id", "client_id", "google_oauth_client"]) val googleClientId: String? = null
+    @SerializedName("google_oauth_client_ids", alternate = ["google_client_ids", "oauth_client_ids", "client_ids", "google_oauth_clients"]) val googleClientIds: List<String>? = null,
 )
 
 data class UserBalanceResponse(
