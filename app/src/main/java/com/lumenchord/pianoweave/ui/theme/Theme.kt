@@ -14,6 +14,7 @@ val PianoDarkColorScheme = darkColorScheme(
     onPrimaryContainer = Color(0xFFECEFF1),
     secondary = Color(0xFFD4AF37),    // Classic golden accent
     onSecondary = Color(0xFF101214),
+    secondaryContainer = Color(0xFF22272E),
     background = Color(0xFF0F1113),   // Deep piano black
     surface = Color(0xFF16181C),      // Sleek surface card
     onBackground = Color(0xFFE3E4E8),

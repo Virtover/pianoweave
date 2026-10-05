@@ -2,20 +2,12 @@ package com.lumenchord.pianoweave.ui.components
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Settings
@@ -23,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,9 +45,9 @@ fun AppSettingsDialog(
                     .fillMaxWidth(0.98f)
                     .heightIn(max = 580.dp),
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF161B22),
+                color = MaterialTheme.colorScheme.surface,
                 contentColor = Color.White,
-                border = BorderStroke(1.dp, Color(0xFF30363D))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {
                 Column(
                     modifier = Modifier
@@ -94,14 +85,14 @@ fun AppSettingsDialog(
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "Close",
-                                tint = Color(0xFF8B949E)
+                                tint = MaterialTheme.colorScheme.tertiary
                             )
                         }
                     }
 
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 10.dp),
-                        color = Color(0xFF30363D).copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
                     )
 
                     Column(
@@ -115,14 +106,14 @@ fun AppSettingsDialog(
                             text = "GOOGLE ACCOUNT",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF8B949E)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF0D1117),
-                            border = BorderStroke(1.dp, Color(0xFF30363D))
+                            color = MaterialTheme.colorScheme.background,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
                         ) {
                             BoxWithConstraints(
                                 modifier = Modifier
@@ -131,7 +122,6 @@ fun AppSettingsDialog(
                             ) {
                                 val showSignOut = viewModel.isGoogleSignedIn && !viewModel.isBilledServer && !viewModel.requireGoogleAccount
                                 val emailLength = viewModel.googleUserEmail.length
-                                // Detect if horizontal spacing is tight for email + buttons
                                 val isTightSpace = maxWidth < 220.dp || (showSignOut && maxWidth < 300.dp) || (emailLength > 20 && maxWidth < 260.dp)
 
                                 Column(
@@ -139,7 +129,6 @@ fun AppSettingsDialog(
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     if (isTightSpace) {
-                                        // Stacked layout: Full-width email header row, action buttons below aligned right
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically,
@@ -164,7 +153,7 @@ fun AppSettingsDialog(
                                                     text = if (viewModel.isGoogleSignedIn) "Signed in" else "Select account",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     fontSize = 10.sp,
-                                                    color = Color(0xFF8B949E)
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
@@ -185,7 +174,7 @@ fun AppSettingsDialog(
                                                         modifier = Modifier.height(30.dp),
                                                         border = BorderStroke(
                                                             1.dp,
-                                                            if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF30363D)
+                                                            if (isTranscribing) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.tertiaryContainer
                                                         )
                                                     ) {
                                                         Text(
@@ -205,7 +194,7 @@ fun AppSettingsDialog(
                                                             modifier = Modifier.height(30.dp),
                                                             border = BorderStroke(
                                                                 1.dp,
-                                                                if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF8C3235)
+                                                                if (isTranscribing) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f) else Color(0xFF8C3235)
                                                             )
                                                         ) {
                                                             Text(
@@ -272,7 +261,7 @@ fun AppSettingsDialog(
                                                         text = if (viewModel.isGoogleSignedIn) "Signed in" else "Select account",
                                                         style = MaterialTheme.typography.labelSmall,
                                                         fontSize = 10.sp,
-                                                        color = Color(0xFF8B949E)
+                                                        color = MaterialTheme.colorScheme.tertiary
                                                     )
                                                 }
                                             }
@@ -290,7 +279,7 @@ fun AppSettingsDialog(
                                                         modifier = Modifier.height(30.dp),
                                                         border = BorderStroke(
                                                             1.dp,
-                                                            if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF30363D)
+                                                            if (isTranscribing) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.tertiaryContainer
                                                         )
                                                     ) {
                                                         Text(
@@ -310,7 +299,7 @@ fun AppSettingsDialog(
                                                             modifier = Modifier.height(30.dp),
                                                             border = BorderStroke(
                                                                 1.dp,
-                                                                if (isTranscribing) Color(0xFF30363D).copy(alpha = 0.4f) else Color(0xFF8C3235)
+                                                                if (isTranscribing) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f) else Color(0xFF8C3235)
                                                             )
                                                         ) {
                                                             Text(
@@ -353,7 +342,7 @@ fun AppSettingsDialog(
                                             text = "Account switching disabled during transcription",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontSize = 10.sp,
-                                            color = Color(0xFF8B949E)
+                                            color = MaterialTheme.colorScheme.tertiary
                                         )
                                     } else if (viewModel.googleAuthError != null) {
                                         Text(
@@ -367,7 +356,7 @@ fun AppSettingsDialog(
                             }
                         }
 
-                        HorizontalDivider(color = Color(0xFF30363D).copy(alpha = 0.6f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
 
                         // --- App Theme Section ---
                         Row(
@@ -384,73 +373,17 @@ fun AppSettingsDialog(
                                 text = "APP THEME",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF8B949E)
+                                color = MaterialTheme.colorScheme.tertiary
                             )
                         }
 
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 60.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 220.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            items(AppThemeManager.themes) { theme ->
-                                val isSelected = theme.id == selectedThemeId
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable {
-                                            selectedThemeId = theme.id
-                                            viewModel.setSelectedTheme(context, theme.id)
-                                        },
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (isSelected) Color(0xFF22272E) else Color(0xFF0D1117),
-                                    border = BorderStroke(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) theme.primaryColor else Color(0xFF30363D)
-                                    )
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(32.dp)
-                                                .background(theme.primaryColor, CircleShape)
-                                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
-                                            contentAlignment = Alignment.BottomEnd
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(12.dp)
-                                                    .background(theme.waitTargetColor, CircleShape)
-                                                    .border(1.dp, Color.Black, CircleShape)
-                                            )
-                                            if (isSelected) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .background(Color.Black.copy(alpha = 0.25f), CircleShape),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.Check,
-                                                        contentDescription = "Selected",
-                                                        tint = if (theme.isLightAccent) Color.Black else Color.White,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                        AppThemeGrid(
+                            selectedThemeId = selectedThemeId,
+                            onSelectTheme = { themeId ->
+                                selectedThemeId = themeId
+                                viewModel.setSelectedTheme(context, themeId)
                             }
-                        }
+                        )
                     }
 
                     Spacer(Modifier.height(10.dp))

@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.lumenchord.pianoweave.ui.components.AppSettingsDialog
+import com.lumenchord.pianoweave.ui.components.AppThemeDialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import java.util.Locale
@@ -412,9 +412,11 @@ internal fun SettingsDialog(
                         }
 
                         if (showThemeDialog) {
-                            AppSettingsDialog(
-                                viewModel = viewModel,
-                                context = currentContext,
+                            AppThemeDialog(
+                                currentThemeId = viewModel.selectedThemeId,
+                                onSelectTheme = { themeId ->
+                                    viewModel.setSelectedTheme(currentContext, themeId)
+                                },
                                 onDismiss = { showThemeDialog = false }
                             )
                         }
