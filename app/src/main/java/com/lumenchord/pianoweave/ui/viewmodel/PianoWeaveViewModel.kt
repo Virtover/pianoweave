@@ -157,7 +157,7 @@ class PianoWeaveViewModel : ViewModel() {
         private set
     var googleUserEmail by mutableStateOf("")
         private set
-    var googleIdToken by mutableStateOf("")
+    var googleToken by mutableStateOf("")
         private set
     var isGoogleAuthLoading by mutableStateOf(false)
         private set
@@ -178,7 +178,7 @@ class PianoWeaveViewModel : ViewModel() {
         }
 
     val isGoogleSignedIn: Boolean
-        get() = googleIdToken.isNotBlank()
+        get() = googleToken.isNotBlank()
 
     // Dialog flags
     var showShopDialog by mutableStateOf(false)
@@ -243,7 +243,7 @@ class PianoWeaveViewModel : ViewModel() {
             val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = false)
             result.fold(
                 onSuccess = { user ->
-                    googleIdToken = user.idToken
+                    googleToken = user.token
                     googleUserEmail = user.email
                     googleAuthError = null
                     isGoogleAuthLoading = false
@@ -266,7 +266,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun signOutGoogle(context: Context) {
         if (isLoading) return
         GoogleAuthManager.clearAuthData(context)
-        googleIdToken = ""
+        googleToken = ""
         googleUserEmail = ""
         googleAuthError = null
         if (isBilledServer) {
@@ -275,15 +275,15 @@ class PianoWeaveViewModel : ViewModel() {
     }
 
     suspend fun ensureGoogleAuthToken(context: Context): String? {
-        if (googleIdToken.isNotBlank()) return googleIdToken
+        if (googleToken.isNotBlank()) return googleToken
         val clientId = activeGoogleClientId
         if (clientId.isBlank()) return null
 
         val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = true)
         return result.getOrNull()?.let { user ->
-            googleIdToken = user.idToken
+            googleToken = user.token
             googleUserEmail = user.email
-            user.idToken
+            user.token
         }
     }
 
@@ -304,9 +304,9 @@ class PianoWeaveViewModel : ViewModel() {
                     if (refreshResult.isSuccess) {
                         val user = refreshResult.getOrNull()
                         if (user != null) {
-                            googleIdToken = user.idToken
+                            googleToken = user.token
                             googleUserEmail = user.email
-                            authHeader = GoogleAuthManager.getAuthHeader(user.idToken)
+                            authHeader = GoogleAuthManager.getAuthHeader(user.token)
                             return apiCall(authHeader)
                         }
                     }
@@ -432,7 +432,7 @@ class PianoWeaveViewModel : ViewModel() {
         selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
         topBarSpeed = prefs.getFloat("top_bar_speed", 1.0f)
 
-        googleIdToken = GoogleAuthManager.getSavedIdToken(context) ?: ""
+        googleToken = GoogleAuthManager.getSavedToken(context) ?: ""
         googleUserEmail = GoogleAuthManager.getSavedEmail(context) ?: ""
         customGoogleClientId = prefs.getString("custom_google_client_id", "") ?: ""
 

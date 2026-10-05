@@ -31,7 +31,7 @@ class TranscriptionWorker(
         val customClientId = prefs.getString("custom_google_client_id", "") ?: ""
         val activeClientId = if (customClientId.isNotBlank()) customClientId else clientId
 
-        var token = GoogleAuthManager.getSavedIdToken(applicationContext)
+        var token = GoogleAuthManager.getSavedToken(applicationContext)
         var authHeader = GoogleAuthManager.getAuthHeader(token)
 
         suspend fun <T> executeWithWorkerAuthRetry(apiCall: suspend (String?) -> T): T {
@@ -44,7 +44,7 @@ class TranscriptionWorker(
                         if (refreshResult.isSuccess) {
                             val user = refreshResult.getOrNull()
                             if (user != null) {
-                                token = user.idToken
+                                token = user.token
                                 authHeader = GoogleAuthManager.getAuthHeader(token)
                                 return apiCall(authHeader)
                             }
