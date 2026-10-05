@@ -73,7 +73,8 @@ class MainActivity : ComponentActivity() {
                 ) {
                     // Pre-load local MIDI history when screen mounts
                     LaunchedEffect(Unit) {
-                        viewModel.loadSongs(applicationContext)
+                        viewModel.loadSongs(this@MainActivity)
+                        viewModel.checkServerHealthAndInfo(this@MainActivity)
                     }
 
                     // Check if an active practice session is opened

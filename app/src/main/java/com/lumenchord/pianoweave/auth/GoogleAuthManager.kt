@@ -3,6 +3,8 @@ package com.lumenchord.pianoweave.auth
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.util.Base64
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -11,6 +13,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.security.SecureRandom
 
 data class GoogleAuthUser(
     val email: String,
@@ -58,6 +61,63 @@ object GoogleAuthManager {
 
     fun getAuthHeader(token: String?): String? {
         return if (!token.isNullOrBlank()) "Bearer $token" else null
+    }
+
+    private fun generateSecureRandomNonce(byteLength: Int = 32): String {
+        val bytes = ByteArray(byteLength)
+        SecureRandom().nextBytes(bytes)
+        return Base64.encodeToString(
+            bytes,
+            Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING
+        )
+    }
+
+    suspend fun silentRefresh(
+        context: Context,
+        webClientId: String
+    ): Result<GoogleAuthUser> = withContext(Dispatchers.Main) {
+        if (webClientId.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Google Web Client ID is not configured."))
+        }
+        Log.d("SilentRefresh", "context: $context")
+        val activity = context.findActivity()
+        if (activity == null) {
+            Log.d("SilentRefresh", "Activity context is required for Google authentication.")
+            return@withContext Result.failure(IllegalStateException("Activity context is required for Google authentication."))
+        }
+        val credentialManager = CredentialManager.create(context)
+
+        try {
+            val googleIdOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(true)
+                .setServerClientId(webClientId)
+                .setAutoSelectEnabled(true)
+                .setNonce(generateSecureRandomNonce())
+                .build()
+            Log.d("SilentRefresh", "googleIdOption: $googleIdOption")
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+            Log.d("SilentRefresh", "request: $request")
+            val result = credentialManager.getCredential(
+                context = activity,
+                request = request
+            )
+            Log.d("SilentRefresh", "result: $result")
+            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+            Log.d("SilentRefresh", "googleIdTokenCredential: $googleIdTokenCredential")
+            val user = GoogleAuthUser(
+                email = googleIdTokenCredential.id,
+                idToken = googleIdTokenCredential.idToken,
+                displayName = googleIdTokenCredential.displayName
+            )
+            Log.d("SilentRefresh", "user: $user")
+            saveAuthData(context, user.idToken, user.email)
+            Log.d("SilentRefresh", "Result.success(user)")
+            Result.success(user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun signIn(
