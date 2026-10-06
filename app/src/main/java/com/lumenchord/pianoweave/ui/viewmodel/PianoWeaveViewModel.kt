@@ -1,104 +1,61 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.net.Uri
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
-import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerOffer
-import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
 import com.lumenchord.pianoweave.api.config.AppConfig
-import com.lumenchord.pianoweave.auth.GoogleAuthManager
-import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
-import com.lumenchord.pianoweave.worker.TranscriptionWorker
-import androidx.work.WorkManager
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.ExistingWorkPolicy
-import androidx.work.Constraints
-import androidx.work.NetworkType
-import androidx.work.workDataOf
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.withContext
-import retrofit2.HttpException
-import java.util.UUID
-
-enum class ServerStatus {
-    ONLINE,
-    OFFLINE,
-    CHECKING,
-    UNKNOWN
-}
 
 class PianoWeaveViewModel : ViewModel() {
 
     // --- Conversion State ---
     var videoUrl by mutableStateOf("")
-        private set
+        internal set
 
     var status by mutableStateOf("Paste a video link above to begin.")
-        private set
+        internal set
 
     var progress by mutableFloatStateOf(0f)
-        private set
+        internal set
 
     var isLoading by mutableStateOf(false)
-        private set
+        internal set
 
     var songs by mutableStateOf<List<StoredMidi>>(emptyList())
-        private set
+        internal set
 
     var currentJobId by mutableStateOf<String?>(null)
-        private set
+        internal set
 
-    private var transcriptionJob: Job? = null
+    internal var transcriptionJob: Job? = null
 
     var readySong by mutableStateOf<StoredMidi?>(null)
     var activePracticeSong by mutableStateOf<StoredMidi?>(null)
-    private var lastPlayedSongPath: String? = null
+    internal var lastPlayedSongPath: String? = null
 
     var transcriptionError by mutableStateOf<String?>(null)
-        private set
+        internal set
+
+    var isCancelling by mutableStateOf(false)
+        internal set
 
     var selectedThemeId by mutableStateOf("gold")
-        private set
-
-    fun setSelectedTheme(context: Context, themeId: String) {
-        selectedThemeId = themeId
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("selected_theme_id", themeId).apply()
-    }
-
-    fun clearTranscriptionError() {
-        transcriptionError = null
-        status = if (videoUrl.isNotBlank()) "Ready to convert." else "Paste a video link above to begin."
-        progress = 0f
-    }
+        internal set
 
     // --- Playback State (Orientation Survival) ---
     var isPlaying by mutableStateOf(false)
     var playheadMs by mutableLongStateOf(0L)
     var speedMultiplier by mutableFloatStateOf(1.0f)
     var topBarSpeed by mutableFloatStateOf(1.0f)
-        private set
+        internal set
 
-    fun setTopBarSpeed(context: Context, speed: Float) {
-        topBarSpeed = speed
-        speedMultiplier = speed
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putFloat("top_bar_speed", speed).apply()
-    }
     var isWaitModeEnabled by mutableStateOf(false)
     var isStrikeOverlayEnabled by mutableStateOf(true)
-        private set
+        internal set
+
     var isLoopingEnabled by mutableStateOf(false)
     var loopStartMs by mutableLongStateOf(0L)
     var loopEndMs by mutableLongStateOf(0L)
@@ -106,63 +63,63 @@ class PianoWeaveViewModel : ViewModel() {
 
     // --- Server Settings & Billing State ---
     var defaultServerUrl by mutableStateOf("")
-        private set
+        internal set
     var customServerUrl by mutableStateOf("")
-        private set
+        internal set
     var isCustomServer by mutableStateOf(false)
-        private set
+        internal set
     var serverStatus by mutableStateOf(ServerStatus.UNKNOWN)
-        private set
+        internal set
 
     var userId by mutableStateOf("")
-        private set
+        internal set
 
     var billingProvider by mutableStateOf("none")
-        private set
+        internal set
 
     val isBilledServer: Boolean
         get() = billingProvider.equals("google_play", ignoreCase = true)
 
     var userCredits by mutableIntStateOf(0)
-        private set
+        internal set
 
     var freeMinutes by mutableIntStateOf(0)
-        private set
+        internal set
 
     var freeMinutesSecondsUntilNextGrant by mutableStateOf<Long?>(null)
-        private set
+        internal set
 
     var freeMinutesNextGrantAt by mutableStateOf<Long?>(null)
-        private set
+        internal set
 
     var serverOffers by mutableStateOf<List<ServerOffer>>(emptyList())
-        private set
+        internal set
 
     var cleanupIntervalSeconds by mutableStateOf<Long?>(null)
-        private set
+        internal set
 
     var estimatedCostCredits by mutableStateOf<Int?>(null)
-        private set
+        internal set
 
     var isCalculatingCost by mutableStateOf(false)
-        private set
+        internal set
 
     var supportMeLink by mutableStateOf<String?>(null)
-        private set
+        internal set
 
     // --- Google OAuth State ---
     var serverGoogleClientId by mutableStateOf("")
-        private set
+        internal set
     var customGoogleClientId by mutableStateOf("")
-        private set
+        internal set
     var googleUserEmail by mutableStateOf("")
-        private set
+        internal set
     var googleToken by mutableStateOf("")
-        private set
+        internal set
     var isGoogleAuthLoading by mutableStateOf(false)
-        private set
+        internal set
     var googleAuthError by mutableStateOf<String?>(null)
-        private set
+        internal set
 
     val requireGoogleAccount: Boolean
         get() = try { AppConfig.getConfig().requireGoogleAccount } catch (_: Exception) { false }
@@ -200,714 +157,46 @@ class PianoWeaveViewModel : ViewModel() {
     val isUsingDefaultServer: Boolean
         get() = !isCustomServer || customServerUrl.isBlank() || activeServerUrl == (if (defaultServerUrl.endsWith("/")) defaultServerUrl else "$defaultServerUrl/")
 
-    fun formatRetentionTime(seconds: Long? = cleanupIntervalSeconds): String {
-        val s = seconds ?: 86400L
-        val hours = s / 3600
-        val mins = s / 60
-        return when {
-            hours >= 1 -> "$hours hour${if (hours > 1) "s" else ""}"
-            mins >= 1 -> "$mins minute${if (mins > 1) "s" else ""}"
-            else -> "$s seconds"
-        }
-    }
+    internal var balanceTickerJob: Job? = null
+    internal var costJob: Job? = null
 
-    fun getOrCreateUserId(context: Context): String {
-        if (userId.isNotBlank()) return userId
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        var id = prefs.getString("user_id", null)
-        if (id.isNullOrBlank()) {
-            id = UUID.randomUUID().toString()
-            prefs.edit().putString("user_id", id).apply()
-        }
-        userId = id
-        return id
-    }
+    var importError by mutableStateOf<String?>(null)
+        internal set
 
-    fun signInWithGoogle(context: Context, onResult: ((Boolean) -> Unit)? = null) {
-        if (isLoading) {
-            googleAuthError = "Cannot switch account during active transcription."
-            onResult?.invoke(false)
-            return
-        }
+    // --- Delegated Domain Operations ---
+    fun signInWithGoogle(context: Context, onResult: ((Boolean) -> Unit)? = null) = signInWithGoogleImpl(context, onResult)
+    fun signOutGoogle(context: Context) = signOutGoogleImpl(context)
+    suspend fun ensureGoogleAuthToken(context: Context): String? = ensureGoogleAuthTokenImpl(context)
+    suspend fun <T> executeWithAuthRetry(context: Context, apiCall: suspend (authHeader: String?) -> T): T = executeWithAuthRetryImpl(context, apiCall)
 
-        val clientId = activeGoogleClientId
-        if (clientId.isBlank()) {
-            googleAuthError = "Google WEB_CLIENT_ID is not configured in Piano Weave config."
-            onResult?.invoke(false)
-            return
-        }
+    fun calculateCostForUrl(url: String) = calculateCostForUrlImpl(url)
+    fun updateUrl(url: String) = updateUrlImpl(url)
+    fun resumeActiveJobIfAny(context: Context) = resumeActiveJobIfAnyImpl(context)
+    fun cancelTranscription(context: Context) = cancelTranscriptionImpl(context)
+    fun startTranscription(context: Context) = startTranscriptionImpl(context)
+    fun normalizeUrl(url: String): String = normalizeUrlImpl(url)
 
-        viewModelScope.launch {
-            isGoogleAuthLoading = true
-            googleAuthError = null
-            val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = false)
-            result.fold(
-                onSuccess = { user ->
-                    googleToken = user.token
-                    googleUserEmail = user.email
-                    googleAuthError = null
-                    isGoogleAuthLoading = false
-                    if (isBilledServer) {
-                        refreshUserBalance(context)
-                    }
-                    onResult?.invoke(true)
-                },
-                onFailure = { err ->
-                    isGoogleAuthLoading = false
-                    // Do NOT sign out or clear existing account if user cancels selection pop-up!
-                    val msg = err.localizedMessage ?: "Google account selection cancelled."
-                    googleAuthError = msg
-                    onResult?.invoke(false)
+    fun formatRetentionTime(seconds: Long? = cleanupIntervalSeconds): String = formatRetentionTimeImpl(seconds)
+    fun getOrCreateUserId(context: Context): String = getOrCreateUserIdImpl(context)
+    suspend fun testServerConnection(url: String): ServerStatus = testServerConnectionImpl(url)
+    fun checkServerHealthAndInfo(context: Context? = null) = checkServerHealthAndInfoImpl(context)
+    fun refreshUserBalance(context: Context) = refreshUserBalanceImpl(context)
+    fun loadPreferences(context: Context) = loadPreferencesImpl(context)
+    fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) = updateServerSettingsImpl(context, useCustom, customUrl, customClientId)
+    suspend fun verifyGooglePlayPurchase(context: Context, productId: String, purchaseToken: String): Boolean = verifyGooglePlayPurchaseImpl(context, productId, purchaseToken)
 
-                    if ((isBilledServer || requireGoogleAccount) && !isGoogleSignedIn) {
-                        signInWithGoogle(context, onResult)
-                    }
-                }
-            )
-        }
-    }
-
-    fun signOutGoogle(context: Context) {
-        if (isLoading) return
-        GoogleAuthManager.clearAuthData(context)
-        googleToken = ""
-        googleUserEmail = ""
-        googleAuthError = null
-        if (isBilledServer) {
-            userCredits = 0
-        }
-    }
-
-    suspend fun ensureGoogleAuthToken(context: Context): String? {
-        if (googleToken.isNotBlank()) return googleToken
-        val clientId = activeGoogleClientId
-        if (clientId.isBlank()) return null
-
-        val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = true)
-        return result.getOrNull()?.let { user ->
-            googleToken = user.token
-            googleUserEmail = user.email
-            user.token
-        }
-    }
-
-    suspend fun <T> executeWithAuthRetry(
-        context: Context,
-        apiCall: suspend (authHeader: String?) -> T
-    ): T {
-        val clientId = activeGoogleClientId
-        val token = ensureGoogleAuthToken(context)
-        var authHeader = GoogleAuthManager.getAuthHeader(token)
-
-        try {
-            return apiCall(authHeader)
-        } catch (e: HttpException) {
-            if (e.code() == 401 || e.code() == 503) {
-                if (clientId.isNotBlank()) {
-                    val refreshResult = GoogleAuthManager.silentRefresh(context, clientId)
-                    if (refreshResult.isSuccess) {
-                        val user = refreshResult.getOrNull()
-                        if (user != null) {
-                            googleToken = user.token
-                            googleUserEmail = user.email
-                            authHeader = GoogleAuthManager.getAuthHeader(user.token)
-                            return apiCall(authHeader)
-                        }
-                    }
-                }
-            }
-            throw e
-        }
-    }
-
-    suspend fun testServerConnection(url: String): ServerStatus = withContext(Dispatchers.IO) {
-        if (url.isBlank()) return@withContext ServerStatus.OFFLINE
-        try {
-            val api = PianoApiFactory.getApi(url)
-            val response = api.checkHealth()
-            if (response.code() > 0) {
-                ServerStatus.ONLINE
-            } else {
-                ServerStatus.OFFLINE
-            }
-        } catch (_: Exception) {
-            ServerStatus.OFFLINE
-        }
-    }
-
-    fun checkServerHealthAndInfo(context: Context? = null) {
-        val url = activeServerUrl
-        viewModelScope.launch {
-            serverStatus = ServerStatus.CHECKING
-            serverStatus = testServerConnection(url)
-            if (serverStatus == ServerStatus.ONLINE && context != null) {
-                try {
-                    val api = PianoApiFactory.getApi(url)
-                    val info = api.getServerInfo()
-                    billingProvider = info.billingProvider ?: "none"
-                    serverOffers = info.offers ?: emptyList()
-                    cleanupIntervalSeconds = info.cleanupIntervalSeconds
-                    freeMinutes = info.freeMinutes ?: 0
-
-                    supportMeLink = try {
-                        AppConfig.initialize(context)
-                        AppConfig.getConfig().supportMeLink
-                    } catch (_: Exception) {
-                        null
-                    }
-
-                    if (isBilledServer) {
-                        val appClientId = activeGoogleClientId
-
-                        val token = ensureGoogleAuthToken(context)
-                        if (token.isNullOrBlank() && appClientId.isNotBlank()) {
-                            signInWithGoogle(context)
-                        } else {
-                            refreshUserBalance(context)
-                        }
-                    }
-                } catch (_: Exception) {
-                    billingProvider = "none"
-                }
-            }
-        }
-    }
-
-    private var balanceTickerJob: Job? = null
-
-    private fun startBalanceTicker(context: Context) {
-        balanceTickerJob?.cancel()
-        balanceTickerJob = viewModelScope.launch {
-            while (isBilledServer) {
-                val nextGrant = freeMinutesNextGrantAt
-                if (nextGrant != null && nextGrant > 0) {
-                    val nowSec = System.currentTimeMillis() / 1000
-                    val remaining = (nextGrant - nowSec).coerceAtLeast(0L)
-                    freeMinutesSecondsUntilNextGrant = remaining
-                    if (remaining <= 0L) {
-                        refreshUserBalance(context)
-                        delay(10000)
-                        continue
-                    }
-                }
-                delay(1000)
-            }
-        }
-    }
-
-    fun refreshUserBalance(context: Context) {
-        if (!isBilledServer) return
-        val url = activeServerUrl
-        val uId = getOrCreateUserId(context)
-        viewModelScope.launch {
-            try {
-                val balance = executeWithAuthRetry(context) { authHeader ->
-                    val api = PianoApiFactory.getApi(url)
-                    api.getUserBalance(
-                        authHeader = authHeader,
-                        userId = if (authHeader == null) uId else null
-                    )
-                }
-                userCredits = balance.minutes
-                freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
-                freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
-                startBalanceTicker(context)
-            } catch (_: Exception) {}
-        }
-    }
-
-    private tailrec fun Context.findActivity(): Activity? = when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.findActivity()
-        else -> null
-    }
-
-    fun loadPreferences(context: Context) {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        getOrCreateUserId(context)
-        isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
-        selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
-        topBarSpeed = prefs.getFloat("top_bar_speed", 1.0f)
-
-        googleToken = GoogleAuthManager.getSavedToken(context) ?: ""
-        googleUserEmail = GoogleAuthManager.getSavedEmail(context) ?: ""
-        customGoogleClientId = prefs.getString("custom_google_client_id", "") ?: ""
-
-        defaultServerUrl = try {
-            AppConfig.initialize(context)
-            AppConfig.getConfig().baseUrl
-        } catch (_: Exception) {
-            ""
-        }
-        isCustomServer = prefs.getBoolean("use_custom_server", false)
-        customServerUrl = prefs.getString("custom_server_url", "") ?: ""
-
-        if (context.findActivity() != null) {
-            if (requireGoogleAccount && !isGoogleSignedIn && activeGoogleClientId.isNotBlank()) {
-                viewModelScope.launch {
-                    ensureGoogleAuthToken(context)
-                    if (!isGoogleSignedIn) {
-                        signInWithGoogle(context)
-                    }
-                }
-            }
-
-            checkServerHealthAndInfo(context)
-        }
-    }
-
-    fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) {
-        if (isLoading) return
-        var formattedUrl = customUrl.trim()
-        if (formattedUrl.isNotEmpty()) {
-            if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
-                formattedUrl = "http://$formattedUrl"
-            }
-            if (!formattedUrl.endsWith("/")) {
-                formattedUrl = "$formattedUrl/"
-            }
-        }
-        isCustomServer = useCustom
-        customServerUrl = formattedUrl
-        customGoogleClientId = customClientId.trim()
-
-        // Close shop dialog and reset credits/offers when connecting to another server
-        showShopDialog = false
-        userCredits = 0
-        serverOffers = emptyList()
-        billingProvider = "none"
-
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putBoolean("use_custom_server", useCustom)
-            .putString("custom_server_url", formattedUrl)
-            .putString("custom_google_client_id", customGoogleClientId)
-            .apply()
-
-        checkServerHealthAndInfo(context)
-    }
-
-    fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) {
-        isStrikeOverlayEnabled = enabled
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("is_strike_overlay_enabled", enabled).apply()
-    }
-
-    fun openPracticeSession(context: Context, song: StoredMidi) {
-        if (lastPlayedSongPath != song.file.absolutePath) {
-            playheadMs = 0L
-            isPlaying = true // Auto-play new songs
-            isLoopingEnabled = false
-            loopStartMs = 0L
-            loopEndMs = 0L
-            speedMultiplier = 1.0f
-            topBarSpeed = 1.0f
-            val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putFloat("top_bar_speed", 1.0f).apply()
-            lastPlayedSongPath = song.file.absolutePath
-        }
-        activePracticeSong = song
-    }
-
-    private var costJob: Job? = null
-
-    fun calculateCostForUrl(url: String) {
-        costJob?.cancel()
-        val stableUrl = normalizeUrl(url)
-        if (stableUrl.isBlank() || !isBilledServer) {
-            estimatedCostCredits = null
-            isCalculatingCost = false
-            return
-        }
-        isCalculatingCost = true
-        costJob = viewModelScope.launch {
-            try {
-                val api = PianoApiFactory.getApi(activeServerUrl)
-                val cost = api.getBillingCost(stableUrl)
-                estimatedCostCredits = cost.costMinutes
-            } catch (_: Exception) {
-                estimatedCostCredits = null
-            } finally {
-                isCalculatingCost = false
-            }
-        }
-    }
-
-    fun updateUrl(url: String) {
-        if (!isLoading) {
-            videoUrl = url
-            if (url.isBlank()) {
-                status = "Paste a video link above to begin."
-                progress = 0f
-                estimatedCostCredits = null
-            } else if (!status.startsWith("Error") && !status.startsWith("Failed")) {
-                status = "Ready to convert."
-                calculateCostForUrl(url)
-            }
-        }
-    }
-
+    fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)
+    fun clearTranscriptionError() = clearTranscriptionErrorImpl()
+    fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
+    fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
+    fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
     fun openShop() { showShopDialog = true }
     fun dismissShop() { showShopDialog = false }
     fun openSupport() { showSupportDialog = true }
     fun dismissSupport() { showSupportDialog = false }
     fun dismissNotEnoughCredits() { showNotEnoughCreditsDialog = false }
-
-    suspend fun verifyGooglePlayPurchase(
-        context: Context,
-        productId: String,
-        purchaseToken: String
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val uId = getOrCreateUserId(context)
-            val resp = executeWithAuthRetry(context) { authHeader ->
-                val api = PianoApiFactory.getApi(activeServerUrl)
-                api.verifyPurchase(
-                    authHeader = authHeader,
-                    userId = if (authHeader == null) uId else null,
-                    request = VerifyPurchaseRequest(productId, purchaseToken)
-                )
-            }
-            withContext(Dispatchers.Main) {
-                userCredits = resp.minutes
-            }
-            true
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    fun loadSongs(context: Context) {
-        songs = MidiStorage.list(context)
-        loadPreferences(context)
-        resumeActiveJobIfAny(context)
-    }
-
-    fun deleteSong(context: Context, song: StoredMidi) {
-        MidiStorage.delete(context, song)
-        loadSongs(context)
-        if (activePracticeSong?.file?.absolutePath == song.file.absolutePath) {
-            activePracticeSong = null
-        }
-    }
-
-    var importError by mutableStateOf<String?>(null)
-        private set
-
-    fun clearImportError() {
-        importError = null
-    }
-
-    fun importMidiFile(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                MidiStorage.importFile(context, uri)
-                withContext(Dispatchers.Main) {
-                    loadSongs(context)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    importError = e.message ?: "Failed to import file. Please select a valid MIDI file."
-                }
-            }
-        }
-    }
-
-    private fun saveActiveJob(context: Context, jobId: String, url: String) {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putString("active_job_id", jobId)
-            .putString("active_job_url", url)
-            .apply()
-    }
-
-    private fun clearActiveJob(context: Context) {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit()
-            .remove("active_job_id")
-            .remove("active_job_url")
-            .apply()
-    }
-
-    fun resumeActiveJobIfAny(context: Context) {
-        if (isLoading || transcriptionJob?.isActive == true) return
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        val savedJobId = prefs.getString("active_job_id", null)
-        val savedUrl = prefs.getString("active_job_url", null)
-
-        if (!savedJobId.isNullOrBlank() && !savedUrl.isNullOrBlank()) {
-            val storedFile = MidiStorage.find(context, savedUrl)
-            if (storedFile != null) {
-                clearActiveJob(context)
-                loadSongs(context)
-                readySong = songs.firstOrNull { it.file.absolutePath == storedFile.absolutePath }
-                status = "Ready to learn!"
-                progress = 1f
-                return
-            }
-
-            videoUrl = savedUrl
-            currentJobId = savedJobId
-            isLoading = true
-            status = "Resuming transcription job..."
-
-            enqueueTranscriptionWorker(context, savedJobId, savedUrl)
-
-            transcriptionJob = viewModelScope.launch {
-                pollTranscriptionJob(context, savedJobId, savedUrl)
-            }
-        }
-    }
-
-    private fun enqueueTranscriptionWorker(context: Context, jobId: String, stableUrl: String) {
-        val workRequest = OneTimeWorkRequestBuilder<TranscriptionWorker>()
-            .setInputData(workDataOf(
-                TranscriptionWorker.KEY_JOB_ID to jobId,
-                TranscriptionWorker.KEY_URL to stableUrl,
-                TranscriptionWorker.KEY_SERVER_URL to activeServerUrl
-            ))
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .addTag("transcription_$jobId")
-            .build()
-
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "transcription_$jobId",
-            ExistingWorkPolicy.REPLACE,
-            workRequest
-        )
-    }
-
-    var isCancelling by mutableStateOf(false)
-        private set
-
-    fun cancelTranscription(context: Context) {
-        if (isCancelling) return
-        isCancelling = true
-        status = "Cancelling transcription job..."
-
-        viewModelScope.launch {
-            var jobId = currentJobId
-            if (jobId.isNullOrBlank()) {
-                val startTime = System.currentTimeMillis()
-                while (currentJobId.isNullOrBlank() && (System.currentTimeMillis() - startTime) < 10000L && transcriptionJob?.isActive == true) {
-                    delay(100)
-                }
-                jobId = currentJobId
-            }
-
-            transcriptionJob?.cancel()
-            transcriptionJob = null
-
-            if (!jobId.isNullOrBlank()) {
-                val serverUrl = activeServerUrl
-                val uId = if (!isBilledServer) getOrCreateUserId(context) else null
-                WorkManager.getInstance(context).cancelUniqueWork("transcription_$jobId")
-                try {
-                    val resp = executeWithAuthRetry(context) { authHeader ->
-                        val api = withContext(Dispatchers.IO) { PianoApiFactory.getApi(serverUrl) }
-                        api.deleteTranscription(jobId, authHeader = authHeader, userId = uId)
-                    }
-                    if (resp.minutes != null) {
-                        userCredits = resp.minutes
-                    }
-                } catch (_: Exception) {}
-            }
-
-            currentJobId = null
-            isLoading = false
-            isCancelling = false
-            progress = 0f
-            status = "Transcription cancelled."
-            transcriptionError = null
-            clearActiveJob(context)
-        }
-    }
-
-    private suspend fun pollTranscriptionJob(context: Context, jobId: String, stableUrl: String) {
-        try {
-            while (currentJobId == jobId) {
-                val job = try {
-                    executeWithAuthRetry(context) { authHeader ->
-                        val api = PianoApiFactory.getApi(activeServerUrl)
-                        api.getTranscription(jobId, authHeader = authHeader)
-                    }
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    status = "Reconnecting to server..."
-                    delay(2000)
-                    continue
-                }
-
-                progress = job.progress
-
-                if (job.minutes != null) {
-                    userCredits = job.minutes
-                }
-
-                status = when (job.status) {
-                    "queued" -> "Queued in server pipeline..."
-                    "running", "processing" ->
-                        if (job.metadata != null) "Transcribing \"${job.metadata.title}\"..."
-                        else "AI model transcribing notes..."
-                    "completed" -> "Transcription completed."
-                    "failed" -> {
-                        val errMsg = job.error ?: "Failed: Server processing error"
-                        transcriptionError = errMsg
-                        "Error: $errMsg"
-                    }
-                    else -> job.status
-                }
-
-                if (job.status == "completed") {
-                    status = "Downloading completed MIDI file..."
-                    var midiDownloaded = false
-                    while (currentJobId == jobId && !midiDownloaded) {
-                        try {
-                            withContext(Dispatchers.IO) {
-                                executeWithAuthRetry(context) { dlAuthHeader ->
-                                    val dlApi = PianoApiFactory.getApi(activeServerUrl)
-                                    val midiResponse = dlApi.downloadMidi(jobId, authHeader = dlAuthHeader)
-                                    MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
-                                }
-                            }
-                            midiDownloaded = true
-                        } catch (e: Exception) {
-                            if (e is CancellationException) throw e
-                            status = "Retrying MIDI download..."
-                            delay(2000)
-                        }
-                    }
-                    if (!midiDownloaded) break
-
-                    progress = 1f
-                    val updatedSongs = MidiStorage.list(context)
-                    songs = updatedSongs
-                    readySong = updatedSongs.firstOrNull { it.videoUrl == stableUrl }
-                    status = "Ready to learn!"
-                    transcriptionError = null
-                    clearActiveJob(context)
-                    currentJobId = null
-                    break
-                }
-                if (job.status == "failed") {
-                    clearActiveJob(context)
-                    currentJobId = null
-                    break
-                }
-                delay(2000)
-            }
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-        } finally {
-            isLoading = false
-        }
-    }
-
-    fun startTranscription(context: Context) {
-        val stableUrl = normalizeUrl(videoUrl)
-        if (stableUrl.isBlank() || isLoading) return
-        
-        videoUrl = stableUrl
-        transcriptionError = null
-
-        if (requireGoogleAccount && !isGoogleSignedIn) {
-            signInWithGoogle(context) { success ->
-                if (success) {
-                    startTranscription(context)
-                } else {
-                    status = "Google account setup required."
-                    transcriptionError = "A Google account is required by configuration."
-                }
-            }
-            return
-        }
-
-        if (isBilledServer) {
-            val cost = estimatedCostCredits
-            if (cost != null && userCredits < cost) {
-                showNotEnoughCreditsDialog = true
-                return
-            }
-        }
-
-        proceedStartTranscription(context)
-    }
-
-    private fun proceedStartTranscription(context: Context) {
-        val stableUrl = normalizeUrl(videoUrl)
-        if (stableUrl.isBlank() || isLoading) return
-
-        transcriptionJob = viewModelScope.launch {
-            isLoading = true
-            readySong = null
-            progress = 0f
-            status = "Checking local cache..."
-
-            try {
-                val storedFile = MidiStorage.find(context, stableUrl)
-                if (storedFile != null) {
-                    progress = 1f
-                    status = "Loaded from local library cache!"
-                    loadSongs(context)
-                    readySong = songs.firstOrNull { it.file.absolutePath == storedFile.absolutePath }
-                    isLoading = false
-                    return@launch
-                }
-
-                status = "Submitting request to server..."
-                val uId = getOrCreateUserId(context)
-
-                val response = executeWithAuthRetry(context) { authHeader ->
-                    if ((isBilledServer || requireGoogleAccount) && authHeader == null) {
-                        throw IllegalAccessException("Google authentication required.")
-                    }
-                    val api = PianoApiFactory.getApi(activeServerUrl)
-                    api.createTranscription(
-                        request = CreateTranscriptionRequest(source_url = stableUrl),
-                        authHeader = authHeader,
-                        userId = if (!isBilledServer) uId else null
-                    )
-                }
-
-                val jobId = response.job_id
-                currentJobId = jobId
-                saveActiveJob(context, jobId, stableUrl)
-                enqueueTranscriptionWorker(context, jobId, stableUrl)
-                status = "Job successfully queued..."
-
-                pollTranscriptionJob(context, jobId, stableUrl)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                val errMsg = e.localizedMessage ?: "Connection error"
-                transcriptionError = errMsg
-                status = "Error: $errMsg"
-                clearActiveJob(context)
-                currentJobId = null
-                isLoading = false
-            }
-        }
-    }
-
-    private fun normalizeUrl(url: String): String {
-        var trimmed = url.trim()
-        if (trimmed.isBlank()) return trimmed
-        val ytDomain = "y" + "o" + "u" + "t" + "u" + "b" + "e.com"
-        val ytShort = "y" + "o" + "u" + "t" + "u.be"
-        val lowercase = trimmed.lowercase()
-        if (!lowercase.startsWith("http://") && !lowercase.startsWith("https://")) {
-            if (lowercase.contains(ytDomain) || lowercase.contains(ytShort)) trimmed = "https://$trimmed"
-        }
-        try {
-            val uri = Uri.parse(trimmed)
-            val host = uri.host?.lowercase() ?: ""
-            if (host.contains(ytDomain)) {
-                val videoId = uri.getQueryParameter("v")
-                if (!videoId.isNullOrBlank()) return "https://www.$ytDomain/watch?v=$videoId"
-            } else if (host.contains(ytShort)) {
-                val videoId = uri.path?.trim('/')?.split('?')?.firstOrNull()?.split('&')?.firstOrNull()
-                if (!videoId.isNullOrBlank()) return "https://$ytShort/$videoId"
-            }
-        } catch (_: Exception) {}
-        return trimmed
-    }
+    fun loadSongs(context: Context) = loadSongsImpl(context)
+    fun deleteSong(context: Context, song: StoredMidi) = deleteSongImpl(context, song)
+    fun clearImportError() = clearImportErrorImpl()
+    fun importMidiFile(context: Context, uri: Uri) = importMidiFileImpl(context, uri)
 }

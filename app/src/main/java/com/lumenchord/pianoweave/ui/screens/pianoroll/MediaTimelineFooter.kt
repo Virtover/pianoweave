@@ -157,6 +157,7 @@ internal fun MediaTimelineFooter(
                         )
                     },
                     track = { _ ->
+                        val trackInactiveColor = ColorSlate.copy(alpha = 0.5f)
                         Canvas(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -171,7 +172,7 @@ internal fun MediaTimelineFooter(
                             // 1. Inactive Track
                             val inactiveTrackHeight = 2.5.dp.toPx()
                             drawRoundRect(
-                                color = ColorSlate.copy(alpha = 0.5f),
+                                color = trackInactiveColor,
                                 topLeft = Offset(0f, centerY - inactiveTrackHeight / 2f),
                                 size = Size(totalWidth, inactiveTrackHeight),
                                 cornerRadius = CornerRadius(inactiveTrackHeight / 2f)

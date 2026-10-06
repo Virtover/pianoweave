@@ -24,6 +24,8 @@ import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
+import com.lumenchord.pianoweave.ui.viewmodel.displayText
+import com.lumenchord.pianoweave.ui.viewmodel.statusColor
 
 @Composable
 internal fun ServerSettingsDialog(
@@ -341,12 +343,8 @@ internal fun ServerSettingsDialog(
                         HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
 
                         // Active summary & Health indicator
-                        val (dotColor, statusText) = when (dialogTestStatus) {
-                            ServerStatus.ONLINE -> Color(0xFF4CAF50) to "Online"
-                            ServerStatus.OFFLINE -> Color(0xFFEF5350) to "Offline"
-                            ServerStatus.CHECKING -> Color(0xFFFFA726) to "Checking..."
-                            ServerStatus.UNKNOWN -> Color(0xFF90949F) to "Unknown"
-                        }
+                        val dotColor = dialogTestStatus.statusColor
+                        val statusText = dialogTestStatus.displayText
 
                         Surface(
                             shape = RoundedCornerShape(10.dp),

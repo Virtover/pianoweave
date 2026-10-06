@@ -27,10 +27,10 @@ internal fun SupportDialog(
     onDismiss: () -> Unit
 ) {
     val appTheme = LocalAppTheme.current
-    val ColorSurface = MaterialTheme.colorScheme.surface
-    val ColorGold = appTheme.primaryColor
-    val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val ColorTextDim = MaterialTheme.colorScheme.tertiary
+    val colorSurface = MaterialTheme.colorScheme.surface
+    val colorGold = appTheme.primaryColor
+    val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
+    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -44,9 +44,9 @@ internal fun SupportDialog(
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
-                color = ColorSurface,
+                color = colorSurface,
                 contentColor = Color.White,
-                border = BorderStroke(1.dp, ColorSlate)
+                border = BorderStroke(1.dp, colorSlate)
             ) {
                 Column(
                     modifier = Modifier
@@ -67,14 +67,14 @@ internal fun SupportDialog(
                             Icon(
                                 imageVector = Icons.Default.Favorite,
                                 contentDescription = null,
-                                tint = Color(0xFFE57373),
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(28.dp)
                             )
                             Text(
                                 text = "Support Piano Weave",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = ColorGold
+                                color = colorGold
                             )
                         }
                         IconButton(
@@ -84,12 +84,12 @@ internal fun SupportDialog(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Close",
-                                tint = ColorTextDim
+                                tint = colorTextDim
                             )
                         }
                     }
 
-                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
                     Text(
                         text = "Consider supporting Piano Weave! The transcription server is expensive to run and will be free only as long as I can afford it.",
@@ -110,7 +110,7 @@ internal fun SupportDialog(
                                 .weight(1f)
                                 .height(46.dp),
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, ColorSlate),
+                            border = BorderStroke(1.dp, colorSlate),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color.White
                             )
@@ -143,7 +143,7 @@ internal fun SupportDialog(
                                 .height(46.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = ColorGold,
+                                containerColor = colorGold,
                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                             )
                         ) {

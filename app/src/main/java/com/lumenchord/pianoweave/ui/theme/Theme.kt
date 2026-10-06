@@ -21,7 +21,9 @@ val PianoDarkColorScheme = darkColorScheme(
     onSurface = Color(0xFFE3E4E8),
     onSurfaceVariant = Color(0xFF90949F),
     outline = Color(0xFF43474E),
-    error = Color(0xFFFFB4AB),
+    error = Color(0xFFE57373),
+    errorContainer = Color(0xFF221B1C),
+    onErrorContainer = Color(0xFFE57373),
     tertiary = Color(0xFF8B949E),
     tertiaryContainer = Color(0xFF30363D)
 )

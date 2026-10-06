@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.lumenchord.pianoweave.ui.components.DangerButton
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 
 @Composable
@@ -24,10 +25,10 @@ internal fun CancelTranscriptionDialog(
     onDismiss: () -> Unit
 ) {
     val appTheme = LocalAppTheme.current
-    val ColorSurface = MaterialTheme.colorScheme.surface
-    val ColorGold = appTheme.primaryColor
-    val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val ColorTextDim = MaterialTheme.colorScheme.tertiary
+    val colorSurface = MaterialTheme.colorScheme.surface
+    val colorGold = appTheme.primaryColor
+    val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
+    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -41,9 +42,9 @@ internal fun CancelTranscriptionDialog(
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
-                color = ColorSurface,
+                color = colorSurface,
                 contentColor = Color.White,
-                border = BorderStroke(1.dp, ColorSlate)
+                border = BorderStroke(1.dp, colorSlate)
             ) {
                 Column(
                     modifier = Modifier
@@ -61,7 +62,7 @@ internal fun CancelTranscriptionDialog(
                             text = "Cancel Transcription?",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
-                            color = ColorGold
+                            color = colorGold
                         )
                         IconButton(
                             onClick = onDismiss,
@@ -70,12 +71,12 @@ internal fun CancelTranscriptionDialog(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Close",
-                                tint = ColorTextDim
+                                tint = colorTextDim
                             )
                         }
                     }
 
-                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
                     val bodyText = if (isBilledServer) {
                         "Are you sure you want to cancel this transcription job? Progress ($progressPercent%) will be lost and part of your credits will be consumed for the work already processed."
@@ -104,7 +105,7 @@ internal fun CancelTranscriptionDialog(
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = ColorGold,
+                                containerColor = colorGold,
                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                             )
                         ) {
@@ -117,18 +118,12 @@ internal fun CancelTranscriptionDialog(
                             )
                         }
 
-                        OutlinedButton(
+                        DangerButton(
                             onClick = onConfirmCancel,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                            border = BorderStroke(1.dp, Color(0xFF8C3235).copy(alpha = 0.8f)),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color(0xFF221B1C),
-                                contentColor = Color(0xFFE57373)
-                            )
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
                                 text = "Cancel Job",
