@@ -53,6 +53,10 @@ android {
 
     buildTypes {
         release {
+//            ndk {
+//                //noinspection ChromeOsAbiSupport
+//                abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+//            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -105,9 +109,8 @@ dependencies {
     implementation(libs.fluidsynth.kmp)
     implementation(libs.jtransforms)
 
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.gpu)
-    implementation(libs.tensorflow.lite.gpu.delegate.api)
+    implementation(libs.litert)
+    implementation(libs.litert.gpu)
 
 //    implementation("com.google.android.filament:filament-android:1.77.1")
 //    implementation("io.github.sceneview:sceneview:4.47.0")
