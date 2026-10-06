@@ -17,6 +17,12 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        exclusiveContent {
+            forRepository {
+                maven { url = settings.rootDir.resolve("local-maven").toURI() }
+            }
+            filter { includeGroup("dev.kotlinds") }
+        }
         google()
         mavenCentral()
     }

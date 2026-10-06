@@ -60,6 +60,20 @@ This app requires the [Piano Transcription Server](https://github.com/Virtover/p
 1. Copy `app/src/main/assets/config/config.example.txt` to `app/src/main/assets/config/config.txt`.
 2. Set your `DEFAULT_API_BASE_URL` in the config file (e.g., `http://10.0.2.2:8000/` for a local emulator).
 
+### Requirements
+
+* Android Studio (latest stable) or the Android command-line tools
+* JDK 17+
+* Android SDK Platform 37
+* Android NDK `30.0.16248370` (pinned in `app/build.gradle.kts`)
+* CMake `3.22.1`
+
+Android Studio installs the SDK, NDK and CMake on demand. From the command line (Windows):
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat" "platforms;android-37" "ndk;30.0.16248370" "cmake;3.22.1"
+```
+
 ### Build
 
 Open the project in Android Studio and build the `:app` module.
@@ -76,9 +90,13 @@ On Windows:
 .\gradlew assembleDebug
 ```
 
+Debug builds do not need a keystore. They are signed with the default Android debug key.
+
+All dependencies resolve from Maven Central, Google Maven, and the bundled `local-maven/` folder (see below). No extra steps are required after cloning.
+
 ### Release build
 
-Release builds are signed with a dedicated upload keystore for Google Play.
+Release builds are signed with a dedicated upload keystore for Google Play. If `keystore.properties` is missing (for example, on a fresh clone), release signing is skipped and only debug builds are available.
 
 Create a local `keystore.properties` file in the project root:
 
@@ -90,14 +108,6 @@ keyPassword=YOUR_KEY_PASSWORD
 ```
 
 The keystore itself should be stored outside the repository. Keep both the keystore and its passwords secure and backed up.
-
-`keystore.properties` and keystore files must not be committed to Git. Add them to `.gitignore`:
-
-```gitignore
-keystore.properties
-*.jks
-*.keystore
-```
 
 The release build uses the `release` signing configuration defined in `app/build.gradle.kts`.
 
@@ -137,3 +147,9 @@ Copyright (c) 2026 Krzysztof Olszak
 The software may be used, modified, and distributed for noncommercial purposes subject to the terms of the license.
 
 Commercial use is not permitted without prior permission from the copyright holder. For the full terms, see the LICENSE file.
+
+### Third-party software
+
+* **[FluidSynth](https://github.com/FluidSynth/fluidsynth)** is licensed under LGPL-2.1 and is dynamically linked.
+* **[fluidsynth-kmp](https://github.com/kotlinds/fluidsynth-kmp)** (Kotlin wrapper) is licensed under Apache-2.0. The modified build in `local-maven/` is built from [this fork](https://github.com/<your-username>/fluidsynth-kmp/tree/fix-16kb-alignment), and the changes are limited to linker flags and the NDK version.
+* The bundled SoundFont and ML model have their own licenses. See the files in `app/src/main/assets/`.

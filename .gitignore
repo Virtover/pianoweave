@@ -16,4 +16,6 @@
 local.properties
 /app/src/main/assets/config/config.txt
 keystore.properties
+*.jks
+*.keystore
 /app/release/*

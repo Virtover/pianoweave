@@ -1,0 +1,114 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "url": "../../fluidsynth-kmp/1.1.1-16kb/fluidsynth-kmp-1.1.1-16kb.module",
+    "group": "dev.kotlinds",
+    "module": "fluidsynth-kmp",
+    "version": "1.1.1-16kb",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.5.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.20"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "fluidsynth-kmp-release.aar",
+          "url": "fluidsynth-kmp-android-1.1.1-16kb.aar",
+          "size": 11328676,
+          "sha512": "300912725f1e208b9e619c6048fffad019d751b3913baf931ac75c115ab27756fa5cc60b3b024d2f2a63bb5768878e2a480fbc8a4f482fdbbe16373379734d5a",
+          "sha256": "bd7251022df7355ada6822a13ab8ece3d1904d6878dd0c6edd0669cf46ae5324",
+          "sha1": "35d596b8a10b9094fdac49d54de70d1dc2ee0ae4",
+          "md5": "b28a89a283306695c377ab806f0e4bf4"
+        }
+      ]
+    },
+    {
+      "name": "releaseRuntimeElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.20"
+          },
+          "excludes": [
+            {
+              "group": "org.jetbrains.kotlin",
+              "module": "kotlin-stdlib-common"
+            },
+            {
+              "group": "org.jetbrains.kotlin",
+              "module": "kotlin-test-common"
+            },
+            {
+              "group": "org.jetbrains.kotlin",
+              "module": "kotlin-test-annotations-common"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "name": "fluidsynth-kmp-release.aar",
+          "url": "fluidsynth-kmp-android-1.1.1-16kb.aar",
+          "size": 11328676,
+          "sha512": "300912725f1e208b9e619c6048fffad019d751b3913baf931ac75c115ab27756fa5cc60b3b024d2f2a63bb5768878e2a480fbc8a4f482fdbbe16373379734d5a",
+          "sha256": "bd7251022df7355ada6822a13ab8ece3d1904d6878dd0c6edd0669cf46ae5324",
+          "sha1": "35d596b8a10b9094fdac49d54de70d1dc2ee0ae4",
+          "md5": "b28a89a283306695c377ab806f0e4bf4"
+        }
+      ]
+    },
+    {
+      "name": "releaseSourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "files": [
+        {
+          "name": "fluidsynth-kmp-android-1.1.1-16kb-sources.jar",
+          "url": "fluidsynth-kmp-android-1.1.1-16kb-sources.jar",
+          "size": 8428,
+          "sha512": "24cc83609e2294c5eee5e1c131ccd7c10a4dd16761120b400fdd8afb479fc36998a4c495638e2452cd546b57df280d0ca4c18cef8af76f49b717f3173a529b69",
+          "sha256": "d81aece8e8d4b73ce4388a1793e845e859ed449c898638544cb032111797362b",
+          "sha1": "79f6d62a5a106aeb82bd17481fb04c51200c7154",
+          "md5": "28e58e0a46d1bb42cbde4c7cbdfbfaff"
+        }
+      ]
+    }
+  ]
+}

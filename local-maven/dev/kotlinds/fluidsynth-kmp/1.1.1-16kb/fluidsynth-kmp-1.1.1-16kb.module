@@ -1,0 +1,419 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "dev.kotlinds",
+    "module": "fluidsynth-kmp",
+    "version": "1.1.1-16kb",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.5.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "metadataApiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-metadata",
+        "org.jetbrains.kotlin.platform.type": "common"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.4.20"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "fluidsynth-kmp-metadata-1.1.1-16kb.jar",
+          "url": "fluidsynth-kmp-1.1.1-16kb.jar",
+          "size": 37516,
+          "sha512": "c94bbe5962c3c88ebe2b1e5b1823754624928acba453281bcb632b08e837a667c31f67387e4ff203ae26c6664f50673ca10e2741ed5e2e932a08780a0152ecaa",
+          "sha256": "4b09a375697befe221f2a82d4f3c0e2e4d923fd113d48f0483630efe67056676",
+          "sha1": "503c25f7bf534ee694361f81bfc85689e54953ef",
+          "md5": "b21d4bb11223d9d3874e9a2c900ac22b"
+        }
+      ]
+    },
+    {
+      "name": "metadataSourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-runtime",
+        "org.jetbrains.kotlin.platform.type": "common"
+      },
+      "files": [
+        {
+          "name": "fluidsynth-kmp-kotlin-1.1.1-16kb-sources.jar",
+          "url": "fluidsynth-kmp-1.1.1-16kb-sources.jar",
+          "size": 7729,
+          "sha512": "1000324e488575349d7d19a937778db110f835bc3b26cc832e1fdc08394543379973ac7e735e69931e195a37b8dce8c629e5db7f0cb0cd20d6f8563bd7ab8e62",
+          "sha256": "7a6ef124af5a7b2773d76ea32eeafabad8e69d778000d445e97b63bc8be3bf8e",
+          "sha1": "1534d0934f734ebe46518a9e98a696f76caa0e45",
+          "md5": "9b34d31c516521cf9aced1bce419ddb4"
+        }
+      ]
+    },
+    {
+      "name": "releaseApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-android/1.1.1-16kb/fluidsynth-kmp-android-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-android",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "releaseRuntimeElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-android/1.1.1-16kb/fluidsynth-kmp-android-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-android",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "releaseSourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-android/1.1.1-16kb/fluidsynth-kmp-android-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-android",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "iosArm64ApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-api",
+        "org.jetbrains.kotlin.native.target": "ios_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-iosarm64/1.1.1-16kb/fluidsynth-kmp-iosarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-iosarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "iosArm64SourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-runtime",
+        "org.jetbrains.kotlin.native.target": "ios_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-iosarm64/1.1.1-16kb/fluidsynth-kmp-iosarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-iosarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "iosArm64MetadataElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-metadata",
+        "org.jetbrains.kotlin.native.target": "ios_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-iosarm64/1.1.1-16kb/fluidsynth-kmp-iosarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-iosarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "iosSimulatorArm64ApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-api",
+        "org.jetbrains.kotlin.native.target": "ios_simulator_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-iossimulatorarm64/1.1.1-16kb/fluidsynth-kmp-iossimulatorarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-iossimulatorarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "iosSimulatorArm64SourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-runtime",
+        "org.jetbrains.kotlin.native.target": "ios_simulator_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-iossimulatorarm64/1.1.1-16kb/fluidsynth-kmp-iossimulatorarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-iossimulatorarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "iosSimulatorArm64MetadataElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-metadata",
+        "org.jetbrains.kotlin.native.target": "ios_simulator_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-iossimulatorarm64/1.1.1-16kb/fluidsynth-kmp-iossimulatorarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-iossimulatorarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "jvmApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-jvm/1.1.1-16kb/fluidsynth-kmp-jvm-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-jvm",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "jvmRuntimeElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-jvm/1.1.1-16kb/fluidsynth-kmp-jvm-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-jvm",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "jvmSourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-jvm/1.1.1-16kb/fluidsynth-kmp-jvm-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-jvm",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "linuxArm64ApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-api",
+        "org.jetbrains.kotlin.native.target": "linux_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-linuxarm64/1.1.1-16kb/fluidsynth-kmp-linuxarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-linuxarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "linuxArm64SourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-runtime",
+        "org.jetbrains.kotlin.native.target": "linux_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-linuxarm64/1.1.1-16kb/fluidsynth-kmp-linuxarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-linuxarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "linuxX64ApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-api",
+        "org.jetbrains.kotlin.native.target": "linux_x64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-linuxx64/1.1.1-16kb/fluidsynth-kmp-linuxx64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-linuxx64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "linuxX64SourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-runtime",
+        "org.jetbrains.kotlin.native.target": "linux_x64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-linuxx64/1.1.1-16kb/fluidsynth-kmp-linuxx64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-linuxx64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "macosArm64ApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-api",
+        "org.jetbrains.kotlin.native.target": "macos_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-macosarm64/1.1.1-16kb/fluidsynth-kmp-macosarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-macosarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "macosArm64SourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-runtime",
+        "org.jetbrains.kotlin.native.target": "macos_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-macosarm64/1.1.1-16kb/fluidsynth-kmp-macosarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-macosarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "macosArm64MetadataElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-metadata",
+        "org.jetbrains.kotlin.native.target": "macos_arm64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-macosarm64/1.1.1-16kb/fluidsynth-kmp-macosarm64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-macosarm64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "mingwX64ApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-api",
+        "org.jetbrains.kotlin.native.target": "mingw_x64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-mingwx64/1.1.1-16kb/fluidsynth-kmp-mingwx64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-mingwx64",
+        "version": "1.1.1-16kb"
+      }
+    },
+    {
+      "name": "mingwX64SourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "non-jvm",
+        "org.gradle.usage": "kotlin-runtime",
+        "org.jetbrains.kotlin.native.target": "mingw_x64",
+        "org.jetbrains.kotlin.platform.type": "native"
+      },
+      "available-at": {
+        "url": "../../fluidsynth-kmp-mingwx64/1.1.1-16kb/fluidsynth-kmp-mingwx64-1.1.1-16kb.module",
+        "group": "dev.kotlinds",
+        "module": "fluidsynth-kmp-mingwx64",
+        "version": "1.1.1-16kb"
+      }
+    }
+  ]
+}
