@@ -164,7 +164,7 @@ object GoogleAuthManager {
             )
 
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
-            val email = googleIdTokenCredential.id
+            val email = googleIdTokenCredential.email ?: googleIdTokenCredential.uniqueId
 
             // Credential Manager only proves who the user is. The server wants an access token.
             val accessToken = fetchAccessToken(context, email)

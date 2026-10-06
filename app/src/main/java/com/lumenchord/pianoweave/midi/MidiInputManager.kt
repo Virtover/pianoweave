@@ -28,6 +28,7 @@ object MidiInputManager {
         return activeDevice != null
     }
 
+    @Suppress("DEPRECATION")
     fun initialize(context: Context) {
         val midiManager = context.getSystemService(Context.MIDI_SERVICE) as? MidiManager ?: return
 
