@@ -258,6 +258,10 @@ class PianoWeaveViewModel : ViewModel() {
                     val msg = err.localizedMessage ?: "Google account selection cancelled."
                     googleAuthError = msg
                     onResult?.invoke(false)
+
+                    if ((isBilledServer || requireGoogleAccount) && !isGoogleSignedIn) {
+                        signInWithGoogle(context, onResult)
+                    }
                 }
             )
         }
