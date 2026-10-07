@@ -22,7 +22,7 @@
 
 ## 📱 Screenshots
 
-|                                            AI Transcription                                           |                                          Piano Roll & Wait Mode                                          |
+|                                            AI Transcription                                           |                                         Interactive Piano Roll                                          |
 | :---------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
 | <img src="docs/screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="docs/screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
 
@@ -32,8 +32,8 @@
 * **Ultra-Pro Piano Roll:** Practice with a high-fidelity interactive roll featuring A/B looping, speed control, and transposition.
 * **Grand Piano Sound:** Powered by FluidSynth and high-quality SoundFonts for a rich, realistic acoustic piano experience.
 * **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations.
-* **MIDI Integration:** Support for hardware MIDI input (USB/Bluetooth) and touch-simulated piano keys.
 * **Wait Mode:** Acoustic note detection that pauses playback until you strike the correct notes.
+* **Cloud Persistence & Sync:** Google Drive integration and cloud account support for seamless backup and synchronization of your saved MIDI songs and practice sessions.
 
 ## 💬 Community & Support
 
