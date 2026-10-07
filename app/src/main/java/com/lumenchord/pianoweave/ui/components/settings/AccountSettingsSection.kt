@@ -75,7 +75,7 @@ fun AccountSettingsSection(
                                     text = if (viewModel.isGoogleSignedIn) viewModel.googleUserEmail else "Not signed in",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     fontSize = 13.sp,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -107,7 +107,7 @@ fun AccountSettingsSection(
                                         text = "Switch",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = if (isTranscribing) Color.Gray else Color.White
+                                        color = if (isTranscribing) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary
                                     )
                                 }
 
@@ -141,14 +141,14 @@ fun AccountSettingsSection(
                                 modifier = Modifier.height(30.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = previewTheme.primaryColor,
-                                    contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
+                                    contentColor = if (previewTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
                                 )
                             ) {
                                 if (viewModel.isGoogleAuthLoading) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(12.dp),
                                         strokeWidth = 2.dp,
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onPrimary
                                     )
                                 } else {
                                     Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 11.sp)

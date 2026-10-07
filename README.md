@@ -151,5 +151,5 @@ Commercial use is not permitted without prior permission from the copyright hold
 ### Third-party software
 
 * **[FluidSynth](https://github.com/FluidSynth/fluidsynth)** is licensed under LGPL-2.1 and is dynamically linked.
-* **[fluidsynth-kmp](https://github.com/kotlinds/fluidsynth-kmp)** (Kotlin wrapper) is licensed under Apache-2.0. The modified build in `local-maven/` is built from [this fork](https://github.com/<your-username>/fluidsynth-kmp/tree/fix-16kb-alignment), and the changes are limited to linker flags and the NDK version.
+* **[fluidsynth-kmp](https://github.com/kotlinds/fluidsynth-kmp)** (Kotlin wrapper) is licensed under Apache-2.0. The modified build in `local-maven/` is built from [this fork](https://github.com/Virtover/fluidsynth-kmp/tree/fix-16kb-alignment), and the changes are limited to linker flags and the NDK version.
 * The bundled SoundFont and ML model have their own licenses. See the files in `app/src/main/assets/`.

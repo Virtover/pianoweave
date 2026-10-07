@@ -11,8 +11,13 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.api.VideoMetadata
+import com.lumenchord.pianoweave.cloud.CloudAccountCache
+import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.MidiStorage
+import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.worker.TranscriptionWorker
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -202,13 +207,65 @@ internal suspend fun PianoWeaveViewModel.pollTranscriptionJob(context: Context, 
             if (job.status == "completed") {
                 status = "Downloading completed MIDI file..."
                 var midiDownloaded = false
+                var readyStoredMidi: StoredMidi? = null
                 while (currentJobId == jobId && !midiDownloaded) {
                     try {
                         withContext(Dispatchers.IO) {
                             executeWithAuthRetryImpl(context) { dlAuthHeader ->
                                 val dlApi = PianoApiFactory.getApi(activeServerUrl)
                                 val midiResponse = dlApi.downloadMidi(jobId, authHeader = dlAuthHeader)
-                                MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
+
+                                if (isGoogleSignedIn) {
+                                    val token = googleToken
+                                    if (token.isNotBlank()) {
+                                        val tempFile = File(context.cacheDir, "${System.currentTimeMillis()}.mid")
+                                        midiResponse.byteStream().use { input ->
+                                            tempFile.outputStream().use { output ->
+                                                input.copyTo(output)
+                                            }
+                                        }
+                                        val tempStored = StoredMidi(
+                                            file = tempFile,
+                                            videoUrl = stableUrl,
+                                            metadata = job.metadata ?: VideoMetadata(
+                                                title = "Piano Performance",
+                                                author = "Unknown",
+                                                channel = "Unknown",
+                                                channel_id = "",
+                                                channel_url = "",
+                                                upload_date = "",
+                                                duration = 0f,
+                                                thumbnail = "",
+                                                webpage_url = stableUrl,
+                                                view_count = 0L,
+                                                like_count = 0L
+                                            )
+                                        )
+                                        val uploadResult = GoogleDriveManager.uploadMidi(token, tempStored)
+                                        uploadResult.fold(
+                                            onSuccess = { cloudMidi ->
+                                                val cachedFile = CloudAccountCache.saveMidiContent(context, cloudMidi.id, tempFile)
+                                                tempFile.delete()
+                                                readyStoredMidi = StoredMidi(
+                                                    file = cachedFile,
+                                                    videoUrl = cloudMidi.videoUrl,
+                                                    metadata = cloudMidi.metadata
+                                                )
+                                                loadCloudSongs(context)
+                                            },
+                                            onFailure = {
+                                                tempFile.delete()
+                                                throw it
+                                            }
+                                        )
+                                    } else {
+                                        val savedMidi = MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
+                                        readyStoredMidi = savedMidi
+                                    }
+                                } else {
+                                    val savedMidi = MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
+                                    readyStoredMidi = savedMidi
+                                }
                             }
                         }
                         midiDownloaded = true
@@ -221,9 +278,18 @@ internal suspend fun PianoWeaveViewModel.pollTranscriptionJob(context: Context, 
                 if (!midiDownloaded) break
 
                 progress = 1f
-                val updatedSongs = MidiStorage.list(context)
-                songs = updatedSongs
-                readySong = updatedSongs.firstOrNull { it.videoUrl == stableUrl }
+                if (isGoogleSignedIn) {
+                    loadCloudSongs(context)
+                    readySong = readyStoredMidi ?: cloudSongs.firstOrNull { it.videoUrl == stableUrl }?.let { cloudMidi ->
+                        CloudAccountCache.getCachedMidiFile(context, cloudMidi.id)?.let {
+                            StoredMidi(it, cloudMidi.videoUrl, cloudMidi.metadata)
+                        }
+                    }
+                } else {
+                    val updatedSongs = MidiStorage.list(context)
+                    songs = updatedSongs
+                    readySong = updatedSongs.firstOrNull { it.videoUrl == stableUrl }
+                }
                 status = "Ready to learn!"
                 transcriptionError = null
                 clearActiveJob(context)
@@ -293,6 +359,36 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
                 readySong = songs.firstOrNull { it.file.absolutePath == storedFile.absolutePath }
                 isLoading = false
                 return@launch
+            }
+
+            status = "Checking cloud cache..."
+            val cloudList = cloudSongs.ifEmpty { CloudAccountCache.loadCloudSongs(context) }
+            val matchingCloudSong = cloudList.firstOrNull { it.videoUrl == stableUrl }
+            if (matchingCloudSong != null) {
+                val cachedCloudFile = CloudAccountCache.getCachedMidiFile(context, matchingCloudSong.id)
+                val storedMidi = if (cachedCloudFile != null && cachedCloudFile.exists()) {
+                    StoredMidi(
+                        file = cachedCloudFile,
+                        videoUrl = matchingCloudSong.videoUrl,
+                        metadata = matchingCloudSong.metadata
+                    )
+                } else {
+                    val token = ensureGoogleAuthToken(context)
+                    if (!token.isNullOrBlank()) {
+                        val downloadResult = GoogleDriveManager.downloadMidiFile(context, token, matchingCloudSong)
+                        downloadResult.getOrNull()
+                    } else {
+                        null
+                    }
+                }
+
+                if (storedMidi != null) {
+                    progress = 1f
+                    status = "Loaded from cloud library!"
+                    readySong = storedMidi
+                    isLoading = false
+                    return@launch
+                }
             }
 
             status = "Submitting request to server..."

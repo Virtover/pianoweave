@@ -4,9 +4,14 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.api.VideoMetadata
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
+import com.lumenchord.pianoweave.cloud.CloudAccountCache
+import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.MidiStorage
+import com.lumenchord.pianoweave.midi.StoredMidi
+import java.io.File
 import kotlinx.coroutines.delay
 import retrofit2.HttpException
 
@@ -74,7 +79,47 @@ class TranscriptionWorker(
                         } catch (e: Exception) {
                             return Result.retry()
                         }
-                        MidiStorage.save(applicationContext, stableUrl, job.metadata, midiResponse)
+
+                        if (!token.isNullOrBlank()) {
+                            try {
+                                val tempFile = File(applicationContext.cacheDir, "${System.currentTimeMillis()}.mid")
+                                midiResponse.byteStream().use { input ->
+                                    tempFile.outputStream().use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                                val tempStored = StoredMidi(
+                                    file = tempFile,
+                                    videoUrl = stableUrl,
+                                    metadata = job.metadata ?: VideoMetadata(
+                                        title = "Piano Performance",
+                                        author = "Unknown",
+                                        channel = "Unknown",
+                                        channel_id = "",
+                                        channel_url = "",
+                                        upload_date = "",
+                                        duration = 0f,
+                                        thumbnail = "",
+                                        webpage_url = stableUrl,
+                                        view_count = 0L,
+                                        like_count = 0L
+                                    )
+                                )
+                                val uploadResult = GoogleDriveManager.uploadMidi(token, tempStored)
+                                uploadResult.fold(
+                                    onSuccess = { cloudMidi ->
+                                        CloudAccountCache.saveMidiContent(applicationContext, cloudMidi.id, tempFile)
+                                        tempFile.delete()
+                                    },
+                                    onFailure = {
+                                        tempFile.delete()
+                                    }
+                                )
+                            } catch (_: Exception) {}
+                        } else {
+                            MidiStorage.save(applicationContext, stableUrl, job.metadata, midiResponse)
+                        }
+
                         clearActiveJob(applicationContext)
                         return Result.success()
                     }

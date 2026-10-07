@@ -3,8 +3,11 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.cloud.CloudAccountCache
+import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,9 +74,28 @@ internal fun PianoWeaveViewModel.clearImportErrorImpl() {
 internal fun PianoWeaveViewModel.importMidiFileImpl(context: Context, uri: Uri) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            MidiStorage.importFile(context, uri)
+            val importedMidi = MidiStorage.importFile(context, uri)
+
+            // Auto-upload imported track to Google Account if signed in and save ONLY to cloud library
+            if (isGoogleSignedIn) {
+                try {
+                    val token = googleToken
+                    if (token.isNotBlank()) {
+                        GoogleDriveManager.uploadMidi(token, importedMidi)
+                        CloudAccountCache.saveMidiContent(context, importedMidi.file.nameWithoutExtension, importedMidi.file)
+                        importedMidi.file.delete()
+                        File(importedMidi.file.parentFile, importedMidi.file.nameWithoutExtension + ".meta").delete()
+                    }
+                } catch (_: Exception) {
+                    // Ignore background upload errors silently
+                }
+            }
+
             withContext(Dispatchers.Main) {
                 loadSongsImpl(context)
+                if (isGoogleSignedIn) {
+                    loadCloudSongsImpl(context)
+                }
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {

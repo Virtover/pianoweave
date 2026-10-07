@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import com.lumenchord.pianoweave.api.ServerOffer
 import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.StoredMidi
 import kotlinx.coroutines.Job
 
@@ -121,6 +122,16 @@ class PianoWeaveViewModel : ViewModel() {
     var googleAuthError by mutableStateOf<String?>(null)
         internal set
 
+    // --- Cloud Storage State ---
+    var cloudSongs by mutableStateOf<List<CloudMidi>>(emptyList())
+    var isCloudLoading by mutableStateOf(false)
+    var cloudError by mutableStateOf<String?>(null)
+    var showUploadDialog by mutableStateOf(false)
+    var isUploadingToCloud by mutableStateOf(false)
+    var uploadProgressText by mutableStateOf("")
+    var selectedStorageTab by mutableStateOf(StorageTab.MY_LIBRARY)
+    var selectedStorageViewName by mutableStateOf<String?>(null)
+
     val requireGoogleAccount: Boolean
         get() = try { AppConfig.getConfig().requireGoogleAccount } catch (_: Exception) { false }
 
@@ -199,4 +210,19 @@ class PianoWeaveViewModel : ViewModel() {
     fun deleteSong(context: Context, song: StoredMidi) = deleteSongImpl(context, song)
     fun clearImportError() = clearImportErrorImpl()
     fun importMidiFile(context: Context, uri: Uri) = importMidiFileImpl(context, uri)
+
+    fun loadCloudSongs(context: Context) = loadCloudSongsImpl(context)
+    fun uploadLocalSongsToCloud(context: Context) = uploadLocalSongsToCloudImpl(context)
+    fun deleteCloudSong(context: Context, cloudMidi: CloudMidi) = deleteCloudSongImpl(context, cloudMidi)
+    fun playCloudSong(context: Context, cloudMidi: CloudMidi) = playCloudSongImpl(context, cloudMidi)
+
+    fun hasShownCloudBackupDialog(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        return prefs.getBoolean("has_shown_cloud_backup_dialog", false)
+    }
+
+    fun markCloudBackupDialogShown(context: Context) {
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("has_shown_cloud_backup_dialog", true).apply()
+    }
 }

@@ -33,6 +33,16 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, onResult
                 if (isBilledServer) {
                     refreshUserBalance(context)
                 }
+
+                // Load cloud songs for the signed-in account
+                loadCloudSongs(context)
+
+                // Requirement: on sign in cloud backup dialog should appear only if it never before appeared after sign in to any account
+                if (songs.isNotEmpty() && !hasShownCloudBackupDialog(context)) {
+                    showUploadDialog = true
+                    markCloudBackupDialogShown(context)
+                }
+
                 onResult?.invoke(true)
             },
             onFailure = { err ->

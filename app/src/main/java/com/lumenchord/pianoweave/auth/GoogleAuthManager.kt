@@ -6,6 +6,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.ContextWrapper
 import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -86,27 +90,85 @@ object GoogleAuthManager {
             .addOnCanceledListener { cont.cancel() }
     }
 
+    private suspend fun resolvePendingIntent(
+        activity: Activity,
+        pendingIntent: PendingIntent
+    ): String = suspendCancellableCoroutine { cont ->
+        if (activity !is ComponentActivity) {
+            cont.resumeWithException(UserInteractionRequiredException(pendingIntent))
+            return@suspendCancellableCoroutine
+        }
+
+        val registry = activity.activityResultRegistry
+        val key = "google_auth_resolution_${System.currentTimeMillis()}"
+
+        var launcher: ActivityResultLauncher<IntentSenderRequest>? = null
+
+        launcher = registry.register(
+            key,
+            ActivityResultContracts.StartIntentSenderForResult()
+        ) { result ->
+            try {
+                if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                    val authResult = Identity.getAuthorizationClient(activity)
+                        .getAuthorizationResultFromIntent(result.data)
+                    val token = authResult.accessToken
+                    if (!token.isNullOrBlank()) {
+                        cont.resume(token)
+                    } else {
+                        cont.resumeWithException(IllegalStateException("No access token returned after resolution."))
+                    }
+                } else {
+                    cont.resumeWithException(IllegalStateException("Google authorization was cancelled or denied."))
+                }
+            } catch (e: Exception) {
+                cont.resumeWithException(e)
+            } finally {
+                launcher?.unregister()
+            }
+        }
+
+        try {
+            val request = IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+            launcher.launch(request)
+        } catch (e: Exception) {
+            launcher.unregister()
+            cont.resumeWithException(e)
+        }
+    }
+
     /**
      * Gets a fresh access token from AuthorizationClient. Returns immediately with no UI
-     * if the user already granted the scopes; throws UserInteractionRequiredException otherwise.
+     * if the user already granted the scopes; resolves pending consent resolution otherwise.
      */
     private suspend fun fetchAccessToken(context: Context, email: String?): String {
         val client = Identity.getAuthorizationClient(context)
 
         val builder = AuthorizationRequest.builder()
             .setRequestedScopes(
-                listOf(Scope(Scopes.OPEN_ID), Scope(Scopes.EMAIL), Scope(Scopes.PROFILE))
+                listOf(
+                    Scope(Scopes.OPEN_ID),
+                    Scope(Scopes.EMAIL),
+                    Scope(Scopes.PROFILE),
+                    Scope(Scopes.DRIVE_APPFOLDER)
+                )
             )
         if (!email.isNullOrBlank()) {
             builder.setAccount(Account(email, "com.google")) // pin to the known account
         }
 
-        val result = awaitTask(
-            Identity.getAuthorizationClient(context).authorize(builder.build())
-        )
+        val result = awaitTask(client.authorize(builder.build()))
+
         if (result.hasResolution()) {
-            throw UserInteractionRequiredException(result.pendingIntent)
+            val activity = context.findActivity()
+            val pendingIntent = result.pendingIntent
+            if (activity != null && pendingIntent != null) {
+                return resolvePendingIntent(activity, pendingIntent)
+            } else {
+                throw UserInteractionRequiredException(pendingIntent)
+            }
         }
+
         return result.accessToken ?: throw IllegalStateException("No access token returned.")
     }
 

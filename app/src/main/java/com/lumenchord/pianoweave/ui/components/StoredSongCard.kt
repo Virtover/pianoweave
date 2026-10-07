@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
@@ -21,11 +24,45 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.lumenchord.pianoweave.api.VideoMetadata
+import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.StoredMidi
 
 @Composable
 fun StoredSongCard(
     song: StoredMidi,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SongCard(
+        videoUrl = song.videoUrl,
+        videoMetadata = song.metadata,
+        sizeBytes = song.file.length(),
+        onDelete = onDelete,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun CloudSongCard(
+    cloudMidi: CloudMidi,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SongCard(
+        videoUrl = cloudMidi.videoUrl,
+        videoMetadata = cloudMidi.metadata,
+        sizeBytes = cloudMidi.sizeBytes,
+        onDelete = onDelete,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun SongCard(
+    videoUrl: String,
+    videoMetadata: VideoMetadata,
+    sizeBytes: Long,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -51,7 +88,7 @@ fun StoredSongCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = song.metadata.title,
+                    text = videoMetadata.title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold
                     ),
@@ -61,7 +98,7 @@ fun StoredSongCard(
                 )
 
                 Text(
-                    text = "${song.metadata.author} • ${song.videoUrl}",
+                    text = "${videoMetadata.author} • ${videoUrl}",
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -76,7 +113,7 @@ fun StoredSongCard(
                 ) {
                     Text(
                         text = "%.1f KB".format(
-                            song.file.length() / 1024.0
+                            sizeBytes / 1024.0
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

@@ -147,6 +147,7 @@ private fun PianoWeaveApp(
 
             AppTab.Storage -> {
                 StorageScreen(
+                    viewModel = viewModel,
                     songs = viewModel.songs,
                     onSongsChange = { /* Handled reactively by viewModel state updates */ },
                     context = context,
