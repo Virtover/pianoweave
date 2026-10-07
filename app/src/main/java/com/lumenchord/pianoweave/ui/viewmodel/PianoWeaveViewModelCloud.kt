@@ -151,19 +151,18 @@ internal fun PianoWeaveViewModel.playCloudSongImpl(context: Context, cloudMidi: 
     }
 
     // 3. Otherwise download from Google Drive API
-    val token = googleToken
-    if (token.isBlank()) {
-        cloudError = "Please sign in to Google to download this track."
-        return
-    }
-
     viewModelScope.launch {
         isCloudLoading = true
+        val token = ensureGoogleAuthToken(context)
+        if (token.isNullOrBlank()) {
+            isCloudLoading = false
+            cloudError = "Please sign in to Google to download this track."
+            return@launch
+        }
         val result = GoogleDriveManager.downloadMidiFile(context, token, cloudMidi)
         result.fold(
             onSuccess = { storedMidi ->
                 isCloudLoading = false
-                CloudAccountCache.saveMidiContent(context, cloudMidi.id, storedMidi.file)
                 openPracticeSession(context, storedMidi)
             },
             onFailure = { err ->

@@ -72,6 +72,19 @@ class TranscriptionWorker(
 
                 when (job.status) {
                     "completed" -> {
+                        if (!token.isNullOrBlank()) {
+                            val existingCloud = CloudAccountCache.loadCloudSongs(applicationContext).firstOrNull { it.videoUrl == stableUrl }
+                            if (existingCloud != null && CloudAccountCache.getCachedMidiFile(applicationContext, existingCloud.id) != null) {
+                                clearActiveJob(applicationContext)
+                                return Result.success()
+                            }
+                        } else {
+                            if (MidiStorage.find(applicationContext, stableUrl) != null) {
+                                clearActiveJob(applicationContext)
+                                return Result.success()
+                            }
+                        }
+
                         val midiResponse = try {
                             executeWithWorkerAuthRetry { header ->
                                 api.downloadMidi(jobId, authHeader = header)

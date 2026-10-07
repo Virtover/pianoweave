@@ -55,7 +55,9 @@ object CloudAccountCache {
     fun saveMidiContent(context: Context, fileId: String, sourceFile: File): File {
         val dir = cacheFolder(context)
         val midiFile = File(dir, "$fileId.mid")
-        sourceFile.copyTo(midiFile, overwrite = true)
+        if (sourceFile.absolutePath != midiFile.absolutePath) {
+            sourceFile.copyTo(midiFile, overwrite = true)
+        }
         return midiFile
     }
 

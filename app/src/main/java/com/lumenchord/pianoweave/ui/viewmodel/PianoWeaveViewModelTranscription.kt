@@ -205,6 +205,34 @@ internal suspend fun PianoWeaveViewModel.pollTranscriptionJob(context: Context, 
             }
 
             if (job.status == "completed") {
+                if (isGoogleSignedIn) {
+                    val existingCloud = cloudSongs.firstOrNull { it.videoUrl == stableUrl }
+                        ?: CloudAccountCache.loadCloudSongs(context).firstOrNull { it.videoUrl == stableUrl }
+                    if (existingCloud != null) {
+                        progress = 1f
+                        status = "Loaded from cloud library!"
+                        readySong = CloudAccountCache.getCachedMidiFile(context, existingCloud.id)?.let {
+                            StoredMidi(it, existingCloud.videoUrl, existingCloud.metadata)
+                        }
+                        transcriptionError = null
+                        clearActiveJob(context)
+                        currentJobId = null
+                        break
+                    }
+                } else {
+                    val existingLocal = MidiStorage.find(context, stableUrl)
+                    if (existingLocal != null) {
+                        progress = 1f
+                        status = "Loaded from local library cache!"
+                        loadSongs(context)
+                        readySong = songs.firstOrNull { it.file.absolutePath == existingLocal.absolutePath }
+                        transcriptionError = null
+                        clearActiveJob(context)
+                        currentJobId = null
+                        break
+                    }
+                }
+
                 status = "Downloading completed MIDI file..."
                 var midiDownloaded = false
                 var readyStoredMidi: StoredMidi? = null
