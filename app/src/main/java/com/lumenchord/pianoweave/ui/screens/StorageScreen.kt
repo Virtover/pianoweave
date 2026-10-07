@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -438,48 +439,52 @@ fun StorageScreen(
                         Spacer(Modifier.height(4.dp))
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             OutlinedButton(
                                 onClick = { viewModel.showUploadDialog = false },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp),
+                                    .fillMaxHeight()
+                                    .heightIn(min = 46.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, colorSlate),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.White
-                                )
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                             ) {
                                 Text(
                                     text = "Keep on device",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 
                             Button(
-                                onClick = {
-                                    viewModel.uploadLocalSongsToCloud(context)
-                                },
+                                onClick = { viewModel.uploadLocalSongsToCloud(context) },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp),
+                                    .fillMaxHeight()
+                                    .heightIn(min = 46.dp),
                                 shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = colorGold,
                                     contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                                 )
                             ) {
                                 Text(
-                                    text = "ADD TO GOOGLE",
+                                    text = "Add to Cloud",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 12.sp,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
