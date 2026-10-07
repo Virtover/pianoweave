@@ -75,6 +75,10 @@ internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Cont
     val clientId = activeGoogleClientId
     if (clientId.isBlank()) return null
 
+    if (!isBilledServer && !requireGoogleAccount) {
+        return null
+    }
+
     val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = true)
     return result.getOrNull()?.let { user ->
         googleToken = user.token
