@@ -29,6 +29,7 @@ import com.lumenchord.pianoweave.audio.PianoPlayer
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.AdaptiveNavigation
 import com.lumenchord.pianoweave.ui.components.AppSettingsDialog
+import com.lumenchord.pianoweave.ui.components.BilledServerGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.NoGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.screens.LearnScreen
 import com.lumenchord.pianoweave.ui.screens.PianoRollScreen
@@ -202,6 +203,16 @@ private fun PianoWeaveApp(
             onDismiss = {
                 viewModel.signInCancelEvent++
                 viewModel.showNoGoogleAccountDialog = false
+            }
+        )
+    }
+
+    if (viewModel.showBilledServerGoogleAccountDialog) {
+        BilledServerGoogleAccountDialog(
+            viewModel = viewModel,
+            context = context,
+            onDismiss = {
+                viewModel.dismissBilledServerGoogleAccountDialog()
             }
         )
     }

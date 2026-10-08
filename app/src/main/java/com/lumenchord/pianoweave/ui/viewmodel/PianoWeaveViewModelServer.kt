@@ -52,7 +52,7 @@ internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): 
     }
 }
 
-internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(context: Context? = null) {
+internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(context: Context? = null, isUserAction: Boolean = false) {
     val url = activeServerUrl
     viewModelScope.launch {
         serverStatus = ServerStatus.CHECKING
@@ -73,7 +73,15 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(context: Context? 
                     null
                 }
 
-                if (isBilledServer) refreshUserBalanceImpl(context)
+                if (isBilledServer) {
+                    if (isGoogleSignedIn) {
+                        refreshUserBalanceImpl(context)
+                    } else if (isUserAction) {
+                        signInWithGoogleImpl(context, isAutoSignIn = true, onResult = null)
+                    } else {
+                        refreshUserBalanceImpl(context)
+                    }
+                }
             } catch (_: Exception) {
                 billingProvider = "none"
             }
@@ -138,6 +146,8 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     googleToken = GoogleAuthManager.getSavedToken(context) ?: ""
     googleUserEmail = GoogleAuthManager.getSavedEmail(context) ?: ""
     customGoogleClientId = prefs.getString("custom_google_client_id", "") ?: ""
+    savedUnauthenticatedServerUrl = prefs.getString("last_billed_server_unauthenticated", "") ?: ""
+    isInitialConnection = true
 
     defaultServerUrl = try {
         AppConfig.initialize(context)
@@ -149,7 +159,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     customServerUrl = prefs.getString("custom_server_url", "") ?: ""
 
     if (context.findActivity() != null) {
-        checkServerHealthAndInfoImpl(context)
+        checkServerHealthAndInfoImpl(context, isUserAction = false)
     }
 }
 
@@ -180,7 +190,7 @@ internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useC
         .putString("custom_google_client_id", customGoogleClientId)
         .apply()
 
-    checkServerHealthAndInfoImpl(context)
+    checkServerHealthAndInfoImpl(context, isUserAction = true)
 }
 
 internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(

@@ -123,6 +123,9 @@ class PianoWeaveViewModel : ViewModel() {
     var googleAuthError by mutableStateOf<String?>(null)
         internal set
     var showNoGoogleAccountDialog by mutableStateOf(false)
+    var showBilledServerGoogleAccountDialog by mutableStateOf(false)
+    var savedUnauthenticatedServerUrl by mutableStateOf("")
+    var isInitialConnection by mutableStateOf(true)
 
     // --- Cloud Storage State ---
     var cloudSongs by mutableStateOf<List<CloudMidi>>(emptyList())
@@ -186,8 +189,19 @@ class PianoWeaveViewModel : ViewModel() {
 
     // --- Delegated Domain Operations ---
     fun openAddGoogleAccount(context: Context) = openAddGoogleAccountImpl(context)
-    fun signInWithGoogle(context: Context, onResult: ((Boolean) -> Unit)? = null) = signInWithGoogleImpl(context, onResult)
+    fun signInWithGoogle(context: Context, isAutoSignIn: Boolean = false, onResult: ((Boolean) -> Unit)? = null) = signInWithGoogleImpl(context, isAutoSignIn, onResult)
     fun signOutGoogle(context: Context) = signOutGoogleImpl(context)
+    fun dismissBilledServerGoogleAccountDialog() { showBilledServerGoogleAccountDialog = false }
+    fun markServerUnauthenticated(context: Context, url: String) {
+        savedUnauthenticatedServerUrl = url
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("last_billed_server_unauthenticated", url).apply()
+    }
+    fun markServerAuthenticated(context: Context) {
+        savedUnauthenticatedServerUrl = ""
+        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+        prefs.edit().remove("last_billed_server_unauthenticated").apply()
+    }
     fun withEnsuredSignIn(context: Context, action: () -> Unit) = withEnsuredSignInImpl(context, action)
     suspend fun ensureGoogleAuthToken(context: Context): String? = ensureGoogleAuthTokenImpl(context)
     suspend fun <T> executeWithAuthRetry(context: Context, apiCall: suspend (authHeader: String?) -> T): T = executeWithAuthRetryImpl(context, apiCall)

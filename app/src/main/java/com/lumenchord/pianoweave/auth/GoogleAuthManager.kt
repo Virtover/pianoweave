@@ -117,7 +117,6 @@ object GoogleAuthManager {
             if (e.code() == 401 || e.code() == 503) {
                 val clientId = getActiveClientId(context)
                 if (clientId.isNotBlank()) {
-                    if (authHeader.isNullOrBlank()) signIn(context, clientId)
                     val refreshResult = silentRefresh(context, clientId)
                     if (refreshResult.isSuccess) {
                         val user = refreshResult.getOrNull()

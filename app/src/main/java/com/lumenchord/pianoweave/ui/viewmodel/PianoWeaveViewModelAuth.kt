@@ -26,7 +26,7 @@ internal fun openAddGoogleAccountImpl(context: Context) {
         }
     }
 }
-internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, onResult: ((Boolean) -> Unit)?) {
+internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSignIn: Boolean, onResult: ((Boolean) -> Unit)?) {
     if (isLoading) {
         googleAuthError = "Cannot switch account during active transcription."
         onResult?.invoke(false)
@@ -50,6 +50,9 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, onResult
                 googleUserEmail = user.email
                 googleAuthError = null
                 isGoogleAuthLoading = false
+                
+                markServerAuthenticated(context)
+
                 if (isBilledServer) {
                     refreshUserBalance(context)
                 }
@@ -71,6 +74,10 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, onResult
                 pendingAction = null
                 isGoogleAuthLoading = false
 
+                if (isBilledServer) {
+                    markServerUnauthenticated(context, activeServerUrl)
+                }
+
                 when (err) {
                     is NoCredentialException -> {
                         // no Google account on the device
@@ -80,9 +87,16 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, onResult
                     }
                     is GetCredentialCancellationException -> {
                         signInCancelEvent++
+                        if (isAutoSignIn && isBilledServer) {
+                            showBilledServerGoogleAccountDialog = true
+                        }
+                        onResult?.invoke(false)
                     }
                     else -> {
                         googleAuthError = err.localizedMessage ?: "Google sign-in failed."
+                        if (isAutoSignIn && isBilledServer) {
+                            showBilledServerGoogleAccountDialog = true
+                        }
                         onResult?.invoke(false)
                     }
                 }
@@ -99,6 +113,7 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     googleAuthError = null
     if (isBilledServer) {
         userCredits = 0
+        markServerUnauthenticated(context, activeServerUrl)
     }
 }
 
