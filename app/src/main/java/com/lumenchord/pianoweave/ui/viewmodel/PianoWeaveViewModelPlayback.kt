@@ -86,7 +86,7 @@ internal fun PianoWeaveViewModel.importMidiFileImpl(context: Context, uri: Uri) 
                 try {
                     val token = googleToken
                     if (token.isNotBlank()) {
-                        GoogleDriveManager.uploadMidi(token, importedMidi)
+                        GoogleDriveManager.uploadMidi(context, importedMidi, token)
                         CloudAccountCache.saveMidiContent(context, importedMidi.file.nameWithoutExtension, importedMidi.file)
                         importedMidi.file.delete()
                         File(importedMidi.file.parentFile, importedMidi.file.nameWithoutExtension + ".meta").delete()

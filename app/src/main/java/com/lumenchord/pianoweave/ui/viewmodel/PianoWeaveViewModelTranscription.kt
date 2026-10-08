@@ -269,7 +269,7 @@ internal suspend fun PianoWeaveViewModel.pollTranscriptionJob(context: Context, 
                                                 like_count = 0L
                                             )
                                         )
-                                        val uploadResult = GoogleDriveManager.uploadMidi(token, tempStored)
+                                        val uploadResult = GoogleDriveManager.uploadMidi(context, tempStored, token)
                                         uploadResult.fold(
                                             onSuccess = { cloudMidi ->
                                                 val cachedFile = CloudAccountCache.saveMidiContent(context, cloudMidi.id, tempFile)
@@ -391,7 +391,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
                 } else {
                     val token = ensureGoogleAuthToken(context)
                     if (!token.isNullOrBlank()) {
-                        val downloadResult = GoogleDriveManager.downloadMidiFile(context, token, matchingCloudSong)
+                        val downloadResult = GoogleDriveManager.downloadMidiFile(context, matchingCloudSong, token)
                         downloadResult.getOrNull()
                     } else {
                         null

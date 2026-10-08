@@ -22,9 +22,11 @@ import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.lumenchord.pianoweave.api.config.AppConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -81,7 +83,53 @@ object GoogleAuthManager {
     }
 
     fun getAuthHeader(token: String?): String? {
-        return if (!token.isNullOrBlank()) "Bearer $token" else null
+        if (token.isNullOrBlank()) return null
+        return if (token.startsWith("Bearer ", ignoreCase = true)) token else "Bearer $token"
+    }
+
+    fun getActiveClientId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val customClientId = prefs.getString("custom_google_client_id", "") ?: ""
+        if (customClientId.isNotBlank()) return customClientId
+
+        return try {
+            AppConfig.initialize(context)
+            AppConfig.getConfig().webClientId ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    suspend fun <T> executeWithAuthRetry(
+        context: Context,
+        initialAuthHeader: String? = null,
+        apiCall: suspend (authHeader: String?) -> T
+    ): T {
+        var authHeader = if (!initialAuthHeader.isNullOrBlank()) {
+            getAuthHeader(initialAuthHeader)
+        } else {
+            getAuthHeader(getSavedToken(context))
+        }
+
+        try {
+            return apiCall(authHeader)
+        } catch (e: HttpException) {
+            if (e.code() == 401 || e.code() == 503) {
+                val clientId = getActiveClientId(context)
+                if (clientId.isNotBlank()) {
+                    if (authHeader.isNullOrBlank()) signIn(context, clientId)
+                    val refreshResult = silentRefresh(context, clientId)
+                    if (refreshResult.isSuccess) {
+                        val user = refreshResult.getOrNull()
+                        if (user != null) {
+                            authHeader = getAuthHeader(user.token)
+                            return apiCall(authHeader)
+                        }
+                    }
+                }
+            }
+            throw e
+        }
     }
 
     private suspend fun <T> awaitTask(task: Task<T>): T = suspendCancellableCoroutine { cont ->

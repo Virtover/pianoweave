@@ -2,18 +2,13 @@ package com.lumenchord.pianoweave.ui.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.viewModelScope
-import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.MidiExporter
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.ByteArrayInputStream
 
 enum class StorageTab {
     MY_LIBRARY,
@@ -39,7 +34,7 @@ internal fun PianoWeaveViewModel.loadCloudSongsImpl(context: Context) {
     viewModelScope.launch {
         isCloudLoading = true
         cloudError = null
-        val result = GoogleDriveManager.listCloudMidis(token)
+        val result = GoogleDriveManager.listCloudMidis(context, token)
         result.fold(
             onSuccess = { onlineList ->
                 cloudSongs = onlineList
@@ -82,7 +77,7 @@ internal fun PianoWeaveViewModel.uploadLocalSongsToCloudImpl(context: Context) {
             uploadProgressText = "Uploading ${index + 1} of ${localList.size}: ${midi.metadata.title}"
 
             val cloudId = cloudIdByUrl[midi.videoUrl]
-                ?: GoogleDriveManager.uploadMidi(token, midi)
+                ?: GoogleDriveManager.uploadMidi(context, midi, token)
                     .onFailure { failures += "${midi.metadata.title}: ${it.localizedMessage}" }
                     .getOrNull()
                     ?.id
@@ -123,7 +118,7 @@ internal fun PianoWeaveViewModel.deleteCloudSongImpl(context: Context, cloudMidi
         CloudAccountCache.deleteCloudSong(context, cloudMidi.id)
 
         if (token.isNotBlank()) {
-            GoogleDriveManager.deleteCloudMidi(token, cloudMidi.id)
+            GoogleDriveManager.deleteCloudMidi(context, cloudMidi.id, token)
         }
     }
 }
@@ -162,7 +157,7 @@ internal fun PianoWeaveViewModel.playCloudSongImpl(context: Context, cloudMidi: 
             cloudError = "Please sign in to Google to download this track."
             return@launch
         }
-        val result = GoogleDriveManager.downloadMidiFile(context, token, cloudMidi)
+        val result = GoogleDriveManager.downloadMidiFile(context, cloudMidi, token)
         result.fold(
             onSuccess = { storedMidi ->
                 isCloudLoading = false
@@ -176,7 +171,6 @@ internal fun PianoWeaveViewModel.playCloudSongImpl(context: Context, cloudMidi: 
     }
 }
 
-
 internal fun PianoWeaveViewModel.exportCloudSongImpl(context: Context, song: CloudMidi) {
     launchExport(context, song.id, song.metadata.title) {
         val cached = CloudAccountCache.getCachedMidiFile(context, song.id)
@@ -185,10 +179,10 @@ internal fun PianoWeaveViewModel.exportCloudSongImpl(context: Context, song: Clo
         } else {
             val token = ensureGoogleAuthToken(context)
                 ?: return@launchExport Result.failure(IllegalStateException("Not signed in to Google."))
-            GoogleDriveManager.downloadMidiFile(context, token, song)
-                .mapCatching { song ->
-                    MidiExporter.exportToDownloads(context, song.metadata.title) {
-                        song.file.inputStream()
+            GoogleDriveManager.downloadMidiFile(context, song, token)
+                .mapCatching { storedSong ->
+                    MidiExporter.exportToDownloads(context, storedSong.metadata.title) {
+                        storedSong.file.inputStream()
                     }.getOrThrow()
                 }
         }

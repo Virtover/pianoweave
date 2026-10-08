@@ -118,7 +118,7 @@ class TranscriptionWorker(
                                         like_count = 0L
                                     )
                                 )
-                                val uploadResult = GoogleDriveManager.uploadMidi(token, tempStored)
+                                val uploadResult = GoogleDriveManager.uploadMidi(applicationContext, tempStored, token)
                                 uploadResult.fold(
                                     onSuccess = { cloudMidi ->
                                         CloudAccountCache.saveMidiContent(applicationContext, cloudMidi.id, tempFile)

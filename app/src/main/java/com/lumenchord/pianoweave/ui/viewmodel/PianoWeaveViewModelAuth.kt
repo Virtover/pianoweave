@@ -5,7 +5,6 @@ import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 import android.content.Intent
 import android.provider.Settings
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -129,27 +128,17 @@ internal suspend fun <T> PianoWeaveViewModel.executeWithAuthRetryImpl(
     context: Context,
     apiCall: suspend (authHeader: String?) -> T
 ): T {
-    val clientId = activeGoogleClientId
-    var authHeader = GoogleAuthManager.getAuthHeader(googleToken)
-
-    try {
-        return apiCall(authHeader)
-    } catch (e: HttpException) {
-        if (e.code() == 401 || e.code() == 503) {
-            if (clientId.isNotBlank()) {
-                ensureGoogleAuthTokenImpl(context)
-                val refreshResult = GoogleAuthManager.silentRefresh(context, clientId)
-                if (refreshResult.isSuccess) {
-                    val user = refreshResult.getOrNull()
-                    if (user != null) {
-                        googleToken = user.token
-                        googleUserEmail = user.email
-                        authHeader = GoogleAuthManager.getAuthHeader(user.token)
-                        return apiCall(authHeader)
-                    }
-                }
-            }
-        }
-        throw e
+    val initialHeader = GoogleAuthManager.getAuthHeader(googleToken)
+    val result = GoogleAuthManager.executeWithAuthRetry(
+        context = context,
+        initialAuthHeader = initialHeader
+    ) { authHeader ->
+        apiCall(authHeader)
     }
+    val freshToken = GoogleAuthManager.getSavedToken(context)
+    if (!freshToken.isNullOrBlank() && freshToken != googleToken) {
+        googleToken = freshToken
+        googleUserEmail = GoogleAuthManager.getSavedEmail(context) ?: googleUserEmail
+    }
+    return result
 }
