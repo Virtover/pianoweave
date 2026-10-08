@@ -47,7 +47,7 @@ fun AccountSettingsSection(
                     .fillMaxWidth()
                     .padding(10.dp)
             ) {
-                val showSignOut = viewModel.isGoogleSignedIn && !viewModel.isBilledServer
+                val showSignOut = viewModel.isGoogleSignedIn
                 val isTranscribing = viewModel.isLoading
 
                 Column(
