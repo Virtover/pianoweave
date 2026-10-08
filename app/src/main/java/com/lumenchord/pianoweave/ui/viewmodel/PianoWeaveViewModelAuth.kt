@@ -103,8 +103,8 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     }
 }
 
-internal fun PianoWeaveViewModel.withEnsuredAuthImpl(context: Context, forceAuthWhenNonBilledServer: Boolean = false, action: () -> Unit) {
-    if (isGoogleSignedIn || (!isBilledServer && !forceAuthWhenNonBilledServer)) {
+internal fun PianoWeaveViewModel.withEnsuredSignInImpl(context: Context, action: () -> Unit) {
+    if (isGoogleSignedIn) {
         action()
     } else {
         pendingAction = action
@@ -112,12 +112,10 @@ internal fun PianoWeaveViewModel.withEnsuredAuthImpl(context: Context, forceAuth
     }
 }
 
-internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Context, forceAuthWhenNonBilledServer: Boolean = false): String? {
+internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Context): String? {
     if (googleToken.isNotBlank()) return googleToken
     val clientId = activeGoogleClientId
     if (clientId.isBlank()) return null
-
-    if (!isBilledServer && !forceAuthWhenNonBilledServer) return null
 
     val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = true)
     return result.getOrNull()?.let { user ->
@@ -129,18 +127,17 @@ internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Cont
 
 internal suspend fun <T> PianoWeaveViewModel.executeWithAuthRetryImpl(
     context: Context,
-    forceAuthWhenNonBilledServer: Boolean = false,
     apiCall: suspend (authHeader: String?) -> T
 ): T {
     val clientId = activeGoogleClientId
-    val token = ensureGoogleAuthTokenImpl(context)
-    var authHeader = GoogleAuthManager.getAuthHeader(token)
+    var authHeader = GoogleAuthManager.getAuthHeader(googleToken)
 
     try {
         return apiCall(authHeader)
     } catch (e: HttpException) {
         if (e.code() == 401 || e.code() == 503) {
             if (clientId.isNotBlank()) {
+                ensureGoogleAuthTokenImpl(context)
                 val refreshResult = GoogleAuthManager.silentRefresh(context, clientId)
                 if (refreshResult.isSuccess) {
                     val user = refreshResult.getOrNull()

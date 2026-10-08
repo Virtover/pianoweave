@@ -188,9 +188,9 @@ class PianoWeaveViewModel : ViewModel() {
     fun openAddGoogleAccount(context: Context) = openAddGoogleAccountImpl(context)
     fun signInWithGoogle(context: Context, onResult: ((Boolean) -> Unit)? = null) = signInWithGoogleImpl(context, onResult)
     fun signOutGoogle(context: Context) = signOutGoogleImpl(context)
-    fun withEnsuredAuth(context: Context, forceAuthWhenNonBilledServer: Boolean = false, action: () -> Unit) = withEnsuredAuthImpl(context, forceAuthWhenNonBilledServer, action)
-    suspend fun ensureGoogleAuthToken(context: Context, forceAuthWhenNonBilledServer: Boolean = false): String? = ensureGoogleAuthTokenImpl(context, forceAuthWhenNonBilledServer)
-    suspend fun <T> executeWithAuthRetry(context: Context, forceAuthWhenNonBilledServer: Boolean = false, apiCall: suspend (authHeader: String?) -> T): T = executeWithAuthRetryImpl(context, forceAuthWhenNonBilledServer, apiCall)
+    fun withEnsuredSignIn(context: Context, action: () -> Unit) = withEnsuredSignInImpl(context, action)
+    suspend fun ensureGoogleAuthToken(context: Context): String? = ensureGoogleAuthTokenImpl(context)
+    suspend fun <T> executeWithAuthRetry(context: Context, apiCall: suspend (authHeader: String?) -> T): T = executeWithAuthRetryImpl(context, apiCall)
 
     fun calculateCostForUrl(url: String) = calculateCostForUrlImpl(url)
     fun updateUrl(url: String) = updateUrlImpl(url)
@@ -213,7 +213,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
-    fun openShop(context: Context) { withEnsuredAuth(context) { showShopDialog = true } }
+    fun openShop(context: Context) { withEnsuredSignIn(context) { showShopDialog = true } }
     fun dismissShop() { showShopDialog = false }
     fun openSupport() { showSupportDialog = true }
     fun dismissSupport() { showSupportDialog = false }
