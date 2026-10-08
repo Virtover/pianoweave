@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
@@ -27,10 +29,21 @@ import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.api.VideoMetadata
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.StoredMidi
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
+import com.lumenchord.pianoweave.midi.ExportState
 
 @Composable
 fun StoredSongCard(
     song: StoredMidi,
+    exportState: ExportState,
+    onExport: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -38,6 +51,8 @@ fun StoredSongCard(
         videoUrl = song.videoUrl,
         videoMetadata = song.metadata,
         sizeBytes = song.file.length(),
+        exportState = exportState,
+        onExport = onExport,
         onDelete = onDelete,
         modifier = modifier
     )
@@ -46,6 +61,8 @@ fun StoredSongCard(
 @Composable
 fun CloudSongCard(
     cloudMidi: CloudMidi,
+    exportState: ExportState,
+    onExport: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -53,6 +70,8 @@ fun CloudSongCard(
         videoUrl = cloudMidi.videoUrl,
         videoMetadata = cloudMidi.metadata,
         sizeBytes = cloudMidi.sizeBytes,
+        exportState = exportState,
+        onExport = onExport,
         onDelete = onDelete,
         modifier = modifier
     )
@@ -63,6 +82,8 @@ private fun SongCard(
     videoUrl: String,
     videoMetadata: VideoMetadata,
     sizeBytes: Long,
+    exportState: ExportState,
+    onExport: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -135,17 +156,74 @@ private fun SongCard(
                 }
             }
 
-            IconButton(
-                onClick = onDelete
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete from Library",
-                    tint = MaterialTheme.colorScheme.error.copy(
-                        alpha = 0.8f
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete from Library",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
                     )
-                )
+                }
+
+                when (exportState) {
+                    ExportState.Exporting -> Box(
+                        modifier = Modifier.size(40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+                    ExportState.Done -> Box(
+                        modifier = Modifier.size(40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Saved to Downloads",
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+
+                    ExportState.Failed -> IconButton(
+                        onClick = onExport,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.ErrorOutline,
+                            contentDescription = "Export failed, tap to retry",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    ExportState.Idle -> ExportButton(onClick = onExport)
+                }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExportButton(onClick: () -> Unit) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text("Save .mid file to Downloads") } },
+        state = rememberTooltipState()
+    ) {
+        IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+            Icon(
+                Icons.Default.Download,
+                contentDescription = "Save .mid file to Downloads",
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

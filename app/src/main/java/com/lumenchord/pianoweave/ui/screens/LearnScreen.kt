@@ -114,11 +114,11 @@ fun LearnScreen(
         )
     }
 
-    if (viewModel.showNotEnoughCreditsDialog) {
+    if (viewModel.showNotEnoughCreditsDialog && viewModel.isGoogleSignedIn) {
         NotEnoughCreditsDialog(
             requiredCredits = viewModel.estimatedCostCredits ?: 0,
             availableCredits = viewModel.userCredits,
-            onBuyCredits = { viewModel.openShop() },
+            onBuyCredits = { viewModel.openShop(context) },
             onDismiss = { viewModel.dismissNotEnoughCredits() }
         )
     }
@@ -159,7 +159,7 @@ fun LearnScreen(
                             shape = RoundedCornerShape(16.dp),
                             color = Color.Transparent,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                            modifier = Modifier.clickable { viewModel.openShop() }
+                            modifier = Modifier.clickable { viewModel.openShop(context) }
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),

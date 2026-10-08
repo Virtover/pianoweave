@@ -189,7 +189,13 @@ fun TranscriptionInputCard(
                 val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
 
                 Button(
-                    onClick = { viewModel.startTranscription(context) },
+                    onClick = {
+                        if (viewModel.isBilledServer && !viewModel.isGoogleSignedIn) {
+                            viewModel.signInWithGoogle(context)
+                        } else {
+                            viewModel.startTranscription(context)
+                        }
+                    },
                     enabled = viewModel.videoUrl.isNotBlank() && !viewModel.isCalculatingCost,
                     modifier = Modifier
                         .fillMaxWidth()

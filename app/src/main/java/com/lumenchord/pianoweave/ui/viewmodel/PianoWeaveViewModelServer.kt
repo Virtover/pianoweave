@@ -73,16 +73,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(context: Context? 
                     null
                 }
 
-                if (isBilledServer) {
-                    val appClientId = activeGoogleClientId
-
-                    val token = ensureGoogleAuthTokenImpl(context)
-                    if (token.isNullOrBlank() && appClientId.isNotBlank()) {
-                        signInWithGoogleImpl(context, null)
-                    } else {
-                        refreshUserBalanceImpl(context)
-                    }
-                }
+                if (isBilledServer) refreshUserBalanceImpl(context)
             } catch (_: Exception) {
                 billingProvider = "none"
             }
@@ -158,15 +149,6 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     customServerUrl = prefs.getString("custom_server_url", "") ?: ""
 
     if (context.findActivity() != null) {
-        if (requireGoogleAccount && !isGoogleSignedIn && activeGoogleClientId.isNotBlank()) {
-            viewModelScope.launch {
-                ensureGoogleAuthTokenImpl(context)
-                if (!isGoogleSignedIn) {
-                    signInWithGoogleImpl(context, null)
-                }
-            }
-        }
-
         checkServerHealthAndInfoImpl(context)
     }
 }

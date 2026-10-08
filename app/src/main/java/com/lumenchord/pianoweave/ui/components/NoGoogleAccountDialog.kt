@@ -1,16 +1,37 @@
-package com.lumenchord.pianoweave.ui.screens.learn
+package com.lumenchord.pianoweave.ui.components
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material3.*
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import androidx.compose.material.icons.filled.AccountCircle   // optional header icon
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,19 +40,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 
 @Composable
-internal fun SupportDialog(
-    supportUrl: String,
+fun NoGoogleAccountDialog(
+    viewModel: PianoWeaveViewModel,
     context: Context,
     onDismiss: () -> Unit
 ) {
-    val appTheme = LocalAppTheme.current
-    val colorSurface = MaterialTheme.colorScheme.surface
-    val colorGold = appTheme.primaryColor
-    val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
+    val appTheme = AppThemeManager.getTheme(viewModel.selectedThemeId)
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -45,15 +62,15 @@ internal fun SupportDialog(
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
-                color = colorSurface,
+                color = MaterialTheme.colorScheme.surface,
                 contentColor = Color.White,
-                border = BorderStroke(1.dp, colorSlate)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     // Header
                     Row(
@@ -62,20 +79,21 @@ internal fun SupportDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Favorite,
+                                imageVector = Icons.Default.AccountCircle,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(28.dp)
+                                tint = appTheme.primaryColor,
+                                modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                text = "Support Piano Weave",
+                                text = "No Google Account",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = colorGold
+                                color = appTheme.primaryColor
                             )
                         }
                         IconButton(
@@ -85,22 +103,26 @@ internal fun SupportDialog(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Close",
-                                tint = colorTextDim
+                                tint = MaterialTheme.colorScheme.tertiary
                             )
                         }
                     }
 
-                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                    )
 
                     Text(
-                        text = "Consider supporting Piano Weave! The transcription server is expensive to run and will be free only as long as I can afford it.",
+                        text = "Piano Weave needs a Google account on this device to sign in. " +
+                                "Add one in your device settings, then come back and try again.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f),
-                        lineHeight = 22.sp
+                        color = Color.White.copy(alpha = 0.85f),
+                        lineHeight = 20.sp
                     )
 
                     Spacer(Modifier.height(4.dp))
 
+                    // Buttons
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -114,12 +136,12 @@ internal fun SupportDialog(
                                 .fillMaxHeight()
                                 .heightIn(min = 46.dp),
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, colorSlate),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                         ) {
                             Text(
-                                text = "Close",
+                                text = "Not now",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 maxLines = 2,
@@ -129,18 +151,7 @@ internal fun SupportDialog(
 
                         Button(
                             onClick = {
-                                try {
-                                    var formattedUrl = supportUrl.trim()
-                                    if (formattedUrl.isNotEmpty()) {
-                                        if (!formattedUrl.startsWith("http://") && !formattedUrl.startsWith("https://")) {
-                                            formattedUrl = "https://$formattedUrl"
-                                        }
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(formattedUrl)).apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(intent)
-                                    }
-                                } catch (_: Exception) {}
+                                viewModel.openAddGoogleAccount(context)
                                 onDismiss()
                             },
                             modifier = Modifier
@@ -150,19 +161,16 @@ internal fun SupportDialog(
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = colorGold,
+                                containerColor = appTheme.primaryColor,
                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                             )
                         ) {
-                            Icon(Icons.Default.Favorite, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
                             Text(
-                                text = "Support",
-                                fontWeight = FontWeight.Black,
+                                text = "Add account",
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 maxLines = 2,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.weight(1f, fill = false)
+                                textAlign = TextAlign.Center
                             )
                         }
                     }

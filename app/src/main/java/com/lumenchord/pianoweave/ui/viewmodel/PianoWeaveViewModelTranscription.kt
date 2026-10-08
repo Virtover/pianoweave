@@ -345,18 +345,6 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
     videoUrl = stableUrl
     transcriptionError = null
 
-    if (requireGoogleAccount && !isGoogleSignedIn) {
-        signInWithGoogleImpl(context) { success ->
-            if (success) {
-                startTranscriptionImpl(context)
-            } else {
-                status = "Google account setup required."
-                transcriptionError = "A Google account is required by configuration."
-            }
-        }
-        return
-    }
-
     if (isBilledServer) {
         val cost = estimatedCostCredits
         if (cost != null && userCredits < cost) {
@@ -423,7 +411,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             val uId = getOrCreateUserId(context)
 
             val response = executeWithAuthRetryImpl(context) { authHeader ->
-                if ((isBilledServer || requireGoogleAccount) && authHeader == null) {
+                if (isBilledServer && authHeader == null) {
                     throw IllegalAccessException("Google authentication required.")
                 }
                 val api = PianoApiFactory.getApi(activeServerUrl)

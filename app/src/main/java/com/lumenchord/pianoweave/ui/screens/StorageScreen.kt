@@ -1,8 +1,11 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -13,6 +16,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -38,13 +45,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import com.lumenchord.pianoweave.cloud.CloudMidi
+import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.components.CloudSongCard
 import com.lumenchord.pianoweave.ui.components.DangerButton
@@ -90,6 +100,17 @@ fun StorageScreen(
                 try { StorageScreenView.valueOf(it) } catch (_: Exception) { null }
             } ?: StorageScreenView.SELECTION
         )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* ignore: the export is already running, the Toast fallback covers a denial */ }
+
+    val askNotificationPermissionIfNeeded = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     fun setView(view: StorageScreenView) {
@@ -496,26 +517,201 @@ fun StorageScreen(
 
     // Upload Progress Overlay
     if (viewModel.isUploadingToCloud) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { },
-            title = { Text("Uploading to Google Account") },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.98f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = colorSurface,
+                    contentColor = Color.White,
+                    border = BorderStroke(1.dp, colorSlate)
                 ) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = colorGold)
-                    Text(
-                        text = viewModel.uploadProgressText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                tint = colorGold,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Text(
+                                text = "Uploading to Cloud",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = colorGold
+                            )
+                        }
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = colorGold,
+                            trackColor = colorSlate
+                        )
+
+                        Text(
+                            text = viewModel.uploadProgressText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f),
+                            lineHeight = 22.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-            },
-            confirmButton = { },
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+            }
+        }
+    }
+
+    // Upload Error Dialog
+    if (viewModel.uploadErrorOccured) {
+        val dismissUploadError = {
+            viewModel.uploadErrorOccured = false
+            viewModel.cloudError = null
+        }
+
+        Dialog(onDismissRequest = dismissUploadError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.98f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = colorSurface,
+                    contentColor = Color.White,
+                    border = BorderStroke(1.dp, colorSlate)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ErrorOutline,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Text(
+                                    text = "Upload Failed",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            IconButton(
+                                onClick = dismissUploadError,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = colorTextDim
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                        // Scrollable: several failed songs make the message long
+                        Text(
+                            text = viewModel.cloudError ?: "Unknown error.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f),
+                            lineHeight = 22.sp,
+                            modifier = Modifier
+                                .heightIn(max = 240.dp)
+                                .verticalScroll(rememberScrollState())
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = dismissUploadError,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, colorSlate),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            ) {
+                                Text(
+                                    text = "Close",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
+
+                            // Failed songs stay local, so retrying uploads only those
+                            if (songs.isNotEmpty()) {
+                                Button(
+                                    onClick = {
+                                        dismissUploadError()
+                                        viewModel.uploadLocalSongsToCloud(context)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = colorGold,
+                                        contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
+                                    )
+                                ) {
+                                    Text(
+                                        text = "Retry",
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     val filteredSongs = remember(songs, searchQuery) {
@@ -842,7 +1038,7 @@ fun StorageScreen(
                             modifier = Modifier.height(26.dp)
                         ) {
                             Text(
-                                text = "Add to Google account",
+                                text = "Move to cloud library",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colorGold.copy(alpha = 0.7f)
@@ -915,9 +1111,12 @@ fun StorageScreen(
                         ) { song ->
                             StoredSongCard(
                                 song = song,
-                                onDelete = {
-                                    songPendingDelete = song
+                                exportState = viewModel.exportStates[song.file.absolutePath] ?: ExportState.Idle,
+                                onExport = {
+                                    askNotificationPermissionIfNeeded()
+                                    viewModel.exportLocalSong(context, song)
                                 },
+                                onDelete = { songPendingDelete = song },
                                 modifier = Modifier.clickable { onSongSelect(song) }
                             )
                         }
@@ -1069,9 +1268,12 @@ fun StorageScreen(
                         ) { cloudSong ->
                             CloudSongCard(
                                 cloudMidi = cloudSong,
-                                onDelete = {
-                                    cloudSongPendingDelete = cloudSong
+                                exportState = viewModel.exportStates[cloudSong.id] ?: ExportState.Idle,
+                                onExport = {
+                                    askNotificationPermissionIfNeeded()
+                                    viewModel.exportCloudSong(context, cloudSong)
                                 },
+                                onDelete = { cloudSongPendingDelete = cloudSong },
                                 modifier = Modifier.clickable {
                                     viewModel.playCloudSong(context, cloudSong)
                                 }

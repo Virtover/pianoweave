@@ -1,11 +1,32 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
 import android.content.Context
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import android.content.Intent
+import android.provider.Settings
+import androidx.credentials.exceptions.GetCredentialCancellationException
 
+private var pendingAction: (() -> Unit)? = null
+
+internal fun openAddGoogleAccountImpl(context: Context) {
+    val addAccount = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
+        putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    try {
+        context.startActivity(addAccount)
+    } catch (e: Exception) {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_SYNC_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+}
 internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, onResult: ((Boolean) -> Unit)?) {
     if (isLoading) {
         googleAuthError = "Cannot switch account during active transcription."
@@ -43,16 +64,28 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, onResult
                     markCloudBackupDialogShown(context)
                 }
 
+                pendingAction?.invoke()
+                pendingAction = null
                 onResult?.invoke(true)
             },
             onFailure = { err ->
+                pendingAction = null
                 isGoogleAuthLoading = false
-                val msg = err.localizedMessage ?: "Google account selection cancelled."
-                googleAuthError = msg
-                onResult?.invoke(false)
 
-                if ((isBilledServer || requireGoogleAccount) && !isGoogleSignedIn) {
-                    signInWithGoogleImpl(context, onResult)
+                when (err) {
+                    is NoCredentialException -> {
+                        // no Google account on the device
+                        googleAuthError = null
+                        showNoGoogleAccountDialog = true
+                        onResult?.invoke(false)
+                    }
+                    is GetCredentialCancellationException -> {
+                        signInCancelEvent++
+                    }
+                    else -> {
+                        googleAuthError = err.localizedMessage ?: "Google sign-in failed."
+                        onResult?.invoke(false)
+                    }
                 }
             }
         )
@@ -70,14 +103,21 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     }
 }
 
-internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Context): String? {
+internal fun PianoWeaveViewModel.withEnsuredAuthImpl(context: Context, forceAuthWhenNonBilledServer: Boolean = false, action: () -> Unit) {
+    if (isGoogleSignedIn || (!isBilledServer && !forceAuthWhenNonBilledServer)) {
+        action()
+    } else {
+        pendingAction = action
+        signInWithGoogle(context)
+    }
+}
+
+internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Context, forceAuthWhenNonBilledServer: Boolean = false): String? {
     if (googleToken.isNotBlank()) return googleToken
     val clientId = activeGoogleClientId
     if (clientId.isBlank()) return null
 
-    if (!isBilledServer && !requireGoogleAccount) {
-        return null
-    }
+    if (!isBilledServer && !forceAuthWhenNonBilledServer) return null
 
     val result = GoogleAuthManager.signIn(context, clientId, filterByAuthorizedAccounts = true)
     return result.getOrNull()?.let { user ->
@@ -89,6 +129,7 @@ internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Cont
 
 internal suspend fun <T> PianoWeaveViewModel.executeWithAuthRetryImpl(
     context: Context,
+    forceAuthWhenNonBilledServer: Boolean = false,
     apiCall: suspend (authHeader: String?) -> T
 ): T {
     val clientId = activeGoogleClientId

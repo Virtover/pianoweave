@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,6 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +29,7 @@ import com.lumenchord.pianoweave.audio.PianoPlayer
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.AdaptiveNavigation
 import com.lumenchord.pianoweave.ui.components.AppSettingsDialog
+import com.lumenchord.pianoweave.ui.components.NoGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.screens.LearnScreen
 import com.lumenchord.pianoweave.ui.screens.PianoRollScreen
 import com.lumenchord.pianoweave.ui.viewmodel.*
@@ -64,6 +68,13 @@ class MainActivity : ComponentActivity() {
         // Request audio permission for acoustic detection (used in Wait Mode)
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
         setContent {
@@ -118,6 +129,7 @@ private fun PianoWeaveApp(
 ) {
     var selectedTab by remember { mutableStateOf(AppTab.Learn) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    val snackbarHost = remember { SnackbarHostState() }
 
     // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
     LaunchedEffect(selectedTab) {
@@ -125,6 +137,12 @@ private fun PianoWeaveApp(
             viewModel.loadSongs(context)
         }
     }
+
+//    LaunchedEffect(viewModel.signInCancelEvent) {
+//        if (viewModel.signInCancelEvent > 0) {
+//            snackbarHost.showSnackbar("Sign in to continue", duration = SnackbarDuration.Short)
+//        }
+//    }
 
     AdaptiveNavigation(
         isLearnSelected = selectedTab == AppTab.Learn,
@@ -174,6 +192,17 @@ private fun PianoWeaveApp(
             viewModel = viewModel,
             context = context,
             onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    if (viewModel.showNoGoogleAccountDialog) {
+        NoGoogleAccountDialog(
+            viewModel = viewModel,
+            context = context,
+            onDismiss = {
+                viewModel.signInCancelEvent++
+                viewModel.showNoGoogleAccountDialog = false
+            }
         )
     }
 }

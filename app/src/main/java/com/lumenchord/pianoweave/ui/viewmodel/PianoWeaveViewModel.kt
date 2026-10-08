@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import com.lumenchord.pianoweave.api.ServerOffer
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.cloud.CloudMidi
+import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
 import kotlinx.coroutines.Job
 
@@ -121,6 +122,7 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
     var googleAuthError by mutableStateOf<String?>(null)
         internal set
+    var showNoGoogleAccountDialog by mutableStateOf(false)
 
     // --- Cloud Storage State ---
     var cloudSongs by mutableStateOf<List<CloudMidi>>(emptyList())
@@ -129,6 +131,7 @@ class PianoWeaveViewModel : ViewModel() {
     var showUploadDialog by mutableStateOf(false)
     var isUploadingToCloud by mutableStateOf(false)
     var uploadProgressText by mutableStateOf("")
+    var uploadErrorOccured by mutableStateOf(false)
     var selectedStorageTab by mutableStateOf(StorageTab.MY_LIBRARY)
     var selectedStorageViewName by mutableStateOf<String?>(null)
 
@@ -147,6 +150,13 @@ class PianoWeaveViewModel : ViewModel() {
 
     val isGoogleSignedIn: Boolean
         get() = googleToken.isNotBlank()
+
+    var signInCancelEvent by mutableIntStateOf(0)
+        internal set
+
+    val exportStates = mutableStateMapOf<String, ExportState>()
+    var exportMessage by mutableStateOf<String?>(null)
+        internal set
 
     // Dialog flags
     var showShopDialog by mutableStateOf(false)
@@ -175,10 +185,12 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
 
     // --- Delegated Domain Operations ---
+    fun openAddGoogleAccount(context: Context) = openAddGoogleAccountImpl(context)
     fun signInWithGoogle(context: Context, onResult: ((Boolean) -> Unit)? = null) = signInWithGoogleImpl(context, onResult)
     fun signOutGoogle(context: Context) = signOutGoogleImpl(context)
-    suspend fun ensureGoogleAuthToken(context: Context): String? = ensureGoogleAuthTokenImpl(context)
-    suspend fun <T> executeWithAuthRetry(context: Context, apiCall: suspend (authHeader: String?) -> T): T = executeWithAuthRetryImpl(context, apiCall)
+    fun withEnsuredAuth(context: Context, forceAuthWhenNonBilledServer: Boolean = false, action: () -> Unit) = withEnsuredAuthImpl(context, forceAuthWhenNonBilledServer, action)
+    suspend fun ensureGoogleAuthToken(context: Context, forceAuthWhenNonBilledServer: Boolean = false): String? = ensureGoogleAuthTokenImpl(context, forceAuthWhenNonBilledServer)
+    suspend fun <T> executeWithAuthRetry(context: Context, forceAuthWhenNonBilledServer: Boolean = false, apiCall: suspend (authHeader: String?) -> T): T = executeWithAuthRetryImpl(context, forceAuthWhenNonBilledServer, apiCall)
 
     fun calculateCostForUrl(url: String) = calculateCostForUrlImpl(url)
     fun updateUrl(url: String) = updateUrlImpl(url)
@@ -201,7 +213,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
-    fun openShop() { showShopDialog = true }
+    fun openShop(context: Context) { withEnsuredAuth(context) { showShopDialog = true } }
     fun dismissShop() { showShopDialog = false }
     fun openSupport() { showSupportDialog = true }
     fun dismissSupport() { showSupportDialog = false }
@@ -210,11 +222,13 @@ class PianoWeaveViewModel : ViewModel() {
     fun deleteSong(context: Context, song: StoredMidi) = deleteSongImpl(context, song)
     fun clearImportError() = clearImportErrorImpl()
     fun importMidiFile(context: Context, uri: Uri) = importMidiFileImpl(context, uri)
+    fun exportLocalSong(context: Context, song: StoredMidi) = exportLocalSongImpl(context, song)
 
     fun loadCloudSongs(context: Context) = loadCloudSongsImpl(context)
     fun uploadLocalSongsToCloud(context: Context) = uploadLocalSongsToCloudImpl(context)
     fun deleteCloudSong(context: Context, cloudMidi: CloudMidi) = deleteCloudSongImpl(context, cloudMidi)
     fun playCloudSong(context: Context, cloudMidi: CloudMidi) = playCloudSongImpl(context, cloudMidi)
+    fun exportCloudSong(context: Context, cloudMidi: CloudMidi) = exportCloudSongImpl(context, cloudMidi)
 
     fun hasShownCloudBackupDialog(context: Context): Boolean {
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
