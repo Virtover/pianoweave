@@ -13,6 +13,7 @@ import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
@@ -21,9 +22,9 @@ import kotlin.math.pow
 object AcousticNoteDetector {
     private const val TAG = "AcousticNoteDetector"
     private const val MODEL_NAME = "onsets_frames_wavinput_no_offset_uni.tflite"
-    
+
     // Model Constraints
-    private const val INPUT_SAMPLES = 43844 
+    private const val INPUT_SAMPLES = 43844
     private const val MIDI_KEYS = 88
     private const val MIDI_OFFSET = 21
     private const val OUTPUT_FRAMES = 172
@@ -31,7 +32,15 @@ object AcousticNoteDetector {
     // Minimal Onset & Frames Thresholds
     private const val ONSET_THRESHOLD_BASE = 0.50f
     private const val FRAME_THRESHOLD_BASE = 0.35f
-    private const val ANALYSIS_FRAMES = 5
+
+    // Non-target pitches get stricter thresholds by these amounts.
+    private const val NON_TARGET_ONSET_PENALTY = 0.18f
+    private const val NON_TARGET_FRAME_PENALTY = 0.10f
+
+    // The analysis window is derived per run from the audio received since the previous run.
+    // MIN must be >= 2 because pairs of neighbouring frames are evaluated.
+    private const val MIN_ANALYSIS_FRAMES = 5
+    private const val MAX_ANALYSIS_FRAMES = 40
     private const val REQUIRED_OFF_FRAMES = 2
 
     private const val INFERENCE_INTERVAL_MS = 60L
@@ -67,7 +76,7 @@ object AcousticNoteDetector {
             }
             interpreter = Interpreter(modelBuffer, options)
             Log.i(TAG, "Interpreter initialized with CPU XNNPACK (4 threads).")
-            
+
             val interp = interpreter ?: return
 
             // Safely discover input tensors
@@ -109,7 +118,7 @@ object AcousticNoteDetector {
     fun start(context: Context) {
         if (!isInitialized) initialize(context)
         if (!isInitialized) return
-        
+
         if (MidiInputManager.isMidiDeviceConnected()) return
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
 
@@ -131,10 +140,10 @@ object AcousticNoteDetector {
             } finally {
                 isRunning = false
             }
-        }.apply { 
+        }.apply {
             name = "AcousticThread"
             priority = Thread.NORM_PRIORITY + 1
-            start() 
+            start()
         }
     }
 
@@ -160,6 +169,9 @@ object AcousticNoteDetector {
 
         val step = 44100f / 16000f
         val nativeSamples = (inputSamples * step).toInt() + 2
+        // Model samples (16 kHz) per output frame, ~256 (16 ms) for this model.
+        val samplesPerFrame = inputSamples.toFloat() / outputFrames
+        val maxWindow = min(MAX_ANALYSIS_FRAMES, outputFrames)
         val capture = ByteBuffer.allocateDirect(nativeSamples * 4).order(ByteOrder.nativeOrder())
         val samples = FloatArray(nativeSamples)
         var readIndex = NativeAudioEngine.getAvailableFrames().coerceAtLeast(nativeSamples.toLong()) - nativeSamples
@@ -185,6 +197,13 @@ object AcousticNoteDetector {
                 capture.asFloatBuffer().get(samples, nativeSamples - count, count)
                 readIndex = writeIndex
 
+                // Analysis window = audio received since the previous run (this includes the time
+                // spent in inference and sleep), converted to output frames. +1 because
+                // pairs of neighbouring frames are evaluated.
+                val newModelSamples = count / step
+                val windowFrames = (ceil(newModelSamples / samplesPerFrame).toInt() + 1)
+                    .coerceIn(min(MIN_ANALYSIS_FRAMES, maxWindow), maxWindow)
+
                 var peak = 0.0001f
                 for (sample in samples) peak = max(peak, abs(sample))
                 val gain = if (peak < 0.005f) 0f else min(3f, 0.5f / peak)
@@ -198,7 +217,7 @@ object AcousticNoteDetector {
                 }
 
                 interp.runForMultipleInputsOutputs(inputs, outputs)
-                processOutputs(notes[0], onsets[0], outputFrames, midiKeys)
+                processOutputs(notes[0], onsets[0], outputFrames, midiKeys, windowFrames)
                 Thread.sleep(INFERENCE_INTERVAL_MS)
             }
         } catch (ie: InterruptedException) {
@@ -221,9 +240,10 @@ object AcousticNoteDetector {
         notePosteriors: Array<FloatArray>,
         onsetPosteriors: Array<FloatArray>,
         outputFrames: Int,
-        midiKeys: Int
+        midiKeys: Int,
+        windowFrames: Int
     ) {
-        val startFrame = max(0, outputFrames - ANALYSIS_FRAMES)
+        val startFrame = max(0, outputFrames - windowFrames)
         val latestFrame = max(0, outputFrames - 1)
         val suppressed = suppressedPitches
 
@@ -238,23 +258,25 @@ object AcousticNoteDetector {
 
             val isTarget = midiPitch in targetPitches
 
-            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) -0.25f - midiPitchModifier(midiPitch) else 0.12f
-            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) -0.20f - midiPitchModifier(midiPitch) / 2 else 0.10f
+            val onsetThreshold = ONSET_THRESHOLD_BASE + when {
+                isTarget -> -0.25f - midiPitchModifier(midiPitch)
+                else -> NON_TARGET_ONSET_PENALTY
+            }
+            val frameThreshold = FRAME_THRESHOLD_BASE + when {
+                isTarget -> -0.20f - midiPitchModifier(midiPitch) / 2
+                else -> NON_TARGET_FRAME_PENALTY
+            }
 
             var onsetProb = 0f
-            var onsetFrame = latestFrame
-            if (isTarget) {
-                for (frame in startFrame..latestFrame) {
-                    val prob = sigmoid(onsetPosteriors[frame][p])
-                    if (prob > onsetProb) {
-                        onsetProb = prob
-                        onsetFrame = frame
-                    }
+            var bestFrame = latestFrame
+            for (frame in startFrame..latestFrame) {
+                val prob = sigmoid(onsetPosteriors[frame][p])
+                if (prob > onsetProb) {
+                    onsetProb = prob
+                    bestFrame = frame
                 }
-            } else {
-                onsetProb = sigmoid(onsetPosteriors[latestFrame][p])
             }
-            val frameProb = sigmoid(notePosteriors[onsetFrame][p])
+            val frameProb = sigmoid(notePosteriors[bestFrame][p])
 
             val isActive = midiPitch in activePitches
             val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
