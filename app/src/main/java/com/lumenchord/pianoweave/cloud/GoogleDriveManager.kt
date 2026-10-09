@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.lumenchord.pianoweave.api.GoogleDriveApiFactory
 import com.lumenchord.pianoweave.api.VideoMetadata
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
+import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -155,15 +156,19 @@ object GoogleDriveManager {
                 responseBody.bytes()
             }
 
-            val cachedFile = CloudAccountCache.saveMidiBytes(context, cloudMidi.id, bytes)
+            if (bytes.isEmpty()) {
+                return@withContext Result.failure(IllegalStateException("Downloaded file from cloud is empty"))
+            }
 
-            Result.success(
-                StoredMidi(
-                    file = cachedFile,
-                    videoUrl = cloudMidi.videoUrl,
-                    metadata = cloudMidi.metadata
-                )
+            val storedMidi = MidiStorage.saveBytes(
+                context = context,
+                videoUrl = cloudMidi.videoUrl,
+                metadata = cloudMidi.metadata,
+                bytes = bytes
             )
+            CloudAccountCache.saveMidiBytes(context, cloudMidi.id, bytes)
+
+            Result.success(storedMidi)
         } catch (e: Exception) {
             Result.failure(e)
         }

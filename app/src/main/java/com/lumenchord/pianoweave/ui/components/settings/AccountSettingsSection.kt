@@ -6,11 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -127,7 +127,7 @@ fun AccountSettingsSection(
                                             text = "Sign Out",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = if (isTranscribing) Color.Gray else MaterialTheme.colorScheme.error
+                                            color = if (isTranscribing) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.error
                                         )
                                     }
                                 }
@@ -173,6 +173,74 @@ fun AccountSettingsSection(
                         )
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "CLOUD SYNC",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.background,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Cloud,
+                        contentDescription = null,
+                        tint = previewTheme.primaryColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Cloud Library Sync",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (viewModel.isCloudSyncEnabled) "Syncing library with Google Drive" else "Cloud sync is turned off",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Switch(
+                    checked = viewModel.isCloudSyncEnabled,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            viewModel.requestTurnOnCloudSync(context)
+                        } else {
+                            viewModel.requestTurnOffCloudSync(context)
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = previewTheme.primaryColor,
+                        checkedTrackColor = previewTheme.primaryColor.copy(alpha = 0.3f),
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
             }
         }
     }

@@ -127,7 +127,18 @@ class PianoWeaveViewModel : ViewModel() {
     var savedUnauthenticatedServerUrl by mutableStateOf("")
     var isInitialConnection by mutableStateOf(true)
 
-    // --- Cloud Storage State ---
+    // --- Cloud Storage & Sync State ---
+    var isCloudSyncEnabled by mutableStateOf(false)
+    var hasCloudSyncError by mutableStateOf(false)
+    var isCloudSyncing by mutableStateOf(false)
+    var isRefreshingCloud by mutableStateOf(false)
+    var cloudSyncProgressText by mutableStateOf("")
+    var cloudSyncError by mutableStateOf<String?>(null)
+    var showCloudSyncErrorDialog by mutableStateOf(false)
+    var showTurnOnCloudSyncConfirmDialog by mutableStateOf(false)
+    var showTurnOffCloudSyncConfirmDialog by mutableStateOf(false)
+
+    // Legacy fields kept for compatibility where needed
     var cloudSongs by mutableStateOf<List<CloudMidi>>(emptyList())
     var isCloudLoading by mutableStateOf(false)
     var cloudError by mutableStateOf<String?>(null)
@@ -135,7 +146,6 @@ class PianoWeaveViewModel : ViewModel() {
     var isUploadingToCloud by mutableStateOf(false)
     var uploadProgressText by mutableStateOf("")
     var uploadErrorOccured by mutableStateOf(false)
-    var selectedStorageTab by mutableStateOf(StorageTab.MY_LIBRARY)
     var selectedStorageViewName by mutableStateOf<String?>(null)
 
     val requireGoogleAccount: Boolean
@@ -238,11 +248,23 @@ class PianoWeaveViewModel : ViewModel() {
     fun importMidiFile(context: Context, uri: Uri) = importMidiFileImpl(context, uri)
     fun exportLocalSong(context: Context, song: StoredMidi) = exportLocalSongImpl(context, song)
 
-    fun loadCloudSongs(context: Context) = loadCloudSongsImpl(context)
-    fun uploadLocalSongsToCloud(context: Context) = uploadLocalSongsToCloudImpl(context)
-    fun deleteCloudSong(context: Context, cloudMidi: CloudMidi) = deleteCloudSongImpl(context, cloudMidi)
-    fun playCloudSong(context: Context, cloudMidi: CloudMidi) = playCloudSongImpl(context, cloudMidi)
-    fun exportCloudSong(context: Context, cloudMidi: CloudMidi) = exportCloudSongImpl(context, cloudMidi)
+    fun enableCloudSync(context: Context) = enableCloudSyncImpl(context)
+    fun disableCloudSync(context: Context) = disableCloudSyncImpl(context)
+    fun refreshCloudSync(context: Context) = refreshCloudSyncImpl(context)
+    fun requestTurnOnCloudSync(context: Context) {
+        if (!isGoogleSignedIn) {
+            signInWithGoogle(context) { success ->
+                if (success) {
+                    showTurnOnCloudSyncConfirmDialog = true
+                }
+            }
+        } else {
+            showTurnOnCloudSyncConfirmDialog = true
+        }
+    }
+    fun requestTurnOffCloudSync(context: Context) {
+        showTurnOffCloudSyncConfirmDialog = true
+    }
 
     fun hasShownCloudBackupDialog(context: Context): Boolean {
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
@@ -253,4 +275,21 @@ class PianoWeaveViewModel : ViewModel() {
         val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
         prefs.edit().putBoolean("has_shown_cloud_backup_dialog", true).apply()
     }
+}
+
+internal fun PianoWeaveViewModel.saveCloudSyncState(context: Context, enabled: Boolean, hasError: Boolean, errorMsg: String?) {
+    isCloudSyncEnabled = enabled
+    hasCloudSyncError = hasError
+    cloudSyncError = errorMsg
+    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+    val editor = prefs.edit()
+        .putBoolean("is_cloud_sync_enabled", enabled)
+        .putBoolean("has_cloud_sync_error", hasError)
+
+    if (errorMsg != null) {
+        editor.putString("cloud_sync_error", errorMsg)
+    } else {
+        editor.remove("cloud_sync_error")
+    }
+    editor.apply()
 }

@@ -4,14 +4,12 @@ import android.content.Context
 import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.viewModelScope
-import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.ExportNotifier
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.MidiExporter
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,10 +63,53 @@ internal fun PianoWeaveViewModel.loadSongsImpl(context: Context) {
 }
 
 internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMidi) {
-    MidiStorage.delete(context, song)
+    MidiStorage.delete(context, song) // Soft delete locally immediately
     loadSongsImpl(context)
     if (activePracticeSong?.file?.absolutePath == song.file.absolutePath) {
         activePracticeSong = null
+    }
+
+    if (isGoogleSignedIn) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = googleToken
+            if (token.isNotBlank()) {
+                try {
+                    val fileId = if (song.cloudFileId.isNotBlank()) {
+                        song.cloudFileId
+                    } else {
+                        val cloudSongs = GoogleDriveManager.listCloudMidis(context, token).getOrDefault(emptyList())
+                        cloudSongs.firstOrNull { it.videoUrl == song.videoUrl }?.id
+                    }
+
+                    if (!fileId.isNullOrBlank()) {
+                        val deleteResult = GoogleDriveManager.deleteCloudMidi(context, fileId, token)
+                        if (deleteResult.isSuccess) {
+                            MidiStorage.hardDelete(context, song)
+                            withContext(Dispatchers.Main) {
+                                hasCloudSyncError = false
+                                cloudSyncError = null
+                                saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = false, errorMsg = null)
+                                loadSongsImpl(context)
+                            }
+                        } else {
+                            throw Exception(deleteResult.exceptionOrNull()?.localizedMessage ?: "Failed to delete from Drive")
+                        }
+                    } else {
+                        MidiStorage.hardDelete(context, song)
+                        withContext(Dispatchers.Main) {
+                            loadSongsImpl(context)
+                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        hasCloudSyncError = true
+                        cloudSyncError = "Failed to delete file from cloud: ${e.localizedMessage ?: "Network error"}"
+                        saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = true, errorMsg = cloudSyncError)
+                        loadSongsImpl(context)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -81,26 +122,28 @@ internal fun PianoWeaveViewModel.importMidiFileImpl(context: Context, uri: Uri) 
         try {
             val importedMidi = MidiStorage.importFile(context, uri)
 
-            // Auto-upload imported track to Google Account if signed in and save ONLY to cloud library
-            if (isGoogleSignedIn) {
+            if (isCloudSyncEnabled && isGoogleSignedIn) {
                 try {
                     val token = googleToken
                     if (token.isNotBlank()) {
                         GoogleDriveManager.uploadMidi(context, importedMidi, token)
-                        CloudAccountCache.saveMidiContent(context, importedMidi.file.nameWithoutExtension, importedMidi.file)
-                        importedMidi.file.delete()
-                        File(importedMidi.file.parentFile, importedMidi.file.nameWithoutExtension + ".meta").delete()
                     }
-                } catch (_: Exception) {
-                    // Ignore background upload errors silently
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        hasCloudSyncError = true
+                        cloudSyncError = "Failed to sync '${importedMidi.metadata.title}' to cloud: ${e.localizedMessage ?: "Network error"}"
+                        saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = true, errorMsg = cloudSyncError)
+                    }
                 }
             }
 
             withContext(Dispatchers.Main) {
                 loadSongsImpl(context)
-                if (isGoogleSignedIn) {
-                    loadCloudSongsImpl(context)
-                }
+                Toast.makeText(
+                    context,
+                    "Added to library: ${importedMidi.metadata.title}",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
@@ -111,7 +154,7 @@ internal fun PianoWeaveViewModel.importMidiFileImpl(context: Context, uri: Uri) 
 }
 
 internal fun PianoWeaveViewModel.exportLocalSongImpl(context: Context, song: StoredMidi) {
-    launchExport(context,song.file.absolutePath, song.metadata.title) {
+    launchExport(context, song.file.absolutePath, song.metadata.title) {
         MidiExporter.exportToDownloads(context, song.metadata.title) { song.file.inputStream() }
     }
 }
@@ -130,7 +173,6 @@ internal fun PianoWeaveViewModel.launchExport(
         ExportNotifier.started(context, key, title)
 
         val result = withContext(Dispatchers.IO) { work() }
-        val notified = ExportNotifier.canNotify(context)
 
         result.fold(
             onSuccess = { ExportNotifier.finished(context, key, title, it) },

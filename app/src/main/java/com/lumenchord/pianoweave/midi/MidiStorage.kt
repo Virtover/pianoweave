@@ -11,13 +11,17 @@ import java.security.MessageDigest
 data class StoredMidi(
     val file: File,
     val videoUrl: String,
-    val metadata: VideoMetadata
+    val metadata: VideoMetadata,
+    val isDeleted: Boolean = false,
+    val deletedAt: Long = 0L,
+    val cloudFileId: String = ""
 )
 
 object MidiStorage {
 
     private const val DIRECTORY = "midi"
     private const val METADATA_EXTENSION = ".meta"
+    private const val THIRTY_DAYS_MS = 30L * 24 * 60 * 60 * 1000L
 
     private fun directory(context: Context): File {
         return File(
@@ -52,6 +56,58 @@ object MidiStorage {
         return midiFile.takeIf {
             it.exists() && it.length() > 0
         }
+    }
+
+    private fun readDeletionAndCloudId(metadataFile: File): Triple<Boolean, Long, String> {
+        if (!metadataFile.exists()) return Triple(false, 0L, "")
+        return try {
+            val lines = metadataFile.readLines()
+            val isDeleted = if (lines.size >= 13) lines[12].toBooleanStrictOrNull() ?: false else false
+            val deletedAt = if (lines.size >= 14) lines[13].toLongOrNull() ?: 0L else 0L
+            val cloudFileId = if (lines.size >= 15) lines[14].trim() else ""
+            Triple(isDeleted, deletedAt, cloudFileId)
+        } catch (_: Exception) {
+            Triple(false, 0L, "")
+        }
+    }
+
+    fun updateCloudFileId(context: Context, storedMidi: StoredMidi, cloudFileId: String) {
+        val dir = directory(context)
+        val metadataFile = File(dir, storedMidi.file.nameWithoutExtension + METADATA_EXTENSION)
+        if (!metadataFile.exists()) return
+
+        try {
+            val lines = metadataFile.readLines().toMutableList()
+            while (lines.size < 12) {
+                lines.add("")
+            }
+            while (lines.size < 13) {
+                lines.add("false")
+            }
+            while (lines.size < 14) {
+                lines.add("0")
+            }
+            if (lines.size >= 15) {
+                lines[14] = cloudFileId
+            } else {
+                lines.add(cloudFileId)
+            }
+            metadataFile.writeText(lines.joinToString("\n"))
+        } catch (_: Exception) {}
+    }
+
+    private fun purgeExpiredDeletedSongs(context: Context) {
+        val dir = directory(context)
+        dir.listFiles()
+            ?.filter { it.extension == "meta" }
+            ?.forEach { metaFile ->
+                val (isDeleted, deletedAt, _) = readDeletionAndCloudId(metaFile)
+                if (isDeleted && deletedAt > 0L && (System.currentTimeMillis() - deletedAt > THIRTY_DAYS_MS)) {
+                    val midiFile = File(dir, metaFile.nameWithoutExtension + ".mid")
+                    midiFile.delete()
+                    metaFile.delete()
+                }
+            }
     }
 
     fun save(
@@ -99,18 +155,83 @@ object MidiStorage {
                 stableMetadata.thumbnail,
                 stableMetadata.webpage_url,
                 stableMetadata.view_count.toString(),
-                stableMetadata.like_count.toString()
+                stableMetadata.like_count.toString(),
+                "false",
+                "0",
+                ""
             ).joinToString("\n")
         )
 
         return StoredMidi(
             file = midiFile,
             videoUrl = stableUrl,
-            metadata = stableMetadata
+            metadata = stableMetadata,
+            isDeleted = false,
+            deletedAt = 0L,
+            cloudFileId = ""
         )
     }
 
-    fun list(context: Context): List<StoredMidi> {
+    fun saveBytes(
+        context: Context,
+        videoUrl: String,
+        metadata: VideoMetadata?,
+        bytes: ByteArray
+    ): StoredMidi {
+        val id = idForUrl(videoUrl)
+        val dir = directory(context)
+        val midiFile = File(dir, "$id.mid")
+        val metadataFile = File(dir, "$id$METADATA_EXTENSION")
+
+        midiFile.writeBytes(bytes)
+
+        val stableUrl = videoUrl.trim()
+        val stableMetadata = metadata ?: VideoMetadata(
+            title = "Piano Performance",
+            author = "Unknown",
+            channel = "Unknown",
+            channel_id = "",
+            channel_url = "",
+            upload_date = "",
+            duration = 0f,
+            thumbnail = "",
+            webpage_url = stableUrl,
+            view_count = 0L,
+            like_count = 0L
+        )
+
+        metadataFile.writeText(
+            listOf(
+                stableUrl,
+                stableMetadata.title,
+                stableMetadata.author,
+                stableMetadata.channel,
+                stableMetadata.channel_id,
+                stableMetadata.channel_url,
+                stableMetadata.upload_date,
+                stableMetadata.duration.toString(),
+                stableMetadata.thumbnail,
+                stableMetadata.webpage_url,
+                stableMetadata.view_count.toString(),
+                stableMetadata.like_count.toString(),
+                "false",
+                "0",
+                ""
+            ).joinToString("\n")
+        )
+
+        return StoredMidi(
+            file = midiFile,
+            videoUrl = stableUrl,
+            metadata = stableMetadata,
+            isDeleted = false,
+            deletedAt = 0L,
+            cloudFileId = ""
+        )
+    }
+
+    fun listAll(context: Context): List<StoredMidi> {
+        purgeExpiredDeletedSongs(context)
         val dir = directory(context)
 
         return dir
@@ -123,8 +244,7 @@ object MidiStorage {
             ?.mapNotNull { midiFile ->
                 val metadataFile = File(
                     dir,
-                    midiFile.nameWithoutExtension +
-                            METADATA_EXTENSION
+                    midiFile.nameWithoutExtension + METADATA_EXTENSION
                 )
 
                 if (!metadataFile.exists()) return@mapNotNull null
@@ -132,19 +252,27 @@ object MidiStorage {
                 val lines = metadataFile.readLines()
                 if (lines.isEmpty()) return@mapNotNull null
 
+                val (isDeleted, deletedAt, cloudFileId) = readDeletionAndCloudId(metadataFile)
                 val originalUrl = lines[0]
                 val metadata = readMetadata(metadataFile, midiFile)
 
                 StoredMidi(
                     file = midiFile,
-                    videoUrl = originalUrl, // Fixed: Use the URL used for caching
-                    metadata = metadata
+                    videoUrl = originalUrl,
+                    metadata = metadata,
+                    isDeleted = isDeleted,
+                    deletedAt = deletedAt,
+                    cloudFileId = cloudFileId
                 )
             }
             ?.sortedByDescending {
                 it.file.lastModified()
             }
             ?: emptyList()
+    }
+
+    fun list(context: Context): List<StoredMidi> {
+        return listAll(context).filterNot { it.isDeleted }
     }
 
     private fun readMetadata(
@@ -206,12 +334,44 @@ object MidiStorage {
         context: Context,
         storedMidi: StoredMidi
     ) {
-        storedMidi.file.delete()
+        val dir = directory(context)
+        val metadataFile = File(
+            dir,
+            storedMidi.file.nameWithoutExtension + METADATA_EXTENSION
+        )
+        if (!metadataFile.exists()) {
+            storedMidi.file.delete()
+            return
+        }
 
+        try {
+            val lines = metadataFile.readLines().toMutableList()
+            while (lines.size < 12) {
+                lines.add("")
+            }
+            val deletedTime = System.currentTimeMillis()
+            while (lines.size < 13) {
+                lines.add("false")
+            }
+            while (lines.size < 14) {
+                lines.add("0")
+            }
+            lines[12] = "true"
+            lines[13] = deletedTime.toString()
+            metadataFile.writeText(lines.joinToString("\n"))
+        } catch (_: Exception) {
+            hardDelete(context, storedMidi)
+        }
+    }
+
+    fun hardDelete(
+        context: Context,
+        storedMidi: StoredMidi
+    ) {
+        storedMidi.file.delete()
         File(
             directory(context),
-            storedMidi.file.nameWithoutExtension +
-                    METADATA_EXTENSION
+            storedMidi.file.nameWithoutExtension + METADATA_EXTENSION
         ).delete()
     }
 
@@ -282,14 +442,20 @@ object MidiStorage {
                 metadata.thumbnail,
                 metadata.webpage_url,
                 metadata.view_count.toString(),
-                metadata.like_count.toString()
+                metadata.like_count.toString(),
+                "false",
+                "0",
+                ""
             ).joinToString("\n")
         )
 
         return StoredMidi(
             file = midiFile,
             videoUrl = stableUrl,
-            metadata = metadata
+            metadata = metadata,
+            isDeleted = false,
+            deletedAt = 0L,
+            cloudFileId = ""
         )
     }
 

@@ -1,13 +1,13 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import kotlinx.coroutines.launch
-import android.content.Intent
-import android.provider.Settings
-import androidx.credentials.exceptions.GetCredentialCancellationException
 
 private var pendingAction: (() -> Unit)? = null
 
@@ -26,6 +26,7 @@ internal fun openAddGoogleAccountImpl(context: Context) {
         }
     }
 }
+
 internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSignIn: Boolean, onResult: ((Boolean) -> Unit)?) {
     if (isLoading) {
         googleAuthError = "Cannot switch account during active transcription."
@@ -50,20 +51,11 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSi
                 googleUserEmail = user.email
                 googleAuthError = null
                 isGoogleAuthLoading = false
-                
+
                 markServerAuthenticated(context)
 
                 if (isBilledServer) {
                     refreshUserBalance(context)
-                }
-
-                // Load cloud songs for the signed-in account
-                loadCloudSongs(context)
-
-                // Requirement: on sign in cloud backup dialog should appear only if it never before appeared after sign in to any account
-                if (songs.isNotEmpty() && !hasShownCloudBackupDialog(context)) {
-                    showUploadDialog = true
-                    markCloudBackupDialogShown(context)
                 }
 
                 pendingAction?.invoke()
@@ -111,6 +103,9 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     googleToken = ""
     googleUserEmail = ""
     googleAuthError = null
+    isCloudSyncEnabled = false
+    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+    prefs.edit().putBoolean("is_cloud_sync_enabled", false).apply()
     if (isBilledServer) {
         userCredits = 0
         markServerUnauthenticated(context, activeServerUrl)

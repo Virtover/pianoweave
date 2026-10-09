@@ -72,17 +72,9 @@ class TranscriptionWorker(
 
                 when (job.status) {
                     "completed" -> {
-                        if (!token.isNullOrBlank()) {
-                            val existingCloud = CloudAccountCache.loadCloudSongs(applicationContext).firstOrNull { it.videoUrl == stableUrl }
-                            if (existingCloud != null && CloudAccountCache.getCachedMidiFile(applicationContext, existingCloud.id) != null) {
-                                clearActiveJob(applicationContext)
-                                return Result.success()
-                            }
-                        } else {
-                            if (MidiStorage.find(applicationContext, stableUrl) != null) {
-                                clearActiveJob(applicationContext)
-                                return Result.success()
-                            }
+                        if (MidiStorage.find(applicationContext, stableUrl) != null) {
+                            clearActiveJob(applicationContext)
+                            return Result.success()
                         }
 
                         val midiResponse = try {
@@ -93,44 +85,12 @@ class TranscriptionWorker(
                             return Result.retry()
                         }
 
-                        if (!token.isNullOrBlank()) {
+                        val savedMidi = MidiStorage.save(applicationContext, stableUrl, job.metadata, midiResponse)
+                        val isCloudSyncEnabled = prefs.getBoolean("is_cloud_sync_enabled", false)
+                        if (isCloudSyncEnabled && !token.isNullOrBlank()) {
                             try {
-                                val tempFile = File(applicationContext.cacheDir, "${System.currentTimeMillis()}.mid")
-                                midiResponse.byteStream().use { input ->
-                                    tempFile.outputStream().use { output ->
-                                        input.copyTo(output)
-                                    }
-                                }
-                                val tempStored = StoredMidi(
-                                    file = tempFile,
-                                    videoUrl = stableUrl,
-                                    metadata = job.metadata ?: VideoMetadata(
-                                        title = "Piano Performance",
-                                        author = "Unknown",
-                                        channel = "Unknown",
-                                        channel_id = "",
-                                        channel_url = "",
-                                        upload_date = "",
-                                        duration = 0f,
-                                        thumbnail = "",
-                                        webpage_url = stableUrl,
-                                        view_count = 0L,
-                                        like_count = 0L
-                                    )
-                                )
-                                val uploadResult = GoogleDriveManager.uploadMidi(applicationContext, tempStored, token)
-                                uploadResult.fold(
-                                    onSuccess = { cloudMidi ->
-                                        CloudAccountCache.saveMidiContent(applicationContext, cloudMidi.id, tempFile)
-                                        tempFile.delete()
-                                    },
-                                    onFailure = {
-                                        tempFile.delete()
-                                    }
-                                )
+                                GoogleDriveManager.uploadMidi(applicationContext, savedMidi, token)
                             } catch (_: Exception) {}
-                        } else {
-                            MidiStorage.save(applicationContext, stableUrl, job.metadata, midiResponse)
                         }
 
                         clearActiveJob(applicationContext)

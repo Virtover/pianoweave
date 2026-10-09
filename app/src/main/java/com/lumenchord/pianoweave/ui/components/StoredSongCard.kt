@@ -297,7 +297,7 @@ fun ExportConfirmationDialog(
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = colorSurface,
-                contentColor = Color.White,
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 border = BorderStroke(1.dp, colorSlate)
             ) {
                 Column(
@@ -353,7 +353,7 @@ fun ExportConfirmationDialog(
                     Text(
                         text = message,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.onSurface,
                         lineHeight = 20.sp
                     )
 
@@ -374,7 +374,7 @@ fun ExportConfirmationDialog(
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, colorSlate),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                         ) {
                             Text(
                                 text = "Cancel",
@@ -395,7 +395,7 @@ fun ExportConfirmationDialog(
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = colorPrimary,
-                                contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
+                                contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
                             Text(

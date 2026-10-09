@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +45,7 @@ fun AppSettingsDialog(
                     .heightIn(max = 580.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
-                contentColor = Color.White,
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {
                 Column(
@@ -149,7 +148,7 @@ fun AppSettingsDialog(
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = previewTheme.primaryColor,
-                            contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
+                            contentColor = if (previewTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
                         Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
@@ -158,6 +157,9 @@ fun AppSettingsDialog(
             }
         }
     }
+
+    // Cloud Sync Dialogs (confirmation, progress, error)
+    CloudSyncDialogs(viewModel = viewModel, context = context)
 
     if (showSignOutConfirm) {
         Dialog(onDismissRequest = { showSignOutConfirm = false }) {
@@ -173,7 +175,7 @@ fun AppSettingsDialog(
                         .wrapContentHeight(),
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
                 ) {
                     Column(
@@ -210,7 +212,7 @@ fun AppSettingsDialog(
                         Text(
                             text = "Are you sure you want to sign out of your Google account?",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.85f),
+                            color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 20.sp
                         )
 
@@ -228,7 +230,7 @@ fun AppSettingsDialog(
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = previewTheme.primaryColor,
-                                    contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
+                                    contentColor = if (previewTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
                                 )
                             ) {
                                 Text(

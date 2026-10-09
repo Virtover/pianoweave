@@ -142,6 +142,9 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
     selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
     topBarSpeed = prefs.getFloat("top_bar_speed", 1.0f)
+    isCloudSyncEnabled = prefs.getBoolean("is_cloud_sync_enabled", false)
+    hasCloudSyncError = prefs.getBoolean("has_cloud_sync_error", false)
+    cloudSyncError = prefs.getString("cloud_sync_error", null)
 
     googleToken = GoogleAuthManager.getSavedToken(context) ?: ""
     googleUserEmail = GoogleAuthManager.getSavedEmail(context) ?: ""
