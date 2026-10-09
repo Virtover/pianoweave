@@ -34,8 +34,14 @@ object AcousticNoteDetector {
     private const val FRAME_THRESHOLD_BASE = 0.35f
 
     // Non-target pitches get stricter thresholds by these amounts.
-    private const val NON_TARGET_ONSET_PENALTY = 0.18f
+    private const val NON_TARGET_ONSET_PENALTY = 0.12f
     private const val NON_TARGET_FRAME_PENALTY = 0.10f
+
+    // --- Voice rejection (non-target pitches only; targets are never affected) ---
+
+    // Extra threshold penalty at full voice evidence (scaled linearly by VoiceActivityGate.evidence).
+    private const val VOICE_ONSET_PENALTY_MAX = 0.12f
+    private const val VOICE_FRAME_PENALTY_MAX = 0.06f
 
     // The analysis window is derived per run from the audio received since the previous run.
     // MIN must be >= 2 because pairs of neighbouring frames are evaluated.
@@ -105,6 +111,9 @@ object AcousticNoteDetector {
             }
             Log.i(TAG, "Mapped Indices -> Frame/Note: $noteIndex, Onset: $onsetIndex")
 
+            // Optional voice gate; failure here never blocks note detection.
+            VoiceActivityGate.initialize(context)
+
             if (NativeAudioEngine.initialize()) {
                 isInitialized = true
                 Log.i(TAG, "AcousticNoteDetector initialized successfully")
@@ -131,6 +140,7 @@ object AcousticNoteDetector {
             return
         }
 
+        VoiceActivityGate.reset()
         isRunning = true
         thread = Thread {
             try {
@@ -197,6 +207,9 @@ object AcousticNoteDetector {
                 capture.asFloatBuffer().get(samples, nativeSamples - count, count)
                 readIndex = writeIndex
 
+                // Voice evidence for this run (rate-limited internally to ~2 Hz, uses raw samples).
+                VoiceActivityGate.maybeUpdate(samples, step)
+
                 // Analysis window = audio received since the previous run (this includes the time
                 // spent in inference and sleep), converted to output frames. +1 because
                 // pairs of neighbouring frames are evaluated.
@@ -246,6 +259,8 @@ object AcousticNoteDetector {
         val startFrame = max(0, outputFrames - windowFrames)
         val latestFrame = max(0, outputFrames - 1)
         val suppressed = suppressedPitches
+        val targets = targetPitches
+        val voice = VoiceActivityGate.evidence
 
         for (p in 0 until midiKeys) {
             val midiPitch = p + MIDI_OFFSET
@@ -254,17 +269,6 @@ object AcousticNoteDetector {
                     MidiInputManager.simulateExternalNoteOff(midiPitch)
                 }
                 continue
-            }
-
-            val isTarget = midiPitch in targetPitches
-
-            val onsetThreshold = ONSET_THRESHOLD_BASE + when {
-                isTarget -> -0.25f - midiPitchModifier(midiPitch)
-                else -> NON_TARGET_ONSET_PENALTY
-            }
-            val frameThreshold = FRAME_THRESHOLD_BASE + when {
-                isTarget -> -0.20f - midiPitchModifier(midiPitch) / 2
-                else -> NON_TARGET_FRAME_PENALTY
             }
 
             var onsetProb = 0f
@@ -276,10 +280,23 @@ object AcousticNoteDetector {
                     bestFrame = frame
                 }
             }
+
+            val isTarget = midiPitch in targets
             val frameProb = sigmoid(notePosteriors[bestFrame][p])
 
+            val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) {
+                -0.25f - midiPitchModifier(midiPitch)
+            } else {
+                NON_TARGET_ONSET_PENALTY + VOICE_ONSET_PENALTY_MAX * voice
+            }
+            val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) {
+                -0.20f - midiPitchModifier(midiPitch) / 2
+            } else {
+                NON_TARGET_FRAME_PENALTY + VOICE_FRAME_PENALTY_MAX * voice
+            }
+
             val isActive = midiPitch in activePitches
-            val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
+            var detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
             if (!isActive) {
                 if (detected) {
                     MidiInputManager.simulateExternalNoteOn(midiPitch)
@@ -337,6 +354,7 @@ object AcousticNoteDetector {
         stop()
         interpreter?.close()
         interpreter = null
+        VoiceActivityGate.cleanup()
         NativeAudioEngine.cleanup()
         isInitialized = false
     }
