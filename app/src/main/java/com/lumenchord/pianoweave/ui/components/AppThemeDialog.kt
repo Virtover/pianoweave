@@ -29,15 +29,14 @@ import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 @Composable
 fun AppThemeGrid(
     selectedThemeId: String,
-    onSelectTheme: (String) -> Unit
+    onSelectTheme: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var selectedId by remember(selectedThemeId) { mutableStateOf(selectedThemeId) }
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 60.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 220.dp),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -111,13 +110,13 @@ fun AppThemeDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth(0.98f)
-                    .heightIn(max = 520.dp),
+                    .fillMaxWidth(0.95f)
+                    .fillMaxHeight(0.88f),
                 shape = RoundedCornerShape(20.dp),
                 color = Color(0xFF161B22),
                 contentColor = Color.White,
@@ -125,60 +124,69 @@ fun AppThemeDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    // Header & Grid section takes remaining height
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
                     ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.Palette,
-                                contentDescription = null,
-                                tint = previewTheme.primaryColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                text = "Theme Settings",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = previewTheme.primaryColor
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Palette,
+                                    contentDescription = null,
+                                    tint = previewTheme.primaryColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Theme Settings",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = previewTheme.primaryColor
+                                )
+                            }
+
+                            IconButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
                         }
 
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 10.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                        )
+
+                        AppThemeGrid(
+                            selectedThemeId = selectedId,
+                            onSelectTheme = { themeId ->
+                                selectedId = themeId
+                                onSelectTheme(themeId)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 10.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
-                    )
-
-                    AppThemeGrid(
-                        selectedThemeId = selectedId,
-                        onSelectTheme = { themeId ->
-                            selectedId = themeId
-                            onSelectTheme(themeId)
-                        }
-                    )
 
                     Spacer(Modifier.height(10.dp))
 
+                    // Fixed DONE button pinned at the bottom
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier
@@ -190,7 +198,12 @@ fun AppThemeDialog(
                             contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
                         )
                     ) {
-                        Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        Text(
+                            "DONE",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            color = if (previewTheme.isLightAccent) Color.Black else Color.White
+                        )
                     }
                 }
             }

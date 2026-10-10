@@ -121,6 +121,13 @@ object AppThemeManager {
         }
         val successLightColor = if (hue in 80f..160f) Color(0xFF80D8FF) else Color(0xFF69C67E)
 
+        val colorInt = primary.toArgb()
+        val red = AndroidColor.red(colorInt) / 255f
+        val green = AndroidColor.green(colorInt) / 255f
+        val blue = AndroidColor.blue(colorInt) / 255f
+        val luminance = 0.299f * red + 0.587f * green + 0.114f * blue
+        val resolvedIsLightAccent = isLightAccent || (luminance > 0.55f)
+
         return AppTheme(
             id = id,
             name = name,
@@ -134,7 +141,7 @@ object AppThemeManager {
             baselineGlowColor = baselineGlowColor,
             successColor = successColor,
             successLightColor = successLightColor,
-            isLightAccent = isLightAccent
+            isLightAccent = resolvedIsLightAccent
         )
     }
 }
