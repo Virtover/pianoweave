@@ -1,6 +1,9 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import android.Manifest
 import android.content.res.Configuration
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -13,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Timer
@@ -27,10 +31,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
+import com.lumenchord.pianoweave.audio.PianoPlayer
+import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.delay
@@ -120,6 +128,151 @@ internal fun ModernToolbar(
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val current = LocalContext.current
 
+    var showMicPermissionDialog by remember { mutableStateOf(false) }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            if (AcousticNoteDetector.start(current)) {
+                viewModel.isWaitModeEnabled = true
+            }
+        } else {
+            viewModel.isPlaying = false
+            PianoPlayer.stopAllNotes()
+            showMicPermissionDialog = true
+        }
+    }
+
+    if (showMicPermissionDialog) {
+        val colorSurface = MaterialTheme.colorScheme.surface
+        val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
+        val colorTextDim = MaterialTheme.colorScheme.tertiary
+
+        Dialog(onDismissRequest = { showMicPermissionDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(0.98f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = colorSurface,
+                    border = BorderStroke(1.dp, colorSlate)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Timer,
+                                    contentDescription = null,
+                                    tint = ColorGold,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Text(
+                                    text = "Microphone Permission Required",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = ColorGold
+                                )
+                            }
+                            IconButton(
+                                onClick = { showMicPermissionDialog = false },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = colorTextDim
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                        Text(
+                            text = "Acoustic Wait Mode uses the microphone to listen to your piano and automatically pause the sheet music until you strike the correct notes. Please open Settings to enable microphone access.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 22.sp
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Min),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showMicPermissionDialog = false },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .heightIn(min = 46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, colorSlate),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            Button(
+                                onClick = {
+                                    showMicPermissionDialog = false
+                                    AcousticNoteDetector.openAppSettings(current)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .heightIn(min = 46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ColorGold,
+                                    contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text(
+                                    text = "Open Settings",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -194,9 +347,22 @@ internal fun ModernToolbar(
                     .background(if (viewModel.isWaitModeEnabled) ColorGold else ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
                     .border(1.dp, if (viewModel.isWaitModeEnabled) ColorGold else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
                     .clickable {
-                        if (viewModel.isWaitModeEnabled) AcousticNoteDetector.stop()
-                        else AcousticNoteDetector.start(current)
-                        viewModel.isWaitModeEnabled = !viewModel.isWaitModeEnabled
+                        if (viewModel.isWaitModeEnabled) {
+                            AcousticNoteDetector.stop()
+                            viewModel.isWaitModeEnabled = false
+                        } else {
+                            if (MidiInputManager.isMidiDeviceConnected()) {
+                                viewModel.isWaitModeEnabled = true
+                            } else if (AcousticNoteDetector.hasMicrophonePermission(current)) {
+                                if (AcousticNoteDetector.start(current)) {
+                                    viewModel.isWaitModeEnabled = true
+                                }
+                            } else {
+                                viewModel.isPlaying = false
+                                PianoPlayer.stopAllNotes()
+                                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        }
                     }
                     .padding(horizontal = if (isPortrait) 0.dp else 14.dp),
                 contentAlignment = Alignment.Center
@@ -229,7 +395,11 @@ internal fun ModernToolbar(
                     .size(38.dp)
                     .background(ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
                     .border(1.dp, ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                    .clickable { onSetClick() },
+                    .clickable {
+                        viewModel.isPlaying = false
+                        PianoPlayer.stopAllNotes()
+                        onSetClick()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

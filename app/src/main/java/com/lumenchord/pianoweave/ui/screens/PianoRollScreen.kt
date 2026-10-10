@@ -147,16 +147,20 @@ private fun ModernPianoPlayerContent(
     DisposableEffect(lifecycleOwner, viewModel.isWaitModeEnabled) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                if (viewModel.isWaitModeEnabled) {
-                    AcousticNoteDetector.start(context)
+                if (viewModel.isWaitModeEnabled && !MidiInputManager.isMidiDeviceConnected()) {
+                    if (!AcousticNoteDetector.start(context)) {
+                        viewModel.isWaitModeEnabled = false
+                    }
                 }
             } else if (event == Lifecycle.Event.ON_PAUSE) {
                 AcousticNoteDetector.stop()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        if (viewModel.isWaitModeEnabled) {
-            AcousticNoteDetector.start(context)
+        if (viewModel.isWaitModeEnabled && !MidiInputManager.isMidiDeviceConnected()) {
+            if (!AcousticNoteDetector.start(context)) {
+                viewModel.isWaitModeEnabled = false
+            }
         }
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)

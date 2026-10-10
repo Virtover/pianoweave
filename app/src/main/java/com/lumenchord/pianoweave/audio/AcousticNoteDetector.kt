@@ -2,9 +2,13 @@ package com.lumenchord.pianoweave.audio
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Process
+import android.provider.Settings
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream
@@ -146,13 +150,47 @@ object AcousticNoteDetector {
         }
     }
 
-    @Synchronized
-    fun start(context: Context) {
-        if (!isInitialized) initialize(context)
-        if (!isInitialized) return
+    fun hasMicrophonePermission(context: Context): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    }
 
-        if (MidiInputManager.isMidiDeviceConnected()) return
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+    fun openAppSettings(context: Context) {
+        try {
+            val permissionIntent = Intent("android.intent.action.MANAGE_APP_PERMISSIONS").apply {
+                putExtra("android.intent.extra.PACKAGE_NAME", context.packageName)
+                putExtra("extra_pkg_name", context.packageName)
+                putExtra("android.intent.extra.PERMISSION_GROUP", "android.permission-group.MICROPHONE")
+                putExtra("android.intent.extra.PERMISSION_NAME", Manifest.permission.RECORD_AUDIO)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(permissionIntent)
+        } catch (e: Exception) {
+            try {
+                val detailsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", context.packageName, null)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(detailsIntent)
+            } catch (e2: Exception) {
+                Log.e(TAG, "Failed to open app settings", e2)
+            }
+        }
+    }
+
+    @Synchronized
+    fun start(context: Context): Boolean {
+        if (!isInitialized) initialize(context)
+        if (!isInitialized) return false
+
+        if (MidiInputManager.isMidiDeviceConnected()) return false
+
+        if (!hasMicrophonePermission(context)) {
+            Log.w(TAG, "Microphone permission not granted.")
+            return false
+        }
 
         if (isRunning) {
             stop()
@@ -160,7 +198,7 @@ object AcousticNoteDetector {
 
         if (!NativeAudioEngine.startCapture()) {
             Log.e(TAG, "Failed to start audio capture in start()")
-            return
+            return false
         }
 
         VoiceActivityGate.reset()
@@ -178,6 +216,7 @@ object AcousticNoteDetector {
             priority = Thread.NORM_PRIORITY + 1
             start()
         }
+        return true
     }
 
     private fun runInferenceLoop() {

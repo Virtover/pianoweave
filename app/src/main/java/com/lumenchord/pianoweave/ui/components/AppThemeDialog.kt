@@ -5,11 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AppThemeGrid(
     selectedThemeId: String,
@@ -34,60 +34,64 @@ fun AppThemeGrid(
 ) {
     var selectedId by remember(selectedThemeId) { mutableStateOf(selectedThemeId) }
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 60.dp),
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
     ) {
-        items(AppThemeManager.themes) { theme ->
-            val isSelected = theme.id == selectedId
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable {
-                        selectedId = theme.id
-                        onSelectTheme(theme.id)
-                    },
-                shape = RoundedCornerShape(10.dp),
-                color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background,
-                border = BorderStroke(
-                    width = if (isSelected) 2.dp else 1.dp,
-                    color = if (isSelected) theme.primaryColor else MaterialTheme.colorScheme.tertiaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+        FlowRow(
+            modifier = Modifier.wrapContentWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            AppThemeManager.themes.forEach { theme ->
+                val isSelected = theme.id == selectedId
+                Surface(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            selectedId = theme.id
+                            onSelectTheme(theme.id)
+                        },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background,
+                    border = BorderStroke(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) theme.primaryColor else MaterialTheme.colorScheme.tertiaryContainer
+                    )
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(theme.primaryColor, CircleShape)
-                            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
-                        contentAlignment = Alignment.BottomEnd
+                    Column(
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(12.dp)
-                                .background(theme.waitTargetColor, CircleShape)
-                                .border(1.dp, Color.Black, CircleShape)
-                        )
-                        if (isSelected) {
+                                .size(32.dp)
+                                .background(theme.primaryColor, CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
+                            contentAlignment = Alignment.BottomEnd
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.25f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = if (theme.isLightAccent) Color.Black else Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                    .size(12.dp)
+                                    .background(theme.waitTargetColor, CircleShape)
+                                    .border(1.dp, Color.Black, CircleShape)
+                            )
+                            if (isSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.25f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = if (theme.isLightAccent) Color.Black else Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -174,14 +178,22 @@ fun AppThemeDialog(
                             color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
                         )
 
-                        AppThemeGrid(
-                            selectedThemeId = selectedId,
-                            onSelectTheme = { themeId ->
-                                selectedId = themeId
-                                onSelectTheme(themeId)
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            AppThemeGrid(
+                                selectedThemeId = selectedId,
+                                onSelectTheme = { themeId ->
+                                    selectedId = themeId
+                                    onSelectTheme(themeId)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(10.dp))
