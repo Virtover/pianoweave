@@ -23,7 +23,7 @@ object AcousticNoteDetector {
     private const val TAG = "AcousticNoteDetector"
     private const val MODEL_NAME = "onsets_frames_wavinput_no_offset_uni.tflite"
 
-    // Model Constraints
+    // Model Constraints (fallbacks only; the real values are read from the tensors, e.g. 17920 / 32 here)
     private const val INPUT_SAMPLES = 43844
     private const val MIDI_KEYS = 88
     private const val MIDI_OFFSET = 21
@@ -37,19 +37,30 @@ object AcousticNoteDetector {
     private const val NON_TARGET_ONSET_PENALTY = 0.12f
     private const val NON_TARGET_FRAME_PENALTY = 0.10f
 
-    // --- Voice rejection (non-target pitches only; targets are never affected) ---
+    // --- Hold check (non-target pitches only; targets are never affected and stay immediate) ---
+    // A piano string keeps ringing after the attack, a spoken syllable fades within 2-3 frames.
+    // A NEW non-target note is therefore decided HOLD_FRAMES frames late (1 frame = 35 ms here): its
+    // onset is searched in the window shifted back by HOLD_FRAMES, and it is accepted only if the
+    // frame probability HOLD_FRAMES after the onset peak is still >= HOLD_MIN_FRAME_PROB.
+    // Cost: non-target notes are reported HOLD_FRAMES * 35 ms later. Start at 3, lower to cut latency.
+    private const val HOLD_FRAMES = 3
+    private const val NON_TARGET_HOLD_MIN_FRAME_PROB = 0.4f
+    private const val TARGET_HOLD_MIN_FRAME_PROB = 0.2f
 
-    // Extra threshold penalty at full voice evidence (scaled linearly by VoiceActivityGate.evidence).
-    private const val VOICE_ONSET_PENALTY_MAX = 0.12f
-    private const val VOICE_FRAME_PENALTY_MAX = 0.06f
+    private const val NON_TARGET_HOLD_VOICE_EXTRA = 0.25f
+    private const val TARGET_HOLD_VOICE_EXTRA = 0.15f
 
     // The analysis window is derived per run from the audio received since the previous run.
-    // MIN must be >= 2 because pairs of neighbouring frames are evaluated.
+    // MAX is clamped to the model's output frame count (32 for this model).
     private const val MIN_ANALYSIS_FRAMES = 5
     private const val MAX_ANALYSIS_FRAMES = 40
     private const val REQUIRED_OFF_FRAMES = 2
 
     private const val INFERENCE_INTERVAL_MS = 60L
+
+    // Logs onset/frame profile + hold value around every non-target note that passes the onset/frame
+    // thresholds (for tuning / comparing voice vs piano).
+    private const val DEBUG_PROFILES = false
 
     private var isInitialized = false
     @Volatile private var isRunning = false
@@ -64,6 +75,13 @@ object AcousticNoteDetector {
     @Volatile var targetPitches: Set<Int> = emptySet()
     private val activePitches = mutableSetOf<Int>()
     private val noteOffConfidence = IntArray(128)
+
+    // Per-pitch scratch for the two-pass processOutputs (avoids per-run allocation).
+    private val candOnset = FloatArray(128)
+    private val candFrame = FloatArray(128)        // note prob at the onset frame
+    private val candHold = FloatArray(128)         // note prob HOLD_FRAMES after the onset frame
+    private val candFrameLatest = FloatArray(128)  // note prob at the newest frame (for note-off)
+    private val bestFrame = IntArray(128)
 
     /**
      * One-time setup of the model and native engine.
@@ -93,22 +111,27 @@ object AcousticNoteDetector {
                 Log.i(TAG, "Input Tensor $i: name='$name', shape=[$shapeStr]")
             }
 
-            // Safely discover output indices based on tensor names and shapes
+            // Discover output indices. Match by name first; velocity/offset heads are never used
+            // (they also have an [1x32x88] shape and must not be picked by the shape fallback).
+            noteIndex = -1
+            onsetIndex = -1
+            val shapeFallback = mutableListOf<Int>()
             for (i in 0 until interp.outputTensorCount) {
                 val tensor = interp.getOutputTensor(i)
                 val name = tensor.name() ?: ""
+                val lowerName = name.lowercase()
                 val shape = tensor.shape()
-                val shapeStr = shape.joinToString("x")
-                Log.i(TAG, "Output Tensor $i: name='$name', shape=[$shapeStr]")
+                Log.i(TAG, "Output Tensor $i: name='$name', shape=[${shape.joinToString("x")}]")
 
-                if (name.contains("onset", ignoreCase = true)) {
-                    onsetIndex = i
-                } else if (name.contains("frame", ignoreCase = true) || name.contains("note", ignoreCase = true)) {
-                    noteIndex = i
-                } else if (shape.isNotEmpty() && shape.last() == MIDI_KEYS) {
-                    if (noteIndex == -1) noteIndex = i else onsetIndex = i
+                when {
+                    "velocity" in lowerName || "offset" in lowerName -> Unit
+                    "onset" in lowerName -> onsetIndex = i
+                    "frame" in lowerName || "note" in lowerName -> noteIndex = i
+                    shape.isNotEmpty() && shape.last() == MIDI_KEYS -> shapeFallback.add(i)
                 }
             }
+            if (noteIndex == -1 && shapeFallback.isNotEmpty()) noteIndex = shapeFallback.removeAt(0)
+            if (onsetIndex == -1 && shapeFallback.isNotEmpty()) onsetIndex = shapeFallback.removeAt(0)
             Log.i(TAG, "Mapped Indices -> Frame/Note: $noteIndex, Onset: $onsetIndex")
 
             // Optional voice gate; failure here never blocks note detection.
@@ -179,7 +202,7 @@ object AcousticNoteDetector {
 
         val step = 44100f / 16000f
         val nativeSamples = (inputSamples * step).toInt() + 2
-        // Model samples (16 kHz) per output frame, ~256 (16 ms) for this model.
+        // Model samples (16 kHz) per output frame (560 = 35 ms for the 17920 / 32 model).
         val samplesPerFrame = inputSamples.toFloat() / outputFrames
         val maxWindow = min(MAX_ANALYSIS_FRAMES, outputFrames)
         val capture = ByteBuffer.allocateDirect(nativeSamples * 4).order(ByteOrder.nativeOrder())
@@ -207,12 +230,12 @@ object AcousticNoteDetector {
                 capture.asFloatBuffer().get(samples, nativeSamples - count, count)
                 readIndex = writeIndex
 
-                // Voice evidence for this run (rate-limited internally to ~2 Hz, uses raw samples).
-                VoiceActivityGate.maybeUpdate(samples, step)
+                // Keeps VoiceActivityGate.evidence up to date (cheap). Not used for note decisions
+                // while voiceWeight is disabled in processOutputs; comment out to save the CPU.
+                VoiceActivityGate.feed(samples, count, step, contiguous = newFrames <= nativeSamples)
 
                 // Analysis window = audio received since the previous run (this includes the time
-                // spent in inference and sleep), converted to output frames. +1 because
-                // pairs of neighbouring frames are evaluated.
+                // spent in inference and sleep), converted to output frames (+1 frame of margin).
                 val newModelSamples = count / step
                 val windowFrames = (ceil(newModelSamples / samplesPerFrame).toInt() + 1)
                     .coerceIn(min(MIN_ANALYSIS_FRAMES, maxWindow), maxWindow)
@@ -260,8 +283,44 @@ object AcousticNoteDetector {
         val latestFrame = max(0, outputFrames - 1)
         val suppressed = suppressedPitches
         val targets = targetPitches
-        val voice = VoiceActivityGate.evidence
 
+        // Pass 1: per pitch, the best onset in the window and the note probabilities around it.
+        // Targets search the newest window (immediate). Non-targets search the window shifted back by
+        // HOLD_FRAMES, so the frames after the onset peak are already available for the hold check.
+        for (p in 0 until midiKeys) {
+            val midiPitch = p + MIDI_OFFSET
+            if (midiPitch in suppressed) {
+                candOnset[p] = 0f
+                candFrame[p] = 0f
+                candHold[p] = 0f
+                candFrameLatest[p] = 0f
+                continue
+            }
+
+            val delay = if (midiPitch in targets) 0 else HOLD_FRAMES
+            val hi = max(0, latestFrame - delay)
+            val lo = min(max(0, startFrame - delay), hi)
+
+            var onsetProb = 0f
+            var best = hi
+            for (frame in lo..hi) {
+                val prob = sigmoid(onsetPosteriors[frame][p])
+                if (prob > onsetProb) {
+                    onsetProb = prob
+                    best = frame
+                }
+            }
+
+            bestFrame[p] = best
+            candOnset[p] = onsetProb
+            candFrame[p] = sigmoid(notePosteriors[best][p])
+            candHold[p] = sigmoid(notePosteriors[min(best + delay, latestFrame)][p])
+            candFrameLatest[p] = sigmoid(notePosteriors[latestFrame][p])
+        }
+
+        val voiceWeight = VoiceActivityGate.evidence
+
+        // Pass 2: thresholds, hold check and note on/off.
         for (p in 0 until midiKeys) {
             val midiPitch = p + MIDI_OFFSET
             if (midiPitch in suppressed) {
@@ -271,33 +330,31 @@ object AcousticNoteDetector {
                 continue
             }
 
-            var onsetProb = 0f
-            var bestFrame = latestFrame
-            for (frame in startFrame..latestFrame) {
-                val prob = sigmoid(onsetPosteriors[frame][p])
-                if (prob > onsetProb) {
-                    onsetProb = prob
-                    bestFrame = frame
-                }
-            }
-
             val isTarget = midiPitch in targets
-            val frameProb = sigmoid(notePosteriors[bestFrame][p])
+            val onsetProb = candOnset[p]
+            val frameProb = candFrame[p]
 
             val onsetThreshold = ONSET_THRESHOLD_BASE + if (isTarget) {
                 -0.25f - midiPitchModifier(midiPitch)
             } else {
-                NON_TARGET_ONSET_PENALTY + VOICE_ONSET_PENALTY_MAX * voice
+                NON_TARGET_ONSET_PENALTY
             }
             val frameThreshold = FRAME_THRESHOLD_BASE + if (isTarget) {
                 -0.20f - midiPitchModifier(midiPitch) / 2
             } else {
-                NON_TARGET_FRAME_PENALTY + VOICE_FRAME_PENALTY_MAX * voice
+                NON_TARGET_FRAME_PENALTY
             }
 
             val isActive = midiPitch in activePitches
-            var detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold
             if (!isActive) {
+                val holdThreshold = if (isTarget) {
+                    TARGET_HOLD_MIN_FRAME_PROB + TARGET_HOLD_VOICE_EXTRA * voiceWeight
+                } else {
+                    NON_TARGET_HOLD_MIN_FRAME_PROB + NON_TARGET_HOLD_VOICE_EXTRA * voiceWeight
+                }
+                val held = candHold[p] >= holdThreshold
+                val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold && held
+
                 if (detected) {
                     MidiInputManager.simulateExternalNoteOn(midiPitch)
                     activePitches.add(midiPitch)
@@ -309,7 +366,9 @@ object AcousticNoteDetector {
                         && frameProb >= FRAME_THRESHOLD_BASE + 0.1f
                 if (targetRedetected) MidiInputManager.simulateExternalNoteOn(midiPitch)
 
-                if (frameProb >= frameThreshold) {
+                // Non-targets are searched in a shifted window, so judge note-off on the newest frame.
+                val offFrameProb = if (isTarget) frameProb else candFrameLatest[p]
+                if (offFrameProb >= frameThreshold) {
                     noteOffConfidence[midiPitch] = 0
                 } else {
                     noteOffConfidence[midiPitch]++
