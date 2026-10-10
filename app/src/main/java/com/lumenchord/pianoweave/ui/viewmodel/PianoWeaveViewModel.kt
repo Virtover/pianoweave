@@ -148,9 +148,6 @@ class PianoWeaveViewModel : ViewModel() {
     var uploadErrorOccured by mutableStateOf(false)
     var selectedStorageViewName by mutableStateOf<String?>(null)
 
-    val requireGoogleAccount: Boolean
-        get() = try { AppConfig.getConfig().requireGoogleAccount } catch (_: Exception) { false }
-
     val appWebClientId: String
         get() = try { AppConfig.getConfig().webClientId ?: "" } catch (_: Exception) { "" }
 

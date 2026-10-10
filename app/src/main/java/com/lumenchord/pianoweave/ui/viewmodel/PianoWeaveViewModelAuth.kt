@@ -41,6 +41,8 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSi
         return
     }
 
+    val previousEmail = googleUserEmail
+
     viewModelScope.launch {
         isGoogleAuthLoading = true
         googleAuthError = null
@@ -51,6 +53,18 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSi
                 googleUserEmail = user.email
                 googleAuthError = null
                 isGoogleAuthLoading = false
+
+                if (previousEmail.isNotBlank()) {
+                    isCloudSyncEnabled = false
+                    hasCloudSyncError = false
+                    cloudSyncError = null
+                    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+                    prefs.edit()
+                        .putBoolean("is_cloud_sync_enabled", false)
+                        .putBoolean("has_cloud_sync_error", false)
+                        .remove("cloud_sync_error")
+                        .apply()
+                }
 
                 markServerAuthenticated(context)
 
