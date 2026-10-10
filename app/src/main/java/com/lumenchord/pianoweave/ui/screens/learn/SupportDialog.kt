@@ -93,7 +93,7 @@ internal fun SupportDialog(
                     HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
                     Text(
-                        text = "Consider supporting Piano Weave! The transcription server is expensive to run and will be free only as long as I can afford it.",
+                        text = "Transcription is free at the moment. If you want, you can support me.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.9f),
                         lineHeight = 22.sp
