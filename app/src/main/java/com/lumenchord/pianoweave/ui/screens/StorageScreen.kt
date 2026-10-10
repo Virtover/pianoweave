@@ -12,11 +12,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
@@ -32,8 +34,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +51,7 @@ import com.lumenchord.pianoweave.ui.components.StoredSongCard
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StorageScreen(
     viewModel: PianoWeaveViewModel,
@@ -61,6 +66,7 @@ fun StorageScreen(
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+    val isLandscape = !isPortrait
     val appTheme = LocalAppTheme.current
 
     val colorSurface = MaterialTheme.colorScheme.surface
@@ -251,16 +257,16 @@ fun StorageScreen(
     fun AddFromDeviceButton() {
         Box(
             modifier = Modifier
-                .height(38.dp)
-                .then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth())
+                .height(if (isLandscape) 32.dp else 36.dp)
+                .then(if (isPortrait) Modifier.width(36.dp) else Modifier.wrapContentWidth())
                 .background(
                     MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                    RoundedCornerShape(10.dp)
+                    RoundedCornerShape(8.dp)
                 )
                 .border(
                     1.dp,
                     MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
-                    RoundedCornerShape(10.dp)
+                    RoundedCornerShape(8.dp)
                 )
                 .clickable {
                     filePickerLauncher.launch(
@@ -270,7 +276,7 @@ fun StorageScreen(
                         )
                     )
                 }
-                .padding(horizontal = if (isPortrait) 0.dp else 12.dp),
+                .padding(horizontal = if (isPortrait) 0.dp else 10.dp),
             contentAlignment = Alignment.Center
         ) {
             Row(
@@ -281,13 +287,16 @@ fun StorageScreen(
                     Icons.Default.UploadFile,
                     contentDescription = "Add from device",
                     tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 if (!isPortrait) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Add from device",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        ),
                         color = MaterialTheme.colorScheme.secondary,
                         maxLines = 1,
                         softWrap = false
@@ -297,170 +306,300 @@ fun StorageScreen(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        // --- Header Section ---
+    // Cloud sync status variables
+    val (statusIcon, statusTint, statusText) = when {
+        !viewModel.isCloudSyncEnabled -> Triple(
+            Icons.Default.CloudOff,
+            MaterialTheme.colorScheme.secondary,
+            "Stored on device"
+        )
+        viewModel.hasCloudSyncError -> Triple(
+            Icons.Default.ErrorOutline,
+            MaterialTheme.colorScheme.error,
+            "Sync error"
+        )
+        else -> Triple(
+            Icons.Default.Cloud,
+            MaterialTheme.colorScheme.secondary,
+            "Online"
+        )
+    }
+
+    @Composable
+    fun CloudStatusBadge() {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "MIDI Library",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 2.dp)
-                ) {
-                    val (statusIcon, statusTint, statusText) = when {
-                        !viewModel.isCloudSyncEnabled -> Triple(
-                            Icons.Default.CloudOff,
-                            MaterialTheme.colorScheme.secondary,
-                            "Stored on device"
-                        )
-                        viewModel.hasCloudSyncError -> Triple(
-                            Icons.Default.ErrorOutline,
-                            MaterialTheme.colorScheme.error,
-                            "Sync error"
-                        )
-                        else -> Triple(
-                            Icons.Default.Cloud,
-                            MaterialTheme.colorScheme.secondary,
-                            "Online"
-                        )
-                    }
-
-                    Icon(
-                        imageVector = statusIcon,
-                        contentDescription = null,
-                        tint = statusTint,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontSize = 11.sp,
-                        color = if (viewModel.isCloudSyncEnabled && viewModel.hasCloudSyncError) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = if (viewModel.isCloudSyncEnabled && viewModel.hasCloudSyncError) {
-                            Modifier.clickable { viewModel.showCloudSyncErrorDialog = true }
-                        } else {
-                            Modifier
-                        }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (viewModel.isCloudSyncEnabled) {
-                    IconButton(
-                        onClick = { viewModel.refreshCloudSync(context) },
-                        enabled = !viewModel.isRefreshingCloud,
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        if (viewModel.isRefreshingCloud) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = "Sync Cloud Files",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-
-                AddFromDeviceButton()
-            }
-        }
-
-        // --- Info & Quick Action Bar (Exact position & style of former "Move to cloud") ---
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            Icon(
+                imageVector = statusIcon,
+                contentDescription = null,
+                tint = statusTint,
+                modifier = Modifier.size(14.dp)
+            )
             Text(
-                text = "${songs.size} track(s) in library",
+                text = statusText,
                 style = MaterialTheme.typography.bodySmall,
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (viewModel.isCloudSyncEnabled && viewModel.hasCloudSyncError) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = if (viewModel.isCloudSyncEnabled && viewModel.hasCloudSyncError) {
+                    Modifier.clickable { viewModel.showCloudSyncErrorDialog = true }
+                } else {
+                    Modifier
+                }
             )
+        }
+    }
 
-            TextButton(
-                onClick = {
+    @Composable
+    fun CloudSyncToggleButton() {
+        Text(
+            text = if (viewModel.isCloudSyncEnabled) "Turn off cloud sync" else "Turn on cloud sync",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (viewModel.isCloudSyncEnabled) MaterialTheme.colorScheme.tertiary else colorGold,
+            modifier = Modifier
+                .clickable {
                     if (viewModel.isCloudSyncEnabled) {
                         viewModel.requestTurnOffCloudSync(context)
                     } else {
                         viewModel.requestTurnOnCloudSync(context)
                     }
-                },
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                modifier = Modifier.height(26.dp)
+                }
+                .padding(vertical = 2.dp, horizontal = 2.dp)
+        )
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp)
+    ) {
+        // --- Header Section ---
+        if (isLandscape) {
+            // Compact Header for Landscape: All-in-one top bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
+                ) {
+                    Text(
+                        text = "MIDI Library",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        CloudStatusBadge()
+
+                        Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        Text(
+                            text = "${songs.size} track${if (songs.size == 1) "" else "s"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+
+                        Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        CloudSyncToggleButton()
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (viewModel.isCloudSyncEnabled) {
+                        IconButton(
+                            onClick = { viewModel.refreshCloudSync(context) },
+                            enabled = !viewModel.isRefreshingCloud,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            if (viewModel.isRefreshingCloud) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = "Sync Cloud Files",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    AddFromDeviceButton()
+                }
+            }
+        } else {
+            // Portrait Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (viewModel.isCloudSyncEnabled) "Turn off cloud sync" else "Turn on cloud sync",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colorGold.copy(alpha = 0.85f)
+                    text = "MIDI Library",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
                 )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (viewModel.isCloudSyncEnabled) {
+                        IconButton(
+                            onClick = { viewModel.refreshCloudSync(context) },
+                            enabled = !viewModel.isRefreshingCloud,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            if (viewModel.isRefreshingCloud) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = "Sync Cloud Files",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    AddFromDeviceButton()
+                }
+            }
+
+            // Portrait Sub-header bar (Status, Track Count & Cloud Sync toggle)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    CloudStatusBadge()
+
+                    Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    Text(
+                        text = "${songs.size} track${if (songs.size == 1) "" else "s"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+
+                CloudSyncToggleButton()
             }
         }
 
-        // Search Field
-        OutlinedTextField(
+        // --- Compact Search Field ---
+        val interactionSource = remember { MutableInteractionSource() }
+        BasicTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search library...") },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                    }
-                }
-            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (isLandscape) 38.dp else 44.dp),
+            interactionSource = interactionSource,
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                cursorColor = MaterialTheme.colorScheme.secondary
-            )
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = if (isLandscape) 13.sp else 14.sp
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.secondary),
+            decorationBox = { innerTextField ->
+                OutlinedTextFieldDefaults.DecorationBox(
+                    value = searchQuery,
+                    innerTextField = innerTextField,
+                    enabled = true,
+                    singleLine = true,
+                    visualTransformation = VisualTransformation.None,
+                    interactionSource = interactionSource,
+                    placeholder = {
+                        Text(
+                            "Search library...",
+                            fontSize = if (isLandscape) 13.sp else 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(if (isLandscape) 16.dp else 18.dp)
+                        )
+                    },
+                    trailingIcon = if (searchQuery.isNotEmpty()) {
+                        {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = "Clear search",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    } else null,
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = if (isLandscape) 2.dp else 6.dp
+                    ),
+                    container = {
+                        OutlinedTextFieldDefaults.Container(
+                            enabled = true,
+                            isError = false,
+                            interactionSource = interactionSource,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                                cursorColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+                )
+            }
         )
 
-        // Songs List
+        // --- Songs List ---
         if (filteredSongs.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -476,7 +615,7 @@ fun StorageScreen(
                         imageVector = if (songs.isEmpty()) Icons.Default.LibraryMusic else Icons.Default.Search,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                        modifier = Modifier.size(56.dp)
+                        modifier = Modifier.size(if (isLandscape) 42.dp else 56.dp)
                     )
                     Text(
                         text = if (songs.isEmpty()) "No saved songs yet." else "No songs match your search query.",
@@ -489,7 +628,7 @@ fun StorageScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 10.dp)
             ) {
                 items(
                     filteredSongs,
@@ -510,3 +649,4 @@ fun StorageScreen(
         }
     }
 }
+
