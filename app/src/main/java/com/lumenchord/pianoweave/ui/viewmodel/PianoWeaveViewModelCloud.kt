@@ -7,6 +7,25 @@ import com.lumenchord.pianoweave.midi.MidiStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentLinkedQueue
+
+private const val SYNC_CONCURRENCY = 6
+
+private suspend fun <T, R> List<T>.parallelMap(
+    concurrency: Int = SYNC_CONCURRENCY,
+    block: suspend (T) -> R
+): List<R> {
+    val semaphore = Semaphore(concurrency)
+    return coroutineScope {
+        map { item -> async { semaphore.withPermit { block(item) } } }.awaitAll()
+    }
+}
 
 internal fun PianoWeaveViewModel.enableCloudSyncImpl(context: Context) {
     viewModelScope.launch(Dispatchers.Main) {
@@ -46,7 +65,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(context: Context, showModa
             return@launch
         }
 
-        val failures = mutableListOf<String>()
+        val failures = ConcurrentLinkedQueue<String>()
 
         try {
             if (showModalProgress) {
@@ -73,100 +92,98 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(context: Context, showModa
             }
 
             val initialCloudSongs = initialCloudResult.getOrDefault(emptyList()).toMutableList()
-
-            // Remove 0-byte or nameless corrupted files from cloud
+            // Corrupted cloud files: delete in parallel
             val corruptedCloudSongs = initialCloudSongs.filter { it.sizeBytes == 0L || it.name.isBlank() }
-            for (corrupted in corruptedCloudSongs) {
-                GoogleDriveManager.deleteCloudMidi(context, corrupted.id, token)
-                initialCloudSongs.remove(corrupted)
-            }
+            corruptedCloudSongs.parallelMap { GoogleDriveManager.deleteCloudMidi(context, it.id, token) }
+            initialCloudSongs.removeAll(corruptedCloudSongs.toSet())
 
             val cloudFileIds = initialCloudSongs.map { it.id }.toSet()
             val allLocalSongs = MidiStorage.listAll(context)
 
-            // 1. Detect remote deletions (local song has cloudFileId, but cloudFileId no longer on Drive)
-            for (localMidi in allLocalSongs) {
-                if (localMidi.cloudFileId.isNotBlank() && !cloudFileIds.contains(localMidi.cloudFileId)) {
-                    MidiStorage.hardDelete(context, localMidi)
-                }
+            // 1. Remote deletions (local files only, no network)
+            allLocalSongs
+                .filter { it.cloudFileId.isNotBlank() && it.cloudFileId !in cloudFileIds }
+                .forEach { MidiStorage.hardDelete(context, it) }
+
+            // One snapshot instead of re-listing from disk several times
+            val localSongs = allLocalSongs.filterNot {
+                it.cloudFileId.isNotBlank() && it.cloudFileId !in cloudFileIds
             }
+            val deletedLocal = localSongs.filter { it.isDeleted }
+            val activeLocalSongs = localSongs.filterNot { it.isDeleted }
+            val deletedLocalCloudIds = deletedLocal.map { it.cloudFileId }.filter { it.isNotBlank() }.toSet()
+            val deletedLocalUrls = deletedLocal.map { it.videoUrl }.toSet()
 
-            // Refresh local songs list
-            val updatedLocalSongs = MidiStorage.listAll(context)
-            val deletedLocalCloudIds = updatedLocalSongs.filter { it.isDeleted && it.cloudFileId.isNotBlank() }.map { it.cloudFileId }.toSet()
-            val deletedLocalUrls = updatedLocalSongs.filter { it.isDeleted }.map { it.videoUrl }.toSet()
-            val activeLocalSongs = updatedLocalSongs.filterNot { it.isDeleted }
-
-            // 2. Purge cloud copies for local soft-deleted songs
+            // 2. Purge cloud copies of soft-deleted songs (parallel)
             val cloudSongsToDelete = initialCloudSongs.filter {
-                deletedLocalCloudIds.contains(it.id) || deletedLocalUrls.contains(it.videoUrl)
+                it.id in deletedLocalCloudIds || it.videoUrl in deletedLocalUrls
             }
-            for (cloudSong in cloudSongsToDelete) {
-                GoogleDriveManager.deleteCloudMidi(context, cloudSong.id, token)
-                initialCloudSongs.remove(cloudSong)
-            }
-
-            // Permanently hard delete local soft-deleted songs whose cloud copies are now removed
-            updatedLocalSongs.filter { it.isDeleted }.forEach { MidiStorage.hardDelete(context, it) }
+            cloudSongsToDelete.parallelMap { GoogleDriveManager.deleteCloudMidi(context, it.id, token) }
+            initialCloudSongs.removeAll(cloudSongsToDelete.toSet())
+            deletedLocal.forEach { MidiStorage.hardDelete(context, it) }
 
             val remainingCloudByUrl = initialCloudSongs.associateBy { it.videoUrl }
             val remainingCloudById = initialCloudSongs.associateBy { it.id }
 
-            // 3. Upload active local songs missing cloudFileId or not on cloud
+            // Work out BOTH directions up front from the same snapshot. They are disjoint,
+            // so uploads and downloads can run at the same time.
+            val localCloudIds = activeLocalSongs.map { it.cloudFileId }.filter { it.isNotBlank() }.toSet()
+            val localUrls = activeLocalSongs.map { it.videoUrl }.toSet()
+
             val songsToUpload = activeLocalSongs.filter {
-                !remainingCloudById.containsKey(it.cloudFileId) && !remainingCloudByUrl.containsKey(it.videoUrl)
+                it.cloudFileId !in remainingCloudById && it.videoUrl !in remainingCloudByUrl
             }
-
-            songsToUpload.forEachIndexed { index, localMidi ->
-                if (showModalProgress) {
-                    withContext(Dispatchers.Main) {
-                        cloudSyncProgressText = "Uploading ${index + 1} of ${songsToUpload.size}: ${localMidi.metadata.title}"
-                    }
-                }
-
-                val existingCloud = remainingCloudByUrl[localMidi.videoUrl]
-                if (existingCloud != null) {
-                    MidiStorage.updateCloudFileId(context, localMidi, existingCloud.id)
-                } else {
-                    val uploadResult = GoogleDriveManager.uploadMidi(context, localMidi, token)
-                    uploadResult.fold(
-                        onSuccess = { uploadedCloudMidi ->
-                            MidiStorage.updateCloudFileId(context, localMidi, uploadedCloudMidi.id)
-                        },
-                        onFailure = { err ->
-                            failures.add("Upload '${localMidi.metadata.title}': ${err.localizedMessage ?: "Unknown error"}")
-                        }
-                    )
-                }
+            val songsToLink = activeLocalSongs.filter {
+                it.cloudFileId !in remainingCloudById && it.videoUrl in remainingCloudByUrl
             }
-
-            // 4. Download cloud songs missing from local storage
-            val currentLocalCloudIds = MidiStorage.listAll(context).map { it.cloudFileId }.toSet()
-            val currentLocalUrls = MidiStorage.listAll(context).map { it.videoUrl }.toSet()
             val songsToDownload = initialCloudSongs.filter {
-                !currentLocalCloudIds.contains(it.id) && !currentLocalUrls.contains(it.videoUrl)
+                it.id !in localCloudIds && it.videoUrl !in localUrls
             }
 
-            songsToDownload.forEachIndexed { index, cloudSong ->
-                if (showModalProgress) {
-                    withContext(Dispatchers.Main) {
-                        cloudSyncProgressText = "Downloading ${index + 1} of ${songsToDownload.size}: ${cloudSong.metadata.title}"
+            // Linking is local-only metadata, no network
+            songsToLink.forEach { MidiStorage.updateCloudFileId(context, it, remainingCloudByUrl.getValue(it.videoUrl).id) }
+
+            val total = songsToUpload.size + songsToDownload.size
+            val done = AtomicInteger(0)
+            suspend fun reportProgress(label: String) {
+                if (showModalProgress && total > 0) {
+                    val n = done.incrementAndGet()
+                    withContext(Dispatchers.Main) { cloudSyncProgressText = "$label ($n of $total)" }
+                }
+            }
+
+            // 3 + 4. Upload and download concurrently
+            coroutineScope {
+                val uploads = async {
+                    songsToUpload.parallelMap { localMidi ->
+                        GoogleDriveManager.uploadMidi(context, localMidi, token).fold(
+                            onSuccess = { MidiStorage.updateCloudFileId(context, localMidi, it.id) },
+                            onFailure = { err ->
+                                failures.add("Upload '${localMidi.metadata.title}': ${err.localizedMessage ?: "Unknown error"}")
+                            }
+                        )
+                        reportProgress("Syncing ${localMidi.metadata.title}")
                     }
                 }
-
-                val downloadResult = GoogleDriveManager.downloadMidiFile(context, cloudSong, token)
-                downloadResult.fold(
-                    onSuccess = { storedMidi ->
-                        if (storedMidi.file.exists() && storedMidi.file.length() > 0) {
-                            MidiStorage.updateCloudFileId(context, storedMidi, cloudSong.id)
-                        } else {
-                            failures.add("Downloaded file '${cloudSong.metadata.title}' is empty.")
-                        }
-                    },
-                    onFailure = { err ->
-                        failures.add("Download '${cloudSong.metadata.title}': ${err.localizedMessage ?: "Unknown error"}")
+                val downloads = async {
+                    songsToDownload.parallelMap { cloudSong ->
+                        GoogleDriveManager.downloadMidiFile(context, cloudSong, token).fold(
+                            onSuccess = { stored ->
+                                if (stored.file.exists() && stored.file.length() > 0) {
+                                    MidiStorage.updateCloudFileId(context, stored, cloudSong.id)
+                                } else {
+                                    failures.add("Downloaded file '${cloudSong.metadata.title}' is empty.")
+                                }
+                            },
+                            onFailure = { err ->
+                                failures.add("Download '${cloudSong.metadata.title}': ${err.localizedMessage ?: "Unknown error"}")
+                            }
+                        )
+                        reportProgress("Syncing ${cloudSong.metadata.title}")
                     }
-                )
+                }
+                uploads.await()
+                downloads.await()
             }
 
             withContext(Dispatchers.Main) {
