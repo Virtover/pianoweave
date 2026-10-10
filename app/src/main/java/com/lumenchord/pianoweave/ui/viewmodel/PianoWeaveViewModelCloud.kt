@@ -35,10 +35,14 @@ internal fun PianoWeaveViewModel.enableCloudSyncImpl(context: Context) {
         cloudSyncError = null
         saveCloudSyncState(context, enabled = true, hasError = false, errorMsg = null)
     }
-    refreshCloudSyncImpl(context, showModalProgress = true)
+    refreshCloudSyncImpl(context, showModalProgress = true, uploadPreviousAccountSongs = true)
 }
 
-internal fun PianoWeaveViewModel.refreshCloudSyncImpl(context: Context, showModalProgress: Boolean = false) {
+internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
+    context: Context,
+    showModalProgress: Boolean = false,
+    uploadPreviousAccountSongs: Boolean = false
+) {
     if (isRefreshingCloud || isCloudSyncing) return
     viewModelScope.launch(Dispatchers.IO) {
         withContext(Dispatchers.Main) {
@@ -101,13 +105,19 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(context: Context, showModa
             val allLocalSongs = MidiStorage.listAll(context)
 
             // 1. Remote deletions (local files only, no network)
-            allLocalSongs
-                .filter { it.cloudFileId.isNotBlank() && it.cloudFileId !in cloudFileIds }
-                .forEach { MidiStorage.hardDelete(context, it) }
+            if (!uploadPreviousAccountSongs) {
+                allLocalSongs
+                    .filter { it.cloudFileId.isNotBlank() && it.cloudFileId !in cloudFileIds }
+                    .forEach { MidiStorage.hardDelete(context, it) }
+            }
 
             // One snapshot instead of re-listing from disk several times
-            val localSongs = allLocalSongs.filterNot {
-                it.cloudFileId.isNotBlank() && it.cloudFileId !in cloudFileIds
+            val localSongs = if (!uploadPreviousAccountSongs) {
+                allLocalSongs.filterNot {
+                    it.cloudFileId.isNotBlank() && it.cloudFileId !in cloudFileIds
+                }
+            } else {
+                allLocalSongs
             }
             val deletedLocal = localSongs.filter { it.isDeleted }
             val activeLocalSongs = localSongs.filterNot { it.isDeleted }
