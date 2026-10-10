@@ -127,6 +127,7 @@ internal fun PianoWeaveViewModel.importMidiFileImpl(context: Context, uri: Uri) 
                     val token = googleToken
                     if (token.isNotBlank()) {
                         GoogleDriveManager.uploadMidi(context, importedMidi, token)
+                        refreshCloudSyncImpl(context, false)
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
