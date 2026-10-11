@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -15,11 +17,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -38,6 +47,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun PianoRollScreen(
@@ -307,6 +317,7 @@ private fun ModernPianoPlayerContent(
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
     var isUiHidden by remember { mutableStateOf(false) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
 
     BackHandler(enabled = isUiHidden) {
         isUiHidden = false
@@ -322,6 +333,7 @@ private fun ModernPianoPlayerContent(
                 .weight(1f)
                 .fillMaxWidth()
                 .clipToBounds()
+                .onSizeChanged { containerSize = it }
                 .pointerInput(songDurationMs, isUiHidden) {
                     val scale = 0.25f
                     val maxDist = 35.dp.toPx()
@@ -331,20 +343,28 @@ private fun ModernPianoPlayerContent(
                             viewModel.isPlaying = !viewModel.isPlaying
                         },
                         onDoubleTap = { offset ->
-                            val isLeft = offset.x < size.width / 2f
-                            PianoPlayer.stopAllNotes()
-                            currentWaitOnsetMs = -1L
-                            lastCompletedWaitOnsetMs = -1L
-                            chordHits.clear()
-                            viewModel.playheadMs = calculateSeekPosition(
-                                currentMs = viewModel.playheadMs,
-                                deltaMs = if (isLeft) -5000L else 5000L,
-                                songDurationMs = songDurationMs,
-                                isLoopingEnabled = viewModel.isLoopingEnabled,
-                                loopStartMs = viewModel.loopStartMs,
-                                loopEndMs = viewModel.loopEndMs
-                            )
-                            seekInfo = SeekInfo(if (isLeft) SeekDirection.BACKWARD else SeekDirection.FORWARD)
+                            // Double tap on falling notes section turns on / off UI bars visibility
+                            isUiHidden = !isUiHidden
+
+                            /*
+                             * PREVIOUS MECHANIC (Moving back/forward 5s on double tap):
+                             * Preserved below for reference/restoration:
+                             *
+                             * val isLeft = offset.x < size.width / 2f
+                             * PianoPlayer.stopAllNotes()
+                             * currentWaitOnsetMs = -1L
+                             * lastCompletedWaitOnsetMs = -1L
+                             * chordHits.clear()
+                             * viewModel.playheadMs = calculateSeekPosition(
+                             *     currentMs = viewModel.playheadMs,
+                             *     deltaMs = if (isLeft) -5000L else 5000L,
+                             *     songDurationMs = songDurationMs,
+                             *     isLoopingEnabled = viewModel.isLoopingEnabled,
+                             *     loopStartMs = viewModel.loopStartMs,
+                             *     loopEndMs = viewModel.loopEndMs
+                             * )
+                             * seekInfo = SeekInfo(if (isLeft) SeekDirection.BACKWARD else SeekDirection.FORWARD)
+                             */
                         },
                         onDragStart = {
                             viewModel.isPlaying = false
@@ -389,23 +409,14 @@ private fun ModernPianoPlayerContent(
 
             SeekIndicatorOverlay(seekInfo)
 
-            Box(
+            DraggableVisibilityButton(
+                isUiHidden = isUiHidden,
+                onToggleVisibility = { isUiHidden = !isUiHidden },
+                containerSize = containerSize,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 12.dp, top = if (isUiHidden) 12.dp else 58.dp)
-                    .size(38.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-                    .clickable { isUiHidden = !isUiHidden },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isUiHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                    contentDescription = if (isUiHidden) "Show UI bars" else "Hide UI bars",
-                    tint = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            )
         }
 
         val keyboardHeight = if (isUiHidden) 100.dp else 70.dp
@@ -521,5 +532,77 @@ private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit)
                 Text("Return to Library")
             }
         }
+    }
+}
+
+@Composable
+private fun DraggableVisibilityButton(
+    isUiHidden: Boolean,
+    onToggleVisibility: () -> Unit,
+    containerSize: IntSize,
+    modifier: Modifier = Modifier
+) {
+    var buttonOffset by remember { mutableStateOf(Offset.Zero) }
+    val viewConfiguration = LocalViewConfiguration.current
+    val density = LocalDensity.current
+    val touchSlop = viewConfiguration.touchSlop
+
+    Box(
+        modifier = modifier
+            .offset { IntOffset(buttonOffset.x.roundToInt(), buttonOffset.y.roundToInt()) }
+            .size(38.dp)
+            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+            .pointerInput(containerSize, isUiHidden) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    var totalDrag = 0f
+                    val pointerId = down.id
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                        if (!change.pressed) {
+                            if (totalDrag < touchSlop) {
+                                onToggleVisibility()
+                            }
+                            change.consume()
+                            break
+                        }
+                        val dragDelta = change.positionChange()
+                        if (dragDelta != Offset.Zero) {
+                            totalDrag += dragDelta.getDistance()
+                            if (totalDrag >= touchSlop) {
+                                if (containerSize != IntSize.Zero) {
+                                    val buttonSizePx = with(density) { 38.dp.toPx() }
+                                    val marginEndPx = with(density) { 12.dp.toPx() }
+                                    val marginTopPx = with(density) { (if (isUiHidden) 12.dp else 58.dp).toPx() }
+
+                                    val minX = -(containerSize.width - buttonSizePx - marginEndPx).coerceAtLeast(0f)
+                                    val maxX = marginEndPx
+                                    val minY = -marginTopPx
+                                    val maxY = (containerSize.height - buttonSizePx - marginTopPx).coerceAtLeast(0f)
+
+                                    val newX = (buttonOffset.x + dragDelta.x).coerceIn(minX, maxX)
+                                    val newY = (buttonOffset.y + dragDelta.y).coerceIn(minY, maxY)
+                                    buttonOffset = Offset(newX, newY)
+                                } else {
+                                    buttonOffset += dragDelta
+                                }
+                            }
+                        }
+                        change.consume()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = if (isUiHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+            contentDescription = if (isUiHidden) "Show UI bars" else "Hide UI bars",
+            tint = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }

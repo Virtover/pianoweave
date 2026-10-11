@@ -233,6 +233,7 @@ internal suspend fun PointerInputScope.detectPianoRollGestures(
                 while (true) {
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == pointer.id } ?: break
+                    if (change.isConsumed) break
                     if (!change.pressed) {
                         upPos = change.position
                         change.consume()
