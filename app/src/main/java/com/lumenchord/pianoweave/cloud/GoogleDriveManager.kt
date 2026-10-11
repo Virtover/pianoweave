@@ -25,9 +25,52 @@ data class CloudMidi(
 )
 
 data class CloudMetadataEnvelope(
-    val videoUrl: String,
-    val metadata: VideoMetadata
+    val videoUrl: String? = null,
+    val metadata: VideoMetadata? = null
 )
+
+fun sanitizeVideoMetadata(meta: VideoMetadata?, fallbackUrl: String = ""): VideoMetadata {
+    if (meta == null) {
+        return VideoMetadata(
+            title = "Piano Performance",
+            author = "Unknown",
+            channel = "Unknown",
+            channel_id = "",
+            channel_url = "",
+            upload_date = "",
+            duration = 0f,
+            thumbnail = "",
+            webpage_url = fallbackUrl,
+            view_count = 0L,
+            like_count = 0L
+        )
+    }
+    val safeTitle = (meta.title as String?).orEmpty().ifBlank { "Piano Performance" }
+    val safeAuthor = (meta.author as String?).orEmpty().ifBlank { "Unknown" }
+    val safeChannel = (meta.channel as String?).orEmpty().ifBlank { "Unknown" }
+    val safeChannelId = (meta.channel_id as String?).orEmpty()
+    val safeChannelUrl = (meta.channel_url as String?).orEmpty()
+    val safeUploadDate = (meta.upload_date as String?).orEmpty()
+    val safeDuration = (meta.duration as Float?) ?: 0f
+    val safeThumbnail = (meta.thumbnail as String?).orEmpty()
+    val safeWebpageUrl = (meta.webpage_url as String?).orEmpty().ifBlank { fallbackUrl }
+    val safeViewCount = (meta.view_count as Long?) ?: 0L
+    val safeLikeCount = (meta.like_count as Long?) ?: 0L
+
+    return VideoMetadata(
+        title = safeTitle,
+        author = safeAuthor,
+        channel = safeChannel,
+        channel_id = safeChannelId,
+        channel_url = safeChannelUrl,
+        upload_date = safeUploadDate,
+        duration = safeDuration,
+        thumbnail = safeThumbnail,
+        webpage_url = safeWebpageUrl,
+        view_count = safeViewCount,
+        like_count = safeLikeCount
+    )
+}
 
 object GoogleDriveManager {
 
@@ -43,7 +86,7 @@ object GoogleDriveManager {
 
                 listResponse.files?.mapNotNull { item ->
                     val fileId = item.id ?: return@mapNotNull null
-                    val fileName = item.name ?: "Untitled.mid"
+                    val fileName = item.name ?: return@mapNotNull null
                     val size = item.size?.toLongOrNull() ?: 0L
                     val modTime = try {
                         Instant.parse(item.modifiedTime).toEpochMilli()
@@ -70,12 +113,14 @@ object GoogleDriveManager {
                         try {
                             val env = gson.fromJson(item.description, CloudMetadataEnvelope::class.java)
                             if (env != null) {
-                                videoUrl = env.videoUrl
-                                metadata = env.metadata
+                                env.videoUrl?.takeIf { it.isNotBlank() }?.let { videoUrl = it }
+                                metadata = sanitizeVideoMetadata(env.metadata, fallbackUrl = videoUrl)
                             }
                         } catch (_: Exception) {
                             // Fallback to default
                         }
+                    } else {
+                        metadata = sanitizeVideoMetadata(metadata, fallbackUrl = videoUrl)
                     }
 
                     CloudMidi(

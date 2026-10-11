@@ -38,8 +38,25 @@ object CloudAccountCache {
 
             val json = indexFile.readText()
             val type = object : TypeToken<List<CloudMidi>>() {}.type
-            val list: List<CloudMidi>? = gson.fromJson(json, type)
-            return list ?: emptyList()
+            val rawList: List<CloudMidi>? = gson.fromJson(json, type)
+            if (rawList == null) return emptyList()
+
+            return rawList.mapNotNull { item ->
+                val safeId = (item.id as String?).orEmpty()
+                if (safeId.isBlank()) return@mapNotNull null
+                val safeName = (item.name as String?) ?: return@mapNotNull null
+                val safeVideoUrl = (item.videoUrl as String?).orEmpty().ifBlank { "cloud://$safeId" }
+                val safeMetadata = sanitizeVideoMetadata(item.metadata, safeVideoUrl)
+
+                CloudMidi(
+                    id = safeId,
+                    name = safeName,
+                    sizeBytes = item.sizeBytes,
+                    modifiedTime = item.modifiedTime,
+                    videoUrl = safeVideoUrl,
+                    metadata = safeMetadata
+                )
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             return emptyList()

@@ -21,17 +21,17 @@ data class TranscriptionStatusResponse(
 )
 
 data class VideoMetadata(
-    @SerializedName("title") val title: String,
-    @SerializedName("author") val author: String,
-    @SerializedName("channel") val channel: String,
-    @SerializedName("channel_id") val channel_id: String,
-    @SerializedName("channel_url") val channel_url: String,
-    @SerializedName("upload_date") val upload_date: String,
-    @SerializedName("duration") val duration: Float,
-    @SerializedName("thumbnail") val thumbnail: String,
-    @SerializedName("webpage_url") val webpage_url: String,
-    @SerializedName("view_count") val view_count: Long,
-    @SerializedName("like_count") val like_count: Long
+    @SerializedName("title") val title: String = "Piano Performance",
+    @SerializedName("author") val author: String = "Unknown",
+    @SerializedName("channel") val channel: String = "Unknown",
+    @SerializedName("channel_id") val channel_id: String = "",
+    @SerializedName("channel_url") val channel_url: String = "",
+    @SerializedName("upload_date") val upload_date: String = "",
+    @SerializedName("duration") val duration: Float = 0f,
+    @SerializedName("thumbnail") val thumbnail: String = "",
+    @SerializedName("webpage_url") val webpage_url: String = "",
+    @SerializedName("view_count") val view_count: Long = 0L,
+    @SerializedName("like_count") val like_count: Long = 0L
 )
 
 data class ServerOffer(
