@@ -48,10 +48,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -109,125 +111,187 @@ private fun SongCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     OutlinedCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(if (isLandscape) 10.dp else 12.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(
+                    horizontal = if (isLandscape) 12.dp else 14.dp,
+                    vertical = if (isLandscape) 6.dp else 10.dp
+                ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 12.dp)
         ) {
             Icon(
                 Icons.Default.MusicNote,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(if (isLandscape) 20.dp else 22.dp)
             )
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = videoMetadata.title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Text(
-                    text = "${videoMetadata.author} • $videoUrl",
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(top = 6.dp)
+            if (isLandscape) {
+                // Compact landscape layout: 2 concise lines
+                Column(
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "%.1f KB".format(
-                            sizeBytes / 1024.0
+                        text = videoMetadata.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.primary
                     )
 
-                    Text(
-                        text = "•",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    val sizeKbStr = "%.1f KB".format(sizeBytes / 1024.0)
+                    val detailsText = remember(videoMetadata.author, videoUrl, sizeKbStr) {
+                        val parts = mutableListOf<String>()
+                        if (videoMetadata.author.isNotBlank()) parts.add(videoMetadata.author)
+                        if (videoUrl.isNotBlank() && !videoUrl.startsWith("file:/")) parts.add(videoUrl)
+                        parts.add(sizeKbStr)
+                        parts.add("Standard MIDI")
+                        parts.joinToString(" • ")
+                    }
 
                     Text(
-                        text = "Standard MIDI",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.secondary
+                        text = detailsText,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 1.dp)
                     )
+                }
+            } else {
+                // Compact portrait layout: 3 clean lines with tight spacing
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = videoMetadata.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    val authorAndUrl = remember(videoMetadata.author, videoUrl) {
+                        if (videoMetadata.author.isNotBlank() && videoUrl.isNotBlank() && !videoUrl.startsWith("file:/")) {
+                            "${videoMetadata.author} • $videoUrl"
+                        } else if (videoMetadata.author.isNotBlank()) {
+                            videoMetadata.author
+                        } else {
+                            videoUrl
+                        }
+                    }
+
+                    if (authorAndUrl.isNotBlank()) {
+                        Text(
+                            text = authorAndUrl,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 3.dp)
+                    ) {
+                        Text(
+                            text = "%.1f KB".format(sizeBytes / 1024.0),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Text(
+                            text = "Standard MIDI",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
                 }
             }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Action buttons arranged horizontally in a single row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 IconButton(
                     onClick = onDelete,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Delete from Library",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 when (exportState) {
                     ExportState.Exporting -> Box(
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp
                         )
                     }
 
                     ExportState.Done -> Box(
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(36.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.CheckCircle,
                             contentDescription = "Saved to Downloads",
-                            tint = MaterialTheme.colorScheme.tertiary
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
                     ExportState.Failed -> IconButton(
                         onClick = onExport,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             Icons.Default.ErrorOutline,
                             contentDescription = "Export failed, tap to retry",
-                            tint = MaterialTheme.colorScheme.error
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
                     ExportState.Idle -> ExportButton(
                         onClick = onExport,
-                        songTitle = videoMetadata.title
+                        songTitle = videoMetadata.title,
+                        buttonSize = 36.dp,
+                        iconSize = 20.dp
                     )
                 }
             }
@@ -239,7 +303,9 @@ private fun SongCard(
 @Composable
 private fun ExportButton(
     onClick: () -> Unit,
-    songTitle: String? = null
+    songTitle: String? = null,
+    buttonSize: Dp = 40.dp,
+    iconSize: Dp = 24.dp
 ) {
     var showConfirmDialog by remember { mutableStateOf(false) }
 
@@ -250,12 +316,13 @@ private fun ExportButton(
     ) {
         IconButton(
             onClick = { showConfirmDialog = true },
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(buttonSize)
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.DriveFileMove,
                 contentDescription = "Save .mid file to Downloads",
                 tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.size(iconSize)
             )
         }
     }

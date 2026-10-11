@@ -32,27 +32,30 @@ fun TranscriptionSuccessCard(
     song: StoredMidi,
     onSongSelect: (StoredMidi) -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(if (isLandscape) 14.dp else 20.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.secondary
         )
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.padding(if (isLandscape) 12.dp else 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 imageVector = Icons.Default.Stars,
                 contentDescription = null,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(if (isLandscape) 28.dp else 48.dp),
                 tint = MaterialTheme.colorScheme.onSecondary
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(if (isLandscape) 6.dp else 12.dp))
             Text(
                 text = "Transcription Ready!",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                style = (if (isLandscape) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall).copy(fontWeight = FontWeight.ExtraBold),
                 color = MaterialTheme.colorScheme.onSecondary
             )
             Text(
@@ -63,21 +66,21 @@ fun TranscriptionSuccessCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(if (isLandscape) 10.dp else 20.dp))
             Button(
                 onClick = { onSongSelect(song) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .height(if (isLandscape) 42.dp else 56.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.onSecondary,
                     contentColor = MaterialTheme.colorScheme.secondary
                 )
             ) {
-                Icon(Icons.Default.PlayArrow, null, Modifier.size(24.dp))
-                Spacer(Modifier.width(12.dp))
-                Text("START PRACTICING", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Icon(Icons.Default.PlayArrow, null, Modifier.size(if (isLandscape) 20.dp else 24.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("START PRACTICING", fontWeight = FontWeight.Black, fontSize = if (isLandscape) 14.sp else 16.sp)
             }
         }
     }

@@ -628,7 +628,7 @@ fun StorageScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 10.dp)
+                verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp)
             ) {
                 items(
                     filteredSongs,
