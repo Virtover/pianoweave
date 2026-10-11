@@ -3,9 +3,11 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
+import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import kotlinx.coroutines.Dispatchers
@@ -201,9 +203,9 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
     productId: String,
     purchaseToken: String
 ): Boolean = withContext(Dispatchers.IO) {
-    try {
+    suspend fun callVerify(): VerifyPurchaseResponse {
         val uId = getOrCreateUserIdImpl(context)
-        val resp = executeWithAuthRetryImpl(context) { authHeader ->
+        return executeWithAuthRetryImpl(context) { authHeader ->
             val api = PianoApiFactory.getApi(activeServerUrl)
             api.verifyPurchase(
                 authHeader = authHeader,
@@ -211,8 +213,19 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
                 request = VerifyPurchaseRequest(productId, purchaseToken)
             )
         }
-        withContext(Dispatchers.Main) {
-            userCredits = resp.minutes
+    }
+
+    try {
+        var resp = callVerify()
+        withContext(Dispatchers.Main) { userCredits = resp.minutes }
+        var retries = 0
+        while (!resp.consumed && retries < 2) {
+            retries++
+            delay(1500L * retries)
+            try {
+                resp = callVerify()
+                withContext(Dispatchers.Main) { userCredits = resp.minutes }
+            } catch (_: Exception) { }
         }
         true
     } catch (_: Exception) {

@@ -69,5 +69,6 @@ data class VerifyPurchaseRequest(
 data class VerifyPurchaseResponse(
     @SerializedName("user_id") val userId: String,
     @SerializedName("credited_minutes") val creditedMinutes: Int,
-    @SerializedName("minutes") val minutes: Int
+    @SerializedName("minutes") val minutes: Int,
+    @SerializedName("consumed") val consumed: Boolean
 )
