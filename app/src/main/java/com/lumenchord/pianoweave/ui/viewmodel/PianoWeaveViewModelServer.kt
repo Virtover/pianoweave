@@ -4,16 +4,21 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
+import com.lumenchord.pianoweave.billing.PendingPurchase
+import com.lumenchord.pianoweave.billing.PendingPurchaseStore
+import com.lumenchord.pianoweave.worker.PurchaseVerificationWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 import java.util.UUID
 
 internal fun PianoWeaveViewModel.formatRetentionTimeImpl(seconds: Long? = cleanupIntervalSeconds): String {
@@ -163,9 +168,16 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     isCustomServer = prefs.getBoolean("use_custom_server", false)
     customServerUrl = prefs.getString("custom_server_url", "") ?: ""
 
+    // Schedule background retries for any pending purchase verifications across app restarts
+    PurchaseVerificationWorker.scheduleAllPending(context)
+
     if (context.findActivity() != null) {
         checkServerHealthAndInfoImpl(context, isUserAction = false)
     }
+}
+
+internal fun PianoWeaveViewModel.openShopImpl(context: Context) {
+    withEnsuredSignInImpl(context) { showShopDialog = true }
 }
 
 internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) {
@@ -203,8 +215,18 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
     productId: String,
     purchaseToken: String
 ): Boolean = withContext(Dispatchers.IO) {
+    val uId = getOrCreateUserIdImpl(context)
+    val purchase = PendingPurchase(
+        productId = productId,
+        purchaseToken = purchaseToken,
+        serverUrl = activeServerUrl,
+        userId = uId
+    )
+
+    // Save pending purchase and schedule WorkManager worker to retry until an answer from server is received
+    PurchaseVerificationWorker.scheduleVerification(context, purchase)
+
     suspend fun callVerify(): VerifyPurchaseResponse {
-        val uId = getOrCreateUserIdImpl(context)
         return executeWithAuthRetryImpl(context) { authHeader ->
             val api = PianoApiFactory.getApi(activeServerUrl)
             api.verifyPurchase(
@@ -217,6 +239,9 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
 
     try {
         var resp = callVerify()
+        // Server answered! Remove from pending store.
+        PendingPurchaseStore.removePendingPurchase(context, purchaseToken)
+
         withContext(Dispatchers.Main) { userCredits = resp.minutes }
         var retries = 0
         while (!resp.consumed && retries < 2) {
@@ -228,7 +253,13 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
             } catch (_: Exception) { }
         }
         true
+    } catch (e: HttpException) {
+        // Received an HTTP status code response from server (4xx/5xx). That counts as an answer from server!
+        PendingPurchaseStore.removePendingPurchase(context, purchaseToken)
+        true
     } catch (_: Exception) {
+        // Network error / server unreachable (no answer from server).
+        // The purchase stays saved in PendingPurchaseStore and PurchaseVerificationWorker will retry in the background.
         false
     }
 }

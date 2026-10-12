@@ -64,7 +64,7 @@ internal fun ShopDialog(
                     if (success) {
                         viewModel.refreshUserBalance(context)
                     } else {
-                        purchaseErrorMessage = "Failed to verify purchase with server."
+                        purchaseErrorMessage = "Server unreachable. Your purchase has been saved and will automatically verify when the server comes back online."
                     }
                 }
             },

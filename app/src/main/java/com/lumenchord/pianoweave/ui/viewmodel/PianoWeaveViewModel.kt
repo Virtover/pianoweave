@@ -234,7 +234,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
-    fun openShop(context: Context) { withEnsuredSignIn(context) { showShopDialog = true } }
+    fun openShop(context: Context) = openShopImpl(context)
     fun dismissShop() { showShopDialog = false }
     fun openSupport() { showSupportDialog = true }
     fun dismissSupport() { showSupportDialog = false }
