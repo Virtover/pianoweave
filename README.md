@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/screenshots/app_icon.png" width="128" alt="Piano Weave Icon" />
+  <img src="screenshots/app_icon.png" width="128" alt="Piano Weave Icon" />
 </p>
 
 <h1 align="center">Piano Weave</h1>
@@ -24,7 +24,7 @@
 
 |                                            AI Transcription                                           |                                         Interactive Piano Roll                                          |
 | :---------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
-| <img src="docs/screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="docs/screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
+| <img src="screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
 
 ## ✨ Features
 
