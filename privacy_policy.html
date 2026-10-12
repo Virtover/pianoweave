@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Piano Weave – Privacy Policy</title>
+    <style>
+        :root {
+          --bg: #ffffff;
+          --fg: #1d2125;
+          --muted: #5b6770;
+          --accent: #8a5a00;
+          --line: #e2e6ea;
+          --card: #f6f8fa;
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #14181c;
+            --fg: #e6e9ec;
+            --muted: #9aa5ae;
+            --accent: #e0b04a;
+            --line: #2a3138;
+            --card: #1b2127;
+          }
+        }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          background: var(--bg);
+          color: var(--fg);
+          font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+        main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+        h1 { font-size: 2rem; margin: 0 0 4px; }
+        h2 { font-size: 1.25rem; margin: 40px 0 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+        h3 { font-size: 1.05rem; margin: 24px 0 4px; }
+        p, li { color: var(--fg); }
+        .meta { color: var(--muted); margin: 0 0 24px; }
+        a { color: var(--accent); }
+        ul { padding-left: 22px; }
+        li { margin: 4px 0; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.95rem; display: block; overflow-x: auto; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+        th { color: var(--muted); font-weight: 600; }
+        nav ul { list-style: none; padding: 0; columns: 2; column-gap: 24px; }
+        nav li { margin: 3px 0; }
+        @media (max-width: 520px) { nav ul { columns: 1; } }
+    </style>
+</head>
+<body>
+<main>
+
+    <h1>Piano Weave – Privacy Policy</h1>
+    <p class="meta">Effective date: October 12, 2026</p>
+
+    <p>
+        This Privacy Policy explains what information the Piano Weave Android app
+        (package <code>com.lumenchord.pianoweave</code>, the "App") and the Piano Weave
+        transcription server (the "Server") collect, how it is used, and what choices you have.
+        The App and the Server are developed and operated by Krzysztof Olszak ("I", "me", "the developer").
+    </p>
+
+    <div class="card">
+        <strong>In short:</strong> the microphone is used only to detect the notes you play, and that
+        audio is processed on your device. Your MIDI library stays on your device unless you turn on
+        cloud sync. If you transcribe a video or sign in with Google, the information listed below is sent to the Server.
+        I do not sell your data and the App does not show ads.
+    </div>
+
+    <nav aria-label="Contents">
+        <ul>
+            <li><a href="#collect">1. Information we collect</a></li>
+            <li><a href="#use">2. How we use information</a></li>
+            <li><a href="#microphone">3. Microphone</a></li>
+            <li><a href="#sharing">4. Sharing and third parties</a></li>
+            <li><a href="#retention">5. Retention</a></li>
+            <li><a href="#security">6. Security</a></li>
+            <li><a href="#rights">7. Your choices and rights</a></li>
+            <li><a href="#deletion">8. Deleting your data</a></li>
+            <li><a href="#custom-server">9. Other servers</a></li>
+            <li><a href="#children">10. Children</a></li>
+            <li><a href="#changes">11. Changes</a></li>
+            <li><a href="#contact">12. Contact</a></li>
+        </ul>
+    </nav>
+
+    <h2 id="collect">1. Information we collect</h2>
+
+    <h3>Information you provide or that the App generates</h3>
+    <table>
+        <thead>
+        <tr><th>Data</th><th>Why</th><th>Where it goes</th></tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><strong>Google account information</strong> (account ID, email address) when you sign in with Google</td>
+            <td>To identify your account, keep your transcription minutes and purchases, and enable cloud sync</td>
+            <td>Sent to the Server with each request as a Google access token; the Server stores your Google account ID and email address</td>
+        </tr>
+        <tr>
+            <td><strong>Video links</strong> you submit for transcription</td>
+            <td>To download the audio and create a MIDI file</td>
+            <td>Sent to the Server, which retrieves the audio from the website that hosts the video</td>
+        </tr>
+        <tr>
+            <td><strong>Purchase information</strong> (product ID, Google Play purchase token)</td>
+            <td>To verify purchases and add transcription minutes to your balance</td>
+            <td>Sent to the Server, which verifies the purchase with Google Play. Payments are handled by Google; I do not receive your payment card details</td>
+        </tr>
+        <tr>
+            <td><strong>Transcription balance and history of credits</strong> (free minutes, purchased minutes, usage)</td>
+            <td>To charge and credit minutes correctly</td>
+            <td>Stored on the Server</td>
+        </tr>
+        <tr>
+            <td><strong>Random device identifier</strong> generated by the App</td>
+            <td>To identify you on servers that do not require sign-in</td>
+            <td>Stored on your device and sent to the Server</td>
+        </tr>
+        <tr>
+            <td><strong>Your MIDI library</strong> (transcribed or imported MIDI files and their titles, authors, channels and source links)</td>
+            <td>To let you practice and play back your songs</td>
+            <td>Stored on your device. If you turn on cloud sync, copies are stored in your own Google Drive</td>
+        </tr>
+        <tr>
+            <td><strong>App settings</strong> (for example sync preference, selected server)</td>
+            <td>To remember your choices</td>
+            <td>Stored on your device</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h3>Information collected automatically by the Server</h3>
+    <p>
+        Like most online services, the Server and its hosting infrastructure may process technical
+        information such as your IP address, request time, request type and error messages. This is used to operate the
+        Server, prevent abuse and fix problems.
+    </p>
+
+    <h3>Information we do not collect</h3>
+    <ul>
+        <li>The App does not collect your precise or approximate location.</li>
+        <li>The App does not read your contacts, messages or photos.</li>
+        <li>The App does not record or upload audio from your microphone (see <a href="#microphone">Microphone</a>).</li>
+        <li>The App does not contain advertising or advertising identifiers.</li>
+    </ul>
+
+    <h2 id="use">2. How we use information</h2>
+    <ul>
+        <li>To provide the App's features: transcribing videos into MIDI, storing and syncing your library, and playing practice sessions.</li>
+        <li>To sign you in, keep your transcription balance, apply free minutes and process purchases.</li>
+        <li>To protect the Server from abuse, fraud and misuse.</li>
+        <li>To maintain, secure and improve the App and the Server, and to answer support requests.</li>
+        <li>To keep backups of the billing database so that purchased minutes are not lost.</li>
+        <li>To comply with legal obligations.</li>
+    </ul>
+    <p>
+        Where the law requires a legal basis (for example in the European Economic Area and the United Kingdom),
+        I rely on performance of a contract (providing the features you request), legitimate interests (security, abuse prevention
+        and backups), consent (microphone and Google Drive access, which you can withdraw at any time) and legal obligation.
+    </p>
+
+    <h2 id="microphone">3. Microphone</h2>
+    <p>
+        Wait Mode uses the microphone to listen to your piano and pause the sheet music until you play the correct notes.
+        The App asks for the microphone permission only when you use this feature. Audio is analyzed in real time on your device
+        by a model that runs locally. The audio is not saved and is not sent to the Server or to anyone else.
+        You can revoke the permission at any time in your Android settings; the rest of the App continues to work.
+    </p>
+
+    <h2 id="sharing">4. Sharing and third parties</h2>
+    <p>I do not sell your personal information. Information is shared only as follows:</p>
+    <ul>
+        <li>
+            <strong>Google.</strong> The App uses Google Sign-In, Google Play Billing and, if you enable cloud sync, the Google Drive API.
+            The Server verifies your Google access token and your purchases with Google. Google's handling of this data is governed by the
+            <a href="https://policies.google.com/privacy" rel="noopener">Google Privacy Policy</a>.
+        </li>
+        <li>
+            <strong>Video and audio websites.</strong> To transcribe a link, the Server requests the audio from the website that hosts it
+            (for example YouTube). That website sees a request coming from the Server's IP address, not from your device, and handles it under its own policies.
+        </li>
+        <li>
+            <strong>Hosting and infrastructure providers.</strong> The Server runs on infrastructure that processes data on my behalf, including backups.
+            Backups are encrypted before they are stored outside the Server.
+        </li>
+        <li>
+            <strong>Legal reasons.</strong> I may disclose information if required by law or to protect rights, safety and the security of the service.
+        </li>
+    </ul>
+    <p>
+        The App contains links to Discord, Ko-fi and Patreon. If you follow them or donate, those services collect information under their own policies;
+        I am not responsible for them.
+    </p>
+
+    <h2 id="retention">5. Retention</h2>
+    <ul>
+        <li><strong>Files created during a transcription</strong> (downloaded audio and generated MIDI) are temporary on the Server and are removed automatically shortly after the job finishes.</li>
+        <li><strong>Account and billing records</strong> (Google account ID, email address, balance, purchases) are kept while your account is active and as needed to handle purchases, refunds and disputes, or as required by law.</li>
+        <li><strong>Backups</strong> of the billing database are kept for a limited period and then replaced.</li>
+        <li><strong>On your device</strong>, songs you delete in the App stay in a recycle state for up to 30 days and are then permanently removed. Uninstalling the App deletes its local data.</li>
+        <li><strong>In Google Drive</strong>, synced files stay until you delete them in the App, turn off and remove them, or delete them from Drive yourself.</li>
+    </ul>
+
+    <h2 id="security">6. Security</h2>
+    <p>
+        Data between the App and the Server is sent over encrypted connections (HTTPS) when the Server is configured with a secure address.
+        Access to the billing database is limited, and its backups are encrypted when copied off the Server. No method of transmission or storage is completely secure,
+        so I cannot guarantee absolute security.
+    </p>
+
+    <h2 id="rights">7. Your choices and rights</h2>
+    <ul>
+        <li><strong>Sign out</strong> in the App to remove the stored Google sign-in from your device.</li>
+        <li><strong>Cloud sync</strong> is optional and off by default. You can turn it off at any time.</li>
+        <li><strong>Permissions.</strong> You can revoke microphone access in Android settings, and Google Drive access in your Google Account settings.</li>
+        <li>
+            <strong>Access, correction, deletion, restriction, objection and portability.</strong> Depending on where you live
+            (for example under the GDPR or the UK GDPR), you may have the right to access the data held about you, correct it, have it deleted,
+            restrict or object to its processing, and receive it in a portable format. To exercise these rights, contact me (see <a href="#contact">Contact</a>).
+            You also have the right to complain to your local data protection authority.
+        </li>
+    </ul>
+
+    <h2 id="deletion">8. Deleting your data</h2>
+    <p>
+        You can request deletion of the data the Server holds about you (your Google account ID, email address and billing records) by emailing me from the
+        address linked to your Google account, or by contacting me through the address below. I will respond within 30 days.
+    </p>
+    <ul>
+        <li>Unused transcription minutes are removed together with the account and cannot be restored.</li>
+        <li>Some records may be kept where the law requires it, for example purchase records, or for a short time in backups until they are replaced.</li>
+        <li>Data stored on your device and in your Google Drive is under your control: delete songs in the App, or delete the App's files from Google Drive.</li>
+    </ul>
+
+    <h2 id="custom-server">9. Other servers</h2>
+    <p>
+        The App can be configured to use a different transcription server. If you connect to a server that I do not operate, that server's operator,
+        not me, decides what data is collected and how it is handled. This Policy applies only to the Server that I operate.
+    </p>
+
+    <h2 id="children">10. Children</h2>
+    <p>
+        The App is not directed to children under 13 (or under 16 where applicable local law sets a higher age), and I do not knowingly collect personal
+        information from them. If you believe a child has provided personal information, contact me and I will delete it.
+    </p>
+
+    <h2 id="changes">11. Changes to this policy</h2>
+    <p>
+        I may update this Privacy Policy from time to time. The effective date above shows when it was last changed. If a change is significant,
+        I will notify you in the App or on the App's store page.
+    </p>
+
+    <h2 id="contact">12. Contact</h2>
+    <p>
+        Developer: Krzysztof Olszak<br>
+        Email: <a href="mailto:YOUR_EMAIL@example.com">YOUR_EMAIL@example.com</a><br>
+        Project: <a href="https://github.com/Virtover/pianoweave" rel="noopener">github.com/Virtover/pianoweave</a>
+    </p>
+
+</main>
+</body>
+</html>
