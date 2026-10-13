@@ -9,6 +9,7 @@ import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.Job
 
 class PianoWeaveViewModel : ViewModel() {
@@ -122,6 +123,8 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
     var googleAuthError by mutableStateOf<String?>(null)
         internal set
+    /** Action deferred until an in-progress Google sign-in succeeds (see [withEnsuredSignIn]). */
+    internal var pendingSignInAction: (() -> Unit)? = null
     var showNoGoogleAccountDialog by mutableStateOf(false)
     var showBilledServerGoogleAccountDialog by mutableStateOf(false)
     var savedUnauthenticatedServerUrl by mutableStateOf("")
@@ -203,13 +206,11 @@ class PianoWeaveViewModel : ViewModel() {
     fun dismissBilledServerGoogleAccountDialog() { showBilledServerGoogleAccountDialog = false }
     fun markServerUnauthenticated(context: Context, url: String) {
         savedUnauthenticatedServerUrl = url
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("last_billed_server_unauthenticated", url).apply()
+        AppPrefs.get(context).edit().putString(AppPrefs.LAST_BILLED_SERVER_UNAUTHENTICATED, url).apply()
     }
     fun markServerAuthenticated(context: Context) {
         savedUnauthenticatedServerUrl = ""
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit().remove("last_billed_server_unauthenticated").apply()
+        AppPrefs.get(context).edit().remove(AppPrefs.LAST_BILLED_SERVER_UNAUTHENTICATED).apply()
     }
     fun withEnsuredSignIn(context: Context, action: () -> Unit) = withEnsuredSignInImpl(context, action)
     suspend fun ensureGoogleAuthToken(context: Context): String? = ensureGoogleAuthTokenImpl(context)
@@ -266,14 +267,11 @@ class PianoWeaveViewModel : ViewModel() {
         showTurnOffCloudSyncConfirmDialog = true
     }
 
-    fun hasShownCloudBackupDialog(context: Context): Boolean {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        return prefs.getBoolean("has_shown_cloud_backup_dialog", false)
-    }
+    fun hasShownCloudBackupDialog(context: Context): Boolean =
+        AppPrefs.get(context).getBoolean(AppPrefs.HAS_SHOWN_CLOUD_BACKUP_DIALOG, false)
 
     fun markCloudBackupDialogShown(context: Context) {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("has_shown_cloud_backup_dialog", true).apply()
+        AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SHOWN_CLOUD_BACKUP_DIALOG, true).apply()
     }
 }
 
@@ -281,15 +279,14 @@ internal fun PianoWeaveViewModel.saveCloudSyncState(context: Context, enabled: B
     isCloudSyncEnabled = enabled
     hasCloudSyncError = hasError
     cloudSyncError = errorMsg
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    val editor = prefs.edit()
-        .putBoolean("is_cloud_sync_enabled", enabled)
-        .putBoolean("has_cloud_sync_error", hasError)
+    val editor = AppPrefs.get(context).edit()
+        .putBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, enabled)
+        .putBoolean(AppPrefs.HAS_CLOUD_SYNC_ERROR, hasError)
 
     if (errorMsg != null) {
-        editor.putString("cloud_sync_error", errorMsg)
+        editor.putString(AppPrefs.CLOUD_SYNC_ERROR, errorMsg)
     } else {
-        editor.remove("cloud_sync_error")
+        editor.remove(AppPrefs.CLOUD_SYNC_ERROR)
     }
     editor.apply()
 }

@@ -1,21 +1,18 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
-import android.util.Log
-import android.widget.Toast
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.api.PianoApiFactory
-import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
+import com.lumenchord.pianoweave.billing.verify
+import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.findActivity
 import com.lumenchord.pianoweave.worker.PurchaseVerificationWorker
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,12 +32,9 @@ internal fun PianoWeaveViewModel.formatRetentionTimeImpl(seconds: Long? = cleanu
 
 internal fun PianoWeaveViewModel.getOrCreateUserIdImpl(context: Context): String {
     if (userId.isNotBlank()) return userId
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    var id = prefs.getString("user_id", null)
-    if (id.isNullOrBlank()) {
-        id = UUID.randomUUID().toString()
-        prefs.edit().putString("user_id", id).apply()
-    }
+    val prefs = AppPrefs.get(context)
+    val id = prefs.getString(AppPrefs.USER_ID, null).takeUnless { it.isNullOrBlank() }
+        ?: UUID.randomUUID().toString().also { prefs.edit().putString(AppPrefs.USER_ID, it).apply() }
     userId = id
     return id
 }
@@ -172,26 +166,20 @@ internal fun PianoWeaveViewModel.refreshUserBalanceImpl(context: Context) {
     }
 }
 
-internal tailrec fun Context.findActivity(): Activity? = when (this) {
-    is Activity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> null
-}
-
 internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
+    val prefs = AppPrefs.get(context)
     getOrCreateUserIdImpl(context)
-    isStrikeOverlayEnabled = prefs.getBoolean("is_strike_overlay_enabled", true)
-    selectedThemeId = prefs.getString("selected_theme_id", "gold") ?: "gold"
-    topBarSpeed = prefs.getFloat("top_bar_speed", 1.0f)
-    isCloudSyncEnabled = prefs.getBoolean("is_cloud_sync_enabled", false)
-    hasCloudSyncError = prefs.getBoolean("has_cloud_sync_error", false)
-    cloudSyncError = prefs.getString("cloud_sync_error", null)
+    isStrikeOverlayEnabled = prefs.getBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, true)
+    selectedThemeId = prefs.getString(AppPrefs.SELECTED_THEME_ID, "gold") ?: "gold"
+    topBarSpeed = prefs.getFloat(AppPrefs.TOP_BAR_SPEED, 1.0f)
+    isCloudSyncEnabled = prefs.getBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false)
+    hasCloudSyncError = prefs.getBoolean(AppPrefs.HAS_CLOUD_SYNC_ERROR, false)
+    cloudSyncError = prefs.getString(AppPrefs.CLOUD_SYNC_ERROR, null)
 
     googleToken = GoogleAuthManager.getSavedToken(context) ?: ""
     googleUserEmail = GoogleAuthManager.getSavedEmail(context) ?: ""
-    customGoogleClientId = prefs.getString("custom_google_client_id", "") ?: ""
-    savedUnauthenticatedServerUrl = prefs.getString("last_billed_server_unauthenticated", "") ?: ""
+    customGoogleClientId = prefs.getString(AppPrefs.CUSTOM_GOOGLE_CLIENT_ID, "") ?: ""
+    savedUnauthenticatedServerUrl = prefs.getString(AppPrefs.LAST_BILLED_SERVER_UNAUTHENTICATED, "") ?: ""
     isInitialConnection = true
 
     defaultServerUrl = try {
@@ -200,8 +188,8 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     } catch (_: Exception) {
         ""
     }
-    isCustomServer = prefs.getBoolean("use_custom_server", false)
-    customServerUrl = prefs.getString("custom_server_url", "") ?: ""
+    isCustomServer = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
+    customServerUrl = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, "") ?: ""
 
     // Schedule background retries for any pending purchase verifications across app restarts
     PurchaseVerificationWorker.scheduleAllPending(context)
@@ -235,11 +223,10 @@ internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useC
     serverOffers = emptyList()
     billingProvider = "none"
 
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    prefs.edit()
-        .putBoolean("use_custom_server", useCustom)
-        .putString("custom_server_url", formattedUrl)
-        .putString("custom_google_client_id", customGoogleClientId)
+    AppPrefs.get(context).edit()
+        .putBoolean(AppPrefs.USE_CUSTOM_SERVER, useCustom)
+        .putString(AppPrefs.CUSTOM_SERVER_URL, formattedUrl)
+        .putString(AppPrefs.CUSTOM_GOOGLE_CLIENT_ID, customGoogleClientId)
         .apply()
 
     checkServerHealthAndInfoImpl(context, isUserAction = true)
@@ -250,26 +237,18 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
     productId: String,
     purchaseToken: String
 ): Boolean = withContext(Dispatchers.IO) {
-    val uId = getOrCreateUserIdImpl(context)
     val purchase = PendingPurchase(
         productId = productId,
         purchaseToken = purchaseToken,
         serverUrl = activeServerUrl,
-        userId = uId
+        userId = getOrCreateUserIdImpl(context)
     )
 
-    // Save pending purchase and schedule WorkManager worker to retry until an answer from server is received
+    // Persist first so PurchaseVerificationWorker keeps retrying if the server can't answer now
     PurchaseVerificationWorker.scheduleVerification(context, purchase)
 
-    suspend fun callVerify(): VerifyPurchaseResponse {
-        return executeWithAuthRetryImpl(context) { authHeader ->
-            val api = PianoApiFactory.getApi(activeServerUrl)
-            api.verifyPurchase(
-                authHeader = authHeader,
-                userId = if (authHeader == null) uId else null,
-                request = VerifyPurchaseRequest(productId, purchaseToken)
-            )
-        }
+    suspend fun callVerify(): VerifyPurchaseResponse = executeWithAuthRetryImpl(context) { authHeader ->
+        PianoApiFactory.getApi(purchase.serverUrl).verify(purchase, authHeader)
     }
 
     try {

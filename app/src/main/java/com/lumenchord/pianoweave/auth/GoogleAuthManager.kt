@@ -4,8 +4,6 @@ import android.accounts.Account
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
-import android.content.ContextWrapper
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
@@ -23,6 +21,8 @@ import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.findActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -46,39 +46,23 @@ class UserInteractionRequiredException(val pendingIntent: PendingIntent?) :
 
 object GoogleAuthManager {
 
-    private const val PREFS_NAME = "piano_weave_prefs"
-    private const val KEY_TOKEN = "google_token"
-    private const val KEY_USER_EMAIL = "google_user_email"
+    fun getSavedToken(context: Context): String? =
+        AppPrefs.get(context).getString(AppPrefs.GOOGLE_TOKEN, null)
 
-    private tailrec fun Context.findActivity(): Activity? = when (this) {
-        is Activity -> this
-        is ContextWrapper -> baseContext.findActivity()
-        else -> null
-    }
-
-    fun getSavedToken(context: Context): String? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_TOKEN, null)
-    }
-
-    fun getSavedEmail(context: Context): String? {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_USER_EMAIL, null)
-    }
+    fun getSavedEmail(context: Context): String? =
+        AppPrefs.get(context).getString(AppPrefs.GOOGLE_USER_EMAIL, null)
 
     fun saveAuthData(context: Context, token: String?, email: String?) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .putString(KEY_TOKEN, token)
-            .putString(KEY_USER_EMAIL, email)
+        AppPrefs.get(context).edit()
+            .putString(AppPrefs.GOOGLE_TOKEN, token)
+            .putString(AppPrefs.GOOGLE_USER_EMAIL, email)
             .apply()
     }
 
     fun clearAuthData(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .remove(KEY_TOKEN)
-            .remove(KEY_USER_EMAIL)
+        AppPrefs.get(context).edit()
+            .remove(AppPrefs.GOOGLE_TOKEN)
+            .remove(AppPrefs.GOOGLE_USER_EMAIL)
             .apply()
     }
 
@@ -87,9 +71,9 @@ object GoogleAuthManager {
         return if (token.startsWith("Bearer ", ignoreCase = true)) token else "Bearer $token"
     }
 
+    /** Custom client ID from server settings, falling back to WEB_CLIENT_ID from config.txt. */
     fun getActiveClientId(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val customClientId = prefs.getString("custom_google_client_id", "") ?: ""
+        val customClientId = AppPrefs.get(context).getString(AppPrefs.CUSTOM_GOOGLE_CLIENT_ID, "") ?: ""
         if (customClientId.isNotBlank()) return customClientId
 
         return try {
@@ -100,32 +84,24 @@ object GoogleAuthManager {
         }
     }
 
+    /**
+     * Runs [apiCall] with the given (or saved) token. On HTTP 401/503 the token is silently
+     * refreshed and the call is retried once; otherwise the original error is rethrown.
+     */
     suspend fun <T> executeWithAuthRetry(
         context: Context,
         initialAuthHeader: String? = null,
         apiCall: suspend (authHeader: String?) -> T
     ): T {
-        var authHeader = if (!initialAuthHeader.isNullOrBlank()) {
-            getAuthHeader(initialAuthHeader)
-        } else {
-            getAuthHeader(getSavedToken(context))
-        }
+        val authHeader = getAuthHeader(initialAuthHeader.takeUnless { it.isNullOrBlank() } ?: getSavedToken(context))
 
         try {
             return apiCall(authHeader)
         } catch (e: HttpException) {
-            if (e.code() == 401 || e.code() == 503) {
-                val clientId = getActiveClientId(context)
-                if (clientId.isNotBlank()) {
-                    val refreshResult = silentRefresh(context, clientId)
-                    if (refreshResult.isSuccess) {
-                        val user = refreshResult.getOrNull()
-                        if (user != null) {
-                            authHeader = getAuthHeader(user.token)
-                            return apiCall(authHeader)
-                        }
-                    }
-                }
+            val canRefresh = (e.code() == 401 || e.code() == 503) && getActiveClientId(context).isNotBlank()
+            val refreshedUser = if (canRefresh) silentRefresh(context).getOrNull() else null
+            if (refreshedUser != null) {
+                return apiCall(getAuthHeader(refreshedUser.token))
             }
             throw e
         }
@@ -219,12 +195,8 @@ object GoogleAuthManager {
         return result.accessToken ?: throw IllegalStateException("No access token returned.")
     }
 
-    // webClientId is unused now (AuthorizationClient identifies the app by package + SHA-1),
-    // but the signature is kept so call sites don't change.
-    suspend fun silentRefresh(
-        context: Context,
-        webClientId: String
-    ): Result<GoogleAuthUser> = withContext(Dispatchers.Main) {
+    /** Re-authorizes the saved account without UI. AuthorizationClient identifies the app by package + SHA-1. */
+    suspend fun silentRefresh(context: Context): Result<GoogleAuthUser> = withContext(Dispatchers.Main) {
         val savedEmail = getSavedEmail(context)
             ?: return@withContext Result.failure(IllegalStateException("No previously signed-in user."))
 

@@ -7,9 +7,8 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
+import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.launch
-
-private var pendingAction: (() -> Unit)? = null
 
 internal fun openAddGoogleAccountImpl(context: Context) {
     val addAccount = Intent(Settings.ACTION_ADD_ACCOUNT).apply {
@@ -57,19 +56,11 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSi
 
                 if (previousEmail.isNotBlank()) {
                     if (wasCloudSyncEnabled) {
-                        // Case 1: Switch account when cloud sync enabled -> switch to other Google account cloud data
+                        // Switched account with cloud sync on -> load the new account's cloud data
                         refreshCloudSyncImpl(context, showModalProgress = false)
                     } else {
-                        // Case 2: Cloud sync was disabled -> keep disabled (enabling later will load/sync library tracks)
-                        isCloudSyncEnabled = false
-                        hasCloudSyncError = false
-                        cloudSyncError = null
-                        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-                        prefs.edit()
-                            .putBoolean("is_cloud_sync_enabled", false)
-                            .putBoolean("has_cloud_sync_error", false)
-                            .remove("cloud_sync_error")
-                            .apply()
+                        // Cloud sync was off -> keep it off (enabling later will load/sync library tracks)
+                        saveCloudSyncState(context, enabled = false, hasError = false, errorMsg = null)
                     }
                 }
 
@@ -79,12 +70,12 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSi
                     refreshUserBalance(context)
                 }
 
-                pendingAction?.invoke()
-                pendingAction = null
+                pendingSignInAction?.invoke()
+                pendingSignInAction = null
                 onResult?.invoke(true)
             },
             onFailure = { err ->
-                pendingAction = null
+                pendingSignInAction = null
                 isGoogleAuthLoading = false
 
                 if (isBilledServer) {
@@ -125,8 +116,7 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     googleUserEmail = ""
     googleAuthError = null
     isCloudSyncEnabled = false
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    prefs.edit().putBoolean("is_cloud_sync_enabled", false).apply()
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false).apply()
     if (isBilledServer) {
         userCredits = 0
         markServerUnauthenticated(context, activeServerUrl)
@@ -137,7 +127,7 @@ internal fun PianoWeaveViewModel.withEnsuredSignInImpl(context: Context, action:
     if (isGoogleSignedIn) {
         action()
     } else {
-        pendingAction = action
+        pendingSignInAction = action
         signInWithGoogle(context)
     }
 }

@@ -1,8 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -30,13 +28,8 @@ import com.android.billingclient.api.ProductDetails
 import com.lumenchord.pianoweave.billing.GooglePlayBillingManager
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.util.findActivity
 import kotlinx.coroutines.launch
-
-private tailrec fun Context.findActivity(): Activity? = when (this) {
-    is Activity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> null
-}
 
 @Composable
 internal fun ShopDialog(

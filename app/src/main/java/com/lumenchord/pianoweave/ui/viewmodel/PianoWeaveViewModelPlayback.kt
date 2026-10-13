@@ -10,6 +10,7 @@ import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.MidiExporter
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -17,8 +18,7 @@ import kotlinx.coroutines.withContext
 
 internal fun PianoWeaveViewModel.setSelectedThemeImpl(context: Context, themeId: String) {
     selectedThemeId = themeId
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    prefs.edit().putString("selected_theme_id", themeId).apply()
+    AppPrefs.get(context).edit().putString(AppPrefs.SELECTED_THEME_ID, themeId).apply()
 }
 
 internal fun PianoWeaveViewModel.clearTranscriptionErrorImpl() {
@@ -30,14 +30,12 @@ internal fun PianoWeaveViewModel.clearTranscriptionErrorImpl() {
 internal fun PianoWeaveViewModel.setTopBarSpeedImpl(context: Context, speed: Float) {
     topBarSpeed = speed
     speedMultiplier = speed
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    prefs.edit().putFloat("top_bar_speed", speed).apply()
+    AppPrefs.get(context).edit().putFloat(AppPrefs.TOP_BAR_SPEED, speed).apply()
 }
 
 internal fun PianoWeaveViewModel.setStrikeOverlayEnabledImpl(context: Context, enabled: Boolean) {
     isStrikeOverlayEnabled = enabled
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    prefs.edit().putBoolean("is_strike_overlay_enabled", enabled).apply()
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, enabled).apply()
 }
 
 internal fun PianoWeaveViewModel.openPracticeSessionImpl(context: Context, song: StoredMidi) {
@@ -49,8 +47,7 @@ internal fun PianoWeaveViewModel.openPracticeSessionImpl(context: Context, song:
         loopEndMs = 0L
         speedMultiplier = 1.0f
         topBarSpeed = 1.0f
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putFloat("top_bar_speed", 1.0f).apply()
+        AppPrefs.get(context).edit().putFloat(AppPrefs.TOP_BAR_SPEED, 1.0f).apply()
         lastPlayedSongPath = song.file.absolutePath
     }
     activePracticeSong = song

@@ -237,17 +237,3 @@ internal fun PianoWeaveViewModel.disableCloudSyncImpl(context: Context) {
     showTurnOffCloudSyncConfirmDialog = false
     saveCloudSyncState(context, enabled = false, hasError = false, errorMsg = null)
 }
-
-internal fun saveCloudSyncState(context: Context, enabled: Boolean, hasError: Boolean, errorMsg: String?) {
-    val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-    val editor = prefs.edit()
-        .putBoolean("is_cloud_sync_enabled", enabled)
-        .putBoolean("has_cloud_sync_error", hasError)
-
-    if (errorMsg != null) {
-        editor.putString("cloud_sync_error", errorMsg)
-    } else {
-        editor.remove("cloud_sync_error")
-    }
-    editor.apply()
-}

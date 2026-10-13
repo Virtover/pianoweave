@@ -11,84 +11,42 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.lumenchord.pianoweave.api.PianoApiFactory
-import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
-import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
+import com.lumenchord.pianoweave.billing.verify
+import com.lumenchord.pianoweave.util.AppPrefs
 import retrofit2.HttpException
-import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+/** Retries a purchase verification in the background until the server gives any answer. */
 class PurchaseVerificationWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        val productId = inputData.getString(KEY_PRODUCT_ID) ?: return Result.failure()
-        val purchaseToken = inputData.getString(KEY_PURCHASE_TOKEN) ?: return Result.failure()
-        val serverUrl = inputData.getString(KEY_SERVER_URL) ?: "http://localhost:8000/"
-        val userId = inputData.getString(KEY_USER_ID)
-
-        val api = PianoApiFactory.getApi(serverUrl)
-
-        val clientId = try {
-            AppConfig.initialize(applicationContext)
-            AppConfig.getConfig().webClientId ?: ""
-        } catch (_: Exception) {
-            ""
-        }
-        val prefs = applicationContext.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        val customClientId = prefs.getString("custom_google_client_id", "") ?: ""
-        val activeClientId = if (customClientId.isNotBlank()) customClientId else clientId
-
-        var token = GoogleAuthManager.getSavedToken(applicationContext)
-        var authHeader = GoogleAuthManager.getAuthHeader(token)
-
-        suspend fun <T> executeWithWorkerAuthRetry(apiCall: suspend (String?) -> T): T {
-            try {
-                return apiCall(authHeader)
-            } catch (e: HttpException) {
-                if (e.code() == 401 || e.code() == 503) {
-                    if (activeClientId.isNotBlank()) {
-                        val refreshResult = GoogleAuthManager.silentRefresh(applicationContext, activeClientId)
-                        if (refreshResult.isSuccess) {
-                            val user = refreshResult.getOrNull()
-                            if (user != null) {
-                                token = user.token
-                                authHeader = GoogleAuthManager.getAuthHeader(token)
-                                return apiCall(authHeader)
-                            }
-                        }
-                    }
-                }
-                throw e
-            }
-        }
+        val purchase = PendingPurchase(
+            productId = inputData.getString(KEY_PRODUCT_ID) ?: return Result.failure(),
+            purchaseToken = inputData.getString(KEY_PURCHASE_TOKEN) ?: return Result.failure(),
+            serverUrl = inputData.getString(KEY_SERVER_URL) ?: DEFAULT_SERVER_URL,
+            userId = inputData.getString(KEY_USER_ID) ?: ""
+        )
+        val api = PianoApiFactory.getApi(purchase.serverUrl)
 
         return try {
-            val response = executeWithWorkerAuthRetry { header ->
-                api.verifyPurchase(
-                    authHeader = header,
-                    userId = if (header == null) userId else null,
-                    request = VerifyPurchaseRequest(productId, purchaseToken)
-                )
+            val response = GoogleAuthManager.executeWithAuthRetry(applicationContext) { header ->
+                api.verify(purchase, header)
             }
-
-            // Successfully received answer from server!
-            PendingPurchaseStore.removePendingPurchase(applicationContext, purchaseToken)
-            prefs.edit().putInt("user_credits", response.minutes).apply()
+            PendingPurchaseStore.removePendingPurchase(applicationContext, purchase.purchaseToken)
+            AppPrefs.get(applicationContext).edit().putInt(AppPrefs.USER_CREDITS, response.minutes).apply()
             Result.success()
-        } catch (e: HttpException) {
-            // Received an HTTP status code from server (4xx/5xx). That counts as an answer from server!
-            PendingPurchaseStore.removePendingPurchase(applicationContext, purchaseToken)
+        } catch (_: HttpException) {
+            // Any HTTP status (4xx/5xx) counts as an answer from the server.
+            PendingPurchaseStore.removePendingPurchase(applicationContext, purchase.purchaseToken)
             Result.success()
-        } catch (e: IOException) {
-            // Network error / server down / no response. Retry until any answer from server!
-            Result.retry()
-        } catch (e: Exception) {
-            // Any other connection/network error. Retry until any answer from server!
+        } catch (_: Exception) {
+            // Network error / server down / no response: retry until the server answers.
             Result.retry()
         }
     }
@@ -98,6 +56,8 @@ class PurchaseVerificationWorker(
         const val KEY_PURCHASE_TOKEN = "purchase_token"
         const val KEY_SERVER_URL = "server_url"
         const val KEY_USER_ID = "user_id"
+
+        private const val DEFAULT_SERVER_URL = "http://localhost:8000/"
 
         fun scheduleVerification(context: Context, purchase: PendingPurchase) {
             PendingPurchaseStore.addPendingPurchase(context, purchase)
@@ -125,10 +85,7 @@ class PurchaseVerificationWorker(
         }
 
         fun scheduleAllPending(context: Context) {
-            val pendingList = PendingPurchaseStore.getPendingPurchases(context)
-            for (p in pendingList) {
-                scheduleVerification(context, p)
-            }
+            PendingPurchaseStore.getPendingPurchases(context).forEach { scheduleVerification(context, it) }
         }
     }
 }

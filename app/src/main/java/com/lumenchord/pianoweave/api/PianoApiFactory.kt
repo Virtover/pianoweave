@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.api
 import android.app.Application
 import android.content.Context
 import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.util.AppPrefs
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -31,9 +32,9 @@ object PianoApiFactory {
     }
 
     fun getApi(context: Context): PianoApi {
-        val prefs = context.getSharedPreferences("piano_weave_prefs", Context.MODE_PRIVATE)
-        val useCustom = prefs.getBoolean("use_custom_server", false)
-        val customUrl = prefs.getString("custom_server_url", "") ?: ""
+        val prefs = AppPrefs.get(context)
+        val useCustom = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
+        val customUrl = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, "") ?: ""
         AppConfig.initialize(context)
         val defaultUrl = AppConfig.getConfig().baseUrl
 
