@@ -19,7 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -206,24 +209,7 @@ internal fun ShopDialog(
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(Modifier.height(2.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "${viewModel.userCredits} Credits",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Black,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "1 Min = 1 Credit",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = ColorGold,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
+                                        BalanceLine(viewModel.userCredits)
                                     }
                                 }
 
@@ -415,6 +401,69 @@ internal fun ShopDialog(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BalanceLine(credits: Int) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+
+    val creditsStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black)
+    val rateStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+    val creditsText = "$credits Credits"
+    val rateText = "1 Min = 1 Credit"
+    val rateColor = MaterialTheme.colorScheme.secondary
+    val gap = 12.dp
+
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val creditsWidth = measurer.measure(creditsText, creditsStyle, maxLines = 1).size.width
+        val rateWidth = measurer.measure(rateText, rateStyle, maxLines = 1).size.width
+        val fitsOnOneLine =
+            creditsWidth + rateWidth + with(density) { gap.toPx() } <= constraints.maxWidth
+
+        if (fitsOnOneLine) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = creditsText,
+                    style = creditsStyle,
+                    color = Color.White,
+                    maxLines = 1
+                )
+                Text(
+                    text = rateText,
+                    style = rateStyle,
+                    color = rateColor,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = creditsText,
+                    style = creditsStyle,
+                    color = Color.White,
+                    maxLines = 1
+                )
+                Text(
+                    text = rateText,
+                    style = rateStyle,
+                    color = rateColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

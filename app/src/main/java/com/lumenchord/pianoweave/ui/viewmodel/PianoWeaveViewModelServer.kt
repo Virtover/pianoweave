@@ -15,6 +15,7 @@ import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.worker.PurchaseVerificationWorker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,39 +60,73 @@ internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): 
     }
 }
 
-internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(context: Context? = null, isUserAction: Boolean = false) {
+internal fun PianoWeaveViewModel.startAutoReconnectImpl(context: Context? = null) {
+    if (context != null) {
+        appContext = context.applicationContext
+    }
+    if (autoReconnectJob?.isActive == true) return
+    autoReconnectJob = viewModelScope.launch {
+        while (serverStatus == ServerStatus.OFFLINE) {
+            delay(10000L)
+            if (serverStatus != ServerStatus.OFFLINE) break
+            val targetContext = appContext ?: context
+            checkServerHealthAndInfoImpl(targetContext, isUserAction = false, fromAutoReconnect = true)
+        }
+    }
+}
+
+internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
+    context: Context? = null,
+    isUserAction: Boolean = false,
+    fromAutoReconnect: Boolean = false
+) {
+    if (context != null) {
+        appContext = context.applicationContext
+    }
+    if (!fromAutoReconnect) {
+        autoReconnectJob?.cancel()
+        autoReconnectJob = null
+    }
+
     val url = activeServerUrl
     viewModelScope.launch {
         serverStatus = ServerStatus.CHECKING
         serverStatus = testServerConnectionImpl(url)
-        if (serverStatus == ServerStatus.ONLINE && context != null) {
-            try {
-                val api = PianoApiFactory.getApi(url)
-                val info = api.getServerInfo()
-                billingProvider = info.billingProvider ?: "none"
-                serverOffers = info.offers ?: emptyList()
-                cleanupIntervalSeconds = info.cleanupIntervalSeconds
-                freeMinutes = info.freeMinutes ?: 0
+        val targetContext = context ?: appContext
+        if (serverStatus == ServerStatus.ONLINE) {
+            autoReconnectJob?.cancel()
+            autoReconnectJob = null
+            if (targetContext != null) {
+                try {
+                    val api = PianoApiFactory.getApi(url)
+                    val info = api.getServerInfo()
+                    billingProvider = info.billingProvider ?: "none"
+                    serverOffers = info.offers ?: emptyList()
+                    cleanupIntervalSeconds = info.cleanupIntervalSeconds
+                    freeMinutes = info.freeMinutes ?: 0
 
-                supportMeLink = try {
-                    AppConfig.initialize(context)
-                    AppConfig.getConfig().supportMeLink
-                } catch (_: Exception) {
-                    null
-                }
-
-                if (isBilledServer) {
-                    if (isGoogleSignedIn) {
-                        refreshUserBalanceImpl(context)
-                    } else if (isUserAction) {
-                        signInWithGoogleImpl(context, isAutoSignIn = true, onResult = null)
-                    } else {
-                        refreshUserBalanceImpl(context)
+                    supportMeLink = try {
+                        AppConfig.initialize(targetContext)
+                        AppConfig.getConfig().supportMeLink
+                    } catch (_: Exception) {
+                        null
                     }
+
+                    if (isBilledServer) {
+                        if (isGoogleSignedIn) {
+                            refreshUserBalanceImpl(targetContext)
+                        } else if (isUserAction) {
+                            signInWithGoogleImpl(targetContext, isAutoSignIn = true, onResult = null)
+                        } else {
+                            refreshUserBalanceImpl(targetContext)
+                        }
+                    }
+                } catch (_: Exception) {
+                    billingProvider = "none"
                 }
-            } catch (_: Exception) {
-                billingProvider = "none"
             }
+        } else if (serverStatus == ServerStatus.OFFLINE) {
+            startAutoReconnectImpl(targetContext)
         }
     }
 }

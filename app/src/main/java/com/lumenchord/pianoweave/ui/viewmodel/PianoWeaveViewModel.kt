@@ -190,6 +190,8 @@ class PianoWeaveViewModel : ViewModel() {
 
     internal var balanceTickerJob: Job? = null
     internal var costJob: Job? = null
+    internal var autoReconnectJob: Job? = null
+    internal var appContext: Context? = null
 
     var importError by mutableStateOf<String?>(null)
         internal set
@@ -224,6 +226,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun getOrCreateUserId(context: Context): String = getOrCreateUserIdImpl(context)
     suspend fun testServerConnection(url: String): ServerStatus = testServerConnectionImpl(url)
     fun checkServerHealthAndInfo(context: Context? = null) = checkServerHealthAndInfoImpl(context)
+    fun startAutoReconnect(context: Context? = null) = startAutoReconnectImpl(context)
     fun refreshUserBalance(context: Context) = refreshUserBalanceImpl(context)
     fun loadPreferences(context: Context) = loadPreferencesImpl(context)
     fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) = updateServerSettingsImpl(context, useCustom, customUrl, customClientId)
