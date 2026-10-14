@@ -67,7 +67,7 @@ app are always used anonymously and without in-app purchases.
 ### Account deletion page
 
 `docs/delete_account.html` (served by GitHub Pages) lets users delete their server account and their Drive cloud library.
-The production server URL and the Web client ID are set as constants at the top of its script.
+The production server URL and the Web client ID are set in `docs/config.js`.
 Keep them in sync with `DEFAULT_API_BASE_URL` and `WEB_CLIENT_ID` in a release `config.txt`.
 
 For the page to work:

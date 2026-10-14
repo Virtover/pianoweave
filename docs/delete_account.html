@@ -134,6 +134,7 @@
 
 </main>
 
+<script src="config.js"></script>
 <script>
     "use strict";
 
@@ -142,11 +143,8 @@
     const USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
     const DELETE_CONCURRENCY = 4;
 
-    // Also set in the app's config.txt (DEFAULT_API_BASE_URL, WEB_CLIENT_ID). Keep them in sync.
-    const config = {
-        apiBaseUrl: "",  // official (production) transcription server, e.g. "https://api.example.com/"
-        webClientId: "364237387363-9uhsmnol0lp4ndmkaf2i1v0456gfivp4.apps.googleusercontent.com"
-    };
+    // Set in docs/config.js.
+    const config = window.PIANO_WEAVE_CONFIG || {};
 
     const isConfigured = Boolean(config.apiBaseUrl && config.webClientId);
 

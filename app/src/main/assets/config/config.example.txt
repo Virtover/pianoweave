@@ -1,9 +1,9 @@
 # Official (default) transcription server. Only this server ever receives the user's Google token.
-# Release value is also set in docs/delete_account.html (apiBaseUrl).
+# Release value is also set in docs/config.js (apiBaseUrl).
 DEFAULT_API_BASE_URL=http://10.0.2.2:8000/
 DEFAULT_SERVER_NAME="Piano Weave Cloud"
 SUPPORT_ME_URL=https://ko-fi.com/krzysztofolszak
 # Optional: shows a Discord button in app settings when set.
 DISCORD_URL=https://discord.gg/vzMyRZewmb
-# Google OAuth "Web application" client ID. Also set in docs/delete_account.html (webClientId).
+# Google OAuth "Web application" client ID. Also set in docs/config.js (webClientId).
 WEB_CLIENT_ID=""
