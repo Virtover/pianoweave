@@ -235,11 +235,8 @@ private fun SongCard(
                 }
             }
 
-            // Action buttons arranged horizontally in a single row
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
+            // Action buttons: side by side in landscape, stacked in portrait where the card is narrow
+            val actions: @Composable () -> Unit = {
                 IconButton(
                     onClick = onDelete,
                     modifier = Modifier.size(36.dp)
@@ -294,6 +291,17 @@ private fun SongCard(
                         iconSize = 20.dp
                     )
                 }
+            }
+            if (isLandscape) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) { actions() }
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) { actions() }
             }
         }
     }

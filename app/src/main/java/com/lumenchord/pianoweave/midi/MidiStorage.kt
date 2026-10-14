@@ -4,8 +4,11 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.lumenchord.pianoweave.api.VideoMetadata
+import com.lumenchord.pianoweave.api.placeholderMetadata
 import okhttp3.ResponseBody
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 data class StoredMidi(
@@ -22,6 +25,68 @@ object MidiStorage {
     private const val DIRECTORY = "midi"
     private const val METADATA_EXTENSION = ".meta"
     private const val THIRTY_DAYS_MS = 30L * 24 * 60 * 60 * 1000L
+    private const val TEMP_MARKER = ".tmp-"
+    private const val STALE_TEMP_MS = 60L * 60 * 1000L
+    private val LINE_BREAKS = Regex("[\r\n]+")
+
+    /**
+     * Guards every write to the library. Together with [writeAtomically] this keeps a reader from ever
+     * seeing a half-written .meta file, and a read-modify-write (cloud id, soft delete) from writing a
+     * half-read one back, which used to replace real metadata with "Piano Performance" for good.
+     */
+    private val writeLock = Any()
+
+    /** Writes via a temp file and an atomic rename, so readers see either the old or the new file. */
+    private fun writeAtomically(target: File, write: (File) -> Unit) {
+        val temp = File(target.parentFile, target.name + TEMP_MARKER + System.nanoTime())
+        try {
+            write(temp)
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            temp.delete()
+        }
+    }
+
+    private fun writeTextAtomically(target: File, text: String) = writeAtomically(target) { it.writeText(text) }
+
+    /** The .meta format is one value per line, so a stray line break must never reach the file. */
+    private fun metadataLines(videoUrl: String, metadata: VideoMetadata): List<String> =
+        listOf<String?>(
+            videoUrl,
+            metadata.title,
+            metadata.author,
+            metadata.channel,
+            metadata.channel_id,
+            metadata.channel_url,
+            metadata.upload_date,
+            metadata.duration.toString(),
+            metadata.thumbnail,
+            metadata.webpage_url,
+            metadata.view_count.toString(),
+            metadata.like_count.toString()
+        ).map { it.orEmpty().replace(LINE_BREAKS, " ") }
+
+    private fun writeRecord(metadataFile: File, videoUrl: String, metadata: VideoMetadata) {
+        val lines = metadataLines(videoUrl, metadata) + listOf("false", "0", "")
+        writeTextAtomically(metadataFile, lines.joinToString("\n"))
+    }
+
+    /** Applies [change] to the lines of [metadataFile] (padded to the full 15-line layout) under the write lock. */
+    private fun updateRecordLines(metadataFile: File, change: (MutableList<String>) -> Unit) {
+        synchronized(writeLock) {
+            if (!metadataFile.exists()) return
+            val lines = metadataFile.readLines().toMutableList()
+            while (lines.size < 12) lines.add("")
+            if (lines.size < 13) lines.add("false")
+            if (lines.size < 14) lines.add("0")
+            if (lines.size < 15) lines.add("")
+            change(lines)
+            writeTextAtomically(metadataFile, lines.joinToString("\n"))
+        }
+    }
+
+    private fun metadataFileFor(context: Context, storedMidi: StoredMidi) =
+        File(directory(context), storedMidi.file.nameWithoutExtension + METADATA_EXTENSION)
 
     private fun directory(context: Context): File {
         return File(
@@ -72,32 +137,45 @@ object MidiStorage {
     }
 
     fun updateCloudFileId(context: Context, storedMidi: StoredMidi, cloudFileId: String) {
-        val dir = directory(context)
-        val metadataFile = File(dir, storedMidi.file.nameWithoutExtension + METADATA_EXTENSION)
-        if (!metadataFile.exists()) return
-
         try {
-            val lines = metadataFile.readLines().toMutableList()
-            while (lines.size < 12) {
-                lines.add("")
-            }
-            while (lines.size < 13) {
-                lines.add("false")
-            }
-            while (lines.size < 14) {
-                lines.add("0")
-            }
-            if (lines.size >= 15) {
-                lines[14] = cloudFileId
-            } else {
-                lines.add(cloudFileId)
-            }
-            metadataFile.writeText(lines.joinToString("\n"))
+            updateRecordLines(metadataFileFor(context, storedMidi)) { lines -> lines[14] = cloudFileId }
         } catch (_: Exception) {}
+    }
+
+    /** Replaces a song's metadata, keeping its source URL, deletion state and cloud file id. */
+    fun updateMetadata(context: Context, storedMidi: StoredMidi, metadata: VideoMetadata) {
+        try {
+            updateRecordLines(metadataFileFor(context, storedMidi)) { lines ->
+                metadataLines(lines[0], metadata).forEachIndexed { index, value -> if (index > 0) lines[index] = value }
+            }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Detaches the library from the Google account it was synced with. Soft-deleted songs are purged
+     * (their pending cloud deletion belongs to that account). Songs synced to it are either removed
+     * ([removeSyncedSongs], the library is being replaced by the new account's) or unlinked so they
+     * upload to the new account. Songs that never reached the cloud are always kept.
+     */
+    fun detachFromCloudAccount(context: Context, removeSyncedSongs: Boolean) {
+        synchronized(writeLock) {
+            for (song in listAll(context)) {
+                when {
+                    song.isDeleted -> hardDelete(context, song)
+                    song.cloudFileId.isBlank() -> Unit
+                    removeSyncedSongs -> hardDelete(context, song)
+                    else -> updateCloudFileId(context, song, "")
+                }
+            }
+        }
     }
 
     private fun purgeExpiredDeletedSongs(context: Context) {
         val dir = directory(context)
+        // Temp files left behind by a crash mid-write
+        dir.listFiles()
+            ?.filter { TEMP_MARKER in it.name && System.currentTimeMillis() - it.lastModified() > STALE_TEMP_MS }
+            ?.forEach { it.delete() }
         dir.listFiles()
             ?.filter { it.extension == "meta" }
             ?.forEach { metaFile ->
@@ -115,61 +193,10 @@ object MidiStorage {
         videoUrl: String,
         metadata: VideoMetadata?,
         body: ResponseBody
-    ): StoredMidi {
-        val id = idForUrl(videoUrl)
-        val dir = directory(context)
-        val midiFile = File(dir, "$id.mid")
-        val metadataFile = File(dir, "$id$METADATA_EXTENSION")
-
+    ): StoredMidi = store(context, videoUrl, metadata) { target ->
         body.byteStream().use { input ->
-            midiFile.outputStream().use { output ->
-                input.copyTo(output)
-            }
+            target.outputStream().use { output -> input.copyTo(output) }
         }
-
-        val stableUrl = videoUrl.trim()
-        val stableMetadata = metadata ?: VideoMetadata(
-            title = "Piano Performance",
-            author = "Unknown",
-            channel = "Unknown",
-            channel_id = "",
-            channel_url = "",
-            upload_date = "",
-            duration = 0f,
-            thumbnail = "",
-            webpage_url = stableUrl,
-            view_count = 0L,
-            like_count = 0L
-        )
-
-        metadataFile.writeText(
-            listOf(
-                stableUrl,
-                stableMetadata.title,
-                stableMetadata.author,
-                stableMetadata.channel,
-                stableMetadata.channel_id,
-                stableMetadata.channel_url,
-                stableMetadata.upload_date,
-                stableMetadata.duration.toString(),
-                stableMetadata.thumbnail,
-                stableMetadata.webpage_url,
-                stableMetadata.view_count.toString(),
-                stableMetadata.like_count.toString(),
-                "false",
-                "0",
-                ""
-            ).joinToString("\n")
-        )
-
-        return StoredMidi(
-            file = midiFile,
-            videoUrl = stableUrl,
-            metadata = stableMetadata,
-            isDeleted = false,
-            deletedAt = 0L,
-            cloudFileId = ""
-        )
     }
 
     fun saveBytes(
@@ -177,48 +204,32 @@ object MidiStorage {
         videoUrl: String,
         metadata: VideoMetadata?,
         bytes: ByteArray
+    ): StoredMidi = store(context, videoUrl, metadata) { target -> target.writeBytes(bytes) }
+
+    private fun store(
+        context: Context,
+        videoUrl: String,
+        metadata: VideoMetadata?,
+        writeMidi: (File) -> Unit
     ): StoredMidi {
         val id = idForUrl(videoUrl)
         val dir = directory(context)
         val midiFile = File(dir, "$id.mid")
         val metadataFile = File(dir, "$id$METADATA_EXTENSION")
-
-        midiFile.writeBytes(bytes)
-
         val stableUrl = videoUrl.trim()
-        val stableMetadata = metadata ?: VideoMetadata(
-            title = "Piano Performance",
-            author = "Unknown",
-            channel = "Unknown",
-            channel_id = "",
-            channel_url = "",
-            upload_date = "",
-            duration = 0f,
-            thumbnail = "",
-            webpage_url = stableUrl,
-            view_count = 0L,
-            like_count = 0L
-        )
+        val stableMetadata = metadata ?: placeholderMetadata(stableUrl)
 
-        metadataFile.writeText(
-            listOf(
-                stableUrl,
-                stableMetadata.title,
-                stableMetadata.author,
-                stableMetadata.channel,
-                stableMetadata.channel_id,
-                stableMetadata.channel_url,
-                stableMetadata.upload_date,
-                stableMetadata.duration.toString(),
-                stableMetadata.thumbnail,
-                stableMetadata.webpage_url,
-                stableMetadata.view_count.toString(),
-                stableMetadata.like_count.toString(),
-                "false",
-                "0",
-                ""
-            ).joinToString("\n")
-        )
+        // The (possibly slow) download goes to a temp file first; only the swap into place is locked.
+        val tempMidi = File(dir, midiFile.name + TEMP_MARKER + System.nanoTime())
+        try {
+            writeMidi(tempMidi)
+            synchronized(writeLock) {
+                Files.move(tempMidi.toPath(), midiFile.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                writeRecord(metadataFile, stableUrl, stableMetadata)
+            }
+        } finally {
+            tempMidi.delete()
+        }
 
         return StoredMidi(
             file = midiFile,
@@ -312,53 +323,24 @@ object MidiStorage {
         }
     }
 
-    private fun fallbackMetadata(
-        videoUrl: String = "Unknown source"
-    ): VideoMetadata {
-        return VideoMetadata(
-            title = "Piano Performance",
-            author = "Unknown",
-            channel = "Unknown",
-            channel_id = "",
-            channel_url = "",
-            upload_date = "",
-            duration = 0f,
-            thumbnail = "",
-            webpage_url = videoUrl,
-            view_count = 0L,
-            like_count = 0L
-        )
-    }
+    private fun fallbackMetadata(videoUrl: String = "Unknown source"): VideoMetadata = placeholderMetadata(videoUrl)
 
     fun delete(
         context: Context,
         storedMidi: StoredMidi
     ) {
-        val dir = directory(context)
-        val metadataFile = File(
-            dir,
-            storedMidi.file.nameWithoutExtension + METADATA_EXTENSION
-        )
+        val metadataFile = metadataFileFor(context, storedMidi)
         if (!metadataFile.exists()) {
             storedMidi.file.delete()
             return
         }
 
         try {
-            val lines = metadataFile.readLines().toMutableList()
-            while (lines.size < 12) {
-                lines.add("")
-            }
             val deletedTime = System.currentTimeMillis()
-            while (lines.size < 13) {
-                lines.add("false")
+            updateRecordLines(metadataFile) { lines ->
+                lines[12] = "true"
+                lines[13] = deletedTime.toString()
             }
-            while (lines.size < 14) {
-                lines.add("0")
-            }
-            lines[12] = "true"
-            lines[13] = deletedTime.toString()
-            metadataFile.writeText(lines.joinToString("\n"))
         } catch (_: Exception) {
             hardDelete(context, storedMidi)
         }
@@ -368,11 +350,10 @@ object MidiStorage {
         context: Context,
         storedMidi: StoredMidi
     ) {
-        storedMidi.file.delete()
-        File(
-            directory(context),
-            storedMidi.file.nameWithoutExtension + METADATA_EXTENSION
-        ).delete()
+        synchronized(writeLock) {
+            storedMidi.file.delete()
+            metadataFileFor(context, storedMidi).delete()
+        }
     }
 
     fun importFile(
@@ -408,9 +389,11 @@ object MidiStorage {
         val midiFile = File(dir, "$id.mid")
         val metadataFile = File(dir, "$id$METADATA_EXTENSION")
 
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            midiFile.outputStream().use { output ->
-                input.copyTo(output)
+        synchronized(writeLock) {
+            writeAtomically(midiFile) { target ->
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
             }
         }
 
@@ -429,25 +412,9 @@ object MidiStorage {
             like_count = 0L
         )
 
-        metadataFile.writeText(
-            listOf(
-                stableUrl,
-                metadata.title,
-                metadata.author,
-                metadata.channel,
-                metadata.channel_id,
-                metadata.channel_url,
-                metadata.upload_date,
-                metadata.duration.toString(),
-                metadata.thumbnail,
-                metadata.webpage_url,
-                metadata.view_count.toString(),
-                metadata.like_count.toString(),
-                "false",
-                "0",
-                ""
-            ).joinToString("\n")
-        )
+        synchronized(writeLock) {
+            writeRecord(metadataFile, stableUrl, metadata)
+        }
 
         return StoredMidi(
             file = midiFile,

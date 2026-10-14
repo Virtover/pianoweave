@@ -4,10 +4,13 @@ import android.content.Context
 import com.google.gson.Gson
 import com.lumenchord.pianoweave.api.GoogleDriveApiFactory
 import com.lumenchord.pianoweave.api.VideoMetadata
+import com.lumenchord.pianoweave.api.sanitizeVideoMetadata
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -29,52 +32,50 @@ data class CloudMetadataEnvelope(
     val metadata: VideoMetadata? = null
 )
 
-fun sanitizeVideoMetadata(meta: VideoMetadata?, fallbackUrl: String = ""): VideoMetadata {
-    if (meta == null) {
-        return VideoMetadata(
-            title = "Piano Performance",
-            author = "Unknown",
-            channel = "Unknown",
-            channel_id = "",
-            channel_url = "",
-            upload_date = "",
-            duration = 0f,
-            thumbnail = "",
-            webpage_url = fallbackUrl,
-            view_count = 0L,
-            like_count = 0L
-        )
-    }
-    val safeTitle = (meta.title as String?).orEmpty().ifBlank { "Piano Performance" }
-    val safeAuthor = (meta.author as String?).orEmpty().ifBlank { "Unknown" }
-    val safeChannel = (meta.channel as String?).orEmpty().ifBlank { "Unknown" }
-    val safeChannelId = (meta.channel_id as String?).orEmpty()
-    val safeChannelUrl = (meta.channel_url as String?).orEmpty()
-    val safeUploadDate = (meta.upload_date as String?).orEmpty()
-    val safeDuration = (meta.duration as Float?) ?: 0f
-    val safeThumbnail = (meta.thumbnail as String?).orEmpty()
-    val safeWebpageUrl = (meta.webpage_url as String?).orEmpty().ifBlank { fallbackUrl }
-    val safeViewCount = (meta.view_count as Long?) ?: 0L
-    val safeLikeCount = (meta.like_count as Long?) ?: 0L
-
-    return VideoMetadata(
-        title = safeTitle,
-        author = safeAuthor,
-        channel = safeChannel,
-        channel_id = safeChannelId,
-        channel_url = safeChannelUrl,
-        upload_date = safeUploadDate,
-        duration = safeDuration,
-        thumbnail = safeThumbnail,
-        webpage_url = safeWebpageUrl,
-        view_count = safeViewCount,
-        like_count = safeLikeCount
-    )
-}
-
 object GoogleDriveManager {
 
     private val gson = Gson()
+
+    /**
+     * Held by a full library sync and by [backUpNewSong]. Without it a song finished during a sync
+     * was uploaded twice (once by each), leaving duplicate copies in Drive.
+     */
+    val libraryMutex = Mutex()
+
+    /** The song's metadata as stored in the Drive file description. */
+    private fun descriptionFor(storedMidi: StoredMidi): String =
+        gson.toJson(CloudMetadataEnvelope(videoUrl = storedMidi.videoUrl, metadata = storedMidi.metadata))
+
+    /**
+     * Uploads a newly transcribed song unless it is already in the cloud, and links it to the
+     * uploaded file so later syncs match it by id. Re-reads the song so a concurrent sync is seen.
+     */
+    suspend fun backUpNewSong(context: Context, song: StoredMidi, authHeader: String?): Result<Unit> = libraryMutex.withLock {
+        val current = MidiStorage.listAll(context).firstOrNull { it.file == song.file }
+        if (current == null || current.isDeleted || current.cloudFileId.isNotBlank()) return@withLock Result.success(Unit)
+        uploadMidi(context, current, authHeader).map { MidiStorage.updateCloudFileId(context, current, it.id) }
+    }
+
+    /** Rewrites the metadata of an existing cloud copy (used to repair copies that lost it). */
+    suspend fun updateCloudMetadata(
+        context: Context,
+        fileId: String,
+        storedMidi: StoredMidi,
+        authHeader: String? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            GoogleAuthManager.executeWithAuthRetry(context, authHeader) { header ->
+                GoogleDriveApiFactory.api.updateFileMetadata(
+                    fileId = fileId,
+                    authHeader = header,
+                    metadata = mapOf("description" to descriptionFor(storedMidi))
+                )
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun listCloudMidis(
         context: Context,
@@ -146,16 +147,10 @@ object GoogleDriveManager {
         authHeader: String? = null
     ): Result<CloudMidi> = withContext(Dispatchers.IO) {
         try {
-            val envelope = CloudMetadataEnvelope(
-                videoUrl = storedMidi.videoUrl,
-                metadata = storedMidi.metadata
-            )
-            val envelopeJson = gson.toJson(envelope)
-
             val metadataMap = mapOf(
                 "name" to storedMidi.file.name,
                 "parents" to listOf("appDataFolder"),
-                "description" to envelopeJson
+                "description" to descriptionFor(storedMidi)
             )
             val metadataJson = gson.toJson(metadataMap)
 

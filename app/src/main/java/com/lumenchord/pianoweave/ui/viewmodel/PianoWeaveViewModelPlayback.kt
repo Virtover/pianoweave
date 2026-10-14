@@ -123,7 +123,7 @@ internal fun PianoWeaveViewModel.importMidiFileImpl(context: Context, uri: Uri) 
                 try {
                     val token = googleToken
                     if (token.isNotBlank()) {
-                        GoogleDriveManager.uploadMidi(context, importedMidi, token)
+                        GoogleDriveManager.backUpNewSong(context, importedMidi, token).getOrThrow()
                         refreshCloudSyncImpl(context, false)
                     }
                 } catch (e: Exception) {

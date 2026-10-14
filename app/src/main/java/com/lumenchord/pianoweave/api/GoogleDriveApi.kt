@@ -7,6 +7,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -40,6 +41,14 @@ interface GoogleDriveApi {
         @Header("Authorization") authHeader: String?,
         @Query("uploadType") uploadType: String = "multipart",
         @Body body: RequestBody
+    ): DriveFileItem
+
+    /** Updates file metadata only (e.g. the description that carries the song's metadata). */
+    @PATCH("drive/v3/files/{fileId}")
+    suspend fun updateFileMetadata(
+        @Path("fileId") fileId: String,
+        @Header("Authorization") authHeader: String?,
+        @Body metadata: Map<String, String>
     ): DriveFileItem
 
     @Streaming

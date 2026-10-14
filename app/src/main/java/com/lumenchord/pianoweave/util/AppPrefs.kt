@@ -28,6 +28,8 @@ object AppPrefs {
     const val HAS_CLOUD_SYNC_ERROR = "has_cloud_sync_error"
     const val CLOUD_SYNC_ERROR = "cloud_sync_error"
     const val HAS_SHOWN_CLOUD_BACKUP_DIALOG = "has_shown_cloud_backup_dialog"
+    /** Email of the Google account the local library's cloud links (file ids, pending deletions) belong to. */
+    const val CLOUD_LIBRARY_ACCOUNT = "cloud_library_account"
 
     // UI & playback
     const val SELECTED_THEME_ID = "selected_theme_id"

@@ -23,6 +23,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.util.findActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -85,8 +86,10 @@ object GoogleAuthManager {
     }
 
     /**
-     * Runs [apiCall] with the given (or saved) token. On HTTP 401/503 the token is silently
-     * refreshed and the call is retried once; otherwise the original error is rethrown.
+     * Runs [apiCall] with the given (or saved) token. On HTTP 401/503 the token is refreshed and the
+     * call is retried once; otherwise the original error is rethrown. On 401 the rejected token is first
+     * evicted from Play services' cache, which would otherwise keep returning it (e.g. after access was
+     * revoked by the account deletion page); if access was revoked, the refresh asks for consent again.
      */
     suspend fun <T> executeWithAuthRetry(
         context: Context,
@@ -98,12 +101,27 @@ object GoogleAuthManager {
         try {
             return apiCall(authHeader)
         } catch (e: HttpException) {
+            if (e.code() == 401) {
+                authHeader?.removePrefix("Bearer ")?.let { clearCachedToken(context, it) }
+            }
             val canRefresh = (e.code() == 401 || e.code() == 503) && getActiveClientId(context).isNotBlank()
             val refreshedUser = if (canRefresh) silentRefresh(context).getOrNull() else null
             if (refreshedUser != null) {
                 return apiCall(getAuthHeader(refreshedUser.token))
             }
             throw e
+        }
+    }
+
+    /** Best effort: removes [token] from Play services' token cache so the next authorize() issues a new one. */
+    private suspend fun clearCachedToken(context: Context, token: String) {
+        try {
+            awaitTask(
+                Identity.getAuthorizationClient(context)
+                    .clearToken(ClearTokenRequest.builder().setToken(token).build())
+            )
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
         }
     }
 

@@ -14,6 +14,7 @@ import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
+import com.lumenchord.pianoweave.midi.CompletedTranscriptions
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.worker.ActiveJobStore
@@ -310,7 +311,10 @@ private suspend fun PianoWeaveViewModel.handleCompletedJob(
     finishActiveJob(context)
 }
 
-/** Downloads and stores the job's MIDI, retrying until it succeeds or the job is cancelled (returns null). */
+/**
+ * Downloads and stores the job's MIDI, retrying until it succeeds or the job is cancelled (returns null).
+ * If the background worker saved it first, returns that copy instead of saving (and uploading) it again.
+ */
 private suspend fun PianoWeaveViewModel.downloadMidiWithRetry(
     context: Context,
     jobId: String,
@@ -320,12 +324,18 @@ private suspend fun PianoWeaveViewModel.downloadMidiWithRetry(
     while (currentJobId == jobId) {
         try {
             return withContext(Dispatchers.IO) {
-                val savedMidi = executeServerCallImpl(context) { authHeader ->
-                    val midiResponse = PianoApiFactory.getApi(activeServerUrl).downloadMidi(jobId, authHeader = authHeader)
-                    MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
+                val savedMidi = CompletedTranscriptions.saveOnce(context, stableUrl, job) {
+                    executeServerCallImpl(context) { authHeader ->
+                        PianoApiFactory.getApi(activeServerUrl).downloadMidi(jobId, authHeader = authHeader)
+                    }
                 }
-                uploadToCloudIfEnabled(context, savedMidi)
-                savedMidi
+                if (savedMidi != null) {
+                    backUpToCloudIfEnabled(context, savedMidi)
+                    savedMidi
+                } else {
+                    val existingFile = MidiStorage.find(context, stableUrl)
+                    MidiStorage.list(context).firstOrNull { it.file == existingFile }
+                }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -336,13 +346,17 @@ private suspend fun PianoWeaveViewModel.downloadMidiWithRetry(
     return null
 }
 
-/** Best-effort Drive backup of a freshly transcribed song. */
-private suspend fun PianoWeaveViewModel.uploadToCloudIfEnabled(context: Context, midi: StoredMidi) {
+/** Best-effort Drive backup of a freshly transcribed song; runs on its own so a running sync never delays the UI. */
+private fun PianoWeaveViewModel.backUpToCloudIfEnabled(context: Context, midi: StoredMidi) {
     if (!isCloudSyncEnabled || !isGoogleSignedIn) return
-    try {
-        GoogleDriveManager.uploadMidi(context, midi, googleToken)
-    } catch (_: Exception) {
-        // Ignore background upload errors
+    val token = googleToken
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            GoogleDriveManager.backUpNewSong(context, midi, token)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            // Ignore background upload errors; the next sync uploads it
+        }
     }
 }
 

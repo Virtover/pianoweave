@@ -55,12 +55,13 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSi
                 googleAuthError = null
                 isGoogleAuthLoading = false
 
-                if (previousEmail.isNotBlank()) {
+                val switchedAccount = previousEmail.isNotBlank() && !previousEmail.equals(user.email, ignoreCase = true)
+                if (switchedAccount) {
                     if (wasCloudSyncEnabled) {
-                        // Switched account with cloud sync on -> load the new account's cloud data
-                        refreshCloudSyncImpl(context, showModalProgress = false)
+                        // Sync on: the library is replaced by the new account's cloud library (see adoptCloudAccount)
+                        refreshCloudSyncImpl(context, showModalProgress = true)
                     } else {
-                        // Cloud sync was off -> keep it off (enabling later will load/sync library tracks)
+                        // Sync off: keep it off; turning it on later uploads the current library to the new account
                         saveCloudSyncState(context, enabled = false, hasError = false, errorMsg = null)
                     }
                 }

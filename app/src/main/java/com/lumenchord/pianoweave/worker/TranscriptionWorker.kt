@@ -10,6 +10,7 @@ import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
+import com.lumenchord.pianoweave.midi.CompletedTranscriptions
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.delay
@@ -63,18 +64,20 @@ class TranscriptionWorker(
             return Result.success()
         }
 
-        val midiResponse = try {
-            withAuth(serverUrl) { header -> api.downloadMidi(jobId, authHeader = header) }
+        // Null if the in-app poller saved it first; it then also takes care of the Drive backup.
+        val savedMidi = try {
+            CompletedTranscriptions.saveOnce(applicationContext, stableUrl, job) {
+                withAuth(serverUrl) { header -> api.downloadMidi(jobId, authHeader = header) }
+            }
         } catch (_: Exception) {
             return Result.retry()
         }
 
-        val savedMidi = MidiStorage.save(applicationContext, stableUrl, job.metadata, midiResponse)
         val isCloudSyncEnabled = AppPrefs.get(applicationContext).getBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false)
         val token = GoogleAuthManager.getSavedToken(applicationContext)
-        if (isCloudSyncEnabled && !token.isNullOrBlank()) {
+        if (savedMidi != null && isCloudSyncEnabled && !token.isNullOrBlank()) {
             try {
-                GoogleDriveManager.uploadMidi(applicationContext, savedMidi, token)
+                GoogleDriveManager.backUpNewSong(applicationContext, savedMidi, token)
             } catch (_: Exception) {}
         }
 
