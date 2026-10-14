@@ -6,7 +6,8 @@ data class ServerConfig(
     val baseUrl: String,
     val name: String,
     val supportMeLink: String? = null,
-    val webClientId: String? = null
+    val webClientId: String? = null,
+    val discordLink: String? = null
 )
 
 object AppConfig {
@@ -20,6 +21,8 @@ object AppConfig {
     private const val WEB_CLIENT_ID = "WEB_CLIENT_ID"
     private const val GOOGLE_CLIENT_ID = "GOOGLE_CLIENT_ID"
     private const val CLIENT_ID = "CLIENT_ID"
+    private const val DISCORD_URL = "DISCORD_URL"
+    private const val DISCORD_LINK = "DISCORD_LINK"
     private var config: ServerConfig? = null
 
     fun initialize(
@@ -76,11 +79,14 @@ object AppConfig {
 
         val supportMeLink = values[SUPPORT_ME_LINK] ?: values[SUPPORT_ME_URL]
         val webClientId = values[WEB_CLIENT_ID] ?: values[GOOGLE_CLIENT_ID] ?: values[CLIENT_ID]
+        val discordLink = (values[DISCORD_URL] ?: values[DISCORD_LINK])?.takeIf { it.isNotBlank() }
 
-        config = ServerConfig(url, name, supportMeLink, webClientId)
+        config = ServerConfig(url, name, supportMeLink, webClientId, discordLink)
     }
 
     fun getConfig(): ServerConfig {
         return config ?: error("AppConfig.initialize() must be called first")
     }
+
+    fun getConfigOrNull(): ServerConfig? = config
 }

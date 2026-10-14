@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Piano Weave – Delete Account</title>
+    <style>
+        :root {
+          --bg: #ffffff;
+          --fg: #1d2125;
+          --muted: #5b6770;
+          --accent: #8a5a00;
+          --line: #e2e6ea;
+          --card: #f6f8fa;
+          --danger: #c62828;
+          --danger-fg: #ffffff;
+          --ok: #2e7d32;
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #14181c;
+            --fg: #e6e9ec;
+            --muted: #9aa5ae;
+            --accent: #e0b04a;
+            --line: #2a3138;
+            --card: #1b2127;
+            --danger: #ef5350;
+            --danger-fg: #14181c;
+            --ok: #66bb6a;
+          }
+        }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          background: var(--bg);
+          color: var(--fg);
+          font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+        main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+        h1 { font-size: 2rem; margin: 0 0 4px; }
+        h2 { font-size: 1.15rem; margin: 0 0 8px; }
+        .meta { color: var(--muted); margin: 0 0 24px; }
+        a { color: var(--accent); }
+        ul { padding-left: 22px; }
+        li { margin: 4px 0; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 16px 0; }
+        .card[hidden] { display: none; }
+        .muted { color: var(--muted); }
+        label.option { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; cursor: pointer; }
+        label.option input { margin-top: 5px; }
+        button {
+          font: inherit; font-weight: 600; border-radius: 8px; padding: 10px 18px; cursor: pointer;
+          border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.danger { background: var(--danger); border-color: var(--danger); color: var(--danger-fg); }
+        .error { color: var(--danger); }
+        #results li { list-style: none; margin-left: -22px; }
+        .ok::before { content: "\2713  "; color: var(--ok); font-weight: 700; }
+        .fail::before { content: "\2717  "; color: var(--danger); font-weight: 700; }
+        .info::before { content: "\2022  "; color: var(--muted); font-weight: 700; }
+    </style>
+</head>
+<body>
+<main>
+
+    <h1>Delete your Piano Weave account</h1>
+    <p class="meta">
+        You can delete your account and data here at any time. This page runs in your browser and talks
+        directly to Google Drive and the Piano Weave server.
+    </p>
+
+    <section class="card" id="what-is-deleted">
+        <h2>What gets deleted</h2>
+        <ul>
+            <li><strong>Server account</strong>: your Google account ID, email address, transcription minute balance and transcription jobs. Unused minutes cannot be restored.</li>
+            <li><strong>Cloud library</strong>: songs the app synced to the hidden Piano Weave folder in your Google Drive. Your other Drive files are not touched.</li>
+            <li><strong>Kept</strong>: purchase records, without your account ID or email, so a purchase cannot be credited twice. Encrypted backups expire within 30 days.</li>
+            <li><strong>On your phone</strong>: not reachable from here. Uninstall the app or clear its storage.</li>
+        </ul>
+        <p class="muted">Full details are in the <a href="privacy_policy.html#account-deletion">Privacy Policy</a>.</p>
+    </section>
+
+    <div class="card" id="config-error" hidden>
+        <strong class="error">Account deletion is not available on this page right now.</strong>
+        <p>Please email a deletion request instead (see <a href="privacy_policy.html#contact">Contact</a>).</p>
+    </div>
+
+    <section class="card" id="step-sign-in">
+        <h2>1. Sign in</h2>
+        <p>Sign in with the same Google account you use in the Piano Weave app.</p>
+        <button id="sign-in" disabled>Sign in with Google</button>
+        <p class="error" id="sign-in-error" hidden></p>
+    </section>
+
+    <section class="card" id="step-confirm" hidden>
+        <h2>2. Choose what to delete</h2>
+        <p>Signed in as <strong id="email"></strong>.</p>
+
+        <label class="option">
+            <input type="checkbox" id="opt-server" checked>
+            <span>
+                <strong>Server account</strong>: your account, transcription minute balance and transcription jobs.
+                <span class="muted">Unused minutes cannot be restored.</span>
+            </span>
+        </label>
+        <label class="option">
+            <input type="checkbox" id="opt-drive" checked>
+            <span>
+                <strong>Cloud library</strong>: songs the app synced to the hidden Piano Weave folder in your Google Drive.
+                <span class="muted">Your other Drive files are not touched.</span>
+                <span class="error" id="drive-unavailable" hidden>Google Drive access was not granted, so the cloud library cannot be deleted.</span>
+            </span>
+        </label>
+
+        <label class="option">
+            <input type="checkbox" id="confirm">
+            <span>I understand that this permanently deletes the selected data.</span>
+        </label>
+
+        <button class="danger" id="delete" disabled>Delete selected data</button>
+    </section>
+
+    <section class="card" id="step-results" hidden>
+        <h2>3. Result</h2>
+        <ul id="results"></ul>
+        <p class="muted">
+            Data on your phone is not affected: uninstall Piano Weave, or clear its storage in
+            Android Settings &rarr; Apps &rarr; Piano Weave &rarr; Storage.
+            You can also remove the app's access at
+            <a href="https://myaccount.google.com/connections" rel="noopener">myaccount.google.com/connections</a>.
+        </p>
+    </section>
+
+</main>
+
+<script>
+    "use strict";
+
+    const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+    const DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
+    const USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
+    const DELETE_CONCURRENCY = 4;
+
+    // Also set in the app's config.txt (DEFAULT_API_BASE_URL, WEB_CLIENT_ID). Keep them in sync.
+    const config = {
+        apiBaseUrl: "",  // official (production) transcription server, e.g. "https://api.example.com/"
+        webClientId: "364237387363-9uhsmnol0lp4ndmkaf2i1v0456gfivp4.apps.googleusercontent.com"
+    };
+
+    const isConfigured = Boolean(config.apiBaseUrl && config.webClientId);
+
+    const $ = (id) => document.getElementById(id);
+
+    let tokenClient = null;
+    let accessToken = null;
+    let hasDriveAccess = false;
+
+    function showError(element, message) {
+        element.textContent = message;
+        element.hidden = false;
+    }
+
+    function updateDeleteButton() {
+        const anySelected = $("opt-server").checked || ($("opt-drive").checked && hasDriveAccess);
+        $("delete").disabled = !($("confirm").checked && anySelected);
+    }
+
+    // Called by Google Identity Services once its script has loaded.
+    window.onGoogleLibraryLoad = function () {
+        if (!isConfigured) return;
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: config.webClientId,
+            scope: ["openid", "email", DRIVE_SCOPE].join(" "),
+            prompt: "select_account",
+            callback: onTokenResponse,
+            error_callback: (error) => {
+                if (error && error.type !== "popup_closed") {
+                    showError($("sign-in-error"), "Google sign-in failed. Please try again.");
+                }
+            }
+        });
+        $("sign-in").disabled = false;
+    };
+
+    if (!isConfigured) {
+        $("config-error").hidden = false;
+        $("step-sign-in").hidden = true;
+    }
+
+    async function onTokenResponse(response) {
+        if (response.error) {
+            showError($("sign-in-error"), "Google sign-in failed: " + response.error);
+            return;
+        }
+        accessToken = response.access_token;
+        hasDriveAccess = google.accounts.oauth2.hasGrantedAllScopes(response, DRIVE_SCOPE);
+
+        try {
+            const userinfo = await googleFetch(USERINFO_URL);
+            $("email").textContent = (await userinfo.json()).email || "your Google account";
+        } catch (_) {
+            $("email").textContent = "your Google account";
+        }
+
+        if (!hasDriveAccess) {
+            $("opt-drive").checked = false;
+            $("opt-drive").disabled = true;
+            $("drive-unavailable").hidden = false;
+        }
+        $("sign-in-error").hidden = true;
+        $("step-sign-in").hidden = true;
+        $("step-confirm").hidden = false;
+        updateDeleteButton();
+    }
+
+    async function googleFetch(url, options = {}) {
+        const response = await fetch(url, {
+            ...options,
+            headers: { ...(options.headers || {}), Authorization: "Bearer " + accessToken }
+        });
+        if (!response.ok && response.status !== 404) {
+            throw new Error("HTTP " + response.status);
+        }
+        return response;
+    }
+
+    async function listCloudLibraryFileIds() {
+        const ids = [];
+        let pageToken = "";
+        do {
+            const params = new URLSearchParams({
+                spaces: "appDataFolder",
+                fields: "nextPageToken,files(id)",
+                pageSize: "1000"
+            });
+            if (pageToken) params.set("pageToken", pageToken);
+            const page = await (await googleFetch(DRIVE_FILES_URL + "?" + params)).json();
+            ids.push(...(page.files || []).map((file) => file.id));
+            pageToken = page.nextPageToken || "";
+        } while (pageToken);
+        return ids;
+    }
+
+    async function deleteCloudLibrary() {
+        const ids = await listCloudLibraryFileIds();
+        let next = 0;
+        async function worker() {
+            while (next < ids.length) {
+                const id = ids[next++];
+                await googleFetch(DRIVE_FILES_URL + "/" + encodeURIComponent(id), { method: "DELETE" });
+            }
+        }
+        await Promise.all(Array.from({ length: DELETE_CONCURRENCY }, worker));
+        return ids.length;
+    }
+
+    async function deleteServerAccount() {
+        const baseUrl = config.apiBaseUrl.endsWith("/") ? config.apiBaseUrl : config.apiBaseUrl + "/";
+        let response;
+        try {
+            response = await fetch(new URL("api/account", baseUrl), {
+                method: "DELETE",
+                headers: { Authorization: "Bearer " + accessToken }
+            });
+        } catch (_) {
+            return { ok: false, message: "Could not reach the Piano Weave server. Please try again later." };
+        }
+        switch (response.status) {
+            case 204: return { ok: true, message: "Server account deleted." };
+            case 409: return { ok: true, info: true, message: "The server does not keep accounts, so there was nothing to delete." };
+            case 401: return { ok: false, message: "The server did not accept this sign-in." };
+            default: return { ok: false, message: "The server could not delete the account (HTTP " + response.status + ")." };
+        }
+    }
+
+    function addResult(kind, message) {
+        const item = document.createElement("li");
+        item.className = kind;
+        item.textContent = message;
+        $("results").appendChild(item);
+    }
+
+    async function runDeletion() {
+        const deleteServer = $("opt-server").checked;
+        const deleteDrive = $("opt-drive").checked && hasDriveAccess;
+        $("delete").disabled = true;
+        $("delete").textContent = "Deleting…";
+        for (const id of ["opt-server", "opt-drive", "confirm"]) $(id).disabled = true;
+
+        let anyFailed = false;
+
+        if (deleteServer) {
+            const result = await deleteServerAccount();
+            addResult(result.info ? "info" : result.ok ? "ok" : "fail", result.message);
+            anyFailed ||= !result.ok;
+        }
+
+        if (deleteDrive) {
+            try {
+                const count = await deleteCloudLibrary();
+                addResult(count ? "ok" : "info",
+                    count ? `Deleted ${count} file${count === 1 ? "" : "s"} from your cloud library.` : "Your cloud library was already empty.");
+            } catch (_) {
+                addResult("fail", "Could not delete your cloud library from Google Drive. Please try again.");
+                anyFailed = true;
+            }
+        }
+
+        if (anyFailed) {
+            const help = document.createElement("li");
+            help.className = "info";
+            help.append("If this keeps failing, email a deletion request (see ");
+            const link = document.createElement("a");
+            link.href = "privacy_policy.html#contact";
+            link.textContent = "Contact";
+            help.append(link, ").");
+            $("results").appendChild(help);
+        }
+
+        // The token is no longer needed; revoke it so this page keeps no access.
+        google.accounts.oauth2.revoke(accessToken, () => {});
+        accessToken = null;
+
+        $("step-confirm").hidden = true;
+        $("step-results").hidden = false;
+    }
+
+    $("sign-in").addEventListener("click", () => tokenClient && tokenClient.requestAccessToken());
+    for (const id of ["opt-server", "opt-drive", "confirm"]) $(id).addEventListener("change", updateDeleteButton);
+    $("delete").addEventListener("click", runDeletion);
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</body>
+</html>

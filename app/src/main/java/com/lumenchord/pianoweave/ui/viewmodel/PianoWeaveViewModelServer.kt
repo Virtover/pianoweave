@@ -151,7 +151,7 @@ internal fun PianoWeaveViewModel.refreshUserBalanceImpl(context: Context) {
     val uId = getOrCreateUserIdImpl(context)
     viewModelScope.launch {
         try {
-            val balance = executeWithAuthRetryImpl(context) { authHeader ->
+            val balance = executeServerCallImpl(context, url) { authHeader ->
                 val api = PianoApiFactory.getApi(url)
                 api.getUserBalance(
                     authHeader = authHeader,
@@ -247,7 +247,7 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
     // Persist first so PurchaseVerificationWorker keeps retrying if the server can't answer now
     PurchaseVerificationWorker.scheduleVerification(context, purchase)
 
-    suspend fun callVerify(): VerifyPurchaseResponse = executeWithAuthRetryImpl(context) { authHeader ->
+    suspend fun callVerify(): VerifyPurchaseResponse = executeServerCallImpl(context, purchase.serverUrl) { authHeader ->
         PianoApiFactory.getApi(purchase.serverUrl).verify(purchase, authHeader)
     }
 

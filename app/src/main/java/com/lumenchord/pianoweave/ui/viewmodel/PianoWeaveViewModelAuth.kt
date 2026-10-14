@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.launch
@@ -145,17 +146,18 @@ internal suspend fun PianoWeaveViewModel.ensureGoogleAuthTokenImpl(context: Cont
     }
 }
 
-internal suspend fun <T> PianoWeaveViewModel.executeWithAuthRetryImpl(
+/** Transcription-server call; see [executeServerCall]. Also picks up a token refreshed during the call. */
+internal suspend fun <T> PianoWeaveViewModel.executeServerCallImpl(
     context: Context,
+    serverUrl: String = activeServerUrl,
     apiCall: suspend (authHeader: String?) -> T
 ): T {
-    val initialHeader = GoogleAuthManager.getAuthHeader(googleToken)
-    val result = GoogleAuthManager.executeWithAuthRetry(
+    val result = executeServerCall(
         context = context,
-        initialAuthHeader = initialHeader
-    ) { authHeader ->
-        apiCall(authHeader)
-    }
+        serverUrl = serverUrl,
+        initialAuthHeader = GoogleAuthManager.getAuthHeader(googleToken),
+        apiCall = apiCall
+    )
     val freshToken = GoogleAuthManager.getSavedToken(context)
     if (!freshToken.isNullOrBlank() && freshToken != googleToken) {
         googleToken = freshToken

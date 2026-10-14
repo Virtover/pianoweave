@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
+import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerOffer
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.cloud.CloudMidi
@@ -80,8 +81,12 @@ class PianoWeaveViewModel : ViewModel() {
     var billingProvider by mutableStateOf("none")
         internal set
 
+    /**
+     * Billing needs the user's Google identity, which is only ever shared with the official
+     * server, so custom servers are always used anonymously and unbilled.
+     */
     val isBilledServer: Boolean
-        get() = billingProvider.equals("google_play", ignoreCase = true)
+        get() = isUsingDefaultServer && billingProvider.equals("google_play", ignoreCase = true)
 
     var userCredits by mutableIntStateOf(0)
         internal set
@@ -109,6 +114,9 @@ class PianoWeaveViewModel : ViewModel() {
 
     var supportMeLink by mutableStateOf<String?>(null)
         internal set
+
+    val discordLink: String?
+        get() = AppConfig.getConfigOrNull()?.discordLink
 
     // --- Google OAuth State ---
     var serverGoogleClientId by mutableStateOf("")
@@ -189,7 +197,7 @@ class PianoWeaveViewModel : ViewModel() {
         }
 
     val isUsingDefaultServer: Boolean
-        get() = !isCustomServer || customServerUrl.isBlank() || activeServerUrl == (if (defaultServerUrl.endsWith("/")) defaultServerUrl else "$defaultServerUrl/")
+        get() = PianoApiFactory.isOfficialServer(activeServerUrl)
 
     internal var balanceTickerJob: Job? = null
     internal var costJob: Job? = null
@@ -214,7 +222,7 @@ class PianoWeaveViewModel : ViewModel() {
     }
     fun withEnsuredSignIn(context: Context, action: () -> Unit) = withEnsuredSignInImpl(context, action)
     suspend fun ensureGoogleAuthToken(context: Context): String? = ensureGoogleAuthTokenImpl(context)
-    suspend fun <T> executeWithAuthRetry(context: Context, apiCall: suspend (authHeader: String?) -> T): T = executeWithAuthRetryImpl(context, apiCall)
+    suspend fun <T> executeServerCall(context: Context, apiCall: suspend (authHeader: String?) -> T): T = executeServerCallImpl(context, apiCall = apiCall)
 
     fun calculateCostForUrl(url: String) = calculateCostForUrlImpl(url)
     fun updateUrl(url: String) = updateUrlImpl(url)

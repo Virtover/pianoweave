@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.lumenchord.pianoweave.ui.components.settings.AboutSettingsSection
 import com.lumenchord.pianoweave.ui.components.settings.AccountSettingsSection
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -135,6 +136,16 @@ fun AppSettingsDialog(
                                 selectedThemeId = themeId
                                 viewModel.setSelectedTheme(context, themeId)
                             }
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
+
+                        // --- About Section (Discord, privacy policy) ---
+                        AboutSettingsSection(
+                            context = context,
+                            previewTheme = previewTheme,
+                            discordLink = viewModel.discordLink,
+                            isSignedIn = viewModel.isGoogleSignedIn
                         )
                     }
 

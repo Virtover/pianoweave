@@ -4,26 +4,68 @@ import android.app.Application
 import android.content.Context
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.util.AppPrefs
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object PianoApiFactory {
 
+    private const val AUTHORIZATION = "Authorization"
+
     private var application: Application? = null
     private var cachedBaseUrl: String? = null
     private var cachedApi: PianoApi? = null
+
+    /**
+     * Last line of defence: the user's Google token must never reach a server other than the
+     * official one, whatever the call site passed in.
+     */
+    private val client: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor(Interceptor { chain ->
+                val request = chain.request()
+                if (request.header(AUTHORIZATION) != null && !isOfficialServer(request.url)) {
+                    chain.proceed(request.newBuilder().removeHeader(AUTHORIZATION).build())
+                } else {
+                    chain.proceed(request)
+                }
+            })
+            .build()
+    }
 
     fun initialize(application: Application, context: Context) {
         this.application = application
         AppConfig.initialize(context)
     }
 
+    /**
+     * True if [url] points at the official server from config.txt. Returns false while the
+     * config is not loaded, so callers fail closed (no token is sent).
+     */
+    fun isOfficialServer(url: String): Boolean {
+        val parsed = withTrailingSlash(url.trim()).toHttpUrlOrNull() ?: return false
+        return isOfficialServer(parsed)
+    }
+
+    private fun isOfficialServer(url: HttpUrl): Boolean {
+        val official = AppConfig.getConfigOrNull()?.baseUrl?.let { withTrailingSlash(it).toHttpUrlOrNull() }
+            ?: return false
+        return url.scheme == official.scheme &&
+            url.host == official.host &&
+            url.port == official.port &&
+            url.encodedPath.startsWith(official.encodedPath)
+    }
+
     fun getApi(baseUrl: String): PianoApi {
-        val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val normalizedUrl = withTrailingSlash(baseUrl)
         if (cachedApi == null || cachedBaseUrl != normalizedUrl) {
             cachedBaseUrl = normalizedUrl
             cachedApi = Retrofit.Builder()
                 .baseUrl(normalizedUrl)
+                .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
                 .create(PianoApi::class.java)
@@ -51,4 +93,6 @@ object PianoApiFactory {
             val app = application ?: error("PianoApiFactory.initialize() must be called first")
             return getApi(app)
         }
+
+    private fun withTrailingSlash(url: String) = if (url.endsWith("/")) url else "$url/"
 }

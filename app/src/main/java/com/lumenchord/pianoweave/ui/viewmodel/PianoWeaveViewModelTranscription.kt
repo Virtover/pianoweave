@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 
 private const val POLL_INTERVAL_MS = 2000L
 private const val CANCEL_JOB_ID_WAIT_MS = 10000L
@@ -124,7 +125,11 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             pollTranscriptionJob(context, jobId, stableUrl)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            val errMsg = e.localizedMessage ?: "Connection error"
+            val errMsg = if (e is HttpException && e.code() == 401 && !isUsingDefaultServer) {
+                "This server requires Google sign-in. Your Google account is only shared with the official server."
+            } else {
+                e.localizedMessage ?: "Connection error"
+            }
             transcriptionError = errMsg
             status = "Error: $errMsg"
             ActiveJobStore.clear(context)
@@ -152,7 +157,7 @@ private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, sta
 /** Creates the server job and returns its id. Billed servers require a signed-in user. */
 private suspend fun PianoWeaveViewModel.submitTranscription(context: Context, stableUrl: String): String {
     val uId = getOrCreateUserId(context)
-    val response = executeWithAuthRetryImpl(context) { authHeader ->
+    val response = executeServerCallImpl(context) { authHeader ->
         if (isBilledServer && authHeader == null) {
             throw IllegalAccessException("Google authentication required.")
         }
@@ -249,7 +254,7 @@ internal suspend fun PianoWeaveViewModel.pollTranscriptionJob(context: Context, 
 
 private suspend fun PianoWeaveViewModel.fetchJobStatusOrNull(context: Context, jobId: String): TranscriptionStatusResponse? =
     try {
-        executeWithAuthRetryImpl(context) { authHeader ->
+        executeServerCallImpl(context) { authHeader ->
             PianoApiFactory.getApi(activeServerUrl).getTranscription(jobId, authHeader = authHeader)
         }
     } catch (e: Exception) {
@@ -315,7 +320,7 @@ private suspend fun PianoWeaveViewModel.downloadMidiWithRetry(
     while (currentJobId == jobId) {
         try {
             return withContext(Dispatchers.IO) {
-                val savedMidi = executeWithAuthRetryImpl(context) { authHeader ->
+                val savedMidi = executeServerCallImpl(context) { authHeader ->
                     val midiResponse = PianoApiFactory.getApi(activeServerUrl).downloadMidi(jobId, authHeader = authHeader)
                     MidiStorage.save(context, stableUrl, job.metadata, midiResponse)
                 }
@@ -396,7 +401,7 @@ private suspend fun PianoWeaveViewModel.deleteServerJob(context: Context, jobId:
     val serverUrl = activeServerUrl
     val uId = if (!isBilledServer) getOrCreateUserId(context) else null
     try {
-        val resp = executeWithAuthRetryImpl(context) { authHeader ->
+        val resp = executeServerCallImpl(context, serverUrl) { authHeader ->
             PianoApiFactory.getApi(serverUrl).deleteTranscription(jobId, authHeader = authHeader, userId = uId)
         }
         resp.minutes?.let { userCredits = it }

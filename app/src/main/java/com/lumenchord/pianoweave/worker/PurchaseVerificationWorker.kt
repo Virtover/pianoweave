@@ -11,7 +11,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.lumenchord.pianoweave.api.PianoApiFactory
-import com.lumenchord.pianoweave.auth.GoogleAuthManager
+import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.billing.verify
@@ -32,10 +33,12 @@ class PurchaseVerificationWorker(
             serverUrl = inputData.getString(KEY_SERVER_URL) ?: DEFAULT_SERVER_URL,
             userId = inputData.getString(KEY_USER_ID) ?: ""
         )
+        // Needed to tell the official server apart (and send the token only there) in a cold process.
+        runCatching { AppConfig.initialize(applicationContext) }
         val api = PianoApiFactory.getApi(purchase.serverUrl)
 
         return try {
-            val response = GoogleAuthManager.executeWithAuthRetry(applicationContext) { header ->
+            val response = executeServerCall(applicationContext, purchase.serverUrl) { header ->
                 api.verify(purchase, header)
             }
             PendingPurchaseStore.removePendingPurchase(applicationContext, purchase.purchaseToken)

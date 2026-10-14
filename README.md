@@ -59,6 +59,23 @@ This app requires the [Piano Transcription Server](https://github.com/Virtover/p
 
 1. Copy `app/src/main/assets/config/config.example.txt` to `app/src/main/assets/config/config.txt`.
 2. Set your `DEFAULT_API_BASE_URL` in the config file (e.g., `http://10.0.2.2:8000/` for a local emulator).
+3. Set `WEB_CLIENT_ID` to your Google OAuth "Web application" client ID, and optionally `DISCORD_URL` to show a Discord button in app settings.
+
+The official server is the only server that ever receives the user's Google token. Custom servers chosen in the
+app are always used anonymously and without in-app purchases.
+
+### Account deletion page
+
+`docs/delete_account.html` (served by GitHub Pages) lets users delete their server account and their Drive cloud library.
+The production server URL and the Web client ID are set as constants at the top of its script.
+Keep them in sync with `DEFAULT_API_BASE_URL` and `WEB_CLIENT_ID` in a release `config.txt`.
+
+For the page to work:
+
+* the Web client must list `https://virtover.github.io` under **Authorized JavaScript origins** and be in the same
+  Google Cloud project as the Android client (Drive's app folder is per project);
+* its client ID must be in the server's `GOOGLE_OAUTH_CLIENT_IDS`;
+* the server must allow CORS requests from `https://virtover.github.io` (`DELETE /api/account` with an `Authorization` header).
 
 ### Requirements
 

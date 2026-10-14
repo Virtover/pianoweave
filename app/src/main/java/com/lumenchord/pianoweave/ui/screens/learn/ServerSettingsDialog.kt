@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +22,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.launch
 import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.util.AppLinks
+import com.lumenchord.pianoweave.util.openUrl
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 import com.lumenchord.pianoweave.ui.viewmodel.displayText
@@ -244,7 +248,7 @@ internal fun ServerSettingsDialog(
                                         )
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Column {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = "Custom Server",
                                             fontWeight = FontWeight.Bold,
@@ -260,6 +264,11 @@ internal fun ServerSettingsDialog(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
+                                    CustomServerHelpButton(
+                                        context = context,
+                                        accentColor = ColorGold,
+                                        iconTint = ColorTextDim
+                                    )
                                 }
 
                                 if (selectedUseCustom) {
@@ -398,6 +407,61 @@ internal fun ServerSettingsDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+/** "?" button that opens a persistent tooltip explaining how to self-host a transcription server. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomServerHelpButton(
+    context: Context,
+    accentColor: Color,
+    iconTint: Color
+) {
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+        tooltip = {
+            RichTooltip(
+                title = { Text("Run your own server") },
+                action = {
+                    TextButton(
+                        onClick = {
+                            tooltipState.dismiss()
+                            context.openUrl(AppLinks.CUSTOM_SERVER_SETUP)
+                        }
+                    ) {
+                        Text("Open setup guide on GitHub", color = accentColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+            ) {
+                Text(
+                    text = "Host the open-source Piano Transcription Server on your own computer:\n" +
+                        "1. Install Docker and clone piano-transcription-server.\n" +
+                        "2. Copy .env.example to .env and run: docker compose up --build\n" +
+                        "3. Enter its address here, e.g. http://192.168.1.100:8000/ " +
+                        "(same Wi-Fi) or http://10.0.2.2:8000/ (emulator).\n\n" +
+                        "Your Google account is never sent to custom servers; " +
+                        "they only see an anonymous app ID.",
+                    lineHeight = 18.sp
+                )
+            }
+        },
+        state = tooltipState,
+        hasAction = true
+    ) {
+        IconButton(
+            onClick = { scope.launch { tooltipState.show() } },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
+                contentDescription = "How to set up a custom server",
+                tint = iconTint
+            )
         }
     }
 }

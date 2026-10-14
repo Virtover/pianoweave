@@ -6,6 +6,8 @@ import androidx.work.WorkerParameters
 import com.lumenchord.pianoweave.api.PianoApi
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
+import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.MidiStorage
@@ -22,18 +24,20 @@ class TranscriptionWorker(
         val jobId = inputData.getString(KEY_JOB_ID) ?: return Result.failure()
         val stableUrl = inputData.getString(KEY_URL) ?: return Result.failure()
         val serverUrl = inputData.getString(KEY_SERVER_URL) ?: DEFAULT_SERVER_URL
+        // Needed to tell the official server apart (and send the token only there) in a cold process.
+        runCatching { AppConfig.initialize(applicationContext) }
         val api = PianoApiFactory.getApi(serverUrl)
 
         try {
             while (!isStopped) {
                 val job = try {
-                    withAuth { header -> api.getTranscription(jobId, authHeader = header) }
+                    withAuth(serverUrl) { header -> api.getTranscription(jobId, authHeader = header) }
                 } catch (_: Exception) {
                     return Result.retry()
                 }
 
                 when (job.status) {
-                    "completed" -> return saveCompletedJob(api, jobId, job, stableUrl)
+                    "completed" -> return saveCompletedJob(api, serverUrl, jobId, job, stableUrl)
                     "failed" -> {
                         ActiveJobStore.clear(applicationContext)
                         return Result.failure()
@@ -49,6 +53,7 @@ class TranscriptionWorker(
 
     private suspend fun saveCompletedJob(
         api: PianoApi,
+        serverUrl: String,
         jobId: String,
         job: TranscriptionStatusResponse,
         stableUrl: String
@@ -59,7 +64,7 @@ class TranscriptionWorker(
         }
 
         val midiResponse = try {
-            withAuth { header -> api.downloadMidi(jobId, authHeader = header) }
+            withAuth(serverUrl) { header -> api.downloadMidi(jobId, authHeader = header) }
         } catch (_: Exception) {
             return Result.retry()
         }
@@ -77,8 +82,8 @@ class TranscriptionWorker(
         return Result.success()
     }
 
-    private suspend fun <T> withAuth(apiCall: suspend (authHeader: String?) -> T): T =
-        GoogleAuthManager.executeWithAuthRetry(applicationContext, apiCall = apiCall)
+    private suspend fun <T> withAuth(serverUrl: String, apiCall: suspend (authHeader: String?) -> T): T =
+        executeServerCall(applicationContext, serverUrl, apiCall = apiCall)
 
     companion object {
         const val KEY_JOB_ID = "job_id"
