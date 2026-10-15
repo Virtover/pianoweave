@@ -12,6 +12,8 @@ import androidx.work.workDataOf
 import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
+import com.lumenchord.pianoweave.api.isUploadSourceKey
+import com.google.gson.JsonParser
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.CompletedTranscriptions
@@ -44,7 +46,7 @@ internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
     costJob = viewModelScope.launch {
         try {
             val api = PianoApiFactory.getApi(activeServerUrl)
-            estimatedCostCredits = api.getBillingCost(stableUrl).costMinutes
+            estimatedCostCredits = api.getBillingCost(sourceUrl = stableUrl).costMinutes
         } catch (_: Exception) {
             estimatedCostCredits = null
         } finally {
@@ -69,10 +71,12 @@ internal fun PianoWeaveViewModel.updateUrlImpl(url: String) {
 // --- Start ---
 
 internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
+    if (isLoading) return
+    val file = if (transcriptionSource == TranscriptionSource.File && supportsFileUpload) selectedMediaFile else null
     val stableUrl = normalizeUrlImpl(videoUrl)
-    if (stableUrl.isBlank() || isLoading) return
+    if (file == null && (transcriptionSource == TranscriptionSource.File || stableUrl.isBlank())) return
 
-    videoUrl = stableUrl
+    if (file == null) videoUrl = stableUrl
     transcriptionError = null
 
     // Client-side pre-check only; the server enforces the balance.
@@ -82,7 +86,7 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
         return
     }
 
-    proceedStartTranscription(context)
+    if (file != null) proceedStartUpload(context, file) else proceedStartTranscription(context)
 }
 
 internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
@@ -126,18 +130,33 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             pollTranscriptionJob(context, jobId, stableUrl)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            val errMsg = if (e is HttpException && e.code() == 401 && !isUsingDefaultServer) {
-                "This server requires Google sign-in. Your Google account is only shared with the official server."
-            } else {
-                e.localizedMessage ?: "Connection error"
-            }
-            transcriptionError = errMsg
-            status = "Error: $errMsg"
-            ActiveJobStore.clear(context)
-            currentJobId = null
-            isLoading = false
+            failTranscriptionStart(context, e)
         }
     }
+}
+
+/** Shows why a transcription could not be submitted, preferring the server's own explanation. */
+internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exception) {
+    val errMsg = when {
+        e is HttpException && e.code() == 401 && !isUsingDefaultServer ->
+            "This server requires Google sign-in. Your Google account is only shared with the official server."
+        e is HttpException -> serverErrorDetail(e) ?: "Server error (HTTP ${e.code()})"
+        else -> e.localizedMessage ?: "Connection error"
+    }
+    transcriptionError = errMsg
+    status = "Error: $errMsg"
+    ActiveJobStore.clear(context)
+    currentJobId = null
+    isLoading = false
+}
+
+/** FastAPI's `{"detail": "..."}` message, if the error body has one. */
+private fun serverErrorDetail(e: HttpException): String? = try {
+    val body = e.response()?.errorBody()?.string().orEmpty()
+    val detail = JsonParser.parseString(body).asJsonObject.get("detail")
+    detail?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+} catch (_: Exception) {
+    null
 }
 
 /** Returns the cloud-library copy of [stableUrl], using the local cache or downloading it from Drive. */
@@ -207,7 +226,7 @@ internal fun PianoWeaveViewModel.resumeActiveJobIfAnyImpl(context: Context) {
         return
     }
 
-    videoUrl = savedUrl
+    if (savedUrl.isUploadSourceKey) transcriptionSource = TranscriptionSource.File else videoUrl = savedUrl
     currentJobId = savedJobId
     isLoading = true
     status = "Resuming transcription job..."
@@ -378,6 +397,7 @@ internal fun PianoWeaveViewModel.cancelTranscriptionImpl(context: Context) {
     status = "Cancelling transcription job..."
 
     viewModelScope.launch {
+        activeUpload?.cancel()
         val jobId = awaitCurrentJobId()
 
         transcriptionJob?.cancel()

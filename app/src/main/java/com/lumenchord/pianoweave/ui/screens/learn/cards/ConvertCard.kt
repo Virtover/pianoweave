@@ -27,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -43,6 +45,16 @@ import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.components.DangerButton
 import com.lumenchord.pianoweave.ui.components.DangerCard
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.api.UploadFormats
+import com.lumenchord.pianoweave.ui.viewmodel.SelectedMediaFile
+import com.lumenchord.pianoweave.ui.viewmodel.TranscriptionSource
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
 import kotlinx.coroutines.launch
 
@@ -175,6 +187,14 @@ fun TranscriptionInputCard(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { viewModel.selectMediaFile(context, it) }
+    }
+    // Servers that cannot take uploads (e.g. after switching servers) only offer links.
+    val canUseFiles = viewModel.supportsFileUpload || viewModel.isLoading
+    val isFileMode = canUseFiles && viewModel.transcriptionSource == TranscriptionSource.File
+    val selectedFile = viewModel.selectedMediaFile.takeIf { isFileMode }
+    val pickFile = { filePicker.launch(UploadFormats.mimeTypes) }
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -241,13 +261,36 @@ fun TranscriptionInputCard(
                 }
             }
 
+            if (canUseFiles) {
+                SourceSelector(
+                    selected = if (isFileMode) TranscriptionSource.File else TranscriptionSource.Link,
+                    enabled = !viewModel.isLoading,
+                    onSelect = { viewModel.selectTranscriptionSource(it) }
+                )
+            }
+
             Text(
-                text = "Enter a video URL you have the right to use",
+                text = if (isFileMode) "Pick a recording you have the right to use"
+                else "Paste a video link you have the right to use",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            OutlinedTextField(
+            if (isFileMode) {
+                when {
+                    selectedFile != null -> SelectedFileRow(
+                        file = selectedFile,
+                        enabled = !viewModel.isLoading,
+                        onChange = pickFile,
+                        onClear = { viewModel.clearSelectedMediaFile() }
+                    )
+                    !viewModel.isLoading -> ChooseFileArea(
+                        maxSizeMb = viewModel.maxUploadSizeMb,
+                        maxMinutes = viewModel.maxVideoLengthMinutes,
+                        onClick = pickFile
+                    )
+                }
+            } else OutlinedTextField(
                 value = viewModel.videoUrl,
                 onValueChange = { viewModel.updateUrl(it) },
                 modifier = Modifier.fillMaxWidth(),
@@ -294,7 +337,8 @@ fun TranscriptionInputCard(
                             viewModel.startTranscription(context)
                         }
                     },
-                    enabled = viewModel.videoUrl.isNotBlank() && !viewModel.isCalculatingCost,
+                    enabled = (if (isFileMode) selectedFile != null else viewModel.videoUrl.isNotBlank()) &&
+                        !viewModel.isCalculatingCost,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -347,6 +391,160 @@ fun TranscriptionInputCard(
             }
         }
     }
+}
+
+/** Link or file: what the card transcribes. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SourceSelector(
+    selected: TranscriptionSource,
+    enabled: Boolean,
+    onSelect: (TranscriptionSource) -> Unit
+) {
+    val options = listOf(
+        Triple(TranscriptionSource.Link, "Link", Icons.Default.Link),
+        Triple(TranscriptionSource.File, "File", Icons.Default.AudioFile)
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (source, label, icon) ->
+            SegmentedButton(
+                selected = source == selected,
+                onClick = { onSelect(source) },
+                enabled = enabled,
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
+                    activeContentColor = MaterialTheme.colorScheme.secondary,
+                    activeBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
+                    inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold) }
+            )
+        }
+    }
+}
+
+/** The empty file slot: one large target that also says which files work and how big they may be. */
+@Composable
+private fun ChooseFileArea(
+    maxSizeMb: Float?,
+    maxMinutes: Float?,
+    onClick: () -> Unit
+) {
+    val accent = MaterialTheme.colorScheme.secondary
+    val limits = listOfNotNull(
+        maxSizeMb?.let { "up to ${"%.0f".format(it)} MB" },
+        maxMinutes?.let { "${"%.0f".format(it)} minutes" }
+    ).joinToString(" · ")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .drawBehind {
+                drawRoundRect(
+                    color = accent.copy(alpha = 0.55f),
+                    cornerRadius = CornerRadius(14.dp.toPx()),
+                    style = DrawStroke(
+                        width = 1.5.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))
+                    )
+                )
+            }
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(Icons.Default.UploadFile, contentDescription = null, tint = accent, modifier = Modifier.size(30.dp))
+        Text(
+            text = "Choose a recording",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = accent
+        )
+        Text(
+            text = UploadFormats.DISPLAY_NAMES,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        if (limits.isNotEmpty()) {
+            Text(
+                text = limits.replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+/** The picked file in place of the link field: name, length and size. Tapping it picks another; × removes it. */
+@Composable
+private fun SelectedFileRow(
+    file: SelectedMediaFile,
+    enabled: Boolean,
+    onChange: () -> Unit,
+    onClear: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = if (enabled) 0.6f else 0.3f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled, onClickLabel = "Choose another file", onClick = onChange)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(Icons.Default.AudioFile, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val details = listOfNotNull(
+                    file.durationSeconds?.let { formatFileDuration(it) },
+                    file.sizeBytes?.let { "%.1f MB".format(it / (1024.0 * 1024.0)) }
+                ).joinToString(" · ")
+                val changeHint = "Change"
+                Text(
+                    text = buildAnnotatedString {
+                        if (details.isNotEmpty()) append("$details · ")
+                        if (enabled) {
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)) {
+                                append(changeHint)
+                            }
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (enabled) {
+                IconButton(onClick = onClear) {
+                    Icon(Icons.Default.Clear, contentDescription = "Remove file")
+                }
+            } else {
+                Spacer(Modifier.width(12.dp))
+            }
+        }
+    }
+}
+
+private fun formatFileDuration(seconds: Float): String {
+    val total = seconds.toInt()
+    return if (total >= 3600) "%d:%02d:%02d".format(total / 3600, (total % 3600) / 60, total % 60)
+    else "%d:%02d".format(total / 60, total % 60)
 }
 
 @Composable

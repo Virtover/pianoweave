@@ -97,6 +97,8 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     billingProvider = info.billingProvider ?: "none"
                     serverOffers = info.offers ?: emptyList()
                     cleanupIntervalSeconds = info.cleanupIntervalSeconds
+                    maxUploadSizeMb = info.maxUploadSizeMb
+                    maxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0
 
                     supportMeLink = try {
@@ -117,6 +119,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     }
                 } catch (_: Exception) {
                     billingProvider = "none"
+                    maxUploadSizeMb = null
                 }
             }
         } else if (serverStatus == ServerStatus.OFFLINE) {

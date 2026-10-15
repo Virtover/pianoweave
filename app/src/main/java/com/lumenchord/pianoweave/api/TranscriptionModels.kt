@@ -99,7 +99,9 @@ data class ServerInfoResponse(
     @SerializedName("billing_provider") val billingProvider: String? = "none",
     @SerializedName("offers") val offers: List<ServerOffer>? = emptyList(),
     @SerializedName("cleanup_interval_seconds") val cleanupIntervalSeconds: Long? = null,
-    @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Int? = null,
+    @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Float? = null,
+    /** Absent on servers that cannot transcribe uploaded files. */
+    @SerializedName("max_upload_size_mb") val maxUploadSizeMb: Float? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
     @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
     @SerializedName("google_oauth_client_ids", alternate = ["google_client_ids", "oauth_client_ids", "client_ids", "google_oauth_clients"]) val googleClientIds: List<String>? = null,
@@ -128,3 +130,14 @@ data class VerifyPurchaseResponse(
     @SerializedName("minutes") val minutes: Int,
     @SerializedName("consumed") val consumed: Boolean
 )
+
+private const val UPLOAD_KEY_PREFIX = "upload://"
+
+/**
+ * Library key of a song transcribed from an uploaded file. Links key songs by their URL; an uploaded
+ * file has none, so each upload job gets its own key.
+ */
+fun uploadSourceKey(jobId: String): String = UPLOAD_KEY_PREFIX + jobId
+
+val String.isUploadSourceKey: Boolean
+    get() = startsWith(UPLOAD_KEY_PREFIX)

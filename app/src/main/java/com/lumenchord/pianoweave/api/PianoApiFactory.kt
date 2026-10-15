@@ -8,6 +8,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -25,6 +26,9 @@ object PianoApiFactory {
      */
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            // The server checks an uploaded file (up to a minute) and a link's length before it answers.
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .addInterceptor(Interceptor { chain ->
                 val request = chain.request()
                 if (request.header(AUTHORIZATION) != null && !isOfficialServer(request.url)) {

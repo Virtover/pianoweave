@@ -112,6 +112,29 @@ class PianoWeaveViewModel : ViewModel() {
     var isCalculatingCost by mutableStateOf(false)
         internal set
 
+    // --- File upload ---
+    var transcriptionSource by mutableStateOf(TranscriptionSource.Link)
+        internal set
+
+    /** Picked audio/video file to transcribe instead of a link. */
+    var selectedMediaFile by mutableStateOf<SelectedMediaFile?>(null)
+        internal set
+
+    var isUploading by mutableStateOf(false)
+        internal set
+
+    internal var activeUpload: MediaUploadBody? = null
+
+    /** From server-info; null when the server cannot transcribe uploaded files. */
+    var maxUploadSizeMb by mutableStateOf<Float?>(null)
+        internal set
+
+    var maxVideoLengthMinutes by mutableStateOf<Float?>(null)
+        internal set
+
+    val supportsFileUpload: Boolean
+        get() = maxUploadSizeMb != null
+
     var supportMeLink by mutableStateOf<String?>(null)
         internal set
 
@@ -229,6 +252,9 @@ class PianoWeaveViewModel : ViewModel() {
     fun resumeActiveJobIfAny(context: Context) = resumeActiveJobIfAnyImpl(context)
     fun cancelTranscription(context: Context) = cancelTranscriptionImpl(context)
     fun startTranscription(context: Context) = startTranscriptionImpl(context)
+    fun selectMediaFile(context: Context, uri: Uri) = selectMediaFileImpl(context, uri)
+    fun clearSelectedMediaFile() = clearSelectedMediaFileImpl()
+    fun selectTranscriptionSource(source: TranscriptionSource) = selectTranscriptionSourceImpl(source)
     fun normalizeUrl(url: String): String = normalizeUrlImpl(url)
 
     fun formatRetentionTime(seconds: Long? = cleanupIntervalSeconds): String = formatRetentionTimeImpl(seconds)

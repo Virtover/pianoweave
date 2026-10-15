@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.api
 
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
@@ -25,9 +26,11 @@ interface PianoApi {
         @Header("X-User-Id") userId: String? = null
     ): UserBalanceResponse
 
+    /** Cost of a video link, or of a file of the given length before it is uploaded. Pass exactly one. */
     @GET("api/billing/cost")
     suspend fun getBillingCost(
-        @Query("source_url") sourceUrl: String
+        @Query("source_url") sourceUrl: String? = null,
+        @Query("duration_seconds") durationSeconds: Float? = null
     ): BillingCostResponse
 
     @POST("api/billing/google-play/verify")
@@ -40,6 +43,15 @@ interface PianoApi {
     @POST("api/transcriptions")
     suspend fun createTranscription(
         @Body request: CreateTranscriptionRequest,
+        @Header("Authorization") authHeader: String? = null,
+        @Header("X-User-Id") userId: String? = null
+    ): CreateTranscriptionResponse
+
+    /** Transcribes an audio or video file sent as the raw body; [filename] becomes the song's title. */
+    @POST("api/transcriptions/upload")
+    suspend fun uploadTranscription(
+        @Query("filename") filename: String,
+        @Body file: RequestBody,
         @Header("Authorization") authHeader: String? = null,
         @Header("X-User-Id") userId: String? = null
     ): CreateTranscriptionResponse
