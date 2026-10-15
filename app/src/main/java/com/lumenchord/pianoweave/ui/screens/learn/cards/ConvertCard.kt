@@ -71,6 +71,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.semantics.Role
 import com.lumenchord.pianoweave.ui.screens.learn.DiscardRecordingDialog
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
 import kotlinx.coroutines.launch
@@ -486,8 +490,11 @@ fun TranscriptionInputCard(
     }
 }
 
-/** Link, file or microphone: what the card transcribes. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Link, file or microphone: what the card transcribes. Hand-built rather than a Material SegmentedButton,
+ * which always reserves room for a checkmark and never shrinks its label, so "Record" ran into the
+ * rounded end of a three-way row in portrait.
+ */
 @Composable
 private fun SourceSelector(
     selected: TranscriptionSource,
@@ -499,33 +506,67 @@ private fun SourceSelector(
         Triple(TranscriptionSource.File, "File", Icons.Default.AudioFile),
         Triple(TranscriptionSource.Record, "Record", Icons.Default.Mic)
     )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+    // "Record" is the longest label; a wider segment keeps all three at the same text size.
+    val weights = listOf(1f, 1f, 1.3f)
+    val accent = MaterialTheme.colorScheme.secondary
+    val outline = MaterialTheme.colorScheme.outlineVariant
+    val pill = RoundedCornerShape(percent = 50)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .clip(pill)
+            .border(1.dp, outline, pill)
+            .selectableGroup()
+    ) {
         options.forEachIndexed { index, (source, label, icon) ->
-            SegmentedButton(
-                selected = source == selected,
-                onClick = { onSelect(source) },
-                enabled = enabled,
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                // Three segments leave little room in portrait, so the padding, icon and label are all trimmed.
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
-                colors = SegmentedButtonDefaults.colors(
-                    activeContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
-                    activeContentColor = MaterialTheme.colorScheme.secondary,
-                    activeBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
-                    inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
-                ),
-                icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                label = {
-                    Text(
-                        text = label,
-                        maxLines = 1,
-                        softWrap = false,
-                        fontSize = 13.sp,
-                        letterSpacing = 0.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+            val isFirst = index == 0
+            val isLast = index == options.lastIndex
+            val isSelected = source == selected
+            val shape = RoundedCornerShape(
+                topStartPercent = if (isFirst) 50 else 0,
+                bottomStartPercent = if (isFirst) 50 else 0,
+                topEndPercent = if (isLast) 50 else 0,
+                bottomEndPercent = if (isLast) 50 else 0
             )
+            val contentColor = (if (isSelected) accent else MaterialTheme.colorScheme.onSurface)
+                .copy(alpha = if (enabled) 1f else 0.38f)
+
+            if (!isFirst) VerticalDivider(color = outline)
+            Row(
+                modifier = Modifier
+                    .weight(weights[index])
+                    .fillMaxHeight()
+                    .then(
+                        if (isSelected) Modifier
+                            .background(accent.copy(alpha = 0.18f), shape)
+                            .border(1.dp, accent.copy(alpha = 0.6f), shape)
+                        else Modifier
+                    )
+                    .selectable(
+                        selected = isSelected,
+                        enabled = enabled,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(source) }
+                    )
+                    // The rounded ends eat into the outer segments, so their content keeps clear of the curve.
+                    .padding(start = if (isFirst) 12.dp else 6.dp, end = if (isLast) 12.dp else 6.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    color = contentColor,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    softWrap = false,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp),
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+            }
         }
     }
 }
