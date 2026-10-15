@@ -244,6 +244,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)
     fun clearTranscriptionError() = clearTranscriptionErrorImpl()
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
+    fun selectPlaybackSpeed(context: Context, speed: Float) = selectPlaybackSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
     fun openShop(context: Context) = openShopImpl(context)

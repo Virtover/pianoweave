@@ -392,8 +392,6 @@ private fun ModernPianoPlayerContent(
 
             if (!isUiHidden) {
                 ModernToolbar(
-                    head = viewModel.playheadMs,
-                    dur = songDurationMs,
                     viewModel = viewModel,
                     onBack = onBack,
                     onSetClick = {

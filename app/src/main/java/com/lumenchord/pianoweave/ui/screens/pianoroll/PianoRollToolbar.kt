@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
@@ -40,6 +41,7 @@ import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.PianoPlayer
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.delay
 
@@ -115,8 +117,6 @@ internal fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
 
 @Composable
 internal fun ModernToolbar(
-    head: Long,
-    dur: Long,
     viewModel: PianoWeaveViewModel,
     onBack: () -> Unit,
     onSetClick: () -> Unit
@@ -295,51 +295,15 @@ internal fun ModernToolbar(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Text(
-            text = "${formatTime(head)} / ${formatTime(dur)}",
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
         if (isPortrait) Spacer(Modifier.weight(1f))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 6.dp else 12.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 4.dp else 8.dp)) {
-                listOf(0.25f, 0.5f, viewModel.topBarSpeed).forEach { s ->
-                    val isSelected = viewModel.speedMultiplier == s
-                    val text = when (s) {
-                        1.0f -> "1.0x"
-                        1.25f -> "1.25x"
-                        1.5f -> "1.5x"
-                        2.0f -> "2.0x"
-                        else -> "${s}x"
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(if (isPortrait) 32.dp else 36.dp)
-                            .background(if (isSelected) ColorGold else ColorSlate.copy(alpha = 0.8f), CircleShape)
-                            .clickable {
-                                if (s == 0.25f || s == 0.5f) {
-                                    viewModel.setTopBarSpeed(current, 1.0f)
-                                    viewModel.speedMultiplier = s
-                                } else {
-                                    viewModel.speedMultiplier = s
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = text,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            color = if (isSelected) Color.Black else Color.White
-                        )
-                    }
-                }
-            }
+            SpeedChip(
+                speed = viewModel.speedMultiplier,
+                onSelect = { viewModel.selectPlaybackSpeed(current, it) }
+            )
             Box(
                 modifier = Modifier
                     .height(38.dp)
@@ -407,6 +371,63 @@ internal fun ModernToolbar(
                     contentDescription = null,
                     tint = ColorGold,
                     modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+private fun speedLabel(speed: Float): String =
+    if (speed == speed.toInt().toFloat()) "${speed.toInt()}x" else "${speed}x"
+
+/** Current speed; tapping opens the list of speeds. Highlighted when not playing at normal speed. */
+@Composable
+private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit) {
+    val colorGold = LocalAppTheme.current.primaryColor
+    val isNormal = speed == 1.0f
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        Row(
+            modifier = Modifier
+                .height(38.dp)
+                .background(if (isNormal) ColorSurface.copy(alpha = 0.8f) else colorGold, RoundedCornerShape(10.dp))
+                .border(1.dp, if (isNormal) ColorSlate.copy(alpha = 0.5f) else colorGold, RoundedCornerShape(10.dp))
+                .clickable { expanded = true }
+                .padding(start = 10.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = speedLabel(speed),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (isNormal) Color.White else Color.Black
+            )
+            Icon(
+                Icons.Default.ArrowDropDown,
+                contentDescription = "Playback speed",
+                tint = if (isNormal) colorGold else Color.Black,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ) {
+            PLAYBACK_SPEEDS.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = speedLabel(option),
+                            fontWeight = if (option == speed) FontWeight.ExtraBold else FontWeight.Normal,
+                            color = if (option == speed) colorGold else MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelect(option)
+                    }
                 )
             }
         }

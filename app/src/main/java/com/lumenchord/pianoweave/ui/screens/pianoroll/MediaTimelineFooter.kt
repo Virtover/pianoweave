@@ -24,7 +24,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
@@ -43,13 +45,13 @@ internal fun MediaTimelineFooter(
         modifier = Modifier
             .fillMaxWidth()
             .background(ColorSurface)
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .pointerInput(Unit) { detectTapGestures { } }, // Consume gestures
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             IconButton(
                 onClick = { viewModel.isPlaying = !viewModel.isPlaying },
@@ -59,7 +61,7 @@ internal fun MediaTimelineFooter(
             ) {
                 Icon(
                     imageVector = if (viewModel.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = null,
+                    contentDescription = if (viewModel.isPlaying) "Pause" else "Play",
                     tint = Color.Black,
                     modifier = Modifier.size(32.dp)
                 )
@@ -73,13 +75,13 @@ internal fun MediaTimelineFooter(
             ) {
                 Icon(
                     imageVector = Icons.Default.Replay,
-                    contentDescription = null,
+                    contentDescription = "Back to start",
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.width(20.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
@@ -216,8 +218,18 @@ internal fun MediaTimelineFooter(
                     }
                 )
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = (-4).dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val timeColor = Color.White.copy(alpha = 0.6f)
+                Text(formatTime(viewModel.playheadMs.coerceIn(0L, dur.coerceAtLeast(0L))), color = timeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(formatTime(dur), color = timeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
         }
-        Spacer(modifier = Modifier.width(20.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         IconButton(
             onClick = { viewModel.isLoopingEnabled = !viewModel.isLoopingEnabled },
             modifier = Modifier
@@ -234,7 +246,7 @@ internal fun MediaTimelineFooter(
         ) {
             Icon(
                 imageVector = Icons.Default.Repeat,
-                contentDescription = null,
+                contentDescription = if (viewModel.isLoopingEnabled) "Turn off loop" else "Loop a section",
                 tint = if (viewModel.isLoopingEnabled) Color.Black else ColorGold,
                 modifier = Modifier.size(26.dp)
             )

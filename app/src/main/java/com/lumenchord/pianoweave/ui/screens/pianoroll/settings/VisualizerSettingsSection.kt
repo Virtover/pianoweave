@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import java.util.Locale
 import kotlin.math.abs
@@ -106,19 +107,13 @@ fun VisualizerSettingsSection(
                     )
                 }
             }
-            val speedValues = listOf(0.25f, 0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
+            val speedValues = PLAYBACK_SPEEDS
             val currentIndex = speedValues.indices.minByOrNull { abs(speedValues[it] - viewModel.speedMultiplier) } ?: 2
             Slider(
                 value = currentIndex.toFloat(),
                 onValueChange = { newValue ->
                     val index = newValue.roundToInt().coerceIn(0, speedValues.size - 1)
-                    val newSpeed = speedValues[index]
-                    if (newSpeed >= 1.0f) {
-                        viewModel.setTopBarSpeed(context, newSpeed)
-                    } else {
-                        viewModel.setTopBarSpeed(context, 1.0f)
-                    }
-                    viewModel.speedMultiplier = newSpeed
+                    viewModel.selectPlaybackSpeed(context, speedValues[index])
                 },
                 valueRange = 0f..(speedValues.size - 1).toFloat(),
                 steps = speedValues.size - 2,

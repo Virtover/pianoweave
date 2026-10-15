@@ -258,7 +258,6 @@ fun StorageScreen(
         Box(
             modifier = Modifier
                 .height(if (isLandscape) 32.dp else 36.dp)
-                .then(if (isPortrait) Modifier.width(36.dp) else Modifier.wrapContentWidth())
                 .background(
                     MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                     RoundedCornerShape(8.dp)
@@ -276,7 +275,7 @@ fun StorageScreen(
                         )
                     )
                 }
-                .padding(horizontal = if (isPortrait) 0.dp else 10.dp),
+                .padding(horizontal = 10.dp),
             contentAlignment = Alignment.Center
         ) {
             Row(
@@ -285,23 +284,21 @@ fun StorageScreen(
             ) {
                 Icon(
                     Icons.Default.UploadFile,
-                    contentDescription = "Add from device",
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.size(16.dp)
                 )
-                if (!isPortrait) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Add from device",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.secondary,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Import",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (isLandscape) 11.sp else 12.sp
+                    ),
+                    color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    softWrap = false
+                )
             }
         }
     }
@@ -357,21 +354,16 @@ fun StorageScreen(
         }
     }
 
+    /** Invites turning sync on; turning it off is a rarely used setting and lives in Settings. */
     @Composable
-    fun CloudSyncToggleButton() {
+    fun BackUpToDriveLink() {
         Text(
-            text = if (viewModel.isCloudSyncEnabled) "Turn off cloud sync" else "Turn on cloud sync",
+            text = "Back up to Drive",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            color = if (viewModel.isCloudSyncEnabled) MaterialTheme.colorScheme.tertiary else colorGold,
+            color = colorGold,
             modifier = Modifier
-                .clickable {
-                    if (viewModel.isCloudSyncEnabled) {
-                        viewModel.requestTurnOffCloudSync(context)
-                    } else {
-                        viewModel.requestTurnOnCloudSync(context)
-                    }
-                }
+                .clickable { viewModel.requestTurnOnCloudSync(context) }
                 .padding(vertical = 2.dp, horizontal = 2.dp)
         )
     }
@@ -415,9 +407,11 @@ fun StorageScreen(
                             maxLines = 1
                         )
 
-                        Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!viewModel.isCloudSyncEnabled) {
+                            Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                        CloudSyncToggleButton()
+                            BackUpToDriveLink()
+                        }
                     }
                 }
 
@@ -523,7 +517,7 @@ fun StorageScreen(
                     )
                 }
 
-                CloudSyncToggleButton()
+                if (!viewModel.isCloudSyncEnabled) BackUpToDriveLink()
             }
         }
 

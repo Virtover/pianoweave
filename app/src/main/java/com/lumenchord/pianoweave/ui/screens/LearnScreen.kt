@@ -23,10 +23,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.screens.learn.*
+import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 import kotlin.math.abs
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
+@OptIn(FlowPreview::class)
 @Composable
 fun LearnScreen(
     viewModel: PianoWeaveViewModel,
@@ -43,25 +49,24 @@ fun LearnScreen(
     var progressCardTopInRoot by remember { mutableFloatStateOf(0f) }
     var progressCardHeightPx by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(
-        viewModel.isLoading,
-        viewportHeightPx,
-        scrollContainerTopInRoot,
-        progressCardTopInRoot,
-        progressCardHeightPx,
-        scrollState.maxValue
-    ) {
-        if (viewModel.isLoading && viewportHeightPx > 0f && progressCardHeightPx > 0f) {
-            val cardCenterInRoot = progressCardTopInRoot + (progressCardHeightPx / 2f)
-            val viewportCenterInRoot = scrollContainerTopInRoot + (viewportHeightPx / 2f)
-            val deltaOnScreen = cardCenterInRoot - viewportCenterInRoot
+    // Centers the progress card once when a transcription starts. Re-centering on every layout change
+    // fought the user's scrolling and jumped whenever the card or the content above it changed size.
+    LaunchedEffect(viewModel.isLoading) {
+        if (!viewModel.isLoading) return@LaunchedEffect
+        // Wait until the layout settles: the Transcribe button disappears and the keyboard closes.
+        snapshotFlow { Triple(viewportHeightPx, progressCardTopInRoot, progressCardHeightPx) }
+            .filter { (viewport, _, cardHeight) -> viewport > 0f && cardHeight > 0f }
+            .debounce(150)
+            .first()
 
-            if (abs(deltaOnScreen) > 2f) {
-                val targetScroll = (scrollState.value + deltaOnScreen)
-                    .toInt()
-                    .coerceIn(0, scrollState.maxValue)
-                scrollState.animateScrollTo(targetScroll, animationSpec = tween(durationMillis = 50))
-            }
+        val cardCenterInRoot = progressCardTopInRoot + (progressCardHeightPx / 2f)
+        val viewportCenterInRoot = scrollContainerTopInRoot + (viewportHeightPx / 2f)
+        val deltaOnScreen = cardCenterInRoot - viewportCenterInRoot
+        if (abs(deltaOnScreen) > 2f) {
+            val targetScroll = (scrollState.value + deltaOnScreen)
+                .toInt()
+                .coerceIn(0, scrollState.maxValue)
+            scrollState.animateScrollTo(targetScroll, animationSpec = tween(durationMillis = 300))
         }
     }
 
@@ -132,11 +137,12 @@ fun LearnScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
+                // Before verticalScroll, so this measures the visible viewport rather than the scrolled content
                 .onGloballyPositioned { coordinates ->
                     viewportHeightPx = coordinates.size.height.toFloat()
                     scrollContainerTopInRoot = coordinates.positionInRoot().y
-                },
+                }
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
@@ -144,8 +150,7 @@ fun LearnScreen(
                     .fillMaxWidth()
                     .defaultMinSize(minHeight = viewportHeight)
                     .padding(bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Top Right Action Button (Far top right edge, moves out on scroll)
                 Row(
@@ -216,12 +221,11 @@ fun LearnScreen(
                     }
                 }
 
-                // Cards Container (Centered in viewport when un-scrolled, expands freely when scrolled)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(top = 4.dp, bottom = 12.dp),
+                    contentAlignment = Alignment.TopCenter
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth(0.9f),
@@ -267,11 +271,16 @@ fun LearnScreen(
                                 onErrorDismiss = { viewModel.clearTranscriptionError() }
                             )
                         }
+
+                        // 5. RECENT SONGS - quick way back into practicing
+                        val recentSongs = remember(viewModel.songs, viewModel.readySong) {
+                            viewModel.songs.filter { it.file != viewModel.readySong?.file }.take(3)
+                        }
+                        if (recentSongs.isNotEmpty()) {
+                            RecentSongsSection(songs = recentSongs, onSongSelect = onSongSelect)
+                        }
                     }
                 }
-
-                // Spacer at bottom to balance top action bar
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }

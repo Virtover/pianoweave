@@ -44,9 +44,6 @@
   <a href="https://ko-fi.com/Y3G527Q9PN">
     <img src="https://img.shields.io/badge/Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi" />
   </a>
-  <a href="https://www.patreon.com/cw/ChristopherOlszak/membership">
-    <img src="https://img.shields.io/badge/Patreon-FF424D?style=for-the-badge&logo=patreon&logoColor=white" alt="Patreon" />
-  </a>
 </p>
 
 ## 🛠️ Setup

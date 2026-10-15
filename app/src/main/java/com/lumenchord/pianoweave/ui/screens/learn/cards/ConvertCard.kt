@@ -12,9 +12,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -26,6 +28,7 @@ import com.lumenchord.pianoweave.ui.components.DangerButton
 import com.lumenchord.pianoweave.ui.components.DangerCard
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
+import kotlinx.coroutines.launch
 
 @Composable
 fun TranscriptionSuccessCard(
@@ -95,6 +98,8 @@ fun TranscriptionInputCard(
     val isSuccess = !viewModel.isLoading && viewModel.readySong != null
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -168,7 +173,7 @@ fun TranscriptionInputCard(
                 value = viewModel.videoUrl,
                 onValueChange = { viewModel.updateUrl(it) },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("https://www.youtube.com/watch?v=...", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                placeholder = { Text("Paste a link", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
                 enabled = !viewModel.isLoading,
                 shape = RoundedCornerShape(14.dp),
@@ -178,9 +183,21 @@ fun TranscriptionInputCard(
                 ),
                 leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary) },
                 trailingIcon = {
-                    if (viewModel.videoUrl.isNotEmpty() && !viewModel.isLoading) {
+                    if (viewModel.isLoading) return@OutlinedTextField
+                    if (viewModel.videoUrl.isNotEmpty()) {
                         IconButton(onClick = { viewModel.updateUrl("") }) {
                             Icon(Icons.Default.Clear, "Clear")
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            scope.launch {
+                                val pasted = clipboard.getClipEntry()?.clipData
+                                    ?.takeIf { it.itemCount > 0 }
+                                    ?.getItemAt(0)?.coerceToText(context)?.toString()?.trim()
+                                if (!pasted.isNullOrEmpty()) viewModel.updateUrl(pasted)
+                            }
+                        }) {
+                            Icon(Icons.Default.ContentPaste, "Paste link", tint = MaterialTheme.colorScheme.secondary)
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,24 +24,21 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import android.content.res.Configuration
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,8 +57,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import coil3.compose.SubcomposeAsyncImage
 import com.lumenchord.pianoweave.api.VideoMetadata
-import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -71,278 +71,192 @@ fun StoredSongCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    SongCard(
-        videoUrl = song.videoUrl,
-        videoMetadata = song.metadata,
-        sizeBytes = song.file.length(),
-        exportState = exportState,
-        onExport = onExport,
-        onDelete = onDelete,
-        modifier = modifier
-    )
-}
-
-@Composable
-fun CloudSongCard(
-    cloudMidi: CloudMidi,
-    exportState: ExportState,
-    onExport: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    SongCard(
-        videoUrl = cloudMidi.videoUrl,
-        videoMetadata = cloudMidi.metadata,
-        sizeBytes = cloudMidi.sizeBytes,
-        exportState = exportState,
-        onExport = onExport,
-        onDelete = onDelete,
-        modifier = modifier
-    )
-}
-
-@Composable
-private fun SongCard(
-    videoUrl: String,
-    videoMetadata: VideoMetadata,
-    sizeBytes: Long,
-    exportState: ExportState,
-    onExport: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val metadata = song.metadata
+    val details = remember(metadata.author, metadata.duration) { songDetails(metadata) }
 
     OutlinedCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(if (isLandscape) 10.dp else 12.dp)
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    horizontal = if (isLandscape) 12.dp else 14.dp,
-                    vertical = if (isLandscape) 6.dp else 10.dp
-                ),
+                .padding(start = 10.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SongThumbnail(
+                thumbnailUrl = metadata.thumbnail,
+                size = if (isLandscape) 40.dp else 48.dp
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = metadata.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (isLandscape) 14.sp else 15.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = details ?: "MIDI file",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            ExportStatusIcon(exportState)
+
+            SongMenu(
+                songTitle = metadata.title,
+                exportState = exportState,
+                onExport = onExport,
+                onDelete = onDelete
+            )
+        }
+    }
+}
+
+/** "Artist · 3:45", leaving out whatever is unknown; null if nothing is known. */
+internal fun songDetails(metadata: VideoMetadata): String? {
+    val author = metadata.author.takeIf { it.isNotBlank() && it != "Unknown" }
+    val duration = metadata.duration.takeIf { it > 0f }?.let { formatDuration(it) }
+    return listOfNotNull(author, duration).joinToString(" · ").ifEmpty { null }
+}
+
+private fun formatDuration(seconds: Float): String {
+    val total = seconds.toInt()
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
+/** YouTube's full-size thumbnails are 1280px wide; the 320px one is plenty for a list row. */
+private val YOUTUBE_THUMBNAIL = Regex("""^https://i\.ytimg\.com/vi(?:_webp)?/([^/]+)/[^/]+$""")
+
+private fun listThumbnailUrl(url: String): String =
+    YOUTUBE_THUMBNAIL.find(url)?.let { "https://i.ytimg.com/vi/${it.groupValues[1]}/mqdefault.jpg" } ?: url
+
+@Composable
+internal fun SongThumbnail(thumbnailUrl: String, size: Dp) {
+    val shape = RoundedCornerShape(8.dp)
+    val fallback: @Composable () -> Unit = {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.MusicNote,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(if (isLandscape) 20.dp else 22.dp)
+                modifier = Modifier.size(size * 0.45f)
             )
+        }
+    }
 
-            if (isLandscape) {
-                // Compact landscape layout: 2 concise lines
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = videoMetadata.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    val sizeKbStr = "%.1f KB".format(sizeBytes / 1024.0)
-                    val detailsText = remember(videoMetadata.author, videoUrl, sizeKbStr) {
-                        val parts = mutableListOf<String>()
-                        if (videoMetadata.author.isNotBlank()) parts.add(videoMetadata.author)
-                        if (videoUrl.isNotBlank() && !videoUrl.startsWith("file:/")) parts.add(videoUrl)
-                        parts.add(sizeKbStr)
-                        parts.add("Standard MIDI")
-                        parts.joinToString(" • ")
-                    }
-
-                    Text(
-                        text = detailsText,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 1.dp)
-                    )
-                }
-            } else {
-                // Compact portrait layout: 3 clean lines with tight spacing
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = videoMetadata.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    val authorAndUrl = remember(videoMetadata.author, videoUrl) {
-                        if (videoMetadata.author.isNotBlank() && videoUrl.isNotBlank() && !videoUrl.startsWith("file:/")) {
-                            "${videoMetadata.author} • $videoUrl"
-                        } else if (videoMetadata.author.isNotBlank()) {
-                            videoMetadata.author
-                        } else {
-                            videoUrl
-                        }
-                    }
-
-                    if (authorAndUrl.isNotBlank()) {
-                        Text(
-                            text = authorAndUrl,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(top = 3.dp)
-                    ) {
-                        Text(
-                            text = "%.1f KB".format(sizeBytes / 1024.0),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        Text(
-                            text = "Standard MIDI",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-            }
-
-            // Action buttons: side by side in landscape, stacked in portrait where the card is narrow
-            val actions: @Composable () -> Unit = {
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete from Library",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                when (exportState) {
-                    ExportState.Exporting -> Box(
-                        modifier = Modifier.size(36.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }
-
-                    ExportState.Done -> Box(
-                        modifier = Modifier.size(36.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "Saved to Downloads",
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    ExportState.Failed -> IconButton(
-                        onClick = onExport,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.ErrorOutline,
-                            contentDescription = "Export failed, tap to retry",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    ExportState.Idle -> ExportButton(
-                        onClick = onExport,
-                        songTitle = videoMetadata.title,
-                        buttonSize = 36.dp,
-                        iconSize = 20.dp
-                    )
-                }
-            }
-            if (isLandscape) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) { actions() }
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) { actions() }
-            }
+    Box(modifier = Modifier.size(size).clip(shape)) {
+        if (thumbnailUrl.isBlank()) {
+            fallback()
+        } else {
+            SubcomposeAsyncImage(
+                model = listThumbnailUrl(thumbnailUrl),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                loading = { fallback() },
+                error = { fallback() },
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Shows export progress next to the menu; nothing while idle. */
 @Composable
-private fun ExportButton(
-    onClick: () -> Unit,
-    songTitle: String? = null,
-    buttonSize: Dp = 40.dp,
-    iconSize: Dp = 24.dp
-) {
-    var showConfirmDialog by remember { mutableStateOf(false) }
+private fun ExportStatusIcon(exportState: ExportState) {
+    when (exportState) {
+        ExportState.Idle -> Unit
+        ExportState.Exporting -> CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            strokeWidth = 2.dp
+        )
+        ExportState.Done -> Icon(
+            Icons.Default.CheckCircle,
+            contentDescription = "Saved to Downloads",
+            tint = LocalAppTheme.current.successColor,
+            modifier = Modifier.size(18.dp)
+        )
+        ExportState.Failed -> Icon(
+            Icons.Default.ErrorOutline,
+            contentDescription = "Export failed",
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
 
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-        tooltip = { PlainTooltip { Text("Save .mid file to Downloads") } },
-        state = rememberTooltipState()
-    ) {
-        IconButton(
-            onClick = { showConfirmDialog = true },
-            modifier = Modifier.size(buttonSize)
-        ) {
+@Composable
+private fun SongMenu(
+    songTitle: String,
+    exportState: ExportState,
+    onExport: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
             Icon(
-                Icons.AutoMirrored.Filled.DriveFileMove,
-                contentDescription = "Save .mid file to Downloads",
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(iconSize)
+                Icons.Default.MoreVert,
+                contentDescription = "More options for $songTitle",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ) {
+            DropdownMenuItem(
+                text = { Text(if (exportState == ExportState.Failed) "Retry saving to Downloads" else "Save .mid to Downloads") },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = null) },
+                enabled = exportState != ExportState.Exporting,
+                onClick = {
+                    expanded = false
+                    showExportDialog = true
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                leadingIcon = {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                },
+                onClick = {
+                    expanded = false
+                    onDelete()
+                }
             )
         }
     }
 
-    if (showConfirmDialog) {
+    if (showExportDialog) {
         ExportConfirmationDialog(
             songTitle = songTitle,
             onConfirm = {
-                showConfirmDialog = false
-                onClick()
+                showExportDialog = false
+                onExport()
             },
-            onDismiss = { showConfirmDialog = false }
+            onDismiss = { showExportDialog = false }
         )
     }
 }
