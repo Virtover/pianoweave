@@ -79,47 +79,50 @@ fun StoredSongCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 10.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            SongThumbnail(
-                thumbnailUrl = metadata.thumbnail,
-                size = if (isLandscape) 40.dp else 48.dp
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = metadata.title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = if (isLandscape) 14.sp else 15.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.primary
+        Box {
+            ArtBackdrop(thumbnailUrl = metadata.thumbnail, alpha = 0.22f)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 10.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SongThumbnail(
+                    thumbnailUrl = metadata.thumbnail,
+                    size = if (isLandscape) 40.dp else 48.dp
                 )
-                Text(
-                    text = details ?: "MIDI file",
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = metadata.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = if (isLandscape) 14.sp else 15.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = details ?: "MIDI file",
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+
+                ExportStatusIcon(exportState)
+
+                SongMenu(
+                    songTitle = metadata.title,
+                    exportState = exportState,
+                    onExport = onExport,
+                    onDelete = onDelete
                 )
             }
-
-            ExportStatusIcon(exportState)
-
-            SongMenu(
-                songTitle = metadata.title,
-                exportState = exportState,
-                onExport = onExport,
-                onDelete = onDelete
-            )
         }
     }
 }
@@ -138,12 +141,6 @@ private fun formatDuration(seconds: Float): String {
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
-
-/** YouTube's full-size thumbnails are 1280px wide; the 320px one is plenty for a list row. */
-private val YOUTUBE_THUMBNAIL = Regex("""^https://i\.ytimg\.com/vi(?:_webp)?/([^/]+)/[^/]+$""")
-
-private fun listThumbnailUrl(url: String): String =
-    YOUTUBE_THUMBNAIL.find(url)?.let { "https://i.ytimg.com/vi/${it.groupValues[1]}/mqdefault.jpg" } ?: url
 
 @Composable
 internal fun SongThumbnail(thumbnailUrl: String, size: Dp) {
@@ -169,7 +166,7 @@ internal fun SongThumbnail(thumbnailUrl: String, size: Dp) {
             fallback()
         } else {
             SubcomposeAsyncImage(
-                model = listThumbnailUrl(thumbnailUrl),
+                model = smallThumbnailUrl(thumbnailUrl),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 loading = { fallback() },

@@ -42,6 +42,7 @@ fun PianoWeaveTheme(
     CompositionLocalProvider(LocalAppTheme provides theme) {
         MaterialTheme(
             colorScheme = dynamicColorScheme,
+            typography = PianoTypography,
             content = content
         )
     }

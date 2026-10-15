@@ -1,5 +1,21 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import com.lumenchord.pianoweave.ui.components.ArtBackdrop
+import com.lumenchord.pianoweave.ui.components.smallThumbnailUrl
+import com.lumenchord.pianoweave.ui.components.songDetails
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
@@ -30,6 +46,10 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
 import kotlinx.coroutines.launch
 
+/**
+ * Shown when a transcription finishes: the song's cover art over a blurred backdrop of itself, and a
+ * gold glow that flares up once as the card appears, then settles.
+ */
 @Composable
 fun TranscriptionSuccessCard(
     song: StoredMidi,
@@ -37,53 +57,108 @@ fun TranscriptionSuccessCard(
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val accent = MaterialTheme.colorScheme.secondary
+    val surface = MaterialTheme.colorScheme.surface
+    val shape = RoundedCornerShape(if (isLandscape) 14.dp else 20.dp)
+    val metadata = song.metadata
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(if (isLandscape) 14.dp else 20.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.secondary
-        )
+    val glow = remember(song.file) { Animatable(0f) }
+    val appear = remember(song.file) { Animatable(0f) }
+    LaunchedEffect(song.file) {
+        launch { appear.animateTo(1f, tween(durationMillis = 450, easing = FastOutSlowInEasing)) }
+        glow.animateTo(1f, tween(durationMillis = 500, easing = FastOutSlowInEasing))
+        glow.animateTo(0.3f, tween(durationMillis = 1400, easing = LinearOutSlowInEasing))
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = appear.value
+                // Fades each draw call instead of an offscreen layer, which would clip the glow to a rectangle
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+                val scale = 0.94f + 0.06f * appear.value
+                scaleX = scale
+                scaleY = scale
+            }
+            .shadow(
+                elevation = 28.dp * glow.value,
+                shape = shape,
+                ambientColor = accent,
+                spotColor = accent
+            )
+            .clip(shape)
+            .background(surface)
+            .border(BorderStroke(1.5.dp, accent.copy(alpha = 0.35f + 0.65f * glow.value)), shape)
     ) {
+        ArtBackdrop(thumbnailUrl = metadata.thumbnail, alpha = 0.55f, fadeTo = surface)
+
         Column(
-            modifier = Modifier.padding(if (isLandscape) 12.dp else 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(if (isLandscape) 12.dp else 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = Icons.Default.Stars,
-                contentDescription = null,
-                modifier = Modifier.size(if (isLandscape) 28.dp else 48.dp),
-                tint = MaterialTheme.colorScheme.onSecondary
-            )
-            Spacer(Modifier.height(if (isLandscape) 6.dp else 12.dp))
+            if (metadata.thumbnail.isNotBlank() && !isLandscape) {
+                AsyncImage(
+                    model = smallThumbnailUrl(metadata.thumbnail),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth(0.72f)
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                )
+                Spacer(Modifier.height(14.dp))
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Stars,
+                    contentDescription = null,
+                    modifier = Modifier.size(if (isLandscape) 28.dp else 44.dp),
+                    tint = accent
+                )
+                Spacer(Modifier.height(if (isLandscape) 6.dp else 10.dp))
+            }
             Text(
-                text = "Transcription Ready!",
-                style = (if (isLandscape) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall).copy(fontWeight = FontWeight.ExtraBold),
-                color = MaterialTheme.colorScheme.onSecondary
+                text = "Transcription ready",
+                style = (if (isLandscape) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
+                    .copy(fontWeight = FontWeight.Bold),
+                color = accent
             )
             Text(
-                text = song.metadata.title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.8f),
+                text = metadata.title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp)
             )
-            Spacer(Modifier.height(if (isLandscape) 10.dp else 20.dp))
+            songDetails(metadata)?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.height(if (isLandscape) 10.dp else 16.dp))
             Button(
                 onClick = { onSongSelect(song) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isLandscape) 42.dp else 56.dp),
+                    .height(if (isLandscape) 42.dp else 52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.onSecondary,
-                    contentColor = MaterialTheme.colorScheme.secondary
+                    containerColor = accent,
+                    contentColor = MaterialTheme.colorScheme.onSecondary
                 )
             ) {
                 Icon(Icons.Default.PlayArrow, null, Modifier.size(if (isLandscape) 20.dp else 24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("START PRACTICING", fontWeight = FontWeight.Black, fontSize = if (isLandscape) 14.sp else 16.sp)
+                Text("Start practicing", fontWeight = FontWeight.ExtraBold, fontSize = if (isLandscape) 14.sp else 16.sp)
             }
         }
     }
@@ -120,7 +195,10 @@ fun TranscriptionInputCard(
             ) {
                 Text(
                     text = "AI Transcription",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
                     color = MaterialTheme.colorScheme.secondary
                 )
 
