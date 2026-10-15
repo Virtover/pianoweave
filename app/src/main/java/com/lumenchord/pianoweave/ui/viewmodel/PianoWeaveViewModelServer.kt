@@ -100,13 +100,8 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     maxUploadSizeMb = info.maxUploadSizeMb
                     maxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0
+                    if (PianoApiFactory.isOfficialServer(url)) isOfficialServerBilled = isBilledServer
 
-                    supportMeLink = try {
-                        AppConfig.initialize(targetContext)
-                        AppConfig.getConfig().supportMeLink
-                    } catch (_: Exception) {
-                        null
-                    }
 
                     if (isBilledServer) {
                         if (isGoogleSignedIn) {
@@ -124,6 +119,22 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
             }
         } else if (serverStatus == ServerStatus.OFFLINE) {
             startAutoReconnectImpl(targetContext)
+        }
+    }
+    refreshOfficialServerBilling()
+}
+
+/** Asks the official server whether it bills, also while a custom server is selected (see [PianoWeaveViewModel.canShowSupport]). */
+private fun PianoWeaveViewModel.refreshOfficialServerBilling() {
+    // With the official server selected, its server-info above already answers this.
+    if (isOfficialServerBilled != null || isUsingDefaultServer) return
+    val officialUrl = defaultServerUrl.takeIf { it.isNotBlank() } ?: return
+    viewModelScope.launch {
+        isOfficialServerBilled = try {
+            PianoApiFactory.getApi(officialUrl).getServerInfo()
+                .billingProvider.equals("google_play", ignoreCase = true)
+        } catch (_: Exception) {
+            null
         }
     }
 }
@@ -191,6 +202,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     } catch (_: Exception) {
         ""
     }
+    supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
     isCustomServer = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
     customServerUrl = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, "") ?: ""
 

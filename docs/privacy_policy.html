@@ -52,7 +52,7 @@
 <main>
 
     <h1>Piano Weave – Privacy Policy</h1>
-    <p class="meta">Effective date: October 14, 2026</p>
+    <p class="meta">Effective date: October 16, 2026</p>
 
     <p>
         This Privacy Policy explains what information the Piano Weave Android app
@@ -62,9 +62,10 @@
     </p>
 
     <div class="card">
-        <strong>In short:</strong> the microphone is used only to detect the notes you play, and that
-        audio is processed on your device. Your MIDI library stays on your device unless you turn on
-        cloud sync. If you transcribe a video or sign in with Google, the information listed below is sent to the Server.
+        <strong>In short:</strong> in Wait Mode the microphone is used only to detect the notes you play, and that
+        audio is processed on your device. A microphone recording leaves your device only when you record it yourself
+        and tap Transcribe. Your MIDI library stays on your device unless you turn on cloud sync. If you transcribe a video,
+        a file or a recording, or sign in with Google, the information listed below is sent to the Server.
         I do not sell your data and the App does not show ads.
     </div>
 
@@ -102,6 +103,16 @@
             <td><strong>Video links</strong> you submit for transcription</td>
             <td>To download the audio and create a MIDI file</td>
             <td>Sent to the Server, which retrieves the audio from the website that hosts the video</td>
+        </tr>
+        <tr>
+            <td><strong>Audio and video files</strong> you choose for transcription, including their file names</td>
+            <td>To create a MIDI file from them</td>
+            <td>Uploaded to the Server, which keeps them only while the transcription runs (see <a href="#retention">Retention</a>)</td>
+        </tr>
+        <tr>
+            <td><strong>Microphone recordings</strong> you make with the App's Record option</td>
+            <td>To create a MIDI file from the music you recorded</td>
+            <td>Saved temporarily on your device, then uploaded to the Server when you tap Transcribe (see <a href="#microphone">Microphone</a>)</td>
         </tr>
         <tr>
             <td><strong>Purchase information</strong> (product ID, Google Play purchase token)</td>
@@ -142,13 +153,13 @@
     <ul>
         <li>The App does not collect your precise or approximate location.</li>
         <li>The App does not read your contacts, messages or photos.</li>
-        <li>The App does not record or upload audio from your microphone (see <a href="#microphone">Microphone</a>).</li>
+        <li>The App does not record or upload audio from your microphone unless you start a recording yourself (see <a href="#microphone">Microphone</a>).</li>
         <li>The App does not contain advertising or advertising identifiers.</li>
     </ul>
 
     <h2 id="use">2. How we use information</h2>
     <ul>
-        <li>To provide the App's features: transcribing videos into MIDI, storing and syncing your library, and playing practice sessions.</li>
+        <li>To provide the App's features: transcribing videos, audio and video files, and your recordings into MIDI, storing and syncing your library, and playing practice sessions.</li>
         <li>To sign you in, keep your transcription balance, apply free minutes and process purchases.</li>
         <li>To protect the Server from abuse, fraud and misuse.</li>
         <li>To maintain, secure and improve the App and the Server, and to answer support requests.</li>
@@ -163,9 +174,22 @@
 
     <h2 id="microphone">3. Microphone</h2>
     <p>
-        Wait Mode uses the microphone to listen to your piano and pause the sheet music until you play the correct notes.
-        The App asks for the microphone permission only when you use this feature. Audio is analyzed in real time on your device
-        by a model that runs locally. The audio is not saved and is not sent to the Server or to anyone else.
+        The App uses the microphone for two features, and only while you are using them:
+    </p>
+    <ul>
+        <li>
+            <strong>Wait Mode</strong> listens to your piano and pauses the sheet music until you play the correct notes.
+            Audio is analyzed in real time on your device by a model that runs locally. It is not saved and is not sent to the Server or to anyone else.
+        </li>
+        <li>
+            <strong>Record</strong> (in AI Transcription) records audio only after you tap to start, shows that it is recording, and stops when you tap Stop,
+            when the length limit is reached, or when you leave the App. The recording is saved in the App's temporary storage on your device.
+            It is uploaded to the Server only when you tap Transcribe, and is handled there like an uploaded file. The copy on your device is deleted when you
+            discard the recording, start a new one, or when the transcription succeeds. Only record music you have the right to use, and be aware that a recording
+            may also pick up other sounds nearby, such as voices.
+        </li>
+    </ul>
+    <p>
         You can revoke the permission at any time in your Android settings; the rest of the App continues to work.
     </p>
 
@@ -197,7 +221,7 @@
 
     <h2 id="retention">5. Retention</h2>
     <ul>
-        <li><strong>Files created during a transcription</strong> (downloaded audio and generated MIDI) are temporary on the Server and are removed automatically shortly after the job finishes.</li>
+        <li><strong>Files created during a transcription</strong> (downloaded audio, uploaded files and recordings, and generated MIDI) are temporary on the Server and are removed automatically shortly after the job finishes.</li>
         <li><strong>Account and billing records</strong> (Google account ID, email address, balance, purchases) are kept while your account is active and as needed to handle purchases, refunds and disputes, or as required by law.</li>
         <li><strong>Backups</strong> of the billing database are kept for a limited period and then replaced.</li>
         <li><strong>On your device</strong>, songs you delete in the App stay in a recycle state for up to 30 days and are then permanently removed. Uninstalling the App deletes its local data.</li>
@@ -278,7 +302,7 @@
         The App can be configured to use a different transcription server. The App never sends your Google sign-in token to such a server;
         it identifies you only with the random device identifier, and in-app purchases are not available there.
         If you connect to a server that I do not operate, that server's operator, not me, decides what data is collected
-        (for example the video links you submit and your IP address) and how it is handled. This Policy applies only to the Server that I operate.
+        (for example the video links, files and recordings you submit and your IP address) and how it is handled. This Policy applies only to the Server that I operate.
     </p>
 
     <h2 id="children">10. Children</h2>

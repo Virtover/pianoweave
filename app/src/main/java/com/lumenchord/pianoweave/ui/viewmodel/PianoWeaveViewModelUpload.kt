@@ -29,8 +29,16 @@ data class SelectedMediaFile(
     val durationSeconds: Float?
 )
 
-/** What the input card transcribes: a pasted link or a picked file. */
-enum class TranscriptionSource { Link, File }
+/** What the input card transcribes: a pasted link, a picked file or a microphone recording. */
+enum class TranscriptionSource { Link, File, Record }
+
+/** The file the chosen source would upload, if any. */
+internal val PianoWeaveViewModel.sourceMediaFile: SelectedMediaFile?
+    get() = when (transcriptionSource) {
+        TranscriptionSource.Link -> null
+        TranscriptionSource.File -> selectedMediaFile
+        TranscriptionSource.Record -> recordedMediaFile
+    }
 
 private const val BYTES_PER_MB = 1024f * 1024f
 
@@ -41,13 +49,12 @@ internal fun PianoWeaveViewModel.selectTranscriptionSourceImpl(source: Transcrip
     transcriptionSource = source
     transcriptionError = null
     // The cost shown belongs to the chosen source.
-    when (source) {
-        TranscriptionSource.Link -> calculateCostForUrlImpl(videoUrl)
-        TranscriptionSource.File -> selectedMediaFile?.let { calculateCostForFile(it) } ?: run {
-            costJob?.cancel()
-            estimatedCostCredits = null
-            isCalculatingCost = false
-        }
+    if (source == TranscriptionSource.Link) {
+        calculateCostForUrlImpl(videoUrl)
+    } else sourceMediaFile?.let { calculateCostForFile(it) } ?: run {
+        costJob?.cancel()
+        estimatedCostCredits = null
+        isCalculatingCost = false
     }
 }
 
@@ -88,7 +95,7 @@ internal fun PianoWeaveViewModel.clearSelectedMediaFileImpl() {
 }
 
 /** The server's limits, checked up front so a large file isn't uploaded only to be rejected. */
-private fun PianoWeaveViewModel.limitProblem(file: SelectedMediaFile): String? {
+internal fun PianoWeaveViewModel.limitProblem(file: SelectedMediaFile): String? {
     val maxMb = maxUploadSizeMb
     if (maxMb != null && file.sizeBytes != null && file.sizeBytes > maxMb * BYTES_PER_MB) {
         return "That file is larger than the server's ${"%.0f".format(maxMb)} MB limit."
@@ -100,7 +107,7 @@ private fun PianoWeaveViewModel.limitProblem(file: SelectedMediaFile): String? {
     return null
 }
 
-private fun PianoWeaveViewModel.calculateCostForFile(file: SelectedMediaFile) {
+internal fun PianoWeaveViewModel.calculateCostForFile(file: SelectedMediaFile) {
     costJob?.cancel()
     val duration = file.durationSeconds
     if (duration == null || !isBilledServer) {
@@ -204,7 +211,12 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
             pollTranscriptionJob(context, jobId, key)
             // Kept on screen while it is transcribed, and kept after a failure so it can be retried.
             if (readySong != null) {
-                selectedMediaFile = null
+                if (file == recordedMediaFile) {
+                    file.uri.path?.let { java.io.File(it).delete() }
+                    recordedMediaFile = null
+                } else {
+                    selectedMediaFile = null
+                }
                 estimatedCostCredits = null
             }
         } catch (e: Exception) {

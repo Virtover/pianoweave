@@ -55,6 +55,23 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.drawscope.Stroke as DrawStroke
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import android.Manifest
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.lumenchord.pianoweave.audio.AcousticNoteDetector
+import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
+import com.lumenchord.pianoweave.ui.screens.learn.DiscardRecordingDialog
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
 import kotlinx.coroutines.launch
 
@@ -190,11 +207,61 @@ fun TranscriptionInputCard(
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.selectMediaFile(context, it) }
     }
+    var showMicPermissionDialog by remember { mutableStateOf(false) }
+    val micPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.startRecording(context) else showMicPermissionDialog = true
+    }
     // Servers that cannot take uploads (e.g. after switching servers) only offer links.
     val canUseFiles = viewModel.supportsFileUpload || viewModel.isLoading
-    val isFileMode = canUseFiles && viewModel.transcriptionSource == TranscriptionSource.File
-    val selectedFile = viewModel.selectedMediaFile.takeIf { isFileMode }
+    val source = if (canUseFiles) viewModel.transcriptionSource else TranscriptionSource.Link
+    val selectedFile = when (source) {
+        TranscriptionSource.Link -> null
+        TranscriptionSource.File -> viewModel.selectedMediaFile
+        TranscriptionSource.Record -> viewModel.recordedMediaFile
+    }
     val pickFile = { filePicker.launch(UploadFormats.mimeTypes) }
+    val startRecording = {
+        if (AcousticNoteDetector.hasMicrophonePermission(context)) viewModel.startRecording(context)
+        else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    // Losing a longer take by a stray tap is costly, so throwing one away asks first.
+    var pendingDiscard by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val confirmDiscard = { action: () -> Unit ->
+        val takeSeconds = if (viewModel.isRecording) viewModel.recordingElapsedMs / 1000f
+        else viewModel.recordedMediaFile?.durationSeconds ?: 0f
+        if (takeSeconds > DISCARD_CONFIRM_SECONDS) pendingDiscard = action else action()
+    }
+    val record = { confirmDiscard(startRecording) }
+    val discard = { confirmDiscard { viewModel.discardRecording() } }
+
+    pendingDiscard?.let { action ->
+        DiscardRecordingDialog(
+            isRecording = viewModel.isRecording,
+            onConfirm = {
+                pendingDiscard = null
+                action()
+            },
+            onDismiss = { pendingDiscard = null }
+        )
+    }
+
+    // Android silences the microphone once the app is in the background, so the take ends there.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && viewModel.isRecording) viewModel.stopRecording()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (showMicPermissionDialog) {
+        MicPermissionDialog(
+            reason = "Record uses the microphone to capture music playing near you, so it can be transcribed to MIDI.",
+            onDismiss = { showMicPermissionDialog = false }
+        )
+    }
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -263,20 +330,46 @@ fun TranscriptionInputCard(
 
             if (canUseFiles) {
                 SourceSelector(
-                    selected = if (isFileMode) TranscriptionSource.File else TranscriptionSource.Link,
-                    enabled = !viewModel.isLoading,
+                    selected = source,
+                    enabled = !viewModel.isLoading && !viewModel.isRecording,
                     onSelect = { viewModel.selectTranscriptionSource(it) }
                 )
             }
 
             Text(
-                text = if (isFileMode) "Pick a recording you have the right to use"
-                else "Paste a video link you have the right to use",
+                text = when (source) {
+                    TranscriptionSource.Link -> "Paste a video link you have the right to use"
+                    TranscriptionSource.File -> "Pick a recording you have the right to use"
+                    TranscriptionSource.Record -> "Record music playing near you, like your own piano"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            if (isFileMode) {
+            if (source == TranscriptionSource.Record) {
+                when {
+                    viewModel.isRecording -> RecordingArea(
+                        elapsedMs = viewModel.recordingElapsedMs,
+                        level = viewModel.recordingLevel,
+                        maxMinutes = viewModel.maxVideoLengthMinutes,
+                        onStop = { viewModel.stopRecording() },
+                        onDiscard = discard
+                    )
+                    selectedFile != null -> SelectedFileRow(
+                        file = selectedFile,
+                        enabled = !viewModel.isLoading,
+                        onChange = record,
+                        onClear = discard,
+                        icon = Icons.Default.Mic,
+                        changeLabel = "Record again",
+                        clearLabel = "Delete recording"
+                    )
+                    !viewModel.isLoading -> StartRecordingArea(
+                        maxMinutes = viewModel.maxVideoLengthMinutes,
+                        onClick = startRecording
+                    )
+                }
+            } else if (source == TranscriptionSource.File) {
                 when {
                     selectedFile != null -> SelectedFileRow(
                         file = selectedFile,
@@ -324,7 +417,7 @@ fun TranscriptionInputCard(
                 }
             )
 
-            if (!viewModel.isLoading) {
+            if (!viewModel.isLoading && !viewModel.isRecording) {
                 val isBilled = viewModel.isBilledServer
                 val cost = viewModel.estimatedCostCredits
                 val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
@@ -337,7 +430,7 @@ fun TranscriptionInputCard(
                             viewModel.startTranscription(context)
                         }
                     },
-                    enabled = (if (isFileMode) selectedFile != null else viewModel.videoUrl.isNotBlank()) &&
+                    enabled = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
                         !viewModel.isCalculatingCost,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -393,7 +486,7 @@ fun TranscriptionInputCard(
     }
 }
 
-/** Link or file: what the card transcribes. */
+/** Link, file or microphone: what the card transcribes. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SourceSelector(
@@ -403,7 +496,8 @@ private fun SourceSelector(
 ) {
     val options = listOf(
         Triple(TranscriptionSource.Link, "Link", Icons.Default.Link),
-        Triple(TranscriptionSource.File, "File", Icons.Default.AudioFile)
+        Triple(TranscriptionSource.File, "File", Icons.Default.AudioFile),
+        Triple(TranscriptionSource.Record, "Record", Icons.Default.Mic)
     )
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
         options.forEachIndexed { index, (source, label, icon) ->
@@ -412,14 +506,25 @@ private fun SourceSelector(
                 onClick = { onSelect(source) },
                 enabled = enabled,
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                // Three segments leave little room in portrait, so the padding, icon and label are all trimmed.
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                 colors = SegmentedButtonDefaults.colors(
                     activeContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
                     activeContentColor = MaterialTheme.colorScheme.secondary,
                     activeBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
                     inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
                 ),
-                icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold) }
+                icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                label = {
+                    Text(
+                        text = label,
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = 13.sp,
+                        letterSpacing = 0.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             )
         }
     }
@@ -485,7 +590,10 @@ private fun SelectedFileRow(
     file: SelectedMediaFile,
     enabled: Boolean,
     onChange: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    icon: ImageVector = Icons.Default.AudioFile,
+    changeLabel: String = "Change",
+    clearLabel: String = "Remove file"
 ) {
     Surface(
         shape = RoundedCornerShape(14.dp),
@@ -494,14 +602,14 @@ private fun SelectedFileRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .clickable(enabled = enabled, onClickLabel = "Choose another file", onClick = onChange)
+            .clickable(enabled = enabled, onClickLabel = changeLabel, onClick = onChange)
     ) {
         Row(
             modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(Icons.Default.AudioFile, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = file.name,
@@ -514,13 +622,12 @@ private fun SelectedFileRow(
                     file.durationSeconds?.let { formatFileDuration(it) },
                     file.sizeBytes?.let { "%.1f MB".format(it / (1024.0 * 1024.0)) }
                 ).joinToString(" · ")
-                val changeHint = "Change"
                 Text(
                     text = buildAnnotatedString {
                         if (details.isNotEmpty()) append("$details · ")
                         if (enabled) {
                             withStyle(SpanStyle(color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)) {
-                                append(changeHint)
+                                append(changeLabel)
                             }
                         }
                     },
@@ -532,7 +639,7 @@ private fun SelectedFileRow(
             }
             if (enabled) {
                 IconButton(onClick = onClear) {
-                    Icon(Icons.Default.Clear, contentDescription = "Remove file")
+                    Icon(Icons.Default.Clear, contentDescription = clearLabel)
                 }
             } else {
                 Spacer(Modifier.width(12.dp))
@@ -540,6 +647,172 @@ private fun SelectedFileRow(
         }
     }
 }
+
+/** The empty recording slot: tapping it starts recording from the microphone. */
+@Composable
+private fun StartRecordingArea(
+    maxMinutes: Float?,
+    onClick: () -> Unit
+) {
+    val accent = MaterialTheme.colorScheme.secondary
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .drawBehind {
+                drawRoundRect(
+                    color = accent.copy(alpha = 0.55f),
+                    cornerRadius = CornerRadius(14.dp.toPx()),
+                    style = DrawStroke(
+                        width = 1.5.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))
+                    )
+                )
+            }
+            .clickable(onClickLabel = "Start recording", onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .background(RecordRed, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Mic, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Tap to record",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = accent
+        )
+        Text(
+            text = "Place your phone near the piano or speaker",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        maxMinutes?.let {
+            Text(
+                text = "Up to ${"%.0f".format(it)} minutes",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+/** While recording: a pulsing dot, the elapsed time, a level meter, and stop / discard. */
+@Composable
+private fun RecordingArea(
+    elapsedMs: Long,
+    level: Float,
+    maxMinutes: Float?,
+    onStop: () -> Unit,
+    onDiscard: () -> Unit
+) {
+    val pulse by rememberInfiniteTransition(label = "recording").animateFloat(
+        initialValue = 1f,
+        targetValue = 0.25f,
+        animationSpec = infiniteRepeatable(tween(durationMillis = 700), RepeatMode.Reverse),
+        label = "recordingDot"
+    )
+    val elapsed = formatFileDuration(elapsedMs / 1000f)
+    val limit = maxMinutes?.let { " / ${formatFileDuration(it * 60f)}" }.orEmpty()
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = RecordRed.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, RecordRed.copy(alpha = 0.5f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .graphicsLayer { alpha = pulse }
+                        .background(RecordRed, CircleShape)
+                )
+                Text(
+                    text = "Recording",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = elapsed + limit,
+                    style = MaterialTheme.typography.titleSmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            LinearProgressIndicator(
+                progress = { level },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = MaterialTheme.colorScheme.secondary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                drawStopIndicator = {}
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onDiscard,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Discard",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Button(
+                    onClick = onStop,
+                    modifier = Modifier
+                        .weight(1.4f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RecordRed, contentColor = Color.White)
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Stop",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+private val RecordRed = Color(0xFFE53935)
+
+/** Takes longer than this ask before they are thrown away. */
+private const val DISCARD_CONFIRM_SECONDS = 10f
 
 private fun formatFileDuration(seconds: Float): String {
     val total = seconds.toInt()

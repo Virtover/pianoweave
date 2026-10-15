@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
 import android.content.Context
+import android.media.MediaRecorder
 import android.net.Uri
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
@@ -125,6 +126,25 @@ class PianoWeaveViewModel : ViewModel() {
 
     internal var activeUpload: MediaUploadBody? = null
 
+    // --- Recording ---
+    var isRecording by mutableStateOf(false)
+        internal set
+
+    var recordingElapsedMs by mutableLongStateOf(0L)
+        internal set
+
+    /** Microphone level, 0..1, for the meter while recording. */
+    var recordingLevel by mutableFloatStateOf(0f)
+        internal set
+
+    /** A finished microphone recording, transcribed like a picked file. */
+    var recordedMediaFile by mutableStateOf<SelectedMediaFile?>(null)
+        internal set
+
+    internal var activeRecorder: MediaRecorder? = null
+    internal var recordingFile: java.io.File? = null
+    internal var recordingTickerJob: Job? = null
+
     /** From server-info; null when the server cannot transcribe uploaded files. */
     var maxUploadSizeMb by mutableStateOf<Float?>(null)
         internal set
@@ -137,6 +157,14 @@ class PianoWeaveViewModel : ViewModel() {
 
     var supportMeLink by mutableStateOf<String?>(null)
         internal set
+
+    /** Whether the official server charges for transcriptions; null until its server-info has been read. */
+    var isOfficialServerBilled by mutableStateOf<Boolean?>(null)
+        internal set
+
+    /** Donations only make sense while the official server is free, whichever server is selected. */
+    val canShowSupport: Boolean
+        get() = isOfficialServerBilled == false && !supportMeLink.isNullOrBlank()
 
     val discordLink: String?
         get() = AppConfig.getConfigOrNull()?.discordLink
@@ -255,6 +283,9 @@ class PianoWeaveViewModel : ViewModel() {
     fun selectMediaFile(context: Context, uri: Uri) = selectMediaFileImpl(context, uri)
     fun clearSelectedMediaFile() = clearSelectedMediaFileImpl()
     fun selectTranscriptionSource(source: TranscriptionSource) = selectTranscriptionSourceImpl(source)
+    fun startRecording(context: Context) = startRecordingImpl(context)
+    fun stopRecording() = stopRecordingImpl()
+    fun discardRecording() = discardRecordingImpl()
     fun normalizeUrl(url: String): String = normalizeUrlImpl(url)
 
     fun formatRetentionTime(seconds: Long? = cleanupIntervalSeconds): String = formatRetentionTimeImpl(seconds)
@@ -307,6 +338,15 @@ class PianoWeaveViewModel : ViewModel() {
 
     fun markCloudBackupDialogShown(context: Context) {
         AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SHOWN_CLOUD_BACKUP_DIALOG, true).apply()
+    }
+
+    override fun onCleared() {
+        activeRecorder?.let { recorder ->
+            runCatching { recorder.stop() }
+            recorder.release()
+        }
+        activeRecorder = null
+        recordingFile?.delete()
     }
 }
 

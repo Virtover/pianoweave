@@ -72,9 +72,11 @@ internal fun PianoWeaveViewModel.updateUrlImpl(url: String) {
 
 internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
     if (isLoading) return
-    val file = if (transcriptionSource == TranscriptionSource.File && supportsFileUpload) selectedMediaFile else null
+    if (isRecording) return
+    val isFileSource = transcriptionSource != TranscriptionSource.Link
+    val file = if (isFileSource && supportsFileUpload) sourceMediaFile else null
     val stableUrl = normalizeUrlImpl(videoUrl)
-    if (file == null && (transcriptionSource == TranscriptionSource.File || stableUrl.isBlank())) return
+    if (file == null && (isFileSource || stableUrl.isBlank())) return
 
     if (file == null) videoUrl = stableUrl
     transcriptionError = null
