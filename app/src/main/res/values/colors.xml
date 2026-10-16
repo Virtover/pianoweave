@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lumenchord "warm night" background. -->
+    <color name="splash_background">#0F0B09</color>
+</resources>
