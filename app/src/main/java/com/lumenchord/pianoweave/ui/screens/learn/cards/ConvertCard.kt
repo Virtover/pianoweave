@@ -284,6 +284,7 @@ fun TranscriptionInputCard(
     }
 
     var showTermsDialog by remember { mutableStateOf(false) }
+    var hasAcceptedTerms by remember { mutableStateOf(LegalConsent.hasAcceptedTerms(context)) }
     val transcribe = {
         if (viewModel.isBilledServer && !viewModel.isGoogleSignedIn) {
             viewModel.signInWithGoogle(context)
@@ -296,6 +297,7 @@ fun TranscriptionInputCard(
             onAgree = {
                 showTermsDialog = false
                 LegalConsent.acceptTerms(context)
+                hasAcceptedTerms = true
                 transcribe()
             },
             onDismiss = { showTermsDialog = false }
@@ -336,7 +338,6 @@ fun TranscriptionInputCard(
                 )
 
                 val statusColor = viewModel.serverStatus.statusColor
-                val statusLabel = if (viewModel.isUsingDefaultServer) "Default" else "Custom"
 
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -358,11 +359,14 @@ fun TranscriptionInputCard(
                                 .background(color = statusColor, shape = CircleShape)
                         )
 
-                        Text(
-                            text = statusLabel,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        // Most people never change servers, so only a custom one is named.
+                        if (!viewModel.isUsingDefaultServer) {
+                            Text(
+                                text = "Custom",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
 
                         Icon(
                             imageVector = Icons.Default.Settings,
@@ -383,18 +387,17 @@ fun TranscriptionInputCard(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = when (source) {
-                        TranscriptionSource.Link -> "Enter a video URL you have the right to use"
-                        TranscriptionSource.File -> "Choose a file you have the right to use"
-                        TranscriptionSource.Record -> "Record music you have the right to use, like your own piano"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                TermsInfoButton()
+            // A reminder of what the terms dialog said, so it only appears once the user has agreed to them.
+            if (hasAcceptedTerms) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Convert music you've the right to use",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TermsInfoButton()
+                }
             }
 
             if (source == TranscriptionSource.Record) {
@@ -478,7 +481,7 @@ fun TranscriptionInputCard(
 
                 Button(
                     onClick = {
-                        if (LegalConsent.hasAcceptedTerms(context)) transcribe() else showTermsDialog = true
+                        if (hasAcceptedTerms) transcribe() else showTermsDialog = true
                     },
                     enabled = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
                         !viewModel.isCalculatingCost,
@@ -689,12 +692,7 @@ private fun ChooseFileArea(
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             color = accent
         )
-        Text(
-            text = UploadFormats.DISPLAY_NAMES,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+        // No format list: the picker only offers files the server accepts.
         if (limits.isNotEmpty()) {
             Text(
                 text = limits.replaceFirstChar { it.uppercase() },
@@ -808,12 +806,6 @@ private fun StartRecordingArea(
             text = "Tap to record",
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             color = accent
-        )
-        Text(
-            text = "Place your phone near the piano or speaker",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
         )
         maxMinutes?.let {
             Text(
