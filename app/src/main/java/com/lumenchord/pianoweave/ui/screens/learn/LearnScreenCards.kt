@@ -21,8 +21,9 @@ internal fun TranscriptionSuccessCard(
 internal fun TranscriptionInputCard(
     viewModel: PianoWeaveViewModel,
     context: Context,
-    onOpenServerSettings: () -> Unit
-) = ExternalInputCard(viewModel, context, onOpenServerSettings)
+    onOpenServerSettings: () -> Unit,
+    linkInputAnchors: LinkInputAnchors
+) = ExternalInputCard(viewModel, context, onOpenServerSettings, linkInputAnchors)
 
 @Composable
 internal fun TranscriptionProgressCard(

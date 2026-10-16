@@ -29,12 +29,17 @@ import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, ExperimentalLayoutApi::class)
 @Composable
 fun LearnScreen(
     viewModel: PianoWeaveViewModel,
@@ -71,6 +76,39 @@ fun LearnScreen(
                 .coerceIn(0, scrollState.maxValue)
             scrollState.animateScrollTo(targetScroll, animationSpec = tween(durationMillis = 300))
         }
+    }
+
+    // Typing a link: scroll once, as the keyboard starts to open, so the Transcribe button ends up just above
+    // the keyboard. The link field matters more, so scrolling stops before the field's top leaves the screen.
+    // Aiming at the keyboard's final height (not following it frame by frame) keeps this a single smooth scroll.
+    val linkInputAnchors = remember { LinkInputAnchors() }
+    val density = LocalDensity.current
+    var rootHeightPx by remember { mutableFloatStateOf(0f) }
+    val imeTargetPx = WindowInsets.imeAnimationTarget.getBottom(density)
+    val imeNowPx = WindowInsets.ime.getBottom(density)
+    fun overlapWith(imePx: Int): Float =
+        if (rootHeightPx <= 0f) 0f
+        else (scrollContainerTopInRoot + viewportHeightPx - (rootHeightPx - imePx)).coerceAtLeast(0f)
+    // While closing, follows the keyboard down so the content doesn't jump.
+    val keyboardOverlapPx = maxOf(overlapWith(imeTargetPx), overlapWith(imeNowPx))
+
+    LaunchedEffect(linkInputAnchors.isLinkFieldFocused, imeTargetPx) {
+        if (!linkInputAnchors.isLinkFieldFocused || imeTargetPx <= 0 || rootHeightPx <= 0f) return@LaunchedEffect
+        val margin = with(density) { 12.dp.toPx() }
+        val visibleTop = scrollContainerTopInRoot + margin
+        val visibleBottom = minOf(scrollContainerTopInRoot + viewportHeightPx, rootHeightPx - imeTargetPx) - margin
+        val needed = linkInputAnchors.transcribeButtonBottomInRoot - visibleBottom
+        val allowed = linkInputAnchors.linkFieldTopInRoot - visibleTop
+        val delta = minOf(needed, allowed)
+        if (delta <= 0f) return@LaunchedEffect
+
+        val target = scrollState.value + delta.roundToInt()
+        // The spacer below grows in the next layout pass; until then the scroll range may be too short.
+        withTimeoutOrNull(500) { snapshotFlow { scrollState.maxValue }.first { it >= target } }
+        scrollState.animateScrollTo(
+            target.coerceAtMost(scrollState.maxValue),
+            animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+        )
     }
 
     LaunchedEffect(viewModel.isLoading, viewModel.readySong) {
@@ -155,6 +193,7 @@ fun LearnScreen(
                 .onGloballyPositioned { coordinates ->
                     viewportHeightPx = coordinates.size.height.toFloat()
                     scrollContainerTopInRoot = coordinates.positionInRoot().y
+                    rootHeightPx = coordinates.findRootCoordinates().size.height.toFloat()
                 }
                 .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -262,7 +301,8 @@ fun LearnScreen(
                         TranscriptionInputCard(
                             viewModel = viewModel,
                             context = context,
-                            onOpenServerSettings = { showServerSettingsDialog = true }
+                            onOpenServerSettings = { showServerSettingsDialog = true },
+                            linkInputAnchors = linkInputAnchors
                         )
 
                         // 3. PROGRESS CARD - Active loading feedback
@@ -298,6 +338,9 @@ fun LearnScreen(
                     }
                 }
             }
+
+            // Room to scroll the Transcribe button above the keyboard, which covers the screen rather than shrinking it.
+            Spacer(Modifier.height(with(density) { keyboardOverlapPx.toDp() }))
         }
     }
 }

@@ -10,6 +10,7 @@ object AppLinks {
     private const val DOCS_BASE_URL = "https://virtover.github.io/pianoweave/"
 
     const val PRIVACY_POLICY = "${DOCS_BASE_URL}privacy_policy.html"
+    const val TERMS_OF_SERVICE = "${DOCS_BASE_URL}terms_of_service.html"
     const val ACCOUNT_DELETION = "${DOCS_BASE_URL}delete_account.html"
     const val CUSTOM_SERVER_SETUP = "https://github.com/Virtover/piano-transcription-server"
 }

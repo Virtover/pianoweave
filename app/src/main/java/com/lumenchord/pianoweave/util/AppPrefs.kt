@@ -33,6 +33,10 @@ object AppPrefs {
     /** MIDI file names of songs whose edited details have not reached their cloud copy yet. */
     const val PENDING_DETAIL_EDITS = "pending_detail_edits"
 
+    // Legal
+    /** The [LegalConsent.TERMS_VERSION] the user last agreed to before transcribing. */
+    const val ACCEPTED_TERMS_VERSION = "accepted_terms_version"
+
     // UI & playback
     const val SELECTED_THEME_ID = "selected_theme_id"
     const val TOP_BAR_SPEED = "top_bar_speed"

@@ -78,6 +78,16 @@ import androidx.compose.ui.semantics.Role
 import com.lumenchord.pianoweave.ui.screens.learn.DiscardRecordingDialog
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
 import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import com.lumenchord.pianoweave.ui.components.appendLink
+import androidx.compose.material.icons.outlined.Info
+import com.lumenchord.pianoweave.ui.screens.learn.LinkInputAnchors
+import com.lumenchord.pianoweave.ui.screens.learn.TranscriptionTermsDialog
+import com.lumenchord.pianoweave.util.AppLinks
+import com.lumenchord.pianoweave.util.LegalConsent
+import androidx.compose.ui.focus.onFocusChanged
 
 /**
  * Shown when a transcription finishes: the song's cover art over a blurred backdrop of itself, and a
@@ -213,7 +223,8 @@ fun TranscriptionSuccessCard(
 fun TranscriptionInputCard(
     viewModel: PianoWeaveViewModel,
     context: Context,
-    onOpenServerSettings: () -> Unit
+    onOpenServerSettings: () -> Unit,
+    linkInputAnchors: LinkInputAnchors = remember { LinkInputAnchors() }
 ) {
     val isSuccess = !viewModel.isLoading && viewModel.readySong != null
     val configuration = LocalConfiguration.current
@@ -270,6 +281,25 @@ fun TranscriptionInputCard(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    var showTermsDialog by remember { mutableStateOf(false) }
+    val transcribe = {
+        if (viewModel.isBilledServer && !viewModel.isGoogleSignedIn) {
+            viewModel.signInWithGoogle(context)
+        } else {
+            viewModel.startTranscription(context)
+        }
+    }
+    if (showTermsDialog) {
+        TranscriptionTermsDialog(
+            onAgree = {
+                showTermsDialog = false
+                LegalConsent.acceptTerms(context)
+                transcribe()
+            },
+            onDismiss = { showTermsDialog = false }
+        )
     }
 
     if (showMicPermissionDialog) {
@@ -352,15 +382,19 @@ fun TranscriptionInputCard(
                 )
             }
 
-            Text(
-                text = when (source) {
-                    TranscriptionSource.Link -> "Enter video URL"
-                    TranscriptionSource.File -> "Choose file"
-                    TranscriptionSource.Record -> "Record music playing near you, like your own piano"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = when (source) {
+                        TranscriptionSource.Link -> "Enter a video URL you have the right to use"
+                        TranscriptionSource.File -> "Choose a file you have the right to use"
+                        TranscriptionSource.Record -> "Record music you have the right to use, like your own piano"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                TermsInfoButton()
+            }
 
             if (source == TranscriptionSource.Record) {
                 when {
@@ -402,7 +436,10 @@ fun TranscriptionInputCard(
             } else OutlinedTextField(
                 value = viewModel.videoUrl,
                 onValueChange = { viewModel.updateUrl(it) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { linkInputAnchors.isLinkFieldFocused = it.isFocused }
+                    .onGloballyPositioned { linkInputAnchors.linkFieldTopInRoot = it.positionInRoot().y },
                 placeholder = { Text("Paste a link", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
                 enabled = !viewModel.isLoading,
@@ -440,17 +477,14 @@ fun TranscriptionInputCard(
 
                 Button(
                     onClick = {
-                        if (viewModel.isBilledServer && !viewModel.isGoogleSignedIn) {
-                            viewModel.signInWithGoogle(context)
-                        } else {
-                            viewModel.startTranscription(context)
-                        }
+                        if (LegalConsent.hasAcceptedTerms(context)) transcribe() else showTermsDialog = true
                     },
                     enabled = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
                         !viewModel.isCalculatingCost,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(48.dp)
+                        .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
@@ -498,6 +532,39 @@ fun TranscriptionInputCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/** An info icon whose tooltip links to the Terms of Service, which explain what may be transcribed. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TermsInfoButton() {
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+    val linkColor = MaterialTheme.colorScheme.secondary
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberRichTooltipPositionProvider(),
+        tooltip = {
+            RichTooltip {
+                Text(
+                    text = buildAnnotatedString { appendLink("Terms of Service", AppLinks.TERMS_OF_SERVICE, linkColor) },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        },
+        state = tooltipState
+    ) {
+        IconButton(
+            onClick = { scope.launch { tooltipState.show() } },
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = "What you can transcribe",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

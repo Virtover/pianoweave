@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -54,6 +55,14 @@ fun AboutSettingsSection(
             subtitle = "What data is used and how",
             previewTheme = previewTheme,
             onClick = { context.openUrl(AppLinks.PRIVACY_POLICY) }
+        )
+
+        LinkRow(
+            icon = Icons.Default.Gavel,
+            title = "Terms of Service",
+            subtitle = "Rules for using the app and credits",
+            previewTheme = previewTheme,
+            onClick = { context.openUrl(AppLinks.TERMS_OF_SERVICE) }
         )
 
         if (isSignedIn) {
