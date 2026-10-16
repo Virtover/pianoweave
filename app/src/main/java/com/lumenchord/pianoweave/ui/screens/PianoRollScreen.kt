@@ -58,6 +58,10 @@ fun PianoRollScreen(
     var noteEvents by remember(song) { mutableStateOf<List<MidiNoteEvent>?>(null) }
     var parseError by remember(song) { mutableStateOf<String?>(null) }
 
+    // System back leaves the song like the toolbar's back arrow instead of closing the app. While the
+    // UI bars are hidden, the player's own handler (registered later, so it wins) shows them first.
+    BackHandler(onBack = onBack)
+
     LaunchedEffect(song.file.absolutePath) {
         viewModel.isWaitModeEnabled = false
         noteEvents = null
