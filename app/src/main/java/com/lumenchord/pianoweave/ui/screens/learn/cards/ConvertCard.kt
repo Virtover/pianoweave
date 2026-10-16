@@ -378,6 +378,7 @@ fun TranscriptionInputCard(
                 SourceSelector(
                     selected = source,
                     enabled = !viewModel.isLoading && !viewModel.isRecording,
+                    isCompact = !isLandscape,
                     onSelect = { viewModel.selectTranscriptionSource(it) }
                 )
             }
@@ -572,21 +573,21 @@ private fun TermsInfoButton() {
 /**
  * Link, file or microphone: what the card transcribes. Hand-built rather than a Material SegmentedButton,
  * which always reserves room for a checkmark and never shrinks its label, so "Record" ran into the
- * rounded end of a three-way row in portrait.
+ * rounded end of a three-way row in portrait. Portrait says "Mic" instead, so the three segments share the width equally.
  */
 @Composable
 private fun SourceSelector(
     selected: TranscriptionSource,
     enabled: Boolean,
+    isCompact: Boolean,
     onSelect: (TranscriptionSource) -> Unit
 ) {
     val options = listOf(
         Triple(TranscriptionSource.Link, "Link", Icons.Default.Link),
         Triple(TranscriptionSource.File, "File", Icons.Default.AudioFile),
-        Triple(TranscriptionSource.Record, "Record", Icons.Default.Mic)
+        // "Record" doesn't fit a third of a portrait row at full text size.
+        Triple(TranscriptionSource.Record, if (isCompact) "Mic" else "Record", Icons.Default.Mic)
     )
-    // "Record" is the longest label; a wider segment keeps all three at the same text size.
-    val weights = listOf(1f, 1f, 1.3f)
     val accent = MaterialTheme.colorScheme.secondary
     val outline = MaterialTheme.colorScheme.outlineVariant
     val pill = RoundedCornerShape(percent = 50)
@@ -615,7 +616,7 @@ private fun SourceSelector(
             if (!isFirst) VerticalDivider(color = outline)
             Row(
                 modifier = Modifier
-                    .weight(weights[index])
+                    .weight(1f)
                     .fillMaxHeight()
                     .then(
                         if (isSelected) Modifier
