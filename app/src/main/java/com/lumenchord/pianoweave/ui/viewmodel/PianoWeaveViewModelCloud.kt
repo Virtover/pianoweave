@@ -7,6 +7,8 @@ import com.lumenchord.pianoweave.api.isPlaceholder
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
+import com.lumenchord.pianoweave.cloud.PendingDetailEdits
+import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.util.AppPrefs
@@ -170,6 +172,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 songsToLink.forEach { MidiStorage.updateCloudFileId(context, it, remainingCloudByUrl.getValue(it.videoUrl).id) }
 
                 repairLostMetadata(context, activeLocalSongs, remainingCloudById, remainingCloudByUrl, token)
+                syncEditedDetails(context, remainingCloudById, token)
 
                 val total = songsToUpload.size + songsToDownload.size
                 val done = AtomicInteger(0)
@@ -185,7 +188,11 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                     val uploads = async {
                         songsToUpload.parallelMap { localMidi ->
                             GoogleDriveManager.uploadMidi(context, localMidi, token).fold(
-                                onSuccess = { MidiStorage.updateCloudFileId(context, localMidi, it.id) },
+                                onSuccess = {
+                                    MidiStorage.updateCloudFileId(context, localMidi, it.id)
+                                    // The new cloud copy already carries any edited details.
+                                    PendingDetailEdits.remove(context, localMidi)
+                                },
                                 onFailure = { err ->
                                     Log.w(TAG, "Upload failed", err)
                                     failures.add("Upload '${localMidi.metadata.title}': ${err.localizedMessage ?: "Unknown error"}")
@@ -323,6 +330,43 @@ private suspend fun repairLostMetadata(
     }
     // Best effort: a failed repair is retried on the next sync.
     cloudCopiesToFix.parallelMap { (cloud, local) -> GoogleDriveManager.updateCloudMetadata(context, cloud.id, local, token) }
+}
+
+/**
+ * Carries title/artist edits of songs without a source link both ways: details edited here (still
+ * pending) are written to the cloud copy, otherwise the cloud copy's details (perhaps edited on
+ * another device) replace the local ones. Re-reads the library, as linking above changes cloud ids.
+ */
+private suspend fun syncEditedDetails(
+    context: Context,
+    cloudById: Map<String, CloudMidi>,
+    token: String
+) {
+    val localSongs = MidiStorage.list(context)
+    PendingDetailEdits.retainOnly(context, localSongs)
+    val toPush = mutableListOf<StoredMidi>()
+    for (local in localSongs.filter { it.hasEditableDetails }) {
+        val cloud = cloudById[local.cloudFileId] ?: continue
+        when {
+            PendingDetailEdits.contains(context, local) -> toPush += local
+            !cloud.hasLostMetadata && !sameDetails(local, cloud) -> MidiStorage.updateMetadata(
+                context, local, local.metadata.copy(title = cloud.metadata.title, author = cloud.metadata.author)
+            )
+        }
+    }
+    // Best effort: a song that fails stays pending and is retried on the next sync.
+    toPush.parallelMap { song ->
+        if (GoogleDriveManager.updateCloudMetadata(context, song.cloudFileId, song, token).isSuccess) {
+            PendingDetailEdits.remove(context, song)
+        }
+    }
+}
+
+/** Compared the way the .meta file stores them, which turns line breaks into spaces. */
+private fun sameDetails(local: StoredMidi, cloud: CloudMidi): Boolean {
+    fun String.stored() = replace(Regex("[\r\n]+"), " ").trim()
+    return local.metadata.title.stored() == cloud.metadata.title.stored() &&
+        local.metadata.author.stored() == cloud.metadata.author.stored()
 }
 
 /**

@@ -45,6 +45,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.midi.hasEditableDetails
+import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.components.CloudSyncDialogs
 import com.lumenchord.pianoweave.ui.components.DangerButton
 import com.lumenchord.pianoweave.ui.components.StoredSongCard
@@ -76,6 +78,18 @@ fun StorageScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var songPendingDelete by remember { mutableStateOf<StoredMidi?>(null) }
+    var songBeingEdited by remember { mutableStateOf<StoredMidi?>(null) }
+
+    songBeingEdited?.let { song ->
+        EditSongDetailsDialog(
+            song = song,
+            onSave = { title, artist ->
+                songBeingEdited = null
+                viewModel.updateSongDetails(context, song, title, artist)
+            },
+            onDismiss = { songBeingEdited = null }
+        )
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -636,7 +650,10 @@ fun StorageScreen(
                             viewModel.exportLocalSong(context, song)
                         },
                         onDelete = { songPendingDelete = song },
-                        modifier = Modifier.clickable { onSongSelect(song) }
+                        modifier = Modifier.clickable { onSongSelect(song) },
+                        onEditDetails = if (song.hasEditableDetails) {
+                            { songBeingEdited = song }
+                        } else null
                     )
                 }
             }

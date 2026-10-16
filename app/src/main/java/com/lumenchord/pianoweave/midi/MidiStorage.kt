@@ -20,6 +20,13 @@ data class StoredMidi(
     val cloudFileId: String = ""
 )
 
+/**
+ * Songs from a link get their details from the hosting service; songs without one (uploaded files,
+ * recordings, imported MIDI, cloud copies with no source) only have what the user gives them.
+ */
+val StoredMidi.hasEditableDetails: Boolean
+    get() = !videoUrl.startsWith("http://") && !videoUrl.startsWith("https://")
+
 object MidiStorage {
 
     private const val DIRECTORY = "midi"

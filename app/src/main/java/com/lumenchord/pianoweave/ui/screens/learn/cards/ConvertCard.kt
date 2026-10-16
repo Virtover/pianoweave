@@ -86,7 +86,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun TranscriptionSuccessCard(
     song: StoredMidi,
-    onSongSelect: (StoredMidi) -> Unit
+    onSongSelect: (StoredMidi) -> Unit,
+    /** Offered for uploads and recordings, which arrive named after the file. */
+    onEditDetails: (() -> Unit)? = null
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -192,6 +194,16 @@ fun TranscriptionSuccessCard(
                 Icon(Icons.Default.PlayArrow, null, Modifier.size(if (isLandscape) 20.dp else 24.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Start practicing", fontWeight = FontWeight.ExtraBold, fontSize = if (isLandscape) 14.sp else 16.sp)
+            }
+            if (onEditDetails != null) {
+                TextButton(
+                    onClick = onEditDetails,
+                    modifier = Modifier.padding(top = if (isLandscape) 2.dp else 6.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = accent)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Edit details", color = accent, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
@@ -342,8 +354,8 @@ fun TranscriptionInputCard(
 
             Text(
                 text = when (source) {
-                    TranscriptionSource.Link -> "Paste a video link you have the right to use"
-                    TranscriptionSource.File -> "Pick a recording you have the right to use"
+                    TranscriptionSource.Link -> "Enter video URL"
+                    TranscriptionSource.File -> "Choose file"
                     TranscriptionSource.Record -> "Record music playing near you, like your own piano"
                 },
                 style = MaterialTheme.typography.bodySmall,

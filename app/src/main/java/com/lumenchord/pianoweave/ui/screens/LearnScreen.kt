@@ -22,6 +22,8 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.midi.hasEditableDetails
+import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -41,6 +43,7 @@ fun LearnScreen(
 ) {
     var showServerSettingsDialog by remember { mutableStateOf(false) }
     var showCancelConfirmDialog by remember { mutableStateOf(false) }
+    var songBeingEdited by remember { mutableStateOf<StoredMidi?>(null) }
 
     val scrollState = rememberScrollState()
 
@@ -109,6 +112,17 @@ fun LearnScreen(
             viewModel = viewModel,
             context = context,
             onDismiss = { viewModel.dismissShop() }
+        )
+    }
+
+    songBeingEdited?.let { song ->
+        EditSongDetailsDialog(
+            song = song,
+            onSave = { title, artist ->
+                songBeingEdited = null
+                viewModel.updateSongDetails(context, song, title, artist)
+            },
+            onDismiss = { songBeingEdited = null }
         )
     }
 
@@ -236,7 +250,10 @@ fun LearnScreen(
                             viewModel.readySong?.let { song ->
                                 TranscriptionSuccessCard(
                                     song = song,
-                                    onSongSelect = onSongSelect
+                                    onSongSelect = onSongSelect,
+                                    onEditDetails = if (song.hasEditableDetails) {
+                                        { songBeingEdited = song }
+                                    } else null
                                 )
                             }
                         }

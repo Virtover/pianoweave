@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
@@ -69,7 +70,9 @@ fun StoredSongCard(
     exportState: ExportState,
     onExport: () -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Null for songs whose details come from their source link. */
+    onEditDetails: (() -> Unit)? = null
 ) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val metadata = song.metadata
@@ -120,7 +123,8 @@ fun StoredSongCard(
                     songTitle = metadata.title,
                     exportState = exportState,
                     onExport = onExport,
-                    onDelete = onDelete
+                    onDelete = onDelete,
+                    onEditDetails = onEditDetails
                 )
             }
         }
@@ -206,7 +210,8 @@ private fun SongMenu(
     songTitle: String,
     exportState: ExportState,
     onExport: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEditDetails: (() -> Unit)?
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
@@ -224,6 +229,16 @@ private fun SongMenu(
             onDismissRequest = { expanded = false },
             containerColor = MaterialTheme.colorScheme.secondaryContainer
         ) {
+            if (onEditDetails != null) {
+                DropdownMenuItem(
+                    text = { Text("Edit details") },
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                    onClick = {
+                        expanded = false
+                        onEditDetails()
+                    }
+                )
+            }
             DropdownMenuItem(
                 text = { Text(if (exportState == ExportState.Failed) "Retry saving to Downloads" else "Save .mid to Downloads") },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = null) },

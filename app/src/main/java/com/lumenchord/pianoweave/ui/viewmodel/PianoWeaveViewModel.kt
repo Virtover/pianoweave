@@ -314,6 +314,8 @@ class PianoWeaveViewModel : ViewModel() {
     fun clearImportError() = clearImportErrorImpl()
     fun importMidiFile(context: Context, uri: Uri) = importMidiFileImpl(context, uri)
     fun exportLocalSong(context: Context, song: StoredMidi) = exportLocalSongImpl(context, song)
+    fun updateSongDetails(context: Context, song: StoredMidi, title: String, artist: String) =
+        updateSongDetailsImpl(context, song, title, artist)
 
     fun enableCloudSync(context: Context) = enableCloudSyncImpl(context)
     fun disableCloudSync(context: Context) = disableCloudSyncImpl(context)

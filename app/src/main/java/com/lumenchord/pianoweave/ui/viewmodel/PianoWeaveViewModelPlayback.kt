@@ -5,6 +5,9 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
+import com.lumenchord.pianoweave.cloud.PendingDetailEdits
+import com.lumenchord.pianoweave.midi.hasEditableDetails
+import kotlinx.coroutines.sync.withLock
 import com.lumenchord.pianoweave.midi.ExportNotifier
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.MidiExporter
@@ -155,6 +158,42 @@ internal fun PianoWeaveViewModel.importMidiFileImpl(context: Context, uri: Uri) 
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 importError = e.message ?: "Failed to import file. Please select a valid MIDI file."
+            }
+        }
+    }
+}
+
+/**
+ * Renames a song that has no source link (see [hasEditableDetails]). A blank artist is stored as
+ * "Unknown", like any other song whose artist isn't known. Synced songs update their cloud copy now
+ * if possible; otherwise the edit stays pending and the next sync writes it.
+ */
+internal fun PianoWeaveViewModel.updateSongDetailsImpl(context: Context, song: StoredMidi, title: String, artist: String) {
+    val newTitle = title.replace(Regex("[\r\n]+"), " ").trim()
+    if (newTitle.isBlank() || !song.hasEditableDetails) return
+    // Left blank, an import keeps showing "Device Storage"; a cleared real artist becomes "Unknown".
+    val newArtist = artist.replace(Regex("[\r\n]+"), " ").trim().ifBlank {
+        song.metadata.author.takeIf { it == "Device Storage" } ?: "Unknown"
+    }
+    val metadata = song.metadata.copy(title = newTitle, author = newArtist)
+    if (metadata == song.metadata) return
+
+    MidiStorage.updateMetadata(context, song, metadata)
+    PendingDetailEdits.add(context, song)
+    songs = MidiStorage.list(context)
+    if (readySong?.file == song.file) readySong = readySong?.copy(metadata = metadata)
+    if (activePracticeSong?.file == song.file) activePracticeSong = activePracticeSong?.copy(metadata = metadata)
+
+    if (!isCloudSyncEnabled || !isGoogleSignedIn) return
+    val token = googleToken.takeIf { it.isNotBlank() } ?: return
+    viewModelScope.launch(Dispatchers.IO) {
+        // Under the library lock so a running sync can't read the pending flag between this write and its own.
+        GoogleDriveManager.libraryMutex.withLock {
+            val current = MidiStorage.list(context).firstOrNull { it.file == song.file } ?: return@withLock
+            // Not uploaded yet: the upload in the next sync carries the new details.
+            if (current.cloudFileId.isBlank()) return@withLock
+            if (GoogleDriveManager.updateCloudMetadata(context, current.cloudFileId, current, token).isSuccess) {
+                PendingDetailEdits.remove(context, current)
             }
         }
     }

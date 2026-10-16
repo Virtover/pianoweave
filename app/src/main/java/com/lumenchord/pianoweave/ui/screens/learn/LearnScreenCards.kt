@@ -13,8 +13,9 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 @Composable
 internal fun TranscriptionSuccessCard(
     song: StoredMidi,
-    onSongSelect: (StoredMidi) -> Unit
-) = ExternalSuccessCard(song, onSongSelect)
+    onSongSelect: (StoredMidi) -> Unit,
+    onEditDetails: (() -> Unit)? = null
+) = ExternalSuccessCard(song, onSongSelect, onEditDetails)
 
 @Composable
 internal fun TranscriptionInputCard(
