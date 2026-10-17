@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
@@ -113,11 +114,38 @@ internal fun FallingNotesVisualizer(
                 else -> baseCol.copy(alpha = 0.6f)
             }
 
+            val noteTop = y.coerceIn(-h, size.height)
+            val corner = 6.dp.toPx()
+
+            // Soft halo, like the glow around the logo's ribbons; stronger on notes being played
+            val haloAlpha = if (isAtBaseline || isWaiting || isUserMatch) 0.22f else 0.08f
+            for ((spread, alpha) in listOf(5.dp.toPx() to haloAlpha * 0.35f, 2.5.dp.toPx() to haloAlpha * 0.65f)) {
+                drawRoundRect(
+                    color = baseCol.copy(alpha = alpha),
+                    topLeft = Offset(x1 + 0.5f - spread, noteTop - spread),
+                    size = Size(kw - 1f + spread * 2, h + spread * 2),
+                    cornerRadius = CornerRadius(corner + spread)
+                )
+            }
+
             drawRoundRect(
                 brush = Brush.verticalGradient(listOf(highlightCol, baseCol), startY = y, endY = y + h),
-                topLeft = Offset(x1 + 0.5f, y.coerceIn(-h, size.height)),
+                topLeft = Offset(x1 + 0.5f, noteTop),
                 size = Size(kw - 1f, h),
-                cornerRadius = CornerRadius(6.dp.toPx())
+                cornerRadius = CornerRadius(corner)
+            )
+
+            // Thin lit edge, like the highlight line along each ribbon
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.12f)),
+                    startY = y,
+                    endY = y + h
+                ),
+                topLeft = Offset(x1 + 1f, noteTop + 0.5f),
+                size = Size(kw - 2f, h - 1f),
+                cornerRadius = CornerRadius(corner),
+                style = Stroke(width = 1.dp.toPx())
             )
 
             if (isHitting || isUserMatch || isWaiting) {
@@ -130,8 +158,26 @@ internal fun FallingNotesVisualizer(
             }
         }
 
+        // Hit line: a line of light with a soft glow rising from it, brightest in the middle
         val baselineY = size.height - 1f
-        drawLine(ColorBaseline, Offset(0f, baselineY), Offset(tw, baselineY), 3.dp.toPx())
+        val glowHeight = 28.dp.toPx()
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(Color.Transparent, ColorBaseline.copy(alpha = 0.10f), ColorBaseline.copy(alpha = 0.28f)),
+                startY = baselineY - glowHeight,
+                endY = baselineY
+            ),
+            topLeft = Offset(0f, baselineY - glowHeight),
+            size = Size(tw, glowHeight)
+        )
+        drawLine(
+            brush = Brush.horizontalGradient(
+                listOf(ColorBaseline.copy(alpha = 0.55f), ColorBaseline, ColorGoldLight, ColorBaseline, ColorBaseline.copy(alpha = 0.55f))
+            ),
+            start = Offset(0f, baselineY),
+            end = Offset(tw, baselineY),
+            strokeWidth = 3.dp.toPx()
+        )
 
         whiteEvents.forEach { drawNote(it) }
         blackEvents.forEach { drawNote(it) }

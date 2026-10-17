@@ -11,20 +11,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
-import com.lumenchord.pianoweave.R
+import com.lumenchord.pianoweave.ui.theme.DisplayFontFamily
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
-
-/**
- * Commissioner Light (SIL OFL, license in assets/licenses), the typeface of the Lumenchord
- * wordmark. The bundled file only has capital letters and the space.
- */
-private val WordmarkFontFamily = FontFamily(Font(R.font.commissioner_light, FontWeight.Light))
 
 /**
  * "PIANO WEAVE" in the style of the logo: thin, widely spaced capitals with a lamplight gradient
@@ -42,7 +34,7 @@ fun PianoWeaveWordmark(
         val end = theme.palette.text
         TextStyle(
             brush = Brush.horizontalGradient(listOf(start, lerp(start, end, 0.55f), end)),
-            fontFamily = WordmarkFontFamily,
+            fontFamily = DisplayFontFamily,
             fontWeight = FontWeight.Light,
             fontSize = fontSize,
             letterSpacing = 0.26.em,

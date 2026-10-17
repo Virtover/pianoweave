@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -41,6 +42,8 @@ import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.midi.SimpleMidiReader
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
+import com.lumenchord.pianoweave.ui.components.RibbonLoader
+import com.lumenchord.pianoweave.ui.theme.DisplayFontFamily
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.Dispatchers
@@ -91,28 +94,22 @@ fun PianoRollScreen(
 
 @Composable
 private fun MidiLoadingScreen() {
-    val appTheme = LocalAppTheme.current
-    val ColorGold = appTheme.primaryColor
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(ColorBg),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            CircularProgressIndicator(
-                color = ColorGold,
-                strokeWidth = 4.dp,
-                modifier = Modifier.size(56.dp)
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            RibbonLoader(size = 180.dp)
             Text(
                 text = "Orchestrating performance...",
-                color = ColorGold,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = 0.08.em
+                )
             )
         }
     }

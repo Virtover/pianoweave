@@ -10,16 +10,26 @@ import androidx.compose.ui.text.font.FontWeight
 import com.lumenchord.pianoweave.R
 
 /**
- * Playfair Display (SIL OFL, license in assets/licenses) for headings, matching the classic
- * gold-on-black piano look. It is a variable font, so each weight sets its own variation.
+ * Commissioner (SIL OFL, license in assets/licenses), the typeface of the Lumenchord wordmark, for
+ * the wordmark and headings. The bundled file is a variable font cut down to Latin, with weights
+ * 300 to 800. The heaviest weights asked for are drawn a step lighter, which keeps headings crisp
+ * instead of blocky, in the spirit of the light wordmark.
  */
 @OptIn(ExperimentalTextApi::class)
 val DisplayFontFamily = FontFamily(
-    listOf(FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold, FontWeight.ExtraBold, FontWeight.Black).map { weight ->
+    listOf(
+        FontWeight.Light to 300,
+        FontWeight.Normal to 400,
+        FontWeight.Medium to 500,
+        FontWeight.SemiBold to 560,
+        FontWeight.Bold to 600,
+        FontWeight.ExtraBold to 640,
+        FontWeight.Black to 700
+    ).map { (weight, drawn) ->
         Font(
-            R.font.playfair_display,
+            R.font.commissioner,
             weight = weight,
-            variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight))
+            variationSettings = FontVariation.Settings(FontVariation.weight(drawn))
         )
     }
 )
