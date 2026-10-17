@@ -68,31 +68,7 @@ fun AdaptiveNavigation(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Styled Logo Text
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "PIANO",
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Clip,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Light,
-                                    letterSpacing = 1.5.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "WEAVE",
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Clip,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.sp
-                                ),
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
+                        PianoWeaveWordmark(fontSize = 13.sp, stacked = true)
                     }
                 }
             ) {
@@ -184,24 +160,7 @@ fun AdaptiveNavigation(
                                 }
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "PIANO ",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Light,
-                                        letterSpacing = 1.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "WEAVE",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 1.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
+                            PianoWeaveWordmark(fontSize = 18.sp)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(

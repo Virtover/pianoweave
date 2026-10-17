@@ -33,7 +33,21 @@ fun PianoWeaveTheme(
     theme: AppTheme = AppThemeManager.defaultTheme,
     content: @Composable () -> Unit
 ) {
+    val palette = theme.palette
     val dynamicColorScheme = PianoDarkColorScheme.copy(
+        primary = palette.text,
+        onPrimary = palette.onText,
+        primaryContainer = palette.container,
+        onPrimaryContainer = palette.text,
+        secondaryContainer = palette.secondaryContainer,
+        background = palette.background,
+        surface = palette.surface,
+        onBackground = palette.onSurface,
+        onSurface = palette.onSurface,
+        onSurfaceVariant = palette.onSurfaceVariant,
+        errorContainer = palette.errorContainer,
+        tertiary = palette.muted,
+        tertiaryContainer = palette.mutedContainer,
         secondary = theme.primaryColor,
         onSecondary = if (theme.isLightAccent) Color(0xFF101214) else Color.White,
         outline = theme.primaryColor.copy(alpha = 0.4f)

@@ -43,9 +43,9 @@ internal fun FallingNotesVisualizer(
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color(0xFF090D14),
-                    Color(0xFF0D1117),
-                    Color(0xFF070A0F)
+                    appTheme.palette.stageTop,
+                    appTheme.palette.stageMiddle,
+                    appTheme.palette.stageBottom
                 )
             ),
             size = size
@@ -55,7 +55,7 @@ internal fun FallingNotesVisualizer(
         for (i in 0..numWhiteKeys) {
             val x = i * (tw / numWhiteKeys)
             drawLine(
-                color = Color(0xFF161B22).copy(alpha = 0.6f),
+                color = appTheme.palette.stageLane.copy(alpha = 0.6f),
                 start = Offset(x, 0f),
                 end = Offset(x, size.height),
                 strokeWidth = 1f

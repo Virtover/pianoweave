@@ -122,7 +122,7 @@ fun AppThemeDialog(
                     .fillMaxWidth(0.95f)
                     .fillMaxHeight(0.88f),
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF161B22),
+                color = previewTheme.palette.dialogSurface,
                 contentColor = Color.White,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {

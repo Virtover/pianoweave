@@ -9,6 +9,7 @@ import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.billing.verify
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.util.findActivity
 import com.lumenchord.pianoweave.worker.PurchaseVerificationWorker
@@ -184,7 +185,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     val prefs = AppPrefs.get(context)
     getOrCreateUserIdImpl(context)
     isStrikeOverlayEnabled = prefs.getBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, true)
-    selectedThemeId = prefs.getString(AppPrefs.SELECTED_THEME_ID, "gold") ?: "gold"
+    selectedThemeId = prefs.getString(AppPrefs.SELECTED_THEME_ID, AppThemeManager.defaultTheme.id) ?: AppThemeManager.defaultTheme.id
     topBarSpeed = prefs.getFloat(AppPrefs.TOP_BAR_SPEED, 1.0f)
     isCloudSyncEnabled = prefs.getBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false)
     hasCloudSyncError = prefs.getBoolean(AppPrefs.HAS_CLOUD_SYNC_ERROR, false)

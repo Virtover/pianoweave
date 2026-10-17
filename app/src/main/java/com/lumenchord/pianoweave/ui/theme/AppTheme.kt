@@ -18,12 +18,86 @@ data class AppTheme(
     val baselineGlowColor: Color,
     val successColor: Color,
     val successLightColor: Color,
-    val isLightAccent: Boolean = false
+    val isLightAccent: Boolean = false,
+    val palette: NeutralPalette = NeutralPalette.Slate
 )
+
+/** The non-accent colors: backgrounds, cards, text and the falling-notes stage. */
+data class NeutralPalette(
+    val text: Color,
+    val onText: Color,
+    val container: Color,
+    val secondaryContainer: Color,
+    val background: Color,
+    val surface: Color,
+    val dialogSurface: Color,
+    val onSurface: Color,
+    val onSurfaceVariant: Color,
+    val muted: Color,
+    val mutedContainer: Color,
+    val errorContainer: Color,
+    val stageTop: Color,
+    val stageMiddle: Color,
+    val stageBottom: Color,
+    val stageLane: Color
+) {
+    companion object {
+        /** Cool piano black, used by every accent theme. */
+        val Slate = NeutralPalette(
+            text = Color(0xFFECEFF1),
+            onText = Color(0xFF101214),
+            container = Color(0xFF2C2E33),
+            secondaryContainer = Color(0xFF22272E),
+            background = Color(0xFF0F1113),
+            surface = Color(0xFF16181C),
+            dialogSurface = Color(0xFF161B22),
+            onSurface = Color(0xFFE3E4E8),
+            onSurfaceVariant = Color(0xFF90949F),
+            muted = Color(0xFF8B949E),
+            mutedContainer = Color(0xFF30363D),
+            errorContainer = Color(0xFF221B1C),
+            stageTop = Color(0xFF090D14),
+            stageMiddle = Color(0xFF0D1117),
+            stageBottom = Color(0xFF070A0F),
+            stageLane = Color(0xFF161B22)
+        )
+
+        /** Slate with its slight cool tint turned warm: same brightness, warm instead of blue. */
+        val WarmNight = NeutralPalette(
+            text = Color(0xFFF1EFEC),
+            onText = Color(0xFF141210),
+            container = Color(0xFF332E2C),
+            secondaryContainer = Color(0xFF2E2722),
+            background = Color(0xFF13110F),
+            surface = Color(0xFF1C1816),
+            dialogSurface = Color(0xFF221B16),
+            onSurface = Color(0xFFE8E4E3),
+            onSurfaceVariant = Color(0xFF9F9490),
+            muted = Color(0xFF9E948B),
+            mutedContainer = Color(0xFF3D3630),
+            errorContainer = Color(0xFF221B1C),
+            stageTop = Color(0xFF140D09),
+            stageMiddle = Color(0xFF17110D),
+            stageBottom = Color(0xFF0F0A07),
+            stageLane = Color(0xFF221B16)
+        )
+    }
+}
 
 object AppThemeManager {
 
-    val defaultTheme = createTheme(
+    /** Matches the app icon: lamplight cream on warm night. */
+    private val lamplightTheme = createTheme(
+        id = "lamplight",
+        name = "Lamplight",
+        primary = Color(0xFFF7DDBA),
+        customWaitTarget = Color(0xFF00D2FF),
+        customSuccess = Color(0xFF2EA043),
+        customBaseline = Color(0xFFFD9B4A),
+        palette = NeutralPalette.WarmNight
+    )
+
+    private val classicGoldTheme = createTheme(
         id = "gold",
         name = "Classic Gold",
         primary = Color(0xFFD4AF37),
@@ -32,8 +106,11 @@ object AppThemeManager {
         customBaseline = Color(0xFFFD9B4A)
     )
 
+    val defaultTheme = classicGoldTheme
+
     val themes: List<AppTheme> = listOf(
-        defaultTheme,
+        lamplightTheme,
+        classicGoldTheme,
         createTheme("amber", "Warm Amber", Color(0xFFFFB300)),
         createTheme("sunburst", "Sunburst Yellow", Color(0xFFFFE812), isLightAccent = true),
         createTheme("orange", "Sunset Orange", Color(0xFFFF6D00)),
@@ -82,7 +159,8 @@ object AppThemeManager {
         isLightAccent: Boolean = false,
         customWaitTarget: Color? = null,
         customSuccess: Color? = null,
-        customBaseline: Color? = null
+        customBaseline: Color? = null,
+        palette: NeutralPalette = NeutralPalette.Slate
     ): AppTheme {
         val hsv = FloatArray(3)
         AndroidColor.colorToHSV(primary.toArgb(), hsv)
@@ -141,7 +219,8 @@ object AppThemeManager {
             baselineGlowColor = baselineGlowColor,
             successColor = successColor,
             successLightColor = successLightColor,
-            isLightAccent = resolvedIsLightAccent
+            isLightAccent = resolvedIsLightAccent,
+            palette = palette
         )
     }
 }

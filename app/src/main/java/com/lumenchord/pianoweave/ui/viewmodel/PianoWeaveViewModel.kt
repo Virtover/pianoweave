@@ -11,6 +11,7 @@ import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.Job
 
@@ -47,7 +48,7 @@ class PianoWeaveViewModel : ViewModel() {
     var isCancelling by mutableStateOf(false)
         internal set
 
-    var selectedThemeId by mutableStateOf("gold")
+    var selectedThemeId by mutableStateOf(AppThemeManager.defaultTheme.id)
         internal set
 
     // --- Playback State (Orientation Survival) ---
