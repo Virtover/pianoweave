@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.MidiInputManager
@@ -36,6 +37,7 @@ internal fun FallingNotesVisualizer(
     val ColorSuccessLight = appTheme.successLightColor
 
     val scale = 0.25f
+    val glowAlpha = (0.30f - 0.25f * ColorBaseline.luminance()).coerceIn(0.08f, 0.24f)
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
@@ -158,12 +160,14 @@ internal fun FallingNotesVisualizer(
             }
         }
 
-        // Hit line: a line of light with a soft glow rising from it, brightest in the middle
+        // Hit line: a line of light with a soft glow rising from it, brightest in the middle.
+        // Bright baseline colors (yellow, lime, cyan...) glow much harder at the same opacity, so
+        // their glow is turned down to look about as strong as on darker colors.
         val baselineY = size.height - 1f
         val glowHeight = 28.dp.toPx()
         drawRect(
             brush = Brush.verticalGradient(
-                listOf(Color.Transparent, ColorBaseline.copy(alpha = 0.10f), ColorBaseline.copy(alpha = 0.28f)),
+                listOf(Color.Transparent, ColorBaseline.copy(alpha = glowAlpha * 0.35f), ColorBaseline.copy(alpha = glowAlpha)),
                 startY = baselineY - glowHeight,
                 endY = baselineY
             ),

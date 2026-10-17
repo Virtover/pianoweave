@@ -26,6 +26,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -156,8 +157,9 @@ internal fun ModernToolbar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(ColorSurface.copy(alpha = 0.5f))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            // Fades into the falling notes instead of ending in a hard edge
+            .background(Brush.verticalGradient(listOf(ColorSurface.copy(alpha = 0.85f), ColorSurface.copy(alpha = 0.45f), Color.Transparent)))
+            .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 10.dp)
             .pointerInput(Unit) { detectTapGestures { } }, // Consume gestures so UI toolbar doesn't pass taps through
         verticalAlignment = Alignment.CenterVertically
     ) {

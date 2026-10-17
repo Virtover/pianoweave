@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -18,12 +17,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,11 +41,28 @@ internal fun MediaTimelineFooter(
 ) {
     val appTheme = LocalAppTheme.current
     val ColorGold = appTheme.primaryColor
+    val ColorGoldLight = appTheme.lightColor
+    val edgeColor = ColorSlate
+    val timeStyle = TextStyle(
+        color = Color.White.copy(alpha = 0.6f),
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        fontFeatureSettings = "tnum" // Equal-width digits, so the time doesn't jitter while playing
+    )
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(ColorSurface)
+            .drawBehind {
+                // Thin edge along the top, fading out towards the sides
+                drawLine(
+                    brush = Brush.horizontalGradient(listOf(Color.Transparent, edgeColor, edgeColor, Color.Transparent)),
+                    start = Offset(0f, 0f),
+                    end = Offset(size.width, 0f),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .pointerInput(Unit) { detectTapGestures { } }, // Consume gestures
         verticalAlignment = Alignment.CenterVertically
@@ -57,7 +75,18 @@ internal fun MediaTimelineFooter(
                 onClick = { viewModel.isPlaying = !viewModel.isPlaying },
                 modifier = Modifier
                     .size(44.dp)
-                    .background(ColorGold, CircleShape)
+                    .drawBehind {
+                        // Soft glow around the play button, like the light around the logo
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                listOf(ColorGold.copy(alpha = 0.35f), Color.Transparent),
+                                center = center,
+                                radius = size.minDimension * 0.85f
+                            ),
+                            radius = size.minDimension * 0.85f
+                        )
+                    }
+                    .background(Brush.linearGradient(listOf(ColorGoldLight, ColorGold)), CircleShape)
             ) {
                 Icon(
                     imageVector = if (viewModel.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -155,6 +184,17 @@ internal fun MediaTimelineFooter(
                         Box(
                             modifier = Modifier
                                 .size(15.dp)
+                                .drawBehind {
+                                    val glowRadius = size.minDimension
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            listOf(ColorGold.copy(alpha = 0.35f), Color.Transparent),
+                                            center = center,
+                                            radius = glowRadius
+                                        ),
+                                        radius = glowRadius
+                                    )
+                                }
                                 .background(Color.White, CircleShape)
                         )
                     },
@@ -205,7 +245,7 @@ internal fun MediaTimelineFooter(
                             if (activeWidth > 0f) {
                                 drawRoundRect(
                                     brush = Brush.horizontalGradient(
-                                        colors = listOf(ColorGold, ColorGold),
+                                        colors = listOf(ColorGold, ColorGoldLight),
                                         startX = 0f,
                                         endX = activeWidth.coerceAtLeast(1f)
                                     ),
@@ -224,31 +264,30 @@ internal fun MediaTimelineFooter(
                     .offset(y = (-4).dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val timeColor = Color.White.copy(alpha = 0.6f)
-                Text(formatTime(viewModel.playheadMs.coerceIn(0L, dur.coerceAtLeast(0L))), color = timeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(formatTime(dur), color = timeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(formatTime(viewModel.playheadMs.coerceIn(0L, dur.coerceAtLeast(0L))), style = timeStyle)
+                Text(formatTime(dur), style = timeStyle)
             }
         }
         Spacer(modifier = Modifier.width(14.dp))
         IconButton(
             onClick = { viewModel.isLoopingEnabled = !viewModel.isLoopingEnabled },
             modifier = Modifier
-                .size(48.dp)
+                .size(44.dp)
                 .background(
                     if (viewModel.isLoopingEnabled) ColorGold else ColorSurface,
-                    RoundedCornerShape(12.dp)
+                    CircleShape
                 )
                 .border(
                     1.dp,
                     if (!viewModel.isLoopingEnabled) ColorSlate else Color.Transparent,
-                    RoundedCornerShape(12.dp)
+                    CircleShape
                 )
         ) {
             Icon(
                 imageVector = Icons.Default.Repeat,
                 contentDescription = if (viewModel.isLoopingEnabled) "Turn off loop" else "Loop a section",
                 tint = if (viewModel.isLoopingEnabled) Color.Black else ColorGold,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
