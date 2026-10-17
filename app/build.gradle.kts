@@ -29,7 +29,7 @@ android {
 
         versionCode = 5
         versionName = "1.0"
-
+4
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
 
