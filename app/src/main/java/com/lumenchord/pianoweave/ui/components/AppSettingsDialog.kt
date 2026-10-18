@@ -128,6 +128,12 @@ fun AppSettingsDialog(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.tertiary
                             )
+                            Text(
+                                text = "· ${previewTheme.name}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = previewTheme.primaryColor
+                            )
                         }
 
                         AppThemeGrid(

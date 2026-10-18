@@ -62,39 +62,57 @@ data class NeutralPalette(
             stageLane = Color(0xFF161B22)
         )
 
-        /** Slate with its slight cool tint turned warm: same brightness, warm instead of blue. */
-        val WarmNight = NeutralPalette(
-            text = Color(0xFFF1EFEC),
-            onText = Color(0xFF141210),
-            container = Color(0xFF332E2C),
-            secondaryContainer = Color(0xFF2E2722),
-            background = Color(0xFF13110F),
-            surface = Color(0xFF1C1816),
-            dialogSurface = Color(0xFF221B16),
-            onSurface = Color(0xFFE8E4E3),
-            onSurfaceVariant = Color(0xFF9F9490),
-            muted = Color(0xFF9E948B),
-            mutedContainer = Color(0xFF3D3630),
-            errorContainer = Color(0xFF221B1C),
-            stageTop = Color(0xFF140D09),
-            stageMiddle = Color(0xFF17110D),
-            stageBottom = Color(0xFF0F0A07),
-            stageLane = Color(0xFF221B16)
-        )
+        /**
+         * Slate with its slight tint turned to [hue] (0-360), so the backgrounds quietly take on
+         * the theme's own color while keeping Slate's brightness. [strength] scales how much tint
+         * there is (1 = as much as Slate's blue) and [depth] below 1 makes the darks deeper.
+         */
+        fun tinted(hue: Float, strength: Float = 1f, depth: Float = 1f): NeutralPalette {
+            fun Color.retint(isDark: Boolean = true): Color {
+                val hsv = FloatArray(3)
+                AndroidColor.colorToHSV(toArgb(), hsv)
+                val value = if (isDark) hsv[2] * depth else hsv[2]
+                return Color(AndroidColor.HSVToColor(floatArrayOf(hue, (hsv[1] * strength).coerceIn(0f, 1f), value.coerceIn(0f, 1f))))
+            }
+            return with(Slate) {
+                NeutralPalette(
+                    text = text.retint(isDark = false),
+                    onText = onText.retint(),
+                    container = container.retint(),
+                    secondaryContainer = secondaryContainer.retint(),
+                    background = background.retint(),
+                    surface = surface.retint(),
+                    dialogSurface = dialogSurface.retint(),
+                    onSurface = onSurface.retint(isDark = false),
+                    onSurfaceVariant = onSurfaceVariant.retint(isDark = false),
+                    muted = muted.retint(isDark = false),
+                    mutedContainer = mutedContainer.retint(),
+                    errorContainer = errorContainer,
+                    stageTop = stageTop.retint(),
+                    stageMiddle = stageMiddle.retint(),
+                    stageBottom = stageBottom.retint(),
+                    stageLane = stageLane.retint()
+                )
+            }
+        }
     }
 }
 
 object AppThemeManager {
 
-    /** Matches the app icon: lamplight cream on warm night. */
+    /**
+     * "Your word is a lamp to my feet and a light to my path" (Psalm 119:105). Deep and warm, with
+     * honey-gold light and lively companion colors: sky blue for notes to play, fresh green for
+     * notes played right, a coral hit line.
+     */
     private val lamplightTheme = createTheme(
         id = "lamplight",
         name = "Lamplight",
-        primary = Color(0xFFF7DDBA),
-        customWaitTarget = Color(0xFF00D2FF),
-        customSuccess = Color(0xFF2EA043),
-        customBaseline = Color(0xFFFD9B4A),
-        palette = NeutralPalette.WarmNight
+        primary = Color(0xFFFFC266),
+        customWaitTarget = Color(0xFF5CCFFF),
+        customSuccess = Color(0xFF4ADE80),
+        customBaseline = Color(0xFFFF8A5C),
+        palette = NeutralPalette.tinted(hue = 28f, strength = 1.35f, depth = 0.88f)
     )
 
     private val classicGoldTheme = createTheme(
@@ -103,49 +121,54 @@ object AppThemeManager {
         primary = Color(0xFFD4AF37),
         customWaitTarget = Color(0xFF00D2FF),
         customSuccess = Color(0xFF2EA043),
-        customBaseline = Color(0xFFFD9B4A)
+        customBaseline = Color(0xFFFD9B4A),
+        tint = 0.8f
     )
 
     val defaultTheme = classicGoldTheme
 
+    /**
+     * Names come from the Bible's imagery of creation, worship and joy. Ids stay as they were, so
+     * a saved choice keeps working.
+     */
     val themes: List<AppTheme> = listOf(
         lamplightTheme,
         classicGoldTheme,
-        createTheme("amber", "Warm Amber", Color(0xFFFFB300)),
-        createTheme("sunburst", "Sunburst Yellow", Color(0xFFFFE812), isLightAccent = true),
-        createTheme("orange", "Sunset Orange", Color(0xFFFF6D00)),
-        createTheme("coral", "Coral Flame", Color(0xFFFF5722)),
-        createTheme("crimson", "Crimson Red", Color(0xFFE53935)),
-        createTheme("ruby", "Ruby Scarlet", Color(0xFFD81B60)),
-        createTheme("rose", "Rose Pink", Color(0xFFEC407A)),
-        createTheme("magenta", "Hot Magenta", Color(0xFFF06292)),
-        createTheme("electric_purple", "Electric Purple", Color(0xFFAB47BC)),
-        createTheme("royal_violet", "Royal Violet", Color(0xFF8E24AA)),
-        createTheme("indigo", "Deep Indigo", Color(0xFF5C6BC0)),
-        createTheme("sapphire", "Sapphire Blue", Color(0xFF1E88E5)),
-        createTheme("electric_blue", "Electric Blue", Color(0xFF00B0FF)),
-        createTheme("cyan", "Ocean Cyan", Color(0xFF00E5FF), isLightAccent = true),
-        createTheme("aqua", "Deep Aqua", Color(0xFF00ACC1)),
-        createTheme("teal", "Teal Breeze", Color(0xFF009688)),
-        createTheme("emerald", "Emerald Green", Color(0xFF2ECC71)),
-        createTheme("mint", "Vibrant Mint", Color(0xFF00E676), isLightAccent = true),
-        createTheme("lime", "Neon Lime", Color(0xFF76FF03), isLightAccent = true),
-        createTheme("chartreuse", "Chartreuse", Color(0xFFC0CA33), isLightAccent = true),
-        createTheme("olive", "Olive Gold", Color(0xFFAFB42B)),
-        createTheme("copper", "Copper Bronze", Color(0xFFD35400)),
+        createTheme("amber", "Honey", Color(0xFFFFB300)), // Psalm 19:10
+        createTheme("sunburst", "Morning Joy", Color(0xFFFFD93D)), // Psalm 30:5
+        createTheme("orange", "Dayspring", Color(0xFFFF7A1A)), // Luke 1:78
+        createTheme("coral", "Hearth", Color(0xFFFF5722)),
+        createTheme("solar", "Burning Bush", Color(0xFFFF3D00)), // Exodus 3:2
+        createTheme("copper", "Potter's Clay", Color(0xFFD35400)), // Isaiah 64:8
+        createTheme("goldenrod", "Harvest", Color(0xFFDAA520)), // Psalm 126:6
+        createTheme("crimson", "Scarlet Cord", Color(0xFFE53935)), // Joshua 2:18
+        createTheme("ruby", "Pomegranate", Color(0xFFD81B60)), // Song of Songs 4:3
+        createTheme("rose", "Rose of Sharon", Color(0xFFEC407A)), // Song of Songs 2:1
+        createTheme("magenta", "Desert Bloom", Color(0xFFF06292)), // Isaiah 35:1
+        createTheme("cherry", "Almond Blossom", Color(0xFFFF8FB8)), // Numbers 17:8
         createTheme("rose_gold", "Rose Gold", Color(0xFFB76E79)),
-        createTheme("silver", "Platinum Silver", Color(0xFFECEFF1), isLightAccent = true),
-        createTheme("titanium", "Titanium Gray", Color(0xFF90A4AE)),
-        createTheme("lavender", "Lavender Glow", Color(0xFFB388FF)),
-        createTheme("cherry", "Cherry Blossom", Color(0xFFFF80AB)),
-        createTheme("neon_cyan", "Neon Cyan", Color(0xFF18FFFF), isLightAccent = true),
-        createTheme("toxic_green", "Toxic Green", Color(0xFF64DD17), isLightAccent = true),
-        createTheme("solar", "Solar Flare", Color(0xFFFF3D00)),
-        createTheme("deep_velvet", "Deep Velvet", Color(0xFF6A1B9A)),
-        createTheme("cyber_turquoise", "Cyber Turquoise", Color(0xFF1DE9B6), isLightAccent = true),
-        createTheme("champagne", "Champagne", Color(0xFFF7E7CE), isLightAccent = true),
-        createTheme("midnight", "Midnight Blue", Color(0xFF3D5AFE)),
-        createTheme("goldenrod", "Goldenrod", Color(0xFFDAA520))
+        createTheme("lavender", "Lavender", Color(0xFFB388FF)),
+        createTheme("electric_purple", "Iris", Color(0xFFAB47BC)),
+        createTheme("royal_violet", "Royal Robe", Color(0xFF8E24AA)), // 1 Peter 2:9
+        createTheme("deep_velvet", "Night Watch", Color(0xFF7B2CBF)), // Psalm 63:6
+        createTheme("indigo", "Evening Prayer", Color(0xFF5C6BC0)), // Psalm 141:2
+        createTheme("midnight", "Starry Host", Color(0xFF3D5AFE)), // Psalm 147:4
+        createTheme("sapphire", "Sapphire Heaven", Color(0xFF1E88E5)), // Exodus 24:10
+        createTheme("electric_blue", "Open Sky", Color(0xFF00B0FF)), // Psalm 19:1
+        createTheme("cyan", "Living Water", Color(0xFF00E5FF)), // John 4:10
+        createTheme("neon_cyan", "Morning Dew", Color(0xFF8BE9F5)), // Hosea 14:5
+        createTheme("aqua", "Still Waters", Color(0xFF00ACC1)), // Psalm 23:2
+        createTheme("cyber_turquoise", "Galilee", Color(0xFF1DE9B6)), // Matthew 4:18
+        createTheme("teal", "Riverside", Color(0xFF009688)), // Psalm 1:3
+        createTheme("mint", "Spring Rain", Color(0xFF2EE59D)), // Joel 2:23
+        createTheme("emerald", "Green Pastures", Color(0xFF2ECC71)), // Psalm 23:2
+        createTheme("toxic_green", "Evergreen", Color(0xFF43A047)), // Psalm 1:3, "its leaf does not wither"
+        createTheme("lime", "New Growth", Color(0xFFA3E635)), // Isaiah 43:19
+        createTheme("chartreuse", "Vineyard", Color(0xFFC0CA33)), // John 15:5
+        createTheme("olive", "Olive Tree", Color(0xFFAFB42B)), // Psalm 52:8
+        createTheme("champagne", "Fine Linen", Color(0xFFF7E7CE), tint = 0.6f), // Revelation 19:8
+        createTheme("silver", "Refined Silver", Color(0xFFECEFF1)), // Psalm 12:6
+        createTheme("titanium", "Rock of Refuge", Color(0xFF90A4AE)) // Psalm 18:2
     )
 
     fun getTheme(id: String?): AppTheme {
@@ -160,7 +183,9 @@ object AppThemeManager {
         customWaitTarget: Color? = null,
         customSuccess: Color? = null,
         customBaseline: Color? = null,
-        palette: NeutralPalette = NeutralPalette.Slate
+        /** How strongly the backgrounds take on the theme's color; 0 keeps plain Slate. */
+        tint: Float = 0.9f,
+        palette: NeutralPalette? = null
     ): AppTheme {
         val hsv = FloatArray(3)
         AndroidColor.colorToHSV(primary.toArgb(), hsv)
@@ -220,7 +245,8 @@ object AppThemeManager {
             successColor = successColor,
             successLightColor = successLightColor,
             isLightAccent = resolvedIsLightAccent,
-            palette = palette
+            // Near-gray accents have no real hue to borrow, so they keep Slate
+            palette = palette ?: if (sat < 0.15f || tint <= 0f) NeutralPalette.Slate else NeutralPalette.tinted(hue, strength = tint)
         )
     }
 }
