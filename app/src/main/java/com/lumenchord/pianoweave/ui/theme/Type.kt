@@ -34,6 +34,9 @@ val DisplayFontFamily = FontFamily(
     }
 )
 
+/** Lora (SIL OFL, license in assets/licenses): a warm, softly brushed serif for reading the verse itself. */
+val LetterFontFamily = FontFamily(Font(R.font.lora))
+
 private fun TextStyle.display() = copy(fontFamily = DisplayFontFamily)
 
 /** Material defaults, with headings in the display font; body and labels stay in the system sans-serif. */

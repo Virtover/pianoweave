@@ -1,0 +1,1495 @@
+{
+  "source": "Verse texts based on the World English Bible (public domain). The divine name is rendered as \"the LORD\"; some verses are shortened. Hebrew names include vowel points (niqqud).",
+  "verses": [
+    {
+      "ref": "John 1:1",
+      "category": "jesus",
+      "text": "In the beginning was the Word, and the Word was with God, and the Word was God.",
+      "godName": {
+        "name": "Elohim",
+        "hebrew": "אֱלֹהִים",
+        "meaning": "God, the Creator"
+      }
+    },
+    {
+      "ref": "John 1:14",
+      "category": "jesus",
+      "text": "The Word became flesh, and lived among us. We saw his glory, such glory as of the one and only Son of the Father, full of grace and truth.",
+      "godName": {
+        "name": "Immanuel",
+        "hebrew": "עִמָּנוּאֵל",
+        "meaning": "God with us"
+      }
+    },
+    {
+      "ref": "John 3:16",
+      "category": "jesus",
+      "text": "For God so loved the world, that he gave his one and only Son, that whoever believes in him should not perish, but have eternal life.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 3:17",
+      "category": "jesus",
+      "text": "For God didn’t send his Son into the world to judge the world, but that the world should be saved through him.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 6:35",
+      "category": "jesus",
+      "text": "Jesus said to them, “I am the bread of life. Whoever comes to me will not be hungry, and whoever believes in me will never be thirsty.”",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "John 8:12",
+      "category": "jesus",
+      "text": "Again, therefore, Jesus spoke to them, saying, “I am the light of the world. He who follows me will not walk in the darkness, but will have the light of life.”",
+      "godName": {
+        "name": "Yahweh Ori",
+        "hebrew": "יְהוָה אוֹרִי",
+        "meaning": "The LORD is my light"
+      }
+    },
+    {
+      "ref": "John 8:31-32",
+      "category": "jesus",
+      "text": "Jesus therefore said to those Jews who had believed him, “If you remain in my word, then you are truly my disciples. You will know the truth, and the truth will make you free.”",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 10:10",
+      "category": "jesus",
+      "text": "The thief only comes to steal, kill, and destroy. I came that they may have life, and may have it abundantly.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 10:11",
+      "category": "jesus",
+      "text": "I am the good shepherd. The good shepherd lays down his life for the sheep.",
+      "godName": {
+        "name": "Yahweh Rohi",
+        "hebrew": "יְהוָה רֹעִי",
+        "meaning": "The LORD is my shepherd"
+      }
+    },
+    {
+      "ref": "John 11:25-26",
+      "category": "jesus",
+      "text": "Jesus said to her, “I am the resurrection and the life. He who believes in me will still live, even if he dies. Whoever lives and believes in me will never die. Do you believe this?”",
+      "godName": {
+        "name": "El Chai",
+        "hebrew": "אֵל חַי",
+        "meaning": "The Living God"
+      }
+    },
+    {
+      "ref": "John 13:34",
+      "category": "jesus",
+      "text": "A new commandment I give to you, that you love one another. Just as I have loved you, you also love one another.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 14:2-3",
+      "category": "jesus",
+      "text": "In my Father’s house are many homes. If it weren’t so, I would have told you. I am going to prepare a place for you. If I go and prepare a place for you, I will come again, and will receive you to myself; that where I am, you may be there also.",
+      "godName": {
+        "name": "Yahweh Shammah",
+        "hebrew": "יְהוָה שָׁמָּה",
+        "meaning": "The LORD is there"
+      }
+    },
+    {
+      "ref": "John 14:6",
+      "category": "jesus",
+      "text": "Jesus said to him, “I am the way, the truth, and the life. No one comes to the Father, except through me.”",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 14:27",
+      "category": "jesus",
+      "text": "Peace I leave with you. My peace I give to you; not as the world gives, I give to you. Don’t let your heart be troubled, neither let it be fearful.",
+      "godName": {
+        "name": "Sar Shalom",
+        "hebrew": "שַׂר שָׁלוֹם",
+        "meaning": "Prince of Peace"
+      }
+    },
+    {
+      "ref": "John 15:5",
+      "category": "jesus",
+      "text": "I am the vine. You are the branches. He who remains in me and I in him bears much fruit, for apart from me you can do nothing.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 15:13",
+      "category": "jesus",
+      "text": "Greater love has no one than this, that someone lay down his life for his friends.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 16:33",
+      "category": "jesus",
+      "text": "I have told you these things, that in me you may have peace. In the world you have trouble; but cheer up! I have overcome the world.",
+      "godName": {
+        "name": "Yahweh Nissi",
+        "hebrew": "יְהוָה נִסִּי",
+        "meaning": "The LORD is my banner"
+      }
+    },
+    {
+      "ref": "Matthew 5:3",
+      "category": "jesus",
+      "text": "Blessed are the poor in spirit, for theirs is the Kingdom of Heaven.",
+      "godName": {
+        "name": "El Elyon",
+        "hebrew": "אֵל עֶלְיוֹן",
+        "meaning": "God Most High"
+      }
+    },
+    {
+      "ref": "Matthew 5:4",
+      "category": "jesus",
+      "text": "Blessed are those who mourn, for they shall be comforted.",
+      "godName": {
+        "name": "El Roi",
+        "hebrew": "אֵל רֳאִי",
+        "meaning": "The God who sees me"
+      }
+    },
+    {
+      "ref": "Matthew 5:5",
+      "category": "jesus",
+      "text": "Blessed are the gentle, for they shall inherit the earth.",
+      "godName": {
+        "name": "Adonai",
+        "hebrew": "אֲדֹנָי",
+        "meaning": "Lord, Master"
+      }
+    },
+    {
+      "ref": "Matthew 5:6",
+      "category": "jesus",
+      "text": "Blessed are those who hunger and thirst after righteousness, for they shall be filled.",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "Matthew 5:7",
+      "category": "jesus",
+      "text": "Blessed are the merciful, for they shall obtain mercy.",
+      "godName": {
+        "name": "El Rachum",
+        "hebrew": "אֵל רַחוּם",
+        "meaning": "Merciful God"
+      }
+    },
+    {
+      "ref": "Matthew 5:8",
+      "category": "jesus",
+      "text": "Blessed are the pure in heart, for they shall see God.",
+      "godName": {
+        "name": "Elohim",
+        "hebrew": "אֱלֹהִים",
+        "meaning": "God, the Creator"
+      }
+    },
+    {
+      "ref": "Matthew 5:9",
+      "category": "jesus",
+      "text": "Blessed are the peacemakers, for they shall be called children of God.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "Matthew 5:14",
+      "category": "jesus",
+      "text": "You are the light of the world. A city located on a hill can’t be hidden.",
+      "godName": {
+        "name": "Yahweh Ori",
+        "hebrew": "יְהוָה אוֹרִי",
+        "meaning": "The LORD is my light"
+      }
+    },
+    {
+      "ref": "Matthew 6:33",
+      "category": "jesus",
+      "text": "But seek first God’s Kingdom, and his righteousness; and all these things will be given to you as well.",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "Matthew 6:34",
+      "category": "jesus",
+      "text": "Therefore don’t be anxious for tomorrow, for tomorrow will be anxious for itself. Each day’s own evil is sufficient.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "Matthew 7:7-8",
+      "category": "jesus",
+      "text": "Ask, and it will be given you. Seek, and you will find. Knock, and it will be opened for you. For everyone who asks receives. He who seeks finds. To him who knocks it will be opened.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "Matthew 11:28-30",
+      "category": "jesus",
+      "text": "Come to me, all you who labor and are heavily burdened, and I will give you rest. Take my yoke upon you, and learn from me, for I am gentle and humble in heart; and you will find rest for your souls. For my yoke is easy, and my burden is light.",
+      "godName": {
+        "name": "Yahweh Shalom",
+        "hebrew": "יְהוָה שָׁלוֹם",
+        "meaning": "The LORD is peace"
+      }
+    },
+    {
+      "ref": "Matthew 18:20",
+      "category": "jesus",
+      "text": "For where two or three are gathered together in my name, there I am in the middle of them.",
+      "godName": {
+        "name": "Immanuel",
+        "hebrew": "עִמָּנוּאֵל",
+        "meaning": "God with us"
+      }
+    },
+    {
+      "ref": "Matthew 22:37-39",
+      "category": "jesus",
+      "text": "Jesus said to him, “ ‘You shall love the Lord your God with all your heart, with all your soul, and with all your mind.’ This is the first and great commandment. A second likewise is this, ‘You shall love your neighbor as yourself.’”",
+      "godName": {
+        "name": "Adonai",
+        "hebrew": "אֲדֹנָי",
+        "meaning": "Lord, Master"
+      }
+    },
+    {
+      "ref": "Matthew 28:20",
+      "category": "jesus",
+      "text": "Behold, I am with you always, even to the end of the age.",
+      "godName": {
+        "name": "Immanuel",
+        "hebrew": "עִמָּנוּאֵל",
+        "meaning": "God with us"
+      }
+    },
+    {
+      "ref": "Mark 9:23",
+      "category": "jesus",
+      "text": "Jesus said to him, “If you can believe, all things are possible to him who believes.”",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "Mark 10:27",
+      "category": "jesus",
+      "text": "Jesus, looking at them, said, “With men it is impossible, but not with God, for all things are possible with God.”",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "Mark 11:24",
+      "category": "jesus",
+      "text": "Therefore I tell you, all things whatever you pray and ask for, believe that you have received them, and you shall have them.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "Luke 1:37",
+      "category": "jesus",
+      "text": "For nothing spoken by God is impossible.",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "Luke 2:10-11",
+      "category": "jesus",
+      "text": "The angel said to them, “Don’t be afraid, for behold, I bring you good news of great joy which will be to all the people. For there is born to you today, in David’s city, a Savior, who is Christ the Lord.”",
+      "godName": {
+        "name": "Mashiach",
+        "hebrew": "מָשִׁיחַ",
+        "meaning": "Messiah, the Anointed One"
+      }
+    },
+    {
+      "ref": "Luke 19:10",
+      "category": "jesus",
+      "text": "For the Son of Man came to seek and to save that which was lost.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Luke 23:43",
+      "category": "jesus",
+      "text": "Jesus said to him, “Assuredly I tell you, today you will be with me in Paradise.”",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Isaiah 53:5",
+      "category": "cross",
+      "text": "But he was pierced for our transgressions. He was crushed for our iniquities. The punishment that brought our peace was on him; and by his wounds we are healed.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "John 12:32",
+      "category": "cross",
+      "text": "And I, if I am lifted up from the earth, will draw all people to myself.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "John 19:30",
+      "category": "cross",
+      "text": "When Jesus therefore had received the vinegar, he said, “It is finished.” He bowed his head, and gave up his spirit.",
+      "godName": {
+        "name": "Seh HaElohim",
+        "hebrew": "שֵׂה הָאֱלֹהִים",
+        "meaning": "Lamb of God"
+      }
+    },
+    {
+      "ref": "Luke 23:46",
+      "category": "cross",
+      "text": "Jesus, crying with a loud voice, said, “Father, into your hands I commit my spirit!” Having said this, he breathed his last.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "1 Corinthians 1:18",
+      "category": "cross",
+      "text": "For the word of the cross is foolishness to those who are dying, but to us who are being saved it is the power of God.",
+      "godName": {
+        "name": "El Gibbor",
+        "hebrew": "אֵל גִּבּוֹר",
+        "meaning": "Mighty God"
+      }
+    },
+    {
+      "ref": "Galatians 6:14",
+      "category": "cross",
+      "text": "But far be it from me to boast, except in the cross of our Lord Jesus Christ, through which the world has been crucified to me, and I to the world.",
+      "godName": {
+        "name": "Mashiach",
+        "hebrew": "מָשִׁיחַ",
+        "meaning": "Messiah, the Anointed One"
+      }
+    },
+    {
+      "ref": "Galatians 2:20",
+      "category": "cross",
+      "text": "I have been crucified with Christ, and it is no longer I who live, but Christ lives in me. That life which I now live in the flesh, I live by faith in the Son of God, who loved me, and gave himself up for me.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Romans 5:8",
+      "category": "cross",
+      "text": "But God commends his own love toward us, in that while we were yet sinners, Christ died for us.",
+      "godName": {
+        "name": "Yahweh Tsidkenu",
+        "hebrew": "יְהוָה צִדְקֵנוּ",
+        "meaning": "The LORD our righteousness"
+      }
+    },
+    {
+      "ref": "1 Peter 2:24",
+      "category": "cross",
+      "text": "He himself bore our sins in his body on the tree, that we, having died to sins, might live to righteousness. You were healed by his wounds.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Colossians 1:19-20",
+      "category": "cross",
+      "text": "For all the fullness was pleased to dwell in him, and through him to reconcile all things to himself by him, whether things on the earth or things in the heavens, having made peace through the blood of his cross.",
+      "godName": {
+        "name": "Yahweh Shalom",
+        "hebrew": "יְהוָה שָׁלוֹם",
+        "meaning": "The LORD is peace"
+      }
+    },
+    {
+      "ref": "Matthew 28:6",
+      "category": "resurrection",
+      "text": "He is not here, for he has risen, just like he said. Come, see the place where the Lord was lying.",
+      "godName": {
+        "name": "El Chai",
+        "hebrew": "אֵל חַי",
+        "meaning": "The Living God"
+      }
+    },
+    {
+      "ref": "Mark 16:6",
+      "category": "resurrection",
+      "text": "He said to them, “Don’t be amazed. You seek Jesus, the Nazarene, who has been crucified. He has risen. He is not here. Behold, the place where they laid him!”",
+      "godName": {
+        "name": "El Chai",
+        "hebrew": "אֵל חַי",
+        "meaning": "The Living God"
+      }
+    },
+    {
+      "ref": "Luke 24:5-6",
+      "category": "resurrection",
+      "text": "Why do you seek the living among the dead? He isn’t here, but is risen.",
+      "godName": {
+        "name": "El Chai",
+        "hebrew": "אֵל חַי",
+        "meaning": "The Living God"
+      }
+    },
+    {
+      "ref": "John 20:27-28",
+      "category": "resurrection",
+      "text": "Then he said to Thomas, “Reach here your finger, and see my hands. Reach here your hand, and put it into my side. Don’t be unbelieving, but believing.” Thomas answered him, “My Lord and my God!”",
+      "godName": {
+        "name": "Adonai",
+        "hebrew": "אֲדֹנָי",
+        "meaning": "Lord, Master"
+      }
+    },
+    {
+      "ref": "John 20:29",
+      "category": "resurrection",
+      "text": "Jesus said to him, “Because you have seen me, you have believed. Blessed are those who have not seen, and have believed.”",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Mark 16:17-18",
+      "category": "miracles",
+      "text": "These signs will accompany those who believe: in my name they will cast out demons; they will speak with new languages; they will take up serpents; and if they drink any deadly thing, it will in no way hurt them; they will lay hands on the sick, and they will recover.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Mark 16:20",
+      "category": "miracles",
+      "text": "They went out, and preached everywhere, the Lord working with them, and confirming the word by the signs that followed. Amen.",
+      "godName": {
+        "name": "Adonai",
+        "hebrew": "אֲדֹנָי",
+        "meaning": "Lord, Master"
+      }
+    },
+    {
+      "ref": "Acts 1:8",
+      "category": "miracles",
+      "text": "But you will receive power when the Holy Spirit has come upon you. You will be witnesses to me in Jerusalem, in all Judea and Samaria, and to the uttermost parts of the earth.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "Acts 2:4",
+      "category": "miracles",
+      "text": "They were all filled with the Holy Spirit, and began to speak with other languages, as the Spirit gave them the ability to speak.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "Acts 2:17",
+      "category": "miracles",
+      "text": "It will be in the last days, says God, that I will pour out my Spirit on all flesh. Your sons and your daughters will prophesy. Your young men will see visions. Your old men will dream dreams.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "Acts 2:39",
+      "category": "miracles",
+      "text": "For the promise is to you, and to your children, and to all who are far off, even as many as the Lord our God will call to himself.",
+      "godName": {
+        "name": "Adonai",
+        "hebrew": "אֲדֹנָי",
+        "meaning": "Lord, Master"
+      }
+    },
+    {
+      "ref": "Acts 3:6",
+      "category": "miracles",
+      "text": "But Peter said, “I have no silver or gold, but what I have, that I give you. In the name of Jesus Christ of Nazareth, get up and walk!”",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Acts 4:31",
+      "category": "miracles",
+      "text": "When they had prayed, the place was shaken where they were gathered together. They were all filled with the Holy Spirit, and they spoke the word of God with boldness.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "Acts 5:16",
+      "category": "miracles",
+      "text": "The multitude also came together from the cities around Jerusalem, bringing sick people and those who were tormented by unclean spirits: and they were all healed.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Acts 16:25-26",
+      "category": "miracles",
+      "text": "But about midnight Paul and Silas were praying and singing hymns to God, and the prisoners were listening to them. Suddenly there was a great earthquake, so that the foundations of the prison were shaken; and immediately all the doors were opened, and everyone’s bonds were loosened.",
+      "godName": {
+        "name": "El Gibbor",
+        "hebrew": "אֵל גִּבּוֹר",
+        "meaning": "Mighty God"
+      }
+    },
+    {
+      "ref": "Acts 19:11-12",
+      "category": "miracles",
+      "text": "God worked special miracles by the hands of Paul, so that even handkerchiefs or aprons were carried away from his body to the sick, and the diseases departed from them, and the evil spirits went out.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "John 14:12",
+      "category": "miracles",
+      "text": "Most certainly I tell you, he who believes in me, the works that I do, he will do also; and he will do greater works than these, because I am going to my Father.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Matthew 10:8",
+      "category": "miracles",
+      "text": "Heal the sick, cleanse the lepers, and cast out demons. Freely you received, so freely give.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Matthew 17:20",
+      "category": "miracles",
+      "text": "If you have faith as a grain of mustard seed, you will tell this mountain, ‘Move from here to there,’ and it will move; and nothing will be impossible for you.",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "Mark 11:23",
+      "category": "miracles",
+      "text": "For most certainly I tell you, whoever may tell this mountain, ‘Be taken up and cast into the sea,’ and doesn’t doubt in his heart, but believes that what he says is happening; he shall have whatever he says.",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "James 5:14-15",
+      "category": "miracles",
+      "text": "Is any among you sick? Let him call for the elders of the assembly, and let them pray over him, anointing him with oil in the name of the Lord, and the prayer of faith will heal him who is sick, and the Lord will raise him up. If he has committed sins, he will be forgiven.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "James 5:16",
+      "category": "miracles",
+      "text": "Confess your offenses to one another, and pray for one another, that you may be healed. The insistent prayer of a righteous person is powerfully effective.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Matthew 8:2-3",
+      "category": "miracles",
+      "text": "Behold, a leper came to him and worshiped him, saying, “Lord, if you want to, you can make me clean.” Jesus stretched out his hand, and touched him, saying, “I want to. Be made clean.” Immediately his leprosy was cleansed.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Matthew 8:26-27",
+      "category": "miracles",
+      "text": "He said to them, “Why are you fearful, O you of little faith?” Then he got up, rebuked the wind and the sea, and there was a great calm. The men marveled, saying, “What kind of man is this, that even the wind and the sea obey him?”",
+      "godName": {
+        "name": "Elohim",
+        "hebrew": "אֱלֹהִים",
+        "meaning": "God, the Creator"
+      }
+    },
+    {
+      "ref": "Matthew 14:27",
+      "category": "miracles",
+      "text": "But immediately Jesus spoke to them, saying, “Cheer up! It is I! Don’t be afraid.”",
+      "godName": {
+        "name": "Ehyeh",
+        "hebrew": "אֶהְיֶה",
+        "meaning": "I AM"
+      }
+    },
+    {
+      "ref": "Matthew 14:30-33",
+      "category": "miracles",
+      "text": "But when he saw that the wind was strong, he was afraid, and beginning to sink, he cried out, saying, “Lord, save me!” Immediately Jesus stretched out his hand, took hold of him, and said to him, “You of little faith, why did you doubt?” When they got up into the boat, the wind ceased. Those who were in the boat came and worshiped him, saying, “You are truly the Son of God!”",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Matthew 15:28",
+      "category": "miracles",
+      "text": "Then Jesus answered her, “Woman, great is your faith! Be it done to you even as you desire.” And her daughter was healed from that hour.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Mark 5:34",
+      "category": "miracles",
+      "text": "He said to her, “Daughter, your faith has made you well. Go in peace, and be cured of your disease.”",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Mark 5:41-42",
+      "category": "miracles",
+      "text": "Taking the child by the hand, he said to her, “Talitha cumi!” which means, being interpreted, “Girl, I tell you, get up!” Immediately the girl rose up and walked, for she was twelve years old. They were amazed with great amazement.",
+      "godName": {
+        "name": "El Chai",
+        "hebrew": "אֵל חַי",
+        "meaning": "The Living God"
+      }
+    },
+    {
+      "ref": "Mark 10:52",
+      "category": "miracles",
+      "text": "Jesus said to him, “Go your way. Your faith has made you well.” Immediately he received his sight, and followed Jesus on the way.",
+      "godName": {
+        "name": "El Roi",
+        "hebrew": "אֵל רֳאִי",
+        "meaning": "The God who sees me"
+      }
+    },
+    {
+      "ref": "John 2:11",
+      "category": "miracles",
+      "text": "This beginning of his signs Jesus did in Cana of Galilee, and revealed his glory; and his disciples believed in him.",
+      "godName": {
+        "name": "Mashiach",
+        "hebrew": "מָשִׁיחַ",
+        "meaning": "Messiah, the Anointed One"
+      }
+    },
+    {
+      "ref": "John 9:25",
+      "category": "miracles",
+      "text": "He therefore answered, “I don’t know if he is a sinner. One thing I do know: that though I was blind, now I see.”",
+      "godName": {
+        "name": "Yahweh Ori",
+        "hebrew": "יְהוָה אוֹרִי",
+        "meaning": "The LORD is my light"
+      }
+    },
+    {
+      "ref": "John 11:43-44",
+      "category": "miracles",
+      "text": "When he had said this, he cried with a loud voice, “Lazarus, come out!” He who was dead came out, bound hand and foot with wrappings, and his face was wrapped around with a cloth. Jesus said to them, “Free him, and let him go.”",
+      "godName": {
+        "name": "El Chai",
+        "hebrew": "אֵל חַי",
+        "meaning": "The Living God"
+      }
+    },
+    {
+      "ref": "Matthew 11:5",
+      "category": "miracles",
+      "text": "The blind receive their sight, the lame walk, the lepers are cleansed, the deaf hear, the dead are raised up, and the poor have good news preached to them.",
+      "godName": {
+        "name": "Mashiach",
+        "hebrew": "מָשִׁיחַ",
+        "meaning": "Messiah, the Anointed One"
+      }
+    },
+    {
+      "ref": "Hebrews 13:8",
+      "category": "miracles",
+      "text": "Jesus Christ is the same yesterday, today, and forever.",
+      "godName": {
+        "name": "El Olam",
+        "hebrew": "אֵל עוֹלָם",
+        "meaning": "The Everlasting God"
+      }
+    },
+    {
+      "ref": "Psalm 103:2-3",
+      "category": "miracles",
+      "text": "Praise the LORD, my soul, and don’t forget all his benefits, who forgives all your sins, who heals all your diseases.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Joshua 1:9",
+      "category": "promises",
+      "text": "Haven’t I commanded you? Be strong and courageous. Don’t be afraid. Don’t be dismayed, for the LORD your God is with you wherever you go.",
+      "godName": {
+        "name": "Yahweh Shammah",
+        "hebrew": "יְהוָה שָׁמָּה",
+        "meaning": "The LORD is there"
+      }
+    },
+    {
+      "ref": "Deuteronomy 31:6",
+      "category": "promises",
+      "text": "Be strong and courageous. Don’t be afraid or scared of them; for the LORD your God himself is who goes with you. He will not fail you nor forsake you.",
+      "godName": {
+        "name": "Yahweh Nissi",
+        "hebrew": "יְהוָה נִסִּי",
+        "meaning": "The LORD is my banner"
+      }
+    },
+    {
+      "ref": "Isaiah 41:10",
+      "category": "promises",
+      "text": "Don’t you be afraid, for I am with you. Don’t be dismayed, for I am your God. I will strengthen you. Yes, I will help you. Yes, I will uphold you with the right hand of my righteousness.",
+      "godName": {
+        "name": "El Gibbor",
+        "hebrew": "אֵל גִּבּוֹר",
+        "meaning": "Mighty God"
+      }
+    },
+    {
+      "ref": "Isaiah 40:31",
+      "category": "promises",
+      "text": "But those who wait for the LORD will renew their strength. They will mount up with wings like eagles. They will run, and not be weary. They will walk, and not faint.",
+      "godName": {
+        "name": "El Olam",
+        "hebrew": "אֵל עוֹלָם",
+        "meaning": "The Everlasting God"
+      }
+    },
+    {
+      "ref": "Isaiah 43:1",
+      "category": "promises",
+      "text": "But now the LORD who created you, Jacob, and he who formed you, Israel, says: “Don’t be afraid, for I have redeemed you. I have called you by your name. You are mine.”",
+      "godName": {
+        "name": "Go'el",
+        "hebrew": "גֹּאֵל",
+        "meaning": "Redeemer"
+      }
+    },
+    {
+      "ref": "Isaiah 43:2",
+      "category": "promises",
+      "text": "When you pass through the waters, I will be with you, and through the rivers, they will not overflow you. When you walk through the fire, you will not be burned, and flame will not scorch you.",
+      "godName": {
+        "name": "Immanuel",
+        "hebrew": "עִמָּנוּאֵל",
+        "meaning": "God with us"
+      }
+    },
+    {
+      "ref": "Isaiah 54:10",
+      "category": "promises",
+      "text": "“For the mountains may depart, and the hills be removed; but my loving kindness will not depart from you, and my covenant of peace will not be removed,” says the LORD who has mercy on you.",
+      "godName": {
+        "name": "El Rachum",
+        "hebrew": "אֵל רַחוּם",
+        "meaning": "Merciful God"
+      }
+    },
+    {
+      "ref": "Isaiah 1:18",
+      "category": "promises",
+      "text": "“Come now, and let’s reason together,” says the LORD: “Though your sins are as scarlet, they shall be as white as snow. Though they are red like crimson, they shall be as wool.”",
+      "godName": {
+        "name": "Yahweh Tsidkenu",
+        "hebrew": "יְהוָה צִדְקֵנוּ",
+        "meaning": "The LORD our righteousness"
+      }
+    },
+    {
+      "ref": "Jeremiah 29:11",
+      "category": "promises",
+      "text": "“For I know the thoughts that I think toward you,” says the LORD, “thoughts of peace, and not of evil, to give you hope and a future.”",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "Jeremiah 33:3",
+      "category": "promises",
+      "text": "Call to me, and I will answer you, and will show you great and difficult things, which you don’t know.",
+      "godName": {
+        "name": "Adonai",
+        "hebrew": "אֲדֹנָי",
+        "meaning": "Lord, Master"
+      }
+    },
+    {
+      "ref": "Lamentations 3:22-23",
+      "category": "promises",
+      "text": "It is because of the LORD’s loving kindnesses that we are not consumed, because his compassion doesn’t fail. They are new every morning. Great is your faithfulness.",
+      "godName": {
+        "name": "El Rachum",
+        "hebrew": "אֵל רַחוּם",
+        "meaning": "Merciful God"
+      }
+    },
+    {
+      "ref": "Ezekiel 36:26",
+      "category": "promises",
+      "text": "I will also give you a new heart, and I will put a new spirit within you. I will take away the stony heart out of your flesh, and I will give you a heart of flesh.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "Zephaniah 3:17",
+      "category": "promises",
+      "text": "The LORD, your God, is among you, a mighty one who will save. He will rejoice over you with joy. He will calm you in his love. He will rejoice over you with singing.",
+      "godName": {
+        "name": "El Gibbor",
+        "hebrew": "אֵל גִּבּוֹר",
+        "meaning": "Mighty God"
+      }
+    },
+    {
+      "ref": "Zechariah 4:6",
+      "category": "promises",
+      "text": "“Not by might, nor by power, but by my Spirit,” says the LORD of Armies.",
+      "godName": {
+        "name": "Yahweh Tsevaot",
+        "hebrew": "יְהוָה צְבָאוֹת",
+        "meaning": "The LORD of hosts"
+      }
+    },
+    {
+      "ref": "Psalm 23:1",
+      "category": "promises",
+      "text": "The LORD is my shepherd: I shall lack nothing.",
+      "godName": {
+        "name": "Yahweh Rohi",
+        "hebrew": "יְהוָה רֹעִי",
+        "meaning": "The LORD is my shepherd"
+      }
+    },
+    {
+      "ref": "Psalm 23:4",
+      "category": "promises",
+      "text": "Even though I walk through the valley of the shadow of death, I will fear no evil, for you are with me. Your rod and your staff, they comfort me.",
+      "godName": {
+        "name": "Yahweh Shammah",
+        "hebrew": "יְהוָה שָׁמָּה",
+        "meaning": "The LORD is there"
+      }
+    },
+    {
+      "ref": "Psalm 27:1",
+      "category": "promises",
+      "text": "The LORD is my light and my salvation. Whom shall I fear? The LORD is the strength of my life. Of whom shall I be afraid?",
+      "godName": {
+        "name": "Yahweh Ori",
+        "hebrew": "יְהוָה אוֹרִי",
+        "meaning": "The LORD is my light"
+      }
+    },
+    {
+      "ref": "Psalm 34:18",
+      "category": "promises",
+      "text": "The LORD is near to those who have a broken heart, and saves those who have a crushed spirit.",
+      "godName": {
+        "name": "El Roi",
+        "hebrew": "אֵל רֳאִי",
+        "meaning": "The God who sees me"
+      }
+    },
+    {
+      "ref": "Psalm 37:4",
+      "category": "promises",
+      "text": "Also delight yourself in the LORD, and he will give you the desires of your heart.",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "Psalm 46:1",
+      "category": "promises",
+      "text": "God is our refuge and strength, a very present help in trouble.",
+      "godName": {
+        "name": "Yahweh Tsevaot",
+        "hebrew": "יְהוָה צְבָאוֹת",
+        "meaning": "The LORD of hosts"
+      }
+    },
+    {
+      "ref": "Psalm 46:10",
+      "category": "promises",
+      "text": "Be still, and know that I am God. I will be exalted among the nations. I will be exalted in the earth.",
+      "godName": {
+        "name": "Elohim",
+        "hebrew": "אֱלֹהִים",
+        "meaning": "God, the Creator"
+      }
+    },
+    {
+      "ref": "Psalm 91:1-2",
+      "category": "promises",
+      "text": "He who dwells in the secret place of the Most High will rest in the shadow of the Almighty. I will say of the LORD, “He is my refuge and my fortress; my God, in whom I trust.”",
+      "godName": {
+        "name": "El Elyon",
+        "hebrew": "אֵל עֶלְיוֹן",
+        "meaning": "God Most High"
+      }
+    },
+    {
+      "ref": "Psalm 91:11",
+      "category": "promises",
+      "text": "For he will put his angels in charge of you, to guard you in all your ways.",
+      "godName": {
+        "name": "Yahweh Tsevaot",
+        "hebrew": "יְהוָה צְבָאוֹת",
+        "meaning": "The LORD of hosts"
+      }
+    },
+    {
+      "ref": "Proverbs 3:5-6",
+      "category": "promises",
+      "text": "Trust in the LORD with all your heart, and don’t lean on your own understanding. In all your ways acknowledge him, and he will make your paths straight.",
+      "godName": {
+        "name": "Yahweh Rohi",
+        "hebrew": "יְהוָה רֹעִי",
+        "meaning": "The LORD is my shepherd"
+      }
+    },
+    {
+      "ref": "Romans 8:28",
+      "category": "promises",
+      "text": "We know that all things work together for good for those who love God, for those who are called according to his purpose.",
+      "godName": {
+        "name": "El Elyon",
+        "hebrew": "אֵל עֶלְיוֹן",
+        "meaning": "God Most High"
+      }
+    },
+    {
+      "ref": "Romans 8:38-39",
+      "category": "promises",
+      "text": "For I am persuaded that neither death, nor life, nor angels, nor principalities, nor things present, nor things to come, nor powers, nor height, nor depth, nor any other created thing will be able to separate us from God’s love which is in Christ Jesus our Lord.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "Romans 10:13",
+      "category": "promises",
+      "text": "For, “Whoever will call on the name of the Lord will be saved.”",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Philippians 4:6-7",
+      "category": "promises",
+      "text": "In nothing be anxious, but in everything, by prayer and petition with thanksgiving, let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your thoughts in Christ Jesus.",
+      "godName": {
+        "name": "Yahweh Shalom",
+        "hebrew": "יְהוָה שָׁלוֹם",
+        "meaning": "The LORD is peace"
+      }
+    },
+    {
+      "ref": "Philippians 4:13",
+      "category": "promises",
+      "text": "I can do all things through Christ, who strengthens me.",
+      "godName": {
+        "name": "El Gibbor",
+        "hebrew": "אֵל גִּבּוֹר",
+        "meaning": "Mighty God"
+      }
+    },
+    {
+      "ref": "Philippians 4:19",
+      "category": "promises",
+      "text": "My God will supply every need of yours according to his riches in glory in Christ Jesus.",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "2 Corinthians 5:17",
+      "category": "promises",
+      "text": "Therefore if anyone is in Christ, he is a new creation. The old things have passed away. Behold, all things have become new.",
+      "godName": {
+        "name": "Elohim",
+        "hebrew": "אֱלֹהִים",
+        "meaning": "God, the Creator"
+      }
+    },
+    {
+      "ref": "2 Corinthians 12:9",
+      "category": "promises",
+      "text": "He has said to me, “My grace is sufficient for you, for my power is made perfect in weakness.” Most gladly therefore I will rather glory in my weaknesses, that the power of Christ may rest on me.",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "1 Corinthians 2:9",
+      "category": "promises",
+      "text": "But as it is written, “Things which an eye didn’t see, and an ear didn’t hear, which didn’t enter into the heart of man, these God has prepared for those who love him.”",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "1 Corinthians 10:13",
+      "category": "promises",
+      "text": "No temptation has taken you except what is common to man. God is faithful, who will not allow you to be tempted above what you are able, but will with the temptation also make the way of escape, that you may be able to endure it.",
+      "godName": {
+        "name": "El Ne'eman",
+        "hebrew": "אֵל נֶאֱמָן",
+        "meaning": "Faithful God"
+      }
+    },
+    {
+      "ref": "1 John 1:9",
+      "category": "promises",
+      "text": "If we confess our sins, he is faithful and righteous to forgive us the sins, and to cleanse us from all unrighteousness.",
+      "godName": {
+        "name": "Yahweh Tsidkenu",
+        "hebrew": "יְהוָה צִדְקֵנוּ",
+        "meaning": "The LORD our righteousness"
+      }
+    },
+    {
+      "ref": "1 John 4:18",
+      "category": "promises",
+      "text": "There is no fear in love; but perfect love casts out fear, because fear has punishment. He who fears is not made perfect in love.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "1 Peter 5:7",
+      "category": "promises",
+      "text": "Casting all your worries on him, because he cares for you.",
+      "godName": {
+        "name": "El Roi",
+        "hebrew": "אֵל רֳאִי",
+        "meaning": "The God who sees me"
+      }
+    },
+    {
+      "ref": "James 1:5",
+      "category": "promises",
+      "text": "But if any of you lacks wisdom, let him ask of God, who gives to all liberally and without reproach, and it will be given to him.",
+      "godName": {
+        "name": "Yahweh Jireh",
+        "hebrew": "יְהוָה יִרְאֶה",
+        "meaning": "The LORD will provide"
+      }
+    },
+    {
+      "ref": "Hebrews 13:5",
+      "category": "promises",
+      "text": "Be free from the love of money, content with such things as you have, for he has said, “I will in no way leave you, neither will I in any way forsake you.”",
+      "godName": {
+        "name": "Yahweh Shammah",
+        "hebrew": "יְהוָה שָׁמָּה",
+        "meaning": "The LORD is there"
+      }
+    },
+    {
+      "ref": "Ephesians 2:8-9",
+      "category": "promises",
+      "text": "For by grace you have been saved through faith, and that not of yourselves; it is the gift of God, not of works, that no one would boast.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Ephesians 3:20-21",
+      "category": "promises",
+      "text": "Now to him who is able to do exceedingly abundantly above all that we ask or think, according to the power that works in us, to him be the glory in the assembly and in Christ Jesus to all generations forever and ever. Amen.",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "2 Timothy 1:7",
+      "category": "promises",
+      "text": "For God didn’t give us a spirit of fear, but of power, love, and self-control.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "Numbers 6:24-26",
+      "category": "blessings",
+      "text": "The LORD bless you, and keep you. The LORD make his face to shine on you, and be gracious to you. The LORD lift up his face toward you, and give you peace.",
+      "godName": {
+        "name": "Yahweh Shalom",
+        "hebrew": "יְהוָה שָׁלוֹם",
+        "meaning": "The LORD is peace"
+      }
+    },
+    {
+      "ref": "Genesis 28:15",
+      "category": "blessings",
+      "text": "Behold, I am with you, and will keep you, wherever you go, and will bring you again into this land. For I will not leave you, until I have done that which I have spoken of to you.",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "Jeremiah 17:7",
+      "category": "blessings",
+      "text": "Blessed is the man who trusts in the LORD, and whose confidence is in the LORD.",
+      "godName": {
+        "name": "Adonai",
+        "hebrew": "אֲדֹנָי",
+        "meaning": "Lord, Master"
+      }
+    },
+    {
+      "ref": "Psalm 4:8",
+      "category": "blessings",
+      "text": "In peace I will both lay myself down and sleep, for you, the LORD alone, make me live in safety.",
+      "godName": {
+        "name": "Yahweh Shalom",
+        "hebrew": "יְהוָה שָׁלוֹם",
+        "meaning": "The LORD is peace"
+      }
+    },
+    {
+      "ref": "Ephesians 1:3",
+      "category": "blessings",
+      "text": "Blessed be the God and Father of our Lord Jesus Christ, who has blessed us with every spiritual blessing in the heavenly places in Christ.",
+      "godName": {
+        "name": "Abba",
+        "hebrew": "אַבָּא",
+        "meaning": "Father"
+      }
+    },
+    {
+      "ref": "Romans 15:13",
+      "category": "blessings",
+      "text": "Now may the God of hope fill you with all joy and peace in believing, that you may abound in hope, in the power of the Holy Spirit.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "2 Corinthians 13:14",
+      "category": "blessings",
+      "text": "The grace of the Lord Jesus Christ, God’s love, and the fellowship of the Holy Spirit be with you all. Amen.",
+      "godName": {
+        "name": "Elohim",
+        "hebrew": "אֱלֹהִים",
+        "meaning": "God, the Creator"
+      }
+    },
+    {
+      "ref": "2 Thessalonians 3:16",
+      "category": "blessings",
+      "text": "Now may the Lord of peace himself give you peace at all times in all ways. The Lord be with you all.",
+      "godName": {
+        "name": "Yahweh Shalom",
+        "hebrew": "יְהוָה שָׁלוֹם",
+        "meaning": "The LORD is peace"
+      }
+    },
+    {
+      "ref": "3 John 2",
+      "category": "blessings",
+      "text": "Beloved, I pray that you may prosper in all things and be healthy, even as your soul prospers.",
+      "godName": {
+        "name": "Yahweh Rapha",
+        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "meaning": "The LORD who heals you"
+      }
+    },
+    {
+      "ref": "Jude 24-25",
+      "category": "blessings",
+      "text": "Now to him who is able to keep them from stumbling, and to present you faultless before the presence of his glory in great joy, to God our Savior, who alone is wise, be glory and majesty, dominion and power, both now and forever. Amen.",
+      "godName": {
+        "name": "El Elyon",
+        "hebrew": "אֵל עֶלְיוֹן",
+        "meaning": "God Most High"
+      }
+    },
+    {
+      "ref": "Revelation 1:8",
+      "category": "revelation",
+      "text": "“I am the Alpha and the Omega,” says the Lord God, “who is and who was and who is to come, the Almighty.”",
+      "godName": {
+        "name": "El Shaddai",
+        "hebrew": "אֵל שַׁדַּי",
+        "meaning": "God Almighty"
+      }
+    },
+    {
+      "ref": "Revelation 1:17-18",
+      "category": "revelation",
+      "text": "When I saw him, I fell at his feet like a dead man. He laid his right hand on me, saying, “Don’t be afraid. I am the first and the last, and the Living one. I was dead, and behold, I am alive forever and ever. Amen. I have the keys of Death and of Hades.”",
+      "godName": {
+        "name": "El Chai",
+        "hebrew": "אֵל חַי",
+        "meaning": "The Living God"
+      }
+    },
+    {
+      "ref": "Revelation 3:20",
+      "category": "revelation",
+      "text": "Behold, I stand at the door and knock. If anyone hears my voice and opens the door, then I will come in to him, and will dine with him, and he with me.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    },
+    {
+      "ref": "Revelation 4:8",
+      "category": "revelation",
+      "text": "Holy, holy, holy is the Lord God, the Almighty, who was and who is and who is to come!",
+      "godName": {
+        "name": "Yahweh Tsevaot",
+        "hebrew": "יְהוָה צְבָאוֹת",
+        "meaning": "The LORD of hosts"
+      }
+    },
+    {
+      "ref": "Revelation 5:12",
+      "category": "revelation",
+      "text": "Saying with a loud voice, “Worthy is the Lamb who has been killed to receive the power, wealth, wisdom, strength, honor, glory, and blessing!”",
+      "godName": {
+        "name": "Seh HaElohim",
+        "hebrew": "שֵׂה הָאֱלֹהִים",
+        "meaning": "Lamb of God"
+      }
+    },
+    {
+      "ref": "Revelation 7:17",
+      "category": "revelation",
+      "text": "For the Lamb who is in the middle of the throne shepherds them and leads them to springs of life-giving waters. And God will wipe away every tear from their eyes.",
+      "godName": {
+        "name": "Yahweh Rohi",
+        "hebrew": "יְהוָה רֹעִי",
+        "meaning": "The LORD is my shepherd"
+      }
+    },
+    {
+      "ref": "Revelation 11:15",
+      "category": "revelation",
+      "text": "The seventh angel sounded, and great voices in heaven followed, saying, “The kingdom of the world has become the Kingdom of our Lord, and of his Christ. He will reign forever and ever!”",
+      "godName": {
+        "name": "Melech HaMelachim",
+        "hebrew": "מֶלֶךְ הַמְּלָכִים",
+        "meaning": "King of kings"
+      }
+    },
+    {
+      "ref": "Revelation 21:4",
+      "category": "revelation",
+      "text": "He will wipe away every tear from their eyes. Death will be no more; neither will there be mourning, nor crying, nor pain, any more. The first things have passed away.",
+      "godName": {
+        "name": "El Rachum",
+        "hebrew": "אֵל רַחוּם",
+        "meaning": "Merciful God"
+      }
+    },
+    {
+      "ref": "Revelation 21:5",
+      "category": "revelation",
+      "text": "He who sits on the throne said, “Behold, I am making all things new.” He said, “Write, for these words of God are faithful and true.”",
+      "godName": {
+        "name": "Elohim",
+        "hebrew": "אֱלֹהִים",
+        "meaning": "God, the Creator"
+      }
+    },
+    {
+      "ref": "Revelation 22:12-13",
+      "category": "revelation",
+      "text": "Behold, I come quickly. My reward is with me, to repay to each man according to his work. I am the Alpha and the Omega, the First and the Last, the Beginning and the End.",
+      "godName": {
+        "name": "El Olam",
+        "hebrew": "אֵל עוֹלָם",
+        "meaning": "The Everlasting God"
+      }
+    },
+    {
+      "ref": "Revelation 22:17",
+      "category": "revelation",
+      "text": "The Spirit and the bride say, “Come!” He who hears, let him say, “Come!” He who is thirsty, let him come. He who desires, let him take the water of life freely.",
+      "godName": {
+        "name": "Ruach HaKodesh",
+        "hebrew": "רוּחַ הַקֹּדֶשׁ",
+        "meaning": "The Holy Spirit"
+      }
+    },
+    {
+      "ref": "Revelation 22:20",
+      "category": "revelation",
+      "text": "He who testifies these things says, “Yes, I come quickly.” Amen! Yes, come, Lord Jesus.",
+      "godName": {
+        "name": "Yeshua",
+        "hebrew": "יֵשׁוּעַ",
+        "meaning": "Jesus, “the LORD saves”"
+      }
+    }
+  ]
+}

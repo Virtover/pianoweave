@@ -35,9 +35,11 @@ import com.lumenchord.pianoweave.ui.screens.LearnScreen
 import com.lumenchord.pianoweave.ui.screens.PianoRollScreen
 import com.lumenchord.pianoweave.ui.viewmodel.*
 import com.lumenchord.pianoweave.ui.screens.StorageScreen
+import com.lumenchord.pianoweave.ui.screens.VerseOfLightScreen
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.util.AppPrefs
 
 class MainActivity : ComponentActivity() {
 
@@ -130,6 +132,11 @@ private fun PianoWeaveApp(
 ) {
     var selectedTab by remember { mutableStateOf(AppTab.Learn) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showVerseOfLight by remember { mutableStateOf(false) }
+    // The first discovery takes a 7 s hold; once found, 3 s is enough
+    var hasOpenedVerseOfLight by remember {
+        mutableStateOf(AppPrefs.get(context).getBoolean(AppPrefs.HAS_OPENED_VERSE_OF_LIGHT, false))
+    }
     val snackbarHost = remember { SnackbarHostState() }
 
     // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
@@ -150,7 +157,15 @@ private fun PianoWeaveApp(
         onLearnSelect = { selectedTab = AppTab.Learn },
         isStorageSelected = selectedTab == AppTab.Storage,
         onStorageSelect = { selectedTab = AppTab.Storage },
-        onOpenSettingsDialog = { showSettingsDialog = true }
+        onOpenSettingsDialog = { showSettingsDialog = true },
+        logoHoldMillis = if (hasOpenedVerseOfLight) 3_000L else 7_000L,
+        onLogoLongHold = {
+            showVerseOfLight = true
+            if (!hasOpenedVerseOfLight) {
+                hasOpenedVerseOfLight = true
+                AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_OPENED_VERSE_OF_LIGHT, true).apply()
+            }
+        }
     ) {
         when (selectedTab) {
             AppTab.Learn -> {
@@ -186,6 +201,10 @@ private fun PianoWeaveApp(
                 )
             }
         }
+    }
+
+    if (showVerseOfLight) {
+        VerseOfLightScreen(onClose = { showVerseOfLight = false })
     }
 
     if (showSettingsDialog) {

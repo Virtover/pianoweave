@@ -3,7 +3,6 @@ package com.lumenchord.pianoweave.ui.components
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -30,6 +29,8 @@ fun AdaptiveNavigation(
     isStorageSelected: Boolean,
     onStorageSelect: () -> Unit,
     onOpenSettingsDialog: () -> Unit,
+    logoHoldMillis: Long,
+    onLogoLongHold: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val configuration = LocalConfiguration.current
@@ -51,7 +52,8 @@ fun AdaptiveNavigation(
                         Surface(
                             modifier = Modifier
                                 .size(52.dp)
-                                .clickable(onClick = onOpenSettingsDialog),
+                                .clip(CircleShape)
+                                .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
@@ -144,7 +146,8 @@ fun AdaptiveNavigation(
                             Surface(
                                 modifier = Modifier
                                     .size(38.dp)
-                                    .clickable(onClick = onOpenSettingsDialog),
+                                    .clip(CircleShape)
+                                    .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
