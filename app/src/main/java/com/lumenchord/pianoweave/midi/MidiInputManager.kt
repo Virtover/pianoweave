@@ -4,10 +4,14 @@ import android.content.Context
 import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
 import android.media.midi.MidiManager
+import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -22,77 +26,90 @@ object MidiInputManager {
     private val externalPresses = ConcurrentHashMap.newKeySet<Int>()
 
     private var activeDevice: MidiDevice? = null
+    private var activePort: MidiOutputPort? = null
+    private var pendingDeviceId: Int? = null
+    private var midiManager: MidiManager? = null
     private val pressedKeysMutex = ReentrantLock()
 
-    fun isMidiDeviceConnected(): Boolean {
-        return activeDevice != null
-    }
+    /** True while a MIDI keyboard is connected and sending notes. Observable from Compose. */
+    var isConnected by mutableStateOf(false)
+        private set
+
+    fun isMidiDeviceConnected(): Boolean = isConnected
 
     @Suppress("DEPRECATION")
     fun initialize(context: Context) {
-        val midiManager = context.getSystemService(Context.MIDI_SERVICE) as? MidiManager ?: return
+        // Called on every Activity creation; register the device callback only once
+        if (midiManager != null) return
+        val manager = context.applicationContext.getSystemService(Context.MIDI_SERVICE) as? MidiManager ?: return
+        midiManager = manager
 
-        midiManager.registerDeviceCallback(object : MidiManager.DeviceCallback() {
+        manager.registerDeviceCallback(object : MidiManager.DeviceCallback() {
             override fun onDeviceAdded(device: MidiDeviceInfo) {
-                autoConnectToDevice(midiManager, device)
+                autoConnectToDevice(manager, device)
             }
 
             override fun onDeviceRemoved(device: MidiDeviceInfo) {
+                if (pendingDeviceId == device.id) pendingDeviceId = null
                 if (activeDevice?.info?.id == device.id) {
-                    activeDevice?.close()
-                    activeDevice = null
-                    externalPresses.clear()
-                    syncPressedKeys()
+                    disconnect()
+                    // Fall back to another keyboard that is still plugged in, if any
+                    connectFirstAvailable(manager)
                 }
             }
         }, Handler(Looper.getMainLooper()))
 
-        for (device in midiManager.devices) {
-            autoConnectToDevice(midiManager, device)
+        connectFirstAvailable(manager)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun connectFirstAvailable(manager: MidiManager) {
+        for (device in manager.devices) {
+            autoConnectToDevice(manager, device)
         }
     }
 
-    private fun autoConnectToDevice(midiManager: MidiManager, deviceInfo: MidiDeviceInfo) {
-        if (activeDevice != null) return
+    private fun autoConnectToDevice(manager: MidiManager, deviceInfo: MidiDeviceInfo) {
+        if (activeDevice != null || pendingDeviceId != null) return
+        // Only devices that send notes to us (e.g. not a synth app that only accepts input)
+        if (deviceInfo.outputPortCount == 0) return
 
-        midiManager.openDevice(deviceInfo, { device ->
-            if (device != null) {
-                activeDevice = device
-                val outputPort = device.openOutputPort(0)
-                if (outputPort != null) {
-                    outputPort.connect(object : MidiReceiver() {
-                        override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
-                            parseMidiMessage(msg, offset, count)
-                        }
-                    })
-                }
+        pendingDeviceId = deviceInfo.id
+        manager.openDevice(deviceInfo, { device ->
+            if (pendingDeviceId != deviceInfo.id) {
+                // Removed while opening
+                device?.close()
+                return@openDevice
             }
+            pendingDeviceId = null
+            val outputPort = device?.openOutputPort(0)
+            if (device == null || outputPort == null) {
+                device?.close()
+                return@openDevice
+            }
+            val parser = MidiNoteParser(
+                onNoteOn = { pitch, _ -> simulateExternalNoteOn(pitch) },
+                onNoteOff = { pitch -> simulateExternalNoteOff(pitch) }
+            )
+            outputPort.connect(object : MidiReceiver() {
+                override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
+                    parser.feed(msg, offset, count)
+                }
+            })
+            activeDevice = device
+            activePort = outputPort
+            isConnected = true
         }, Handler(Looper.getMainLooper()))
     }
 
-    private fun parseMidiMessage(msg: ByteArray, offset: Int, count: Int) {
-        var i = offset
-        while (i < offset + count) {
-            val statusByte = msg[i].toInt() and 0xFF
-            val type = statusByte and 0xF0
-
-            if (type == 0x90) { // Note On
-                if (i + 2 < offset + count) {
-                    val pitch = msg[i + 1].toInt() and 0xFF
-                    val velocity = msg[i + 2].toInt() and 0xFF
-                    if (velocity > 0) simulateExternalNoteOn(pitch) else simulateExternalNoteOff(pitch)
-                    i += 3
-                } else break
-            } else if (type == 0x80) { // Note Off
-                if (i + 2 < offset + count) {
-                    val pitch = msg[i + 1].toInt() and 0xFF
-                    simulateExternalNoteOff(pitch)
-                    i += 3
-                } else break
-            } else {
-                i++
-            }
-        }
+    private fun disconnect() {
+        runCatching { activePort?.close() }
+        runCatching { activeDevice?.close() }
+        activePort = null
+        activeDevice = null
+        isConnected = false
+        externalPresses.clear()
+        syncPressedKeys()
     }
 
     fun simulateNoteOn(pitch: Int) {

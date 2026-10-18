@@ -162,7 +162,8 @@ private fun ModernPianoPlayerContent(
         if (showTutorial) viewModel.isPlaying = false
     }
 
-    DisposableEffect(lifecycleOwner, viewModel.isWaitModeEnabled) {
+    // Re-runs when a MIDI keyboard is plugged in or out, switching wait mode between keyboard and microphone
+    DisposableEffect(lifecycleOwner, viewModel.isWaitModeEnabled, MidiInputManager.isConnected) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 if (viewModel.isWaitModeEnabled && !MidiInputManager.isMidiDeviceConnected()) {
@@ -225,7 +226,7 @@ private fun ModernPianoPlayerContent(
         else noteEvents.filter { abs(it.startMs - nextRequiredOnset) <= 30L }.map { it.pitch }.toSet()
     }
 
-    LaunchedEffect(notesToStrike, viewModel.isWaitModeEnabled, viewModel.isPlaying) {
+    LaunchedEffect(notesToStrike, viewModel.isWaitModeEnabled, viewModel.isPlaying, MidiInputManager.isConnected) {
         AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled && viewModel.isPlaying) notesToStrike else emptySet()
     }
 

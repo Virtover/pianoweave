@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.software.midi" android:required="false" />
+
+    <application>
+        <!-- Virtual MIDI keyboard used by MidiKeyboardInstrumentedTest; only exists while the test APK is installed -->
+        <service
+            android:name="com.lumenchord.pianoweave.midi.LoopbackMidiService"
+            android:exported="true"
+            android:permission="android.permission.BIND_MIDI_DEVICE_SERVICE">
+            <intent-filter>
+                <action android:name="android.media.midi.MidiDeviceService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.media.midi.MidiDeviceService"
+                android:resource="@xml/loopback_midi_device_info" />
+        </service>
+
+        <receiver
+            android:name="com.lumenchord.pianoweave.midi.LoopbackToggleReceiver"
+            android:exported="true" />
+    </application>
+</manifest>
