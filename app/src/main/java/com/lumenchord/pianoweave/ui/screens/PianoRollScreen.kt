@@ -155,6 +155,13 @@ private fun ModernPianoPlayerContent(
         PianoPlayer.initialize(context)
     }
 
+    var showTutorial by remember { mutableStateOf(!viewModel.hasSeenPianoRollTutorial(context)) }
+
+    // Keep the song paused while the tutorial is open
+    LaunchedEffect(showTutorial) {
+        if (showTutorial) viewModel.isPlaying = false
+    }
+
     DisposableEffect(lifecycleOwner, viewModel.isWaitModeEnabled) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -487,6 +494,15 @@ private fun ModernPianoPlayerContent(
             viewModel = viewModel,
             songDurationMs = songDurationMs,
             onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    if (showTutorial) {
+        PianoRollTutorialDialog(
+            onDismiss = {
+                showTutorial = false
+                viewModel.markPianoRollTutorialSeen(context)
+            }
         )
     }
 }

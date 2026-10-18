@@ -343,6 +343,13 @@ class PianoWeaveViewModel : ViewModel() {
         AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SHOWN_CLOUD_BACKUP_DIALOG, true).apply()
     }
 
+    fun hasSeenPianoRollTutorial(context: Context): Boolean =
+        AppPrefs.get(context).getBoolean(AppPrefs.HAS_SEEN_PIANO_ROLL_TUTORIAL, false)
+
+    fun markPianoRollTutorialSeen(context: Context) {
+        AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SEEN_PIANO_ROLL_TUTORIAL, true).apply()
+    }
+
     override fun onCleared() {
         activeRecorder?.let { recorder ->
             runCatching { recorder.stop() }

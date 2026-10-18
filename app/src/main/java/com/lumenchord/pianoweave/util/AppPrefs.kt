@@ -41,6 +41,7 @@ object AppPrefs {
     const val SELECTED_THEME_ID = "selected_theme_id"
     const val TOP_BAR_SPEED = "top_bar_speed"
     const val IS_STRIKE_OVERLAY_ENABLED = "is_strike_overlay_enabled"
+    const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
 
     fun get(context: Context): SharedPreferences =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
