@@ -1,10 +1,13 @@
 package com.lumenchord.pianoweave.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -12,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -19,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 
@@ -39,6 +44,9 @@ fun EditSongDetailsDialog(
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
     val colorTextDim = MaterialTheme.colorScheme.tertiary
 
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     // "Device Storage" is what imports show in place of an artist, not a name to edit.
     val initialArtist = song.metadata.author.takeUnless { it in PLACEHOLDER_ARTISTS }.orEmpty()
     var title by remember(song.file) { mutableStateOf(song.metadata.title) }
@@ -53,18 +61,24 @@ fun EditSongDetailsDialog(
         cursorColor = colorPrimary
     )
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // Keeps the fields above the keyboard on smaller phones.
                 .imePadding()
-                .padding(horizontal = 12.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth(0.98f)
+                    .widthIn(max = 560.dp)
+                    .fillMaxWidth(if (isLandscape) 0.88f else 0.95f)
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = colorSurface,
@@ -74,8 +88,9 @@ fun EditSongDetailsDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(if (isLandscape) 12.dp else 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 14.dp)
                 ) {
                     // Header
                     Row(
@@ -115,38 +130,41 @@ fun EditSongDetailsDialog(
 
                     HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it.take(MAX_TITLE_LENGTH) },
-                        label = { Text("Title") },
-                        singleLine = true,
-                        isError = title.isBlank(),
-                        supportingText = if (title.isBlank()) {
-                            { Text("A title is required") }
-                        } else null,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Sentences,
-                            imeAction = ImeAction.Next
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = fieldColors,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = artist,
-                        onValueChange = { artist = it.take(MAX_ARTIST_LENGTH) },
-                        label = { Text("Artist (optional)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Words,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(onDone = { save() }),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = fieldColors,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (isLandscape) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            TitleField(
+                                title = title,
+                                onTitleChange = { title = it.take(MAX_TITLE_LENGTH) },
+                                fieldColors = fieldColors,
+                                modifier = Modifier.weight(1f)
+                            )
+                            ArtistField(
+                                artist = artist,
+                                onArtistChange = { artist = it.take(MAX_ARTIST_LENGTH) },
+                                onSave = save,
+                                fieldColors = fieldColors,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else {
+                        TitleField(
+                            title = title,
+                            onTitleChange = { title = it.take(MAX_TITLE_LENGTH) },
+                            fieldColors = fieldColors,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        ArtistField(
+                            artist = artist,
+                            onArtistChange = { artist = it.take(MAX_ARTIST_LENGTH) },
+                            onSave = save,
+                            fieldColors = fieldColors,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
                     Row(
                         modifier = Modifier
@@ -159,7 +177,7 @@ fun EditSongDetailsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .heightIn(min = 46.dp),
+                                .heightIn(min = 44.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, colorSlate),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
@@ -180,7 +198,7 @@ fun EditSongDetailsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .heightIn(min = 46.dp),
+                                .heightIn(min = 44.dp),
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -202,3 +220,54 @@ fun EditSongDetailsDialog(
         }
     }
 }
+
+@Composable
+private fun TitleField(
+    title: String,
+    onTitleChange: (String) -> Unit,
+    fieldColors: TextFieldColors,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = title,
+        onValueChange = onTitleChange,
+        label = { Text("Title") },
+        singleLine = true,
+        isError = title.isBlank(),
+        supportingText = if (title.isBlank()) {
+            { Text("A title is required") }
+        } else null,
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Sentences,
+            imeAction = ImeAction.Next
+        ),
+        shape = RoundedCornerShape(12.dp),
+        colors = fieldColors,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun ArtistField(
+    artist: String,
+    onArtistChange: (String) -> Unit,
+    onSave: () -> Unit,
+    fieldColors: TextFieldColors,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = artist,
+        onValueChange = onArtistChange,
+        label = { Text("Artist (optional)") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Words,
+            imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(onDone = { onSave() }),
+        shape = RoundedCornerShape(12.dp),
+        colors = fieldColors,
+        modifier = modifier
+    )
+}
+
