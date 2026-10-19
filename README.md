@@ -22,13 +22,32 @@
 
 ## 📱 Screenshots
 
-| AI Transcription | MIDI Library |
-| :---------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
-| <img src="screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="screenshots/midi_library.jpg" width="100%" alt="MIDI Library Screen" /> |
-
-| Interactive Piano Roll | Interactive Piano Roll (with Controls) |
-| :---------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
-| <img src="screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> | <img src="screenshots/piano_roll_landscape_2.jpg" width="100%" alt="Interactive Piano Roll with Controls" /> |
+<table width="100%">
+  <tr>
+    <th width="50%" align="center">AI Transcription</th>
+    <th width="50%" align="center">MIDI Library</th>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" />
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/midi_library.jpg" width="100%" alt="MIDI Library Screen" />
+    </td>
+  </tr>
+  <tr>
+    <th width="50%" align="center">Interactive Piano Roll</th>
+    <th width="50%" align="center">Interactive Piano Roll (with Controls)</th>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" />
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/piano_roll_landscape_2.jpg" width="100%" alt="Interactive Piano Roll with Controls" />
+    </td>
+  </tr>
+</table>
 
 ## ✨ Features
 
