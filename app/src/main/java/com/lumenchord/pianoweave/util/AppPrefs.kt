@@ -42,8 +42,10 @@ object AppPrefs {
     const val TOP_BAR_SPEED = "top_bar_speed"
     const val IS_STRIKE_OVERLAY_ENABLED = "is_strike_overlay_enabled"
     const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
-    /** Whether the hidden verse screen was ever opened; after that the logo hold is shorter. */
+    /** Legacy flag: the hidden verse screen was opened at least once (superseded by the count below). */
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"
+    /** How many times the hidden verse screen was opened; the logo hold gets shorter as it grows. */
+    const val VERSE_OF_LIGHT_OPEN_COUNT = "verse_of_light_open_count"
 
     fun get(context: Context): SharedPreferences =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)

@@ -17,6 +17,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -134,8 +135,10 @@ private fun PianoWeaveApp(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showVerseOfLight by remember { mutableStateOf(false) }
     // The first discovery takes a longer hold; once found, shorter is enough
-    var hasOpenedVerseOfLight by remember {
-        mutableStateOf(AppPrefs.get(context).getBoolean(AppPrefs.HAS_OPENED_VERSE_OF_LIGHT, false))
+    var verseOfLightOpens by remember {
+        val prefs = AppPrefs.get(context)
+        val legacyOpened = if (prefs.getBoolean(AppPrefs.HAS_OPENED_VERSE_OF_LIGHT, false)) 1 else 0
+        mutableIntStateOf(prefs.getInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, legacyOpened))
     }
     val snackbarHost = remember { SnackbarHostState() }
 
@@ -158,12 +161,16 @@ private fun PianoWeaveApp(
         isStorageSelected = selectedTab == AppTab.Storage,
         onStorageSelect = { selectedTab = AppTab.Storage },
         onOpenSettingsDialog = { showSettingsDialog = true },
-        logoHoldMillis = if (hasOpenedVerseOfLight) 3_000L else 7_000L,
+        logoHoldMillis = when (verseOfLightOpens) {
+            0 -> 7_000L
+            1 -> 3_000L
+            else -> 2_000L
+        },
         onLogoLongHold = {
             showVerseOfLight = true
-            if (!hasOpenedVerseOfLight) {
-                hasOpenedVerseOfLight = true
-                AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_OPENED_VERSE_OF_LIGHT, true).apply()
+            if (verseOfLightOpens < 2) {
+                verseOfLightOpens++
+                AppPrefs.get(context).edit().putInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, verseOfLightOpens).apply()
             }
         }
     ) {
