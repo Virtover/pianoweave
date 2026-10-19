@@ -22,9 +22,13 @@
 
 ## 📱 Screenshots
 
-|                                            AI Transcription                                           |                                         Interactive Piano Roll                                          |
+| AI Transcription | MIDI Library |
 | :---------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
-| <img src="screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> |
+| <img src="screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" /> | <img src="screenshots/midi_library.jpg" width="100%" alt="MIDI Library Screen" /> |
+
+| Interactive Piano Roll | Interactive Piano Roll (with Controls) |
+| :---------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: |
+| <img src="screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" /> | <img src="screenshots/piano_roll_landscape_2.jpg" width="100%" alt="Interactive Piano Roll with Controls" /> |
 
 ## ✨ Features
 
