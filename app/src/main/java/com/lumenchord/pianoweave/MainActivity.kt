@@ -133,7 +133,7 @@ private fun PianoWeaveApp(
     var selectedTab by remember { mutableStateOf(AppTab.Learn) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showVerseOfLight by remember { mutableStateOf(false) }
-    // The first discovery takes a 7 s hold; once found, 3 s is enough
+    // The first discovery takes a longer hold; once found, shorter is enough
     var hasOpenedVerseOfLight by remember {
         mutableStateOf(AppPrefs.get(context).getBoolean(AppPrefs.HAS_OPENED_VERSE_OF_LIGHT, false))
     }

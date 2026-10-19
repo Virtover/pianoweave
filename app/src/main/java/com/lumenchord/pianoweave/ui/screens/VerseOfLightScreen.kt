@@ -128,7 +128,7 @@ private fun GlowText(
 }
 
 /**
- * Hidden screen (hold the Piano Weave icon: 7 s the first time, 3 s after): a cross of gold light with a random Bible verse
+ * Hidden screen (hold the Piano Weave icon): a cross of gold light with a random Bible verse
  * and the name of God that goes with it, in the style of the splash screen. Tapping the name or verse copies it.
  */
 @Composable
