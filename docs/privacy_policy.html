@@ -66,6 +66,7 @@
         audio is processed on your device. A microphone recording leaves your device only when you record it yourself
         and tap Transcribe. Your MIDI library stays on your device unless you turn on cloud sync. If you transcribe a video,
         a file or a recording, or sign in with Google, the information listed below is sent to the Server.
+        When the Server is busy, the audio of a transcription job may be processed on rented GPU capacity at a third-party provider (see <a href="#sharing">Sharing and third parties</a>).
         I do not sell your data and the App does not show ads.
     </div>
 
@@ -107,12 +108,12 @@
         <tr>
             <td><strong>Audio and video files</strong> you choose for transcription, including their file names</td>
             <td>To create a MIDI file from them</td>
-            <td>Uploaded to the Server, which keeps them only while the transcription runs (see <a href="#retention">Retention</a>)</td>
+            <td>Uploaded to the Server, which keeps them only while the transcription runs (see <a href="#retention">Retention</a>). If the Server is busy, the audio extracted from it may be processed by a third-party GPU provider (see <a href="#sharing">Sharing and third parties</a>).</td>
         </tr>
         <tr>
             <td><strong>Microphone recordings</strong> you make with the App's Record option</td>
             <td>To create a MIDI file from the music you recorded</td>
-            <td>Saved temporarily on your device, then uploaded to the Server when you tap Transcribe (see <a href="#microphone">Microphone</a>)</td>
+            <td>Saved temporarily on your device, then uploaded to the Server when you tap Transcribe (see <a href="#microphone">Microphone</a>). If the Server is busy, the audio extracted from it may be processed by a third-party GPU provider (see <a href="#sharing">Sharing and third parties</a>).</td>
         </tr>
         <tr>
             <td><strong>Purchase information</strong> (product ID, Google Play purchase token)</td>
@@ -210,6 +211,16 @@
             Backups are encrypted before they are stored outside the Server.
         </li>
         <li>
+            <strong>GPU processing and temporary storage.</strong> When the Server has more transcription jobs than its own
+            GPUs can handle, a job may be processed on <a href="https://www.runpod.io/legal/privacy-policy" rel="noopener">RunPod</a>
+            GPU capacity. In that case the Server uploads the job's audio (only the audio, converted to a standard format)
+            to temporary storage at <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">Cloudflare</a> (R2),
+            RunPod reads it from there, and the resulting MIDI file is returned to the Server. Your Google account,
+            email address, purchase information, device identifier, video link and file name are not sent to either provider.
+            Both act as processors on my behalf. I choose EU locations where available, but both companies are based outside the EU,
+            so data may be handled under safeguards such as standard contractual clauses.
+        </li>
+        <li>
             <strong>Legal reasons.</strong> I may disclose information if required by law or to protect rights, safety and the security of the service.
         </li>
     </ul>
@@ -221,7 +232,7 @@
 
     <h2 id="retention">5. Retention</h2>
     <ul>
-        <li><strong>Files created during a transcription</strong> (downloaded audio, uploaded files and recordings, and generated MIDI) are temporary on the Server and are removed automatically shortly after the job finishes.</li>
+        <li><strong>Files created during a transcription</strong> (downloaded audio, uploaded files and recordings, and generated MIDI) are temporary on the Server and are removed automatically shortly after the job finishes. If a job runs on a GPU provider, its audio is deleted from the temporary storage when the job ends (and any leftover after a failure is deleted automatically within about a day), and the resulting MIDI is kept by the provider for up to 30 minutes.</li>
         <li><strong>Account and billing records</strong> (Google account ID, email address, balance, purchases) are kept while your account is active and as needed to handle purchases, refunds and disputes, or as required by law.</li>
         <li><strong>Backups</strong> of the billing database are kept for a limited period and then replaced.</li>
         <li><strong>On your device</strong>, songs you delete in the App stay in a recycle state for up to 30 days and are then permanently removed. Uninstalling the App deletes its local data.</li>
