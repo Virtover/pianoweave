@@ -7,14 +7,15 @@ import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
-import kotlin.math.floor
 
 /**
  * Streaming voice activity gate based on Silero VAD v5 (TFLite/LiteRT export, ~1.3 MB, ~0.4 M params).
  *
  * The model works on 32 ms chunks (512 samples @ 16 kHz) with a 64-sample context and an LSTM
  * state carried between chunks, so it is fed continuously with the new audio of every inference
- * loop iteration (2-3 chunks per iteration, well under 1 ms each). The result is a voice
+ * loop iteration (2-3 chunks per iteration, well under 1 ms each). The audio is the same
+ * anti-aliased 16 kHz stream the note model gets, taken BEFORE the input level control, so the
+ * VAD sees the raw level it was calibrated for. The result is a voice
  * probability per 32 ms, smoothed into a 0..1 [evidence] that AcousticNoteDetector uses to make
  * NON-target pitch detection stricter while someone is speaking or singing.
  *
@@ -62,8 +63,6 @@ object VoiceActivityGate {
     private val context = FloatArray(CONTEXT)
     private val chunk = FloatArray(CHUNK)
     private var chunkFill = 0
-    private var nextPos = 0.0      // next 16 kHz sample position, in native-sample units of the next block
-    private var prevLast = 0f      // last native sample of the previous block (for interpolation)
     private var smoothed = 0f
     private var debugCounter = 0
 
@@ -110,37 +109,21 @@ object VoiceActivityGate {
     }
 
     /**
-     * Feed newly captured audio. [samples] are raw (un-normalised) 44.1 kHz floats whose LAST
-     * [count] entries are the audio received since the previous call; [step] is 44100 / 16000.
-     * Set [contiguous] to false when audio was dropped since the previous call (the stream state
-     * is then restarted).
+     * Feed newly captured audio: [count] samples of the continuous 16 kHz stream (un-normalised),
+     * starting at [offset]. Call [reset] when audio was dropped since the previous call (the
+     * LSTM state depends on a continuous stream).
      */
     @Synchronized
-    fun feed(samples: FloatArray, count: Int, step: Float, contiguous: Boolean = true) {
+    fun feed(samples: FloatArray, offset: Int, count: Int) {
         val interp = interpreter ?: return
-        if (!contiguous) resetStream()
-        val n = count.coerceAtMost(samples.size)
-        if (n <= 0) return
-        val first = samples.size - n
-        val limit = n - 1.0
-
         try {
-            // Linear-interpolation resampling to 16 kHz with a phase carried across calls, so the
-            // stream stays continuous (the LSTM state depends on it).
-            while (nextPos < limit) {
-                val idx = floor(nextPos).toInt() // -1 when between the previous block and this one
-                val frac = (nextPos - idx).toFloat()
-                val a = if (idx < 0) prevLast else samples[first + idx]
-                val b = samples[first + idx + 1]
-                chunk[chunkFill++] = a * (1f - frac) + b * frac
+            for (i in offset until offset + count) {
+                chunk[chunkFill++] = samples[i]
                 if (chunkFill == CHUNK) {
                     runChunk(interp)
                     chunkFill = 0
                 }
-                nextPos += step
             }
-            nextPos -= n
-            prevLast = samples[first + n - 1]
         } catch (e: Exception) {
             Log.w(TAG, "Silero VAD inference failed", e)
         }
@@ -185,12 +168,10 @@ object VoiceActivityGate {
         }
     }
 
-    /** Clears LSTM state, context, resampler phase and smoothing. */
+    /** Clears LSTM state, context and smoothing. */
     private fun resetStream() {
         context.fill(0f)
         chunkFill = 0
-        nextPos = 0.0
-        prevLast = 0f
         smoothed = 0f
         evidence = 0f
         stateInBuf?.let { buf ->

@@ -16,7 +16,6 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
-import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.max
@@ -61,6 +60,17 @@ object AcousticNoteDetector {
     private const val REQUIRED_OFF_FRAMES = 2
 
     private const val INFERENCE_INTERVAL_MS = 60L
+
+    // --- Input pipeline ---
+    // Capture rate requested from AAudio (native rate on almost every device); the real rate is read
+    // back from the stream. Audio is downsampled to the model rate with an anti-alias filter
+    // (StreamResampler) and level-controlled (InputLevelControl) once, as it arrives.
+    private const val CAPTURE_SAMPLE_RATE = 48000
+    private const val MODEL_SAMPLE_RATE = 16000
+    // Must match RING_BUFFER_SIZE in native-audio-bridge.cpp.
+    private const val NATIVE_RING_FRAMES = 131072L
+    // Max native frames copied per read (~340 ms at 48 kHz); larger backlogs are read in a loop.
+    private const val READ_CHUNK_FRAMES = 16384
 
     // Logs onset/frame profile + hold value around every non-target note that passes the onset/frame
     // thresholds (for tuning / comparing voice vs piano).
@@ -239,57 +249,83 @@ object AcousticNoteDetector {
             if (onsetIndex >= 0) put(onsetIndex, onsets)
         }
 
-        val step = 44100f / 16000f
-        val nativeSamples = (inputSamples * step).toInt() + 2
         // Model samples (16 kHz) per output frame (560 = 35 ms for the 17920 / 32 model).
         val samplesPerFrame = inputSamples.toFloat() / outputFrames
         val maxWindow = min(MAX_ANALYSIS_FRAMES, outputFrames)
-        val capture = ByteBuffer.allocateDirect(nativeSamples * 4).order(ByteOrder.nativeOrder())
-        val samples = FloatArray(nativeSamples)
-        var readIndex = NativeAudioEngine.getAvailableFrames().coerceAtLeast(nativeSamples.toLong()) - nativeSamples
+
+        val captureRate = NativeAudioEngine.getSampleRate().takeIf { it > 0 } ?: CAPTURE_SAMPLE_RATE
+        val resampler = StreamResampler(captureRate, MODEL_SAMPLE_RATE)
+        val levelControl = InputLevelControl(MODEL_SAMPLE_RATE)
+        Log.i(TAG, "Input pipeline: capture=$captureRate Hz -> model=$MODEL_SAMPLE_RATE Hz")
+
+        val capture = ByteBuffer.allocateDirect(READ_CHUNK_FRAMES * 4).order(ByteOrder.nativeOrder())
+        val captureFloats = capture.asFloatBuffer()
+        val raw = FloatArray(READ_CHUNK_FRAMES)
+        val resampled = FloatArray(resampler.maxOutputFor(READ_CHUNK_FRAMES))
+        val inputFloats = input.asFloatBuffer()
+
+        // Level-controlled 16 kHz audio; the model input is always its last inputSamples samples.
+        val modelRing = FloatArray(inputSamples)
+        var ringPos = 0
+        var newModelSamples = 0
+
+        // Start from "now": older ring content may be stale audio from a previous capture session.
+        var readIndex = NativeAudioEngine.getAvailableFrames()
 
         try {
             while (isRunning) {
                 if (MidiInputManager.isMidiDeviceConnected()) break
 
                 val writeIndex = NativeAudioEngine.getAvailableFrames()
-                val newFrames = (writeIndex - readIndex).toInt()
-                if (newFrames <= 0) {
+                if (writeIndex - readIndex > NATIVE_RING_FRAMES - READ_CHUNK_FRAMES) {
+                    // The native ring overran (thread stalled), audio was lost: restart all stream state.
+                    Log.w(TAG, "Audio backlog of ${writeIndex - readIndex} frames, resetting input stream")
+                    readIndex = writeIndex
+                    resampler.reset()
+                    levelControl.reset()
+                    VoiceActivityGate.reset()
+                }
+
+                while (readIndex < writeIndex) {
+                    val count = min(writeIndex - readIndex, READ_CHUNK_FRAMES.toLong()).toInt()
+                    capture.rewind()
+                    if (NativeAudioEngine.copyLatest(capture, count, readIndex) != count) break
+                    captureFloats.clear()
+                    captureFloats.get(raw, 0, count)
+                    readIndex += count
+
+                    val produced = resampler.process(raw, 0, count, resampled, 0)
+                    // The VAD gets the raw (pre-gain) 16 kHz stream. It only raises the hold
+                    // thresholds in processOutputs while voice is detected.
+                    VoiceActivityGate.feed(resampled, 0, produced)
+                    levelControl.process(resampled, 0, produced)
+
+                    var off = 0
+                    while (off < produced) {
+                        val n = min(produced - off, inputSamples - ringPos)
+                        System.arraycopy(resampled, off, modelRing, ringPos, n)
+                        ringPos = (ringPos + n) % inputSamples
+                        off += n
+                    }
+                    newModelSamples += produced
+                }
+
+                if (newModelSamples <= 0) {
                     Thread.sleep(10)
                     continue
                 }
 
-                val count = newFrames.coerceAtMost(nativeSamples)
-                val start = writeIndex - count
-                if (count < nativeSamples) System.arraycopy(samples, count, samples, 0, nativeSamples - count)
-
-                capture.rewind()
-                if (NativeAudioEngine.copyLatest(capture, count, start) != count) continue
-                capture.rewind()
-                capture.asFloatBuffer().get(samples, nativeSamples - count, count)
-                readIndex = writeIndex
-
-                // Keeps VoiceActivityGate.evidence up to date (cheap). Not used for note decisions
-                // while voiceWeight is disabled in processOutputs; comment out to save the CPU.
-                VoiceActivityGate.feed(samples, count, step, contiguous = newFrames <= nativeSamples)
-
                 // Analysis window = audio received since the previous run (this includes the time
                 // spent in inference and sleep), converted to output frames (+1 frame of margin).
-                val newModelSamples = count / step
                 val windowFrames = (ceil(newModelSamples / samplesPerFrame).toInt() + 1)
                     .coerceIn(min(MIN_ANALYSIS_FRAMES, maxWindow), maxWindow)
+                newModelSamples = 0
 
-                var peak = 0.0001f
-                for (sample in samples) peak = max(peak, abs(sample))
-                val gain = if (peak < 0.005f) 0f else min(3f, 0.5f / peak)
-
+                // Oldest sample first: ring from ringPos to the end, then from 0 to ringPos.
+                inputFloats.clear()
+                inputFloats.put(modelRing, ringPos, inputSamples - ringPos)
+                inputFloats.put(modelRing, 0, ringPos)
                 input.rewind()
-                for (i in 0 until inputSamples) {
-                    val pos = i * step
-                    val i0 = pos.toInt()
-                    val frac = pos - i0
-                    input.putFloat((samples[i0] * (1f - frac) + samples[min(i0 + 1, nativeSamples - 1)] * frac) * gain)
-                }
 
                 interp.runForMultipleInputsOutputs(inputs, outputs)
                 processOutputs(notes[0], onsets[0], outputFrames, midiKeys, windowFrames)
