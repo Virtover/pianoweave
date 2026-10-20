@@ -9,8 +9,10 @@ import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.cloud.PendingDetailEdits
 import com.lumenchord.pianoweave.midi.hasEditableDetails
+import com.lumenchord.pianoweave.midi.isSharedSourceKey
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.midi.settleAddedAt
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -119,8 +121,11 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
 
                 removeDuplicateCloudCopies(context, initialCloudSongs, MidiStorage.listAll(context), token)
 
+                unlinkImportsSharingCloudCopy(context)
+
+                // Keys shared by several songs (older imports) never identify a song; those match by cloud id only.
                 val cloudFileIds = initialCloudSongs.map { it.id }.toSet()
-                val cloudUrls = initialCloudSongs.map { it.videoUrl }.toSet()
+                val cloudUrls = initialCloudSongs.map { it.videoUrl }.filterNot { it.isSharedSourceKey }.toSet()
                 val allLocalSongs = MidiStorage.listAll(context)
 
                 // 1. Remote deletions (local files only, no network). A song whose linked copy is gone but
@@ -140,7 +145,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 val deletedLocal = localSongs.filter { it.isDeleted }
                 val activeLocalSongs = localSongs.filterNot { it.isDeleted }
                 val deletedLocalCloudIds = deletedLocal.map { it.cloudFileId }.filter { it.isNotBlank() }.toSet()
-                val deletedLocalUrls = deletedLocal.map { it.videoUrl }.toSet()
+                val deletedLocalUrls = deletedLocal.map { it.videoUrl }.filterNot { it.isSharedSourceKey }.toSet()
 
                 // 2. Purge cloud copies of soft-deleted songs (parallel)
                 val cloudSongsToDelete = initialCloudSongs.filter {
@@ -150,13 +155,13 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 initialCloudSongs.removeAll(cloudSongsToDelete.toSet())
                 deletedLocal.forEach { MidiStorage.hardDelete(context, it) }
 
-                val remainingCloudByUrl = initialCloudSongs.associateBy { it.videoUrl }
+                val remainingCloudByUrl = initialCloudSongs.filterNot { it.videoUrl.isSharedSourceKey }.associateBy { it.videoUrl }
                 val remainingCloudById = initialCloudSongs.associateBy { it.id }
 
                 // Work out BOTH directions up front from the same snapshot. They are disjoint,
                 // so uploads and downloads can run at the same time.
                 val localCloudIds = activeLocalSongs.map { it.cloudFileId }.filter { it.isNotBlank() }.toSet()
-                val localUrls = activeLocalSongs.map { it.videoUrl }.toSet()
+                val localUrls = activeLocalSongs.map { it.videoUrl }.filterNot { it.isSharedSourceKey }.toSet()
 
                 val songsToUpload = activeLocalSongs.filter {
                     it.cloudFileId !in remainingCloudById && it.videoUrl !in remainingCloudByUrl
@@ -173,6 +178,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
 
                 repairLostMetadata(context, activeLocalSongs, remainingCloudById, remainingCloudByUrl, token)
                 syncEditedDetails(context, remainingCloudById, token)
+                syncAddedDates(context, remainingCloudById, token)
 
                 val total = songsToUpload.size + songsToDownload.size
                 val done = AtomicInteger(0)
@@ -272,6 +278,20 @@ private val CloudMidi.hasLostMetadata: Boolean
     get() = metadata.isPlaceholder || videoUrl.startsWith("cloud://")
 
 /**
+ * Older versions linked imports with the same file name to one cloud copy by their shared key. Keeps one
+ * link per cloud copy and unlinks the rest, so they upload as copies of their own; otherwise deleting one
+ * would delete the others' cloud copy too.
+ */
+private fun unlinkImportsSharingCloudCopy(context: Context) {
+    MidiStorage.list(context)
+        .filter { it.videoUrl.isSharedSourceKey && it.cloudFileId.isNotBlank() }
+        .groupBy { it.cloudFileId }
+        .values
+        .flatMap { it.drop(1) }
+        .forEach { MidiStorage.updateCloudFileId(context, it, "") }
+}
+
+/**
  * Older versions uploaded every finished transcription twice, and sometimes a copy with its metadata
  * lost. Keeps one copy per transcription URL (real metadata first, then the one this device links to,
  * then the newest), moves local links over to it and deletes the rest. Updates [cloudSongs] in place.
@@ -360,6 +380,26 @@ private suspend fun syncEditedDetails(
             PendingDetailEdits.remove(context, song)
         }
     }
+}
+
+/**
+ * Gives each song and its cloud copy the same "added" date, so the library is in the same order on
+ * every device. Runs after [syncEditedDetails], so a copy rewritten here already has the same details.
+ */
+private suspend fun syncAddedDates(
+    context: Context,
+    cloudById: Map<String, CloudMidi>,
+    token: String
+) {
+    val toPush = mutableListOf<StoredMidi>()
+    for (local in MidiStorage.list(context)) {
+        val cloud = cloudById[local.cloudFileId] ?: continue
+        val settled = settleAddedAt(local.addedAt, cloud.addedAt, cloud.createdTime)
+        if (local.addedAt != settled) MidiStorage.updateAddedAt(context, local, settled)
+        if (cloud.addedAt != settled) toPush += local.copy(addedAt = settled)
+    }
+    // Best effort: a failed update is retried on the next sync.
+    toPush.parallelMap { song -> GoogleDriveManager.updateCloudMetadata(context, song.cloudFileId, song, token) }
 }
 
 /** Compared the way the .meta file stores them, which turns line breaks into spaces. */

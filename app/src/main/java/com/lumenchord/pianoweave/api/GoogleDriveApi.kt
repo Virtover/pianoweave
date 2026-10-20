@@ -18,6 +18,7 @@ data class DriveFileItem(
     val name: String?,
     val size: String?,
     val modifiedTime: String?,
+    val createdTime: String? = null,
     val description: String?
 )
 
@@ -32,7 +33,7 @@ interface GoogleDriveApi {
         @Header("Authorization") authHeader: String?,
         @Query("spaces") spaces: String = "appDataFolder",
         @Query("q") q: String = "'appDataFolder' in parents and trashed = false",
-        @Query("fields") fields: String = "files(id,name,size,modifiedTime,description)",
+        @Query("fields") fields: String = "files(id,name,size,modifiedTime,createdTime,description)",
         @Query("pageSize") pageSize: Int = 1000
     ): DriveFileListResponse
 

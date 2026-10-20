@@ -73,7 +73,8 @@ class InputPipelineTest {
         }
 
         fun peak(a: FloatArray, from: Int, to: Int) = (from until to).maxOf { abs(a[it]) }
-        assertTrue("noise stays quiet", peak(out, fs / 2, fs) < 0.005f)
+        // The gate opens up to one 5 ms segment early (lookahead), so stop before the note's segment.
+        assertTrue("noise stays quiet", peak(out, fs / 2, fs - fs / 200) < 0.005f)
         assertTrue("soft note boosted", peak(out, fs, fs + fs / 5) > 0.03f)
         assertTrue("never above target", out.maxOf { abs(it) } <= 0.5001f)
         assertTrue("loud note kept loud", peak(out, 2 * fs, 2 * fs + fs / 10) > 0.4f)

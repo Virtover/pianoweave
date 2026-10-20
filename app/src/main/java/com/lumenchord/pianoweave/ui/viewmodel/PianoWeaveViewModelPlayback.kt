@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.cloud.PendingDetailEdits
 import com.lumenchord.pianoweave.midi.hasEditableDetails
+import com.lumenchord.pianoweave.midi.isSharedSourceKey
 import kotlinx.coroutines.sync.withLock
 import com.lumenchord.pianoweave.midi.ExportNotifier
 import com.lumenchord.pianoweave.midi.ExportState
@@ -85,6 +86,8 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
                 try {
                     val fileId = if (song.cloudFileId.isNotBlank()) {
                         song.cloudFileId
+                    } else if (song.videoUrl.isSharedSourceKey) {
+                        null // The key may belong to another song's cloud copy
                     } else {
                         val cloudSongs = GoogleDriveManager.listCloudMidis(context, token).getOrDefault(emptyList())
                         cloudSongs.firstOrNull { it.videoUrl == song.videoUrl }?.id

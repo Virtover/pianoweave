@@ -55,7 +55,9 @@ object CloudAccountCache {
                     sizeBytes = item.sizeBytes,
                     modifiedTime = item.modifiedTime,
                     videoUrl = safeVideoUrl,
-                    metadata = safeMetadata
+                    metadata = safeMetadata,
+                    addedAt = item.addedAt,
+                    createdTime = item.createdTime
                 )
             }
         } catch (e: Exception) {

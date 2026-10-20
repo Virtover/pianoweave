@@ -17,7 +17,9 @@ data class StoredMidi(
     val metadata: VideoMetadata,
     val isDeleted: Boolean = false,
     val deletedAt: Long = 0L,
-    val cloudFileId: String = ""
+    val cloudFileId: String = "",
+    /** When the song was first added to the library (on any device). Orders the library and syncs through Drive. */
+    val addedAt: Long = 0L
 )
 
 /**
@@ -26,6 +28,13 @@ data class StoredMidi(
  */
 val StoredMidi.hasEditableDetails: Boolean
     get() = !videoUrl.startsWith("http://") && !videoUrl.startsWith("https://")
+
+/**
+ * Imports made before keys were unique were keyed "file://<file name>", so two imports of the same file
+ * share a key. Such songs are matched only by their cloud file id, never by key.
+ */
+val String.isSharedSourceKey: Boolean
+    get() = startsWith("file://")
 
 object MidiStorage {
 
@@ -73,12 +82,12 @@ object MidiStorage {
             metadata.like_count.toString()
         ).map { it.orEmpty().replace(LINE_BREAKS, " ") }
 
-    private fun writeRecord(metadataFile: File, videoUrl: String, metadata: VideoMetadata) {
-        val lines = metadataLines(videoUrl, metadata) + listOf("false", "0", "")
+    private fun writeRecord(metadataFile: File, videoUrl: String, metadata: VideoMetadata, addedAt: Long) {
+        val lines = metadataLines(videoUrl, metadata) + listOf("false", "0", "", addedAt.toString())
         writeTextAtomically(metadataFile, lines.joinToString("\n"))
     }
 
-    /** Applies [change] to the lines of [metadataFile] (padded to the full 15-line layout) under the write lock. */
+    /** Applies [change] to the lines of [metadataFile] (padded to the full 16-line layout) under the write lock. */
     private fun updateRecordLines(metadataFile: File, change: (MutableList<String>) -> Unit) {
         synchronized(writeLock) {
             if (!metadataFile.exists()) return
@@ -87,6 +96,7 @@ object MidiStorage {
             if (lines.size < 13) lines.add("false")
             if (lines.size < 14) lines.add("0")
             if (lines.size < 15) lines.add("")
+            if (lines.size < 16) lines.add("")
             change(lines)
             writeTextAtomically(metadataFile, lines.joinToString("\n"))
         }
@@ -149,6 +159,19 @@ object MidiStorage {
         } catch (_: Exception) {}
     }
 
+    fun updateAddedAt(context: Context, storedMidi: StoredMidi, addedAt: Long) {
+        try {
+            updateRecordLines(metadataFileFor(context, storedMidi)) { lines -> lines[15] = addedAt.toString() }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Records written before the date was stored fall back to the .mid file's time, which is when this
+     * device saved it. Cloud sync then settles every copy on the earliest date (see [settleAddedAt]).
+     */
+    private fun readAddedAt(lines: List<String>, midiFile: File): Long =
+        lines.getOrNull(15)?.trim()?.toLongOrNull()?.takeIf { it > 0L } ?: midiFile.lastModified()
+
     /** Replaces a song's metadata, keeping its source URL, deletion state and cloud file id. */
     fun updateMetadata(context: Context, storedMidi: StoredMidi, metadata: VideoMetadata) {
         try {
@@ -210,21 +233,30 @@ object MidiStorage {
         context: Context,
         videoUrl: String,
         metadata: VideoMetadata?,
-        bytes: ByteArray
-    ): StoredMidi = store(context, videoUrl, metadata) { target -> target.writeBytes(bytes) }
+        bytes: ByteArray,
+        addedAt: Long? = null,
+        storageKey: String = videoUrl
+    ): StoredMidi = store(context, videoUrl, metadata, addedAt, storageKey) { target -> target.writeBytes(bytes) }
 
+    /**
+     * [addedAt] is given for songs that already exist elsewhere (cloud copies); new songs get the current time.
+     * [storageKey] names the local files; it differs from [videoUrl] only when that is shared by several songs.
+     */
     private fun store(
         context: Context,
         videoUrl: String,
         metadata: VideoMetadata?,
+        addedAt: Long? = null,
+        storageKey: String = videoUrl,
         writeMidi: (File) -> Unit
     ): StoredMidi {
-        val id = idForUrl(videoUrl)
+        val id = idForUrl(storageKey)
         val dir = directory(context)
         val midiFile = File(dir, "$id.mid")
         val metadataFile = File(dir, "$id$METADATA_EXTENSION")
         val stableUrl = videoUrl.trim()
         val stableMetadata = metadata ?: placeholderMetadata(stableUrl)
+        val stableAddedAt = addedAt?.takeIf { it > 0L } ?: System.currentTimeMillis()
 
         // The (possibly slow) download goes to a temp file first; only the swap into place is locked.
         val tempMidi = File(dir, midiFile.name + TEMP_MARKER + System.nanoTime())
@@ -232,7 +264,7 @@ object MidiStorage {
             writeMidi(tempMidi)
             synchronized(writeLock) {
                 Files.move(tempMidi.toPath(), midiFile.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-                writeRecord(metadataFile, stableUrl, stableMetadata)
+                writeRecord(metadataFile, stableUrl, stableMetadata, stableAddedAt)
             }
         } finally {
             tempMidi.delete()
@@ -244,7 +276,8 @@ object MidiStorage {
             metadata = stableMetadata,
             isDeleted = false,
             deletedAt = 0L,
-            cloudFileId = ""
+            cloudFileId = "",
+            addedAt = stableAddedAt
         )
     }
 
@@ -280,12 +313,12 @@ object MidiStorage {
                     metadata = metadata,
                     isDeleted = isDeleted,
                     deletedAt = deletedAt,
-                    cloudFileId = cloudFileId
+                    cloudFileId = cloudFileId,
+                    addedAt = readAddedAt(lines, midiFile)
                 )
             }
-            ?.sortedByDescending {
-                it.file.lastModified()
-            }
+            // Newest first. The URL breaks ties the same way everywhere (file names of imports differ per device).
+            ?.sortedWith(compareByDescending<StoredMidi> { it.addedAt }.thenBy { it.videoUrl })
             ?: emptyList()
     }
 
@@ -404,7 +437,8 @@ object MidiStorage {
             }
         }
 
-        val stableUrl = "file://$fileName"
+        // Unique per import, so importing the same file twice gives two songs that sync independently.
+        val stableUrl = "import://$id/$fileName"
         val metadata = VideoMetadata(
             title = title.ifBlank { "Imported MIDI" },
             author = "Device Storage",
@@ -419,8 +453,9 @@ object MidiStorage {
             like_count = 0L
         )
 
+        val addedAt = System.currentTimeMillis()
         synchronized(writeLock) {
-            writeRecord(metadataFile, stableUrl, metadata)
+            writeRecord(metadataFile, stableUrl, metadata, addedAt)
         }
 
         return StoredMidi(
@@ -429,7 +464,8 @@ object MidiStorage {
             metadata = metadata,
             isDeleted = false,
             deletedAt = 0L,
-            cloudFileId = ""
+            cloudFileId = "",
+            addedAt = addedAt
         )
     }
 
@@ -457,3 +493,13 @@ object MidiStorage {
         return result ?: "imported.mid"
     }
 }
+
+/**
+ * The date a local song and its cloud copy should both carry: the earliest one known. Taking the minimum
+ * makes devices that disagree (older versions dated a downloaded song by its download) converge.
+ * [cloudAddedAt] is 0 for copies uploaded before the date was synced; their Drive creation time stands in.
+ */
+fun settleAddedAt(localAddedAt: Long, cloudAddedAt: Long, cloudCreatedTime: Long): Long =
+    listOf(localAddedAt, cloudAddedAt.takeIf { it > 0L } ?: cloudCreatedTime)
+        .filter { it > 0L }
+        .minOrNull() ?: localAddedAt

@@ -8,6 +8,7 @@ import com.lumenchord.pianoweave.api.sanitizeVideoMetadata
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.midi.isSharedSourceKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -24,12 +25,21 @@ data class CloudMidi(
     val sizeBytes: Long,
     val modifiedTime: Long,
     val videoUrl: String,
-    val metadata: VideoMetadata
+    val metadata: VideoMetadata,
+    /** When the song was first added to the library, from the description; 0 for copies uploaded before it was stored. */
+    val addedAt: Long = 0L,
+    /** When this Drive file was created. Stands in for [addedAt] on older copies. */
+    val createdTime: Long = 0L
 )
+
+/** The date to order and save a cloud song by. */
+val CloudMidi.effectiveAddedAt: Long
+    get() = addedAt.takeIf { it > 0L } ?: createdTime.takeIf { it > 0L } ?: modifiedTime
 
 data class CloudMetadataEnvelope(
     val videoUrl: String? = null,
-    val metadata: VideoMetadata? = null
+    val metadata: VideoMetadata? = null,
+    val addedAt: Long? = null
 )
 
 object GoogleDriveManager {
@@ -44,7 +54,13 @@ object GoogleDriveManager {
 
     /** The song's metadata as stored in the Drive file description. */
     private fun descriptionFor(storedMidi: StoredMidi): String =
-        gson.toJson(CloudMetadataEnvelope(videoUrl = storedMidi.videoUrl, metadata = storedMidi.metadata))
+        gson.toJson(
+            CloudMetadataEnvelope(
+                videoUrl = storedMidi.videoUrl,
+                metadata = storedMidi.metadata,
+                addedAt = storedMidi.addedAt.takeIf { it > 0L }
+            )
+        )
 
     /**
      * Uploads a newly transcribed song unless it is already in the cloud, and links it to the
@@ -94,6 +110,12 @@ object GoogleDriveManager {
                     } catch (_: Exception) {
                         System.currentTimeMillis()
                     }
+                    val createdTime = try {
+                        Instant.parse(item.createdTime).toEpochMilli()
+                    } catch (_: Exception) {
+                        0L
+                    }
+                    var addedAt = 0L
 
                     var videoUrl = "cloud://$fileId"
                     var metadata = VideoMetadata(
@@ -116,6 +138,7 @@ object GoogleDriveManager {
                             if (env != null) {
                                 env.videoUrl?.takeIf { it.isNotBlank() }?.let { videoUrl = it }
                                 metadata = sanitizeVideoMetadata(env.metadata, fallbackUrl = videoUrl)
+                                addedAt = env.addedAt ?: 0L
                             }
                         } catch (_: Exception) {
                             // Fallback to default
@@ -130,12 +153,14 @@ object GoogleDriveManager {
                         sizeBytes = size,
                         modifiedTime = modTime,
                         videoUrl = videoUrl,
-                        metadata = metadata
+                        metadata = metadata,
+                        addedAt = addedAt,
+                        createdTime = createdTime
                     )
                 } ?: emptyList()
             }
 
-            Result.success(cloudList.sortedByDescending { it.modifiedTime })
+            Result.success(cloudList.sortedByDescending { it.effectiveAddedAt })
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -177,7 +202,9 @@ object GoogleDriveManager {
                     sizeBytes = storedMidi.file.length(),
                     modifiedTime = System.currentTimeMillis(),
                     videoUrl = storedMidi.videoUrl,
-                    metadata = storedMidi.metadata
+                    metadata = storedMidi.metadata,
+                    addedAt = storedMidi.addedAt,
+                    createdTime = System.currentTimeMillis()
                 )
             )
         } catch (e: Exception) {
@@ -204,7 +231,10 @@ object GoogleDriveManager {
                 context = context,
                 videoUrl = cloudMidi.videoUrl,
                 metadata = cloudMidi.metadata,
-                bytes = bytes
+                bytes = bytes,
+                addedAt = cloudMidi.effectiveAddedAt,
+                // Songs sharing a key would overwrite each other's local file.
+                storageKey = if (cloudMidi.videoUrl.isSharedSourceKey) "cloud://${cloudMidi.id}" else cloudMidi.videoUrl
             )
             CloudAccountCache.saveMidiBytes(context, cloudMidi.id, bytes)
 
