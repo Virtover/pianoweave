@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.ui.components.SectionHeader
 import com.lumenchord.pianoweave.ui.components.SongThumbnail
 import com.lumenchord.pianoweave.ui.components.songDetails
 
@@ -36,12 +37,7 @@ fun RecentSongsSection(
             .padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Text(
-            text = "Recently added",
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
-        )
+        SectionHeader("Recently added")
         songs.forEach { song ->
             Row(
                 modifier = Modifier

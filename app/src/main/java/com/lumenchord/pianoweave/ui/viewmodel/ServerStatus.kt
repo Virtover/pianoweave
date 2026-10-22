@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.lumenchord.pianoweave.ui.theme.Moods
 
 enum class ServerStatus {
     ONLINE,
@@ -14,9 +15,9 @@ enum class ServerStatus {
 val ServerStatus.statusColor: Color
     @Composable
     get() = when (this) {
-        ServerStatus.ONLINE -> Color(0xFF4CAF50)
-        ServerStatus.OFFLINE -> Color(0xFFEF5350)
-        ServerStatus.CHECKING -> Color(0xFFFFA726)
+        ServerStatus.ONLINE -> Moods.StillWaters.core
+        ServerStatus.OFFLINE -> Moods.Lament.core
+        ServerStatus.CHECKING -> Moods.Watch.core
         ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 

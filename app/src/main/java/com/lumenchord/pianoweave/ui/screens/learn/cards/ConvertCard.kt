@@ -88,10 +88,14 @@ import com.lumenchord.pianoweave.ui.screens.learn.TranscriptionTermsDialog
 import com.lumenchord.pianoweave.util.AppLinks
 import com.lumenchord.pianoweave.util.LegalConsent
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.unit.Dp
+import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.theme.Moods
 
 /**
- * Shown when a transcription finishes: the song's cover art over a blurred backdrop of itself, and a
- * gold glow that flares up once as the card appears, then settles.
+ * Shown when a transcription finishes: the song's cover art over a blurred backdrop of itself, ringed
+ * in [Moods.Glory]'s gold (Revelation 21:23), whose glow flares up once as the card appears, then settles.
  */
 @Composable
 fun TranscriptionSuccessCard(
@@ -103,6 +107,7 @@ fun TranscriptionSuccessCard(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val accent = MaterialTheme.colorScheme.secondary
+    val glory = Moods.Glory
     val surface = MaterialTheme.colorScheme.surface
     val shape = RoundedCornerShape(if (isLandscape) 14.dp else 20.dp)
     val metadata = song.metadata
@@ -127,14 +132,14 @@ fun TranscriptionSuccessCard(
                 scaleY = scale
             }
             .shadow(
-                elevation = 28.dp * glow.value,
+                elevation = 24.dp * glow.value,
                 shape = shape,
-                ambientColor = accent,
-                spotColor = accent
+                ambientColor = glory.core,
+                spotColor = glory.core
             )
             .clip(shape)
             .background(surface)
-            .border(BorderStroke(1.5.dp, accent.copy(alpha = 0.35f + 0.65f * glow.value)), shape)
+            .border(BorderStroke(1.dp, glory.core.copy(alpha = 0.3f + 0.6f * glow.value)), shape)
     ) {
         ArtBackdrop(thumbnailUrl = metadata.thumbnail, alpha = 0.55f, fadeTo = surface)
 
@@ -153,7 +158,7 @@ fun TranscriptionSuccessCard(
                         .fillMaxWidth(0.72f)
                         .aspectRatio(16f / 9f)
                         .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, accent.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .border(1.dp, glory.core.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                 )
                 Spacer(Modifier.height(14.dp))
             } else {
@@ -161,7 +166,7 @@ fun TranscriptionSuccessCard(
                     imageVector = Icons.Default.Stars,
                     contentDescription = null,
                     modifier = Modifier.size(if (isLandscape) 28.dp else 44.dp),
-                    tint = accent
+                    tint = glory.core
                 )
                 Spacer(Modifier.height(if (isLandscape) 6.dp else 10.dp))
             }
@@ -169,7 +174,7 @@ fun TranscriptionSuccessCard(
                 text = "Transcription ready",
                 style = (if (isLandscape) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
                     .copy(fontWeight = FontWeight.Bold),
-                color = accent
+                color = glory.core
             )
             Text(
                 text = metadata.title,
@@ -311,14 +316,18 @@ fun TranscriptionInputCard(
         )
     }
 
-    ElevatedCard(
+    val accent = MaterialTheme.colorScheme.secondary
+    val cardShape = RoundedCornerShape(20.dp)
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (isSuccess) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-            else MaterialTheme.colorScheme.surface
+        shape = cardShape,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSuccess) MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+            else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
         )
     ) {
+        Column {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -334,7 +343,7 @@ fun TranscriptionInputCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
-                    color = MaterialTheme.colorScheme.secondary
+                    color = accent
                 )
 
                 val statusColor = viewModel.serverStatus.statusColor
@@ -478,20 +487,30 @@ fun TranscriptionInputCard(
                 val isBilled = viewModel.isBilledServer
                 val cost = viewModel.estimatedCostCredits
                 val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
+                val canTranscribe = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
+                    !viewModel.isCalculatingCost
+                val buttonShape = RoundedCornerShape(14.dp)
 
                 Button(
                     onClick = {
                         if (hasAcceptedTerms) transcribe() else showTermsDialog = true
                     },
-                    enabled = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
-                        !viewModel.isCalculatingCost,
+                    enabled = canTranscribe,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom },
-                    shape = RoundedCornerShape(12.dp),
+                        .height(50.dp)
+                        .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
+                        .then(
+                            // A faint sheen on top, so the ready button reads as lit rather than flat
+                            if (canTranscribe) Modifier
+                                .clip(buttonShape)
+                                .background(accent)
+                                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f), Color.Transparent)))
+                            else Modifier
+                        ),
+                    shape = buttonShape,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
+                        containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.onSecondary
                     )
                 ) {
@@ -536,6 +555,7 @@ fun TranscriptionInputCard(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -867,16 +887,7 @@ private fun RecordingArea(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            LinearProgressIndicator(
-                progress = { level },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = MaterialTheme.colorScheme.secondary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                drawStopIndicator = {}
-            )
+            ProgressLine(fraction = level, color = RecordRed)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = onDiscard,
@@ -922,7 +933,27 @@ private fun RecordingArea(
     }
 }
 
-private val RecordRed = Color(0xFFE53935)
+/**
+ * Recording is courage, not danger: [Moods.Furnace], the fire that did not harm the three in it
+ * (Daniel 3:27).
+ */
+private val RecordRed = Moods.Furnace.core
+
+/** A rounded bar filled to [fraction] with [color]. */
+@Composable
+private fun ProgressLine(fraction: Float, color: Color, height: Dp = 6.dp) {
+    LinearProgressIndicator(
+        progress = { fraction },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(RoundedCornerShape(percent = 50)),
+        color = color,
+        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        gapSize = 0.dp,
+        drawStopIndicator = {}
+    )
+}
 
 /** Takes longer than this ask before they are thrown away. */
 private const val DISCARD_CONFIRM_SECONDS = 10f
@@ -941,9 +972,12 @@ fun TranscriptionProgressCard(
     onCancelClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedCard(
+    val accent = MaterialTheme.colorScheme.secondary
+    Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -953,13 +987,6 @@ fun TranscriptionProgressCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(32.dp)
-                )
-
                 Column(modifier = Modifier.weight(1f)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -968,17 +995,17 @@ fun TranscriptionProgressCard(
                     ) {
                         Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (progress > 0f) {
-                            Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
+                            Text(
+                                text = "${(progress * 100).toInt()}%",
+                                color = accent,
+                                fontWeight = FontWeight.Black
+                            )
                         }
                     }
                     Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, maxLines = 2)
                     if (progress < 1f) {
                         Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+                        ProgressLine(fraction = progress, color = accent)
                     }
                 }
             }
@@ -1078,9 +1105,11 @@ fun TranscriptionErrorCard(
     errorMessage: String,
     onErrorDismiss: () -> Unit
 ) {
+    // Sorrow that is held, not alarm: Moods.Lament (Psalm 56:8)
     DangerCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(20.dp),
+        borderAlpha = 0.45f
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1096,10 +1125,11 @@ fun TranscriptionErrorCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // A tear, kept in His bottle
                     Icon(
-                        imageVector = Icons.Default.Error,
+                        imageVector = Icons.Default.WaterDrop,
                         contentDescription = "Error",
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        tint = Moods.Lament.core,
                         modifier = Modifier.size(28.dp)
                     )
                     Column {

@@ -13,6 +13,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,14 +40,18 @@ fun AdaptiveNavigation(
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val accent = LocalAppTheme.current.primaryColor
+    val sky = Modifier.lampGlow(background = MaterialTheme.colorScheme.background, accent = accent)
+    val barColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
 
     if (isLandscape) {
-        Row(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize().then(sky)) {
             NavigationRail(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .widthIn(min = 88.dp, max = 110.dp),
-                containerColor = MaterialTheme.colorScheme.surface,
+                    .widthIn(min = 88.dp, max = 110.dp)
+                    .drawBehind { edgeLight(accent, vertical = true) },
+                containerColor = barColor,
                 windowInsets = NavigationRailDefaults.windowInsets,
                 header = {
                     Column(
@@ -167,13 +176,15 @@ fun AdaptiveNavigation(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                        containerColor = Color.Transparent
+                    ),
+                    modifier = Modifier.drawBehind { edgeLight(accent, vertical = false, atBottom = true) }
                 )
             },
             bottomBar = {
                 NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = barColor,
+                    modifier = Modifier.drawBehind { edgeLight(accent, vertical = false, atBottom = false) }
                 ) {
                     NavigationBarItem(
                         selected = isLearnSelected,
@@ -199,7 +210,8 @@ fun AdaptiveNavigation(
                     )
                 }
             },
-            containerColor = MaterialTheme.colorScheme.background,
+            modifier = sky,
+            containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0.dp)
         ) { paddingValues ->
             Box(
@@ -211,5 +223,34 @@ fun AdaptiveNavigation(
                 content()
             }
         }
+    }
+}
+
+/**
+ * A hairline of the accent's light along a bar's edge, brightest in the middle and fading at the ends,
+ * where the bar meets the content.
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.edgeLight(
+    accent: Color,
+    vertical: Boolean,
+    atBottom: Boolean = false
+) {
+    val fade = listOf(Color.Transparent, accent.copy(alpha = 0.22f), Color.Transparent)
+    val stroke = 1.dp.toPx()
+    if (vertical) {
+        drawLine(
+            brush = Brush.verticalGradient(fade),
+            start = Offset(size.width - stroke / 2, 0f),
+            end = Offset(size.width - stroke / 2, size.height),
+            strokeWidth = stroke
+        )
+    } else {
+        val y = if (atBottom) size.height - stroke / 2 else stroke / 2
+        drawLine(
+            brush = Brush.horizontalGradient(fade),
+            start = Offset(0f, y),
+            end = Offset(size.width, y),
+            strokeWidth = stroke
+        )
     }
 }

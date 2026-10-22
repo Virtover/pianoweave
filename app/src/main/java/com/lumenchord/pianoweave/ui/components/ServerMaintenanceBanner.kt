@@ -28,18 +28,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.api.MaintenanceNotice
 import com.lumenchord.pianoweave.api.MaintenanceTexts
-import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.theme.Moods
 import com.lumenchord.pianoweave.ui.viewmodel.formatClockTime
 import kotlinx.coroutines.delay
 
 /**
  * Announces the server's planned restart or shutdown. Counts down locally from the announced time,
- * so it stays exact between server polls.
+ * so it stays exact between server polls. Drawn in [Moods.Watch]: the watchman's lamp, alert but
+ * unafraid (Habakkuk 2:1, Matthew 25:4).
  */
 @Composable
 fun ServerMaintenanceBanner(notice: MaintenanceNotice, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val accent = LocalAppTheme.current.primaryColor
+    val watch = Moods.Watch
 
     var nowSec by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
     LaunchedEffect(notice) {
@@ -52,9 +53,9 @@ fun ServerMaintenanceBanner(notice: MaintenanceNotice, modifier: Modifier = Modi
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, watch.core.copy(alpha = 0.45f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -64,7 +65,7 @@ fun ServerMaintenanceBanner(notice: MaintenanceNotice, modifier: Modifier = Modi
             Icon(
                 imageVector = if (notice.isShutdown) Icons.Default.PowerSettingsNew else Icons.Default.RestartAlt,
                 contentDescription = null,
-                tint = accent,
+                tint = watch.core,
                 modifier = Modifier.size(24.dp)
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -72,7 +73,7 @@ fun ServerMaintenanceBanner(notice: MaintenanceNotice, modifier: Modifier = Modi
                     text = MaintenanceTexts.title(notice, nowSec, formatTime),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = watch.light
                 )
                 Text(
                     text = MaintenanceTexts.detail(notice, nowSec, formatTime),

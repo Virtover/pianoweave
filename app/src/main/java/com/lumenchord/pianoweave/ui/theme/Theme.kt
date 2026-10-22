@@ -45,7 +45,10 @@ fun PianoWeaveTheme(
         onBackground = palette.onSurface,
         onSurface = palette.onSurface,
         onSurfaceVariant = palette.onSurfaceVariant,
-        errorContainer = palette.errorContainer,
+        // Errors are lament, not alarm (Psalm 56:8): see Moods.Lament
+        error = Moods.Lament.core,
+        errorContainer = Moods.Lament.deep,
+        onErrorContainer = Moods.Lament.light,
         tertiary = palette.muted,
         tertiaryContainer = palette.mutedContainer,
         secondary = theme.primaryColor,

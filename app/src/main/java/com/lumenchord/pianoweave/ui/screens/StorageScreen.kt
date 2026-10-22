@@ -400,8 +400,8 @@ fun StorageScreen(
                 ) {
                     Text(
                         text = "MIDI Library",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                        color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.primary,
                         maxLines = 1
                     )
 
