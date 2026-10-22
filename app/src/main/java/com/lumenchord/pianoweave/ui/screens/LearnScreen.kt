@@ -1,6 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens
 
 import android.content.Context
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -53,6 +55,7 @@ fun LearnScreen(
     var songBeingEdited by remember { mutableStateOf<StoredMidi?>(null) }
 
     val scrollState = rememberScrollState()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var viewportHeightPx by remember { mutableFloatStateOf(0f) }
     var scrollContainerTopInRoot by remember { mutableFloatStateOf(0f) }
@@ -211,7 +214,7 @@ fun LearnScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = if (isLandscape) 2.dp else 8.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -278,7 +281,7 @@ fun LearnScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 12.dp),
+                        .padding(top = if (isLandscape) 0.dp else 4.dp, bottom = 12.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
                     Column(

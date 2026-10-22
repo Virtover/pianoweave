@@ -4,6 +4,10 @@ import android.Manifest
 import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -12,6 +16,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -320,7 +326,7 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit) {
 }
 
 /**
- * "STRIKE: …" banner shown while wait mode is paused on a note. [onDismiss] hides it for good
+ * The notes-to-play banner shown while wait mode is paused on a note. [onDismiss] hides it for good
  * (the ✕ or a swipe up); it can be brought back from the toolbar or Settings.
  */
 @Composable
@@ -367,22 +373,40 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                         }
                     )
                 },
-            color = ColorWaitTarget.copy(alpha = 0.8f),
+            color = ColorSurface.copy(alpha = 0.85f),
             shape = RoundedCornerShape(16.dp),
-            shadowElevation = 10.dp,
-            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.8f))
+            shadowElevation = 4.dp,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) },
-                    modifier = Modifier.padding(start = 28.dp, top = 14.dp, bottom = 14.dp),
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black
+                    text = "Play",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(end = 10.dp)
                 )
+                // Notes change with every chord, so they fade into each other instead of snapping
+                AnimatedContent(
+                    targetState = notes.sorted(),
+                    transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) },
+                    // A wide chord scrolls sideways rather than pushing the ✕ off a narrow screen
+                    modifier = Modifier.weight(1f, fill = false),
+                    label = "strikeNotes"
+                ) { sorted ->
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        sorted.forEach { NoteChip(it, ColorWaitTarget, appTheme.waitTargetLightColor) }
+                    }
+                }
                 Box(
                     modifier = Modifier
-                        .padding(start = 10.dp, end = 8.dp)
+                        .padding(start = 8.dp)
                         .size(32.dp)
                         .clip(CircleShape)
                         .clickable(onClick = onDismiss),
@@ -391,11 +415,42 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Hide note banner",
-                        tint = Color.Black.copy(alpha = 0.6f),
-                        modifier = Modifier.size(18.dp)
+                        tint = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * One note to strike, in the wait-target color of the notes waiting on the roll: the letter large
+ * (with a real sharp sign) and the octave small beside it, so the letter is what the eye catches.
+ */
+@Composable
+private fun NoteChip(pitch: Int, color: Color, lightColor: Color) {
+    val name = midiPitchName(pitch)
+    val letter = name.takeWhile { !it.isDigit() && it != '-' }.replace("#", "♯")
+    val octave = name.drop(name.takeWhile { !it.isDigit() && it != '-' }.length)
+    Row(
+        modifier = Modifier
+            .background(color.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Text(
+            text = letter,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = lightColor
+        )
+        Text(
+            text = octave,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = lightColor.copy(alpha = 0.6f),
+            modifier = Modifier.padding(start = 1.dp, bottom = 4.dp)
+        )
     }
 }

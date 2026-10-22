@@ -334,8 +334,9 @@ fun TranscriptionInputCard(
     ) {
         Column {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            // Landscape has about 330dp of height: tighter, so the whole card fits without scrolling
+            modifier = Modifier.padding(if (isLandscape) 12.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -519,7 +520,7 @@ fun TranscriptionInputCard(
                     interactionSource = interaction,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(if (isLandscape) 44.dp else 50.dp)
                         .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
                         .graphicsLayer {
                             scaleX = pressScale
@@ -639,7 +640,7 @@ private fun SourceSelector(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(42.dp)
+            .height(if (isCompact) 42.dp else 38.dp)
             .clip(pill)
             .border(1.dp, outline, pill)
             .selectableGroup()
