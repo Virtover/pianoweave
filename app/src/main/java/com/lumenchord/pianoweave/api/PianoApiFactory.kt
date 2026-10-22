@@ -37,6 +37,10 @@ object PianoApiFactory {
                     chain.proceed(request)
                 }
             })
+            // Every response says whether a restart or shutdown is planned
+            .addInterceptor(Interceptor { chain ->
+                chain.proceed(chain.request()).also(ServerMaintenance::onResponse)
+            })
             .build()
     }
 

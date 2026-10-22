@@ -10,9 +10,13 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
+import com.lumenchord.pianoweave.api.MaintenanceNotice
+import com.lumenchord.pianoweave.api.MaintenanceTexts
+import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.api.isUploadSourceKey
+import com.google.gson.Gson
 import com.google.gson.JsonParser
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
@@ -30,6 +34,8 @@ import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 
 private const val POLL_INTERVAL_MS = 2000L
+// While the server is offline after an announced shutdown
+private const val OFFLINE_POLL_INTERVAL_MS = 30_000L
 private const val CANCEL_JOB_ID_WAIT_MS = 10000L
 
 // --- Cost estimate ---
@@ -142,7 +148,7 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
     val errMsg = when {
         e is HttpException && e.code() == 401 && !isUsingDefaultServer ->
             "This server requires Google sign-in. Your Google account is only shared with the official server."
-        e is HttpException -> serverErrorDetail(e) ?: "Server error (HTTP ${e.code()})"
+        e is HttpException -> serverErrorDetail(context, e) ?: "Server error (HTTP ${e.code()})"
         else -> e.localizedMessage ?: "Connection error"
     }
     transcriptionError = errMsg
@@ -152,14 +158,37 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
     isLoading = false
 }
 
-/** FastAPI's `{"detail": "..."}` message, if the error body has one. */
-private fun serverErrorDetail(e: HttpException): String? = try {
+/**
+ * FastAPI's `{"detail": "..."}` message, if the error body has one. A refusal because of a planned
+ * restart or shutdown (`{"detail": {"message": ..., "maintenance": {...}}}`) gets its own text.
+ */
+private fun PianoWeaveViewModel.serverErrorDetail(context: Context, e: HttpException): String? = try {
     val body = e.response()?.errorBody()?.string().orEmpty()
     val detail = JsonParser.parseString(body).asJsonObject.get("detail")
-    detail?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+    when {
+        detail == null -> null
+        detail.isJsonPrimitive -> detail.asString.takeIf { it.isNotBlank() }
+        detail.isJsonObject -> {
+            val notice = detail.asJsonObject.get("maintenance")
+                ?.let { Gson().fromJson(it, MaintenanceNotice::class.java) }
+                ?.takeIf { it.isValid }
+            if (notice != null) {
+                ServerMaintenance.onNotice(activeServerUrl, notice)
+                val retryAfter = e.response()?.headers()?.get("Retry-After")?.trim()?.toLongOrNull()
+                MaintenanceTexts.refusal(notice, System.currentTimeMillis() / 1000, retryAfter) { formatClockTime(context, it) }
+            } else {
+                detail.asJsonObject.get("message")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+            }
+        }
+        else -> null
+    }
 } catch (_: Exception) {
     null
 }
+
+/** Unix seconds as a clock time in the user's format, e.g. "15:30" or "3:30 PM". */
+internal fun formatClockTime(context: Context, epochSec: Long): String =
+    android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(epochSec * 1000))
 
 /** Returns the cloud-library copy of [stableUrl], using the local cache or downloading it from Drive. */
 private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, stableUrl: String): StoredMidi? {
@@ -248,8 +277,11 @@ internal suspend fun PianoWeaveViewModel.pollTranscriptionJob(context: Context, 
         while (currentJobId == jobId) {
             val job = fetchJobStatusOrNull(context, jobId)
             if (job == null) {
-                status = "Reconnecting to server..."
-                delay(POLL_INTERVAL_MS)
+                // During an announced restart or shutdown the job is kept on the server; say so instead of an error
+                val notice = ServerMaintenance.notice
+                status = notice?.let(MaintenanceTexts::waitingStatus) ?: "Reconnecting to server..."
+                val isOffline = notice != null && notice.isShutdown && notice.hasStarted(System.currentTimeMillis() / 1000)
+                delay(if (isOffline) OFFLINE_POLL_INTERVAL_MS else POLL_INTERVAL_MS)
                 continue
             }
 
@@ -286,6 +318,7 @@ private suspend fun PianoWeaveViewModel.fetchJobStatusOrNull(context: Context, j
 
 /** Mirrors server-side job state (progress, charged balance, status text) into the UI. */
 private fun PianoWeaveViewModel.applyJobStatus(job: TranscriptionStatusResponse) {
+    ServerMaintenance.onNotice(activeServerUrl, job.maintenance)
     progress = job.progress
     job.minutes?.let { userCredits = it }
 

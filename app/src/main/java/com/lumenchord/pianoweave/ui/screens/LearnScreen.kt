@@ -21,9 +21,11 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
+import com.lumenchord.pianoweave.ui.components.ServerMaintenanceBanner
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -295,6 +297,11 @@ fun LearnScreen(
                                     } else null
                                 )
                             }
+                        }
+
+                        // Planned server restart or shutdown, above the input it affects
+                        ServerMaintenance.notice?.let { notice ->
+                            ServerMaintenanceBanner(notice = notice)
                         }
 
                         // 2. INPUT CARD - Primary conversion entry

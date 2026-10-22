@@ -18,7 +18,8 @@ data class TranscriptionStatusResponse(
     @SerializedName("error") val error: String?,
     @SerializedName("metadata") val metadata: VideoMetadata? = null,
     @SerializedName("minutes") val minutes: Int? = null,
-    @SerializedName("title") val title: String? = null
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null
 )
 
 data class VideoMetadata(
@@ -105,6 +106,8 @@ data class ServerInfoResponse(
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
     @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
     @SerializedName("google_oauth_client_ids", alternate = ["google_client_ids", "oauth_client_ids", "client_ids", "google_oauth_clients"]) val googleClientIds: List<String>? = null,
+    /** A planned restart or shutdown; null when nothing is planned or on older servers. */
+    @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null,
 )
 
 data class UserBalanceResponse(

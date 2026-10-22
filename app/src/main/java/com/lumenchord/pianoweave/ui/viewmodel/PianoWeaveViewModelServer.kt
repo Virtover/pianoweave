@@ -1,20 +1,27 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
 import android.content.Context
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.api.MaintenanceNotice
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
+import com.lumenchord.pianoweave.billing.isServerUnavailable
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.util.findActivity
 import com.lumenchord.pianoweave.worker.PurchaseVerificationWorker
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -62,7 +69,7 @@ internal fun PianoWeaveViewModel.startAutoReconnectImpl(context: Context? = null
     if (autoReconnectJob?.isActive == true) return
     autoReconnectJob = viewModelScope.launch {
         while (serverStatus == ServerStatus.OFFLINE) {
-            delay(10000L)
+            delay(reconnectIntervalMs(ServerMaintenance.notice))
             if (serverStatus != ServerStatus.OFFLINE) break
             val targetContext = appContext ?: context
             checkServerHealthAndInfoImpl(targetContext, isUserAction = false, fromAutoReconnect = true)
@@ -84,6 +91,8 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
     }
 
     val url = activeServerUrl
+    ServerMaintenance.watch(url)
+    startMaintenanceWatch()
     viewModelScope.launch {
         serverStatus = ServerStatus.CHECKING
         serverStatus = testServerConnectionImpl(url)
@@ -95,6 +104,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                 try {
                     val api = PianoApiFactory.getApi(url)
                     val info = api.getServerInfo()
+                    ServerMaintenance.onNotice(url, info.maintenance)
                     billingProvider = info.billingProvider ?: "none"
                     serverOffers = info.offers ?: emptyList()
                     cleanupIntervalSeconds = info.cleanupIntervalSeconds
@@ -123,6 +133,45 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
         }
     }
     refreshOfficialServerBilling()
+}
+
+/**
+ * How often to look for the server while it cannot be reached. After an announced shutdown it stays
+ * offline for a while, so it is checked only now and then.
+ */
+private fun reconnectIntervalMs(notice: MaintenanceNotice?): Long {
+    val nowSec = System.currentTimeMillis() / 1000
+    return if (notice != null && notice.isShutdown && notice.hasStarted(nowSec)) 60_000L else 10_000L
+}
+
+/**
+ * While a restart or shutdown is announced, asks the server now and then, so the notice follows a
+ * reschedule or cancellation and disappears once the server is back. Nothing runs while none is pending.
+ */
+private fun PianoWeaveViewModel.startMaintenanceWatch() {
+    if (maintenanceWatchJob?.isActive == true) return
+    maintenanceWatchJob = viewModelScope.launch {
+        while (true) {
+            val notice = ServerMaintenance.notice ?: snapshotFlow { ServerMaintenance.notice }.filterNotNull().first()
+            val nowSec = System.currentTimeMillis() / 1000
+            delay(
+                when {
+                    !notice.hasStarted(nowSec) -> 30_000L
+                    notice.isShutdown -> 60_000L
+                    else -> 10_000L
+                }
+            )
+            val url = activeServerUrl
+            try {
+                val info = PianoApiFactory.getApi(url).getServerInfo()
+                ServerMaintenance.onNotice(url, info.maintenance)
+                // Back after the restart or shutdown: reload everything that failed meanwhile
+                if (serverStatus != ServerStatus.ONLINE) checkServerHealthAndInfoImpl(appContext)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+            }
+        }
+    }
 }
 
 /** Asks the official server whether it bills, also while a custom server is selected (see [PianoWeaveViewModel.canShowSupport]). */
@@ -284,7 +333,9 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
         }
         true
     } catch (e: HttpException) {
-        // Received an HTTP status code response from server (4xx/5xx). That counts as an answer from server!
+        // Restarting or starting up: keep it pending, PurchaseVerificationWorker retries in the background
+        if (isServerUnavailable(e)) return@withContext false
+        // Any other HTTP status code from the server counts as an answer.
         PendingPurchaseStore.removePendingPurchase(context, purchaseToken)
         true
     } catch (_: Exception) {

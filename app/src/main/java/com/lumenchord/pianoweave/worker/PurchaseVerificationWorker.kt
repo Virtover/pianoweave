@@ -15,6 +15,7 @@ import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
+import com.lumenchord.pianoweave.billing.isServerUnavailable
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.util.AppPrefs
 import retrofit2.HttpException
@@ -44,8 +45,10 @@ class PurchaseVerificationWorker(
             PendingPurchaseStore.removePendingPurchase(applicationContext, purchase.purchaseToken)
             AppPrefs.get(applicationContext).edit().putInt(AppPrefs.USER_CREDITS, response.minutes).apply()
             Result.success()
-        } catch (_: HttpException) {
-            // Any HTTP status (4xx/5xx) counts as an answer from the server.
+        } catch (e: HttpException) {
+            // Restarting or starting up: no answer yet, try again later
+            if (isServerUnavailable(e)) return Result.retry()
+            // Any other HTTP status counts as an answer from the server.
             PendingPurchaseStore.removePendingPurchase(applicationContext, purchase.purchaseToken)
             Result.success()
         } catch (_: Exception) {
