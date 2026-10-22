@@ -231,11 +231,22 @@ private fun ModernPianoPlayerContent(
         AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled && viewModel.isPlaying) notesToStrike else emptySet()
     }
 
+    // While wait mode listens through the microphone, the song itself stays silent: the user plays
+    // it on their piano, and the phone's speaker would otherwise be heard by the mic
+    val isAcousticWaitMode = viewModel.isWaitModeEnabled && !MidiInputManager.isConnected
+    val isSongSoundOn by rememberUpdatedState(!isAcousticWaitMode)
+
+    LaunchedEffect(isAcousticWaitMode) {
+        if (isAcousticWaitMode) PianoPlayer.stopAllNotes()
+    }
+
     LaunchedEffect(viewModel.isPlaying, viewModel.speedMultiplier, viewModel.isWaitModeEnabled, noteEvents) {
         if (!viewModel.isPlaying) return@LaunchedEffect
 
-        val resumed = noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs < (it.startMs + it.durationMs) }
-        resumed.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+        if (isSongSoundOn) {
+            val resumed = noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs < (it.startMs + it.durationMs) }
+            resumed.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+        }
 
         lastTriggeredHeadMs = viewModel.playheadMs
         var lastTime = System.nanoTime()
@@ -248,6 +259,15 @@ private fun ModernPianoPlayerContent(
             val targetNext = viewModel.playheadMs + (dt * viewModel.speedMultiplier).toLong()
 
             if (viewModel.isWaitModeEnabled) {
+                // The playhead went back (seek, drag, reset, loop wrap): chords at or after it must be
+                // played again, and an interrupted wait restarts its timing
+                if (lastCompletedWaitOnsetMs != -1L && viewModel.playheadMs <= lastCompletedWaitOnsetMs) {
+                    lastCompletedWaitOnsetMs = -1L
+                }
+                if (currentWaitOnsetMs != -1L && viewModel.playheadMs < currentWaitOnsetMs) {
+                    currentWaitOnsetMs = -1L
+                }
+
                 val upcoming = noteEvents.filter {
                     it.startMs >= viewModel.playheadMs &&
                             it.startMs <= targetNext &&
@@ -299,7 +319,7 @@ private fun ModernPianoPlayerContent(
             }
 
             val next = targetNext
-            if (abs(next - lastTriggeredHeadMs) < 500L) {
+            if (isSongSoundOn && abs(next - lastTriggeredHeadMs) < 500L) {
                 val triggered = noteEvents.filter { it.startMs > lastTriggeredHeadMs && it.startMs <= next }
                 triggered.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
             }
@@ -310,7 +330,7 @@ private fun ModernPianoPlayerContent(
                 lastTriggeredHeadMs = viewModel.loopStartMs
                 PianoPlayer.stopAllNotes()
                 val loopNotes = noteEvents.filter { viewModel.loopStartMs >= it.startMs && viewModel.loopStartMs < (it.startMs + it.durationMs) }
-                loopNotes.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+                if (isSongSoundOn) loopNotes.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
             } else if (!viewModel.isLoopingEnabled && next >= songDurationMs) {
                 viewModel.playheadMs = songDurationMs
                 viewModel.isPlaying = false

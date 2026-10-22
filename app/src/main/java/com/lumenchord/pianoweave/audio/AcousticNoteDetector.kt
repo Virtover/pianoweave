@@ -18,6 +18,7 @@ import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import kotlin.math.ceil
 import kotlin.math.exp
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -96,6 +97,7 @@ object AcousticNoteDetector {
     private val candHold = FloatArray(128)         // note prob HOLD_FRAMES after the onset frame
     private val candFrameLatest = FloatArray(128)  // note prob at the newest frame (for note-off)
     private val bestFrame = IntArray(128)
+    private val onsetTracker = OnsetTracker()
 
     /**
      * One-time setup of the model and native engine.
@@ -212,6 +214,7 @@ object AcousticNoteDetector {
         }
 
         VoiceActivityGate.reset()
+        onsetTracker.reset()
         isRunning = true
         thread = Thread {
             try {
@@ -268,6 +271,8 @@ object AcousticNoteDetector {
         val modelRing = FloatArray(inputSamples)
         var ringPos = 0
         var newModelSamples = 0
+        // All model samples received this session; places each output frame in absolute time
+        var totalModelSamples = 0L
 
         // Start from "now": older ring content may be stale audio from a previous capture session.
         var readIndex = NativeAudioEngine.getAvailableFrames()
@@ -284,6 +289,7 @@ object AcousticNoteDetector {
                     resampler.reset()
                     levelControl.reset()
                     VoiceActivityGate.reset()
+                    onsetTracker.reset()
                 }
 
                 while (readIndex < writeIndex) {
@@ -308,6 +314,7 @@ object AcousticNoteDetector {
                         off += n
                     }
                     newModelSamples += produced
+                    totalModelSamples += produced
                 }
 
                 if (newModelSamples <= 0) {
@@ -328,7 +335,9 @@ object AcousticNoteDetector {
                 input.rewind()
 
                 interp.runForMultipleInputsOutputs(inputs, outputs)
-                processOutputs(notes[0], onsets[0], outputFrames, midiKeys, windowFrames)
+                // The input is the newest inputSamples samples, so output frame 0 starts here
+                val firstAbsFrame = floor((totalModelSamples - inputSamples) / samplesPerFrame.toDouble()).toLong()
+                processOutputs(notes[0], onsets[0], outputFrames, midiKeys, windowFrames, firstAbsFrame)
                 Thread.sleep(INFERENCE_INTERVAL_MS)
             }
         } catch (ie: InterruptedException) {
@@ -352,7 +361,8 @@ object AcousticNoteDetector {
         onsetPosteriors: Array<FloatArray>,
         outputFrames: Int,
         midiKeys: Int,
-        windowFrames: Int
+        windowFrames: Int,
+        firstAbsFrame: Long
     ) {
         val startFrame = max(0, outputFrames - windowFrames)
         val latestFrame = max(0, outputFrames - 1)
@@ -428,18 +438,26 @@ object AcousticNoteDetector {
                     NON_TARGET_HOLD_MIN_FRAME_PROB + NON_TARGET_HOLD_VOICE_EXTRA * voiceWeight
                 }
                 val held = candHold[p] >= holdThreshold
-                val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold && held
+                val detected = onsetProb >= onsetThreshold && frameProb >= frameThreshold && held &&
+                        isNewStrike(onsetPosteriors, p, firstAbsFrame)
 
                 if (detected) {
+                    onsetTracker.record(p, firstAbsFrame + bestFrame[p])
                     MidiInputManager.simulateExternalNoteOn(midiPitch)
                     activePitches.add(midiPitch)
                     noteOffConfidence[midiPitch] = 0
                 }
             } else {
+                // A target struck again while still ringing. Overlapping windows see the same strike
+                // several times; only a new onset peak counts, or one strike would satisfy repeated notes.
                 val targetRedetected = isTarget
                         && onsetProb >= ONSET_THRESHOLD_BASE + 0.12f
                         && frameProb >= FRAME_THRESHOLD_BASE + 0.1f
-                if (targetRedetected) MidiInputManager.simulateExternalNoteOn(midiPitch)
+                        && isNewStrike(onsetPosteriors, p, firstAbsFrame)
+                if (targetRedetected) {
+                    onsetTracker.record(p, firstAbsFrame + bestFrame[p])
+                    MidiInputManager.simulateExternalNoteOn(midiPitch)
+                }
 
                 // Non-targets are searched in a shifted window, so judge note-off on the newest frame.
                 val offFrameProb = if (isTarget) frameProb else candFrameLatest[p]
@@ -455,6 +473,9 @@ object AcousticNoteDetector {
             }
         }
     }
+
+    private fun isNewStrike(onsetPosteriors: Array<FloatArray>, p: Int, firstAbsFrame: Long): Boolean =
+        onsetTracker.isNewStrike(p, bestFrame[p], firstAbsFrame) { frame -> sigmoid(onsetPosteriors[frame][p]) }
 
     private fun loadModelFile(context: Context, modelName: String): MappedByteBuffer {
         val fileDescriptor = context.assets.openFd(modelName)
