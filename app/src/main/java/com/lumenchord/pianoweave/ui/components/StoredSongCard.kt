@@ -37,6 +37,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
@@ -228,15 +230,35 @@ private fun SongMenu(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        val accent = MaterialTheme.colorScheme.secondary
+        val itemColors = MenuDefaults.itemColors(
+            textColor = MaterialTheme.colorScheme.onSurface,
+            leadingIconColor = accent
+        )
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
+            modifier = Modifier.widthIn(min = 220.dp, max = 280.dp),
+            shape = RoundedCornerShape(16.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer),
+            shadowElevation = 12.dp
         ) {
+            // Which song the actions apply to, since the menu covers part of the list
+            Text(
+                text = songTitle,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
             if (onEditDetails != null) {
                 DropdownMenuItem(
-                    text = { Text("Edit details") },
-                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                    text = { Text("Edit details", fontWeight = FontWeight.Medium) },
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                    colors = itemColors,
                     onClick = {
                         expanded = false
                         onEditDetails()
@@ -244,19 +266,32 @@ private fun SongMenu(
                 )
             }
             DropdownMenuItem(
-                text = { Text(if (exportState == ExportState.Failed) "Retry saving to Downloads" else "Save .mid to Downloads") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = null) },
+                text = {
+                    Text(
+                        if (exportState == ExportState.Failed) "Retry saving to Downloads" else "Save to Downloads",
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                colors = itemColors,
                 enabled = exportState != ExportState.Exporting,
                 onClick = {
                     expanded = false
                     showExportDialog = true
                 }
             )
+            // Set apart, so it isn't hit while reaching for the others
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+            )
             DropdownMenuItem(
-                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                leadingIcon = {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                },
+                text = { Text("Delete", fontWeight = FontWeight.Medium) },
+                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                colors = MenuDefaults.itemColors(
+                    textColor = MaterialTheme.colorScheme.error,
+                    leadingIconColor = MaterialTheme.colorScheme.error
+                ),
                 onClick = {
                     expanded = false
                     onDelete()

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
@@ -49,6 +50,7 @@ import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.components.CloudSyncDialogs
 import com.lumenchord.pianoweave.ui.components.DangerButton
+import com.lumenchord.pianoweave.ui.components.PillButton
 import com.lumenchord.pianoweave.ui.components.StoredSongCard
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -269,52 +271,19 @@ fun StorageScreen(
 
     @Composable
     fun AddFromDeviceButton() {
-        Box(
-            modifier = Modifier
-                .height(if (isLandscape) 32.dp else 36.dp)
-                .background(
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                    RoundedCornerShape(8.dp)
-                )
-                .border(
-                    1.dp,
-                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
-                    RoundedCornerShape(8.dp)
-                )
-                .clickable {
-                    filePickerLauncher.launch(
-                        arrayOf(
-                            "audio/midi", "audio/x-midi", "application/x-midi",
-                            "audio/mid", "audio/sp-midi"
-                        )
+        PillButton(
+            onClick = {
+                filePickerLauncher.launch(
+                    arrayOf(
+                        "audio/midi", "audio/x-midi", "application/x-midi",
+                        "audio/mid", "audio/sp-midi"
                     )
-                }
-                .padding(horizontal = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Default.UploadFile,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Import",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = if (isLandscape) 11.sp else 12.sp
-                    ),
-                    color = MaterialTheme.colorScheme.secondary,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-        }
+            },
+            icon = Icons.Default.Add,
+            text = "Import",
+            height = if (isLandscape) 32.dp else 36.dp
+        )
     }
 
     // Cloud sync status variables

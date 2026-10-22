@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material3.*
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,18 +96,16 @@ internal fun MediaTimelineFooter(
                     modifier = Modifier.size(32.dp)
                 )
             }
-            IconButton(
+            RollButton(
                 onClick = { onResetHead() },
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(ColorSurface, CircleShape)
-                    .border(1.dp, ColorSlate, CircleShape)
+                size = 44.dp,
+                shape = CircleShape
             ) {
                 Icon(
                     imageVector = Icons.Default.Replay,
                     contentDescription = "Back to start",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -269,25 +268,17 @@ internal fun MediaTimelineFooter(
             }
         }
         Spacer(modifier = Modifier.width(14.dp))
-        IconButton(
+        RollButton(
             onClick = { viewModel.isLoopingEnabled = !viewModel.isLoopingEnabled },
-            modifier = Modifier
-                .size(44.dp)
-                .background(
-                    if (viewModel.isLoopingEnabled) ColorGold else ColorSurface,
-                    CircleShape
-                )
-                .border(
-                    1.dp,
-                    if (!viewModel.isLoopingEnabled) ColorSlate else Color.Transparent,
-                    CircleShape
-                )
+            isOn = viewModel.isLoopingEnabled,
+            role = Role.Switch,
+            size = 44.dp,
+            shape = CircleShape
         ) {
             Icon(
                 imageVector = Icons.Default.Repeat,
                 contentDescription = if (viewModel.isLoopingEnabled) "Turn off loop" else "Loop a section",
-                tint = if (viewModel.isLoopingEnabled) Color.Black else ColorGold,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
     }

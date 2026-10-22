@@ -218,10 +218,10 @@ fun LearnScreen(
                     // Support follows the official server's billing, so it also shows while a custom server is selected.
                     if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer) {
                         Surface(
+                            onClick = { viewModel.openShop(context) },
                             shape = RoundedCornerShape(16.dp),
                             color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                            modifier = Modifier.clickable { viewModel.openShop(context) }
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -249,10 +249,10 @@ fun LearnScreen(
                         }
                     } else if (viewModel.canShowSupport) {
                         Surface(
+                            onClick = { viewModel.openSupport() },
                             shape = RoundedCornerShape(16.dp),
                             color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier.clickable { viewModel.openSupport() }
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),

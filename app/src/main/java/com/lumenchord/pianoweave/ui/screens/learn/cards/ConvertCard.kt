@@ -457,8 +457,13 @@ fun TranscriptionInputCard(
                 singleLine = true,
                 enabled = !viewModel.isLoading,
                 shape = RoundedCornerShape(14.dp),
+                // A quiet well until focused, so the accent marks only where the user is typing
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+                    disabledBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
                     cursorColor = MaterialTheme.colorScheme.secondary
                 ),
                 leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary) },
@@ -511,7 +516,10 @@ fun TranscriptionInputCard(
                     shape = buttonShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.onSecondary
+                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                        // Not ready yet: a faint outline of the accent, not a gray slab
+                        disabledContainerColor = accent.copy(alpha = 0.08f),
+                        disabledContentColor = accent.copy(alpha = 0.45f)
                     )
                 ) {
                     Row(

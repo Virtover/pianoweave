@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -169,7 +170,7 @@ internal fun ModernToolbar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
         if (!isPortrait) {
             Text(
@@ -191,13 +192,12 @@ internal fun ModernToolbar(
                 speed = viewModel.speedMultiplier,
                 onSelect = { viewModel.selectPlaybackSpeed(current, it) }
             )
-            Box(
-                modifier = Modifier
-                    .height(38.dp)
-                    .then(if (isPortrait) Modifier.width(38.dp) else Modifier.wrapContentWidth())
-                    .background(if (viewModel.isWaitModeEnabled) ColorGold else ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
-                    .border(1.dp, if (viewModel.isWaitModeEnabled) ColorGold else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                    .clickable {
+            RollButton(
+                isOn = viewModel.isWaitModeEnabled,
+                role = Role.Switch,
+                onClickLabel = if (viewModel.isWaitModeEnabled) "Turn off wait mode" else "Turn on wait mode",
+                horizontalPadding = if (isPortrait) 0.dp else 14.dp,
+                onClick = {
                         if (viewModel.isWaitModeEnabled) {
                             AcousticNoteDetector.stop()
                             viewModel.isWaitModeEnabled = false
@@ -214,68 +214,49 @@ internal fun ModernToolbar(
                                 micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
                         }
-                    }
-                    .padding(horizontal = if (isPortrait) 0.dp else 14.dp),
-                contentAlignment = Alignment.Center
+                }
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = null,
-                        tint = if (viewModel.isWaitModeEnabled) Color.Black else ColorGold,
-                        modifier = Modifier.size(18.dp)
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = if (isPortrait) "Wait mode" else null,
+                    modifier = Modifier.size(19.dp)
+                )
+                if (!isPortrait) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Wait mode",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
-                    if (!isPortrait) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Wait mode",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (viewModel.isWaitModeEnabled) Color.Black else ColorGold,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
                 }
             }
             if (viewModel.isWaitModeEnabled) {
                 // Quick on/off for the STRIKE banner, next to the mode it belongs to
                 val isBannerOn = viewModel.isStrikeOverlayEnabled
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
-                        .border(1.dp, if (isBannerOn) ColorGold.copy(alpha = 0.6f) else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                        .clickable { viewModel.setStrikeOverlayEnabled(current, !isBannerOn) },
-                    contentAlignment = Alignment.Center
+                RollButton(
+                    isOn = isBannerOn,
+                    role = Role.Switch,
+                    onClick = { viewModel.setStrikeOverlayEnabled(current, !isBannerOn) }
                 ) {
                     Icon(
                         imageVector = if (isBannerOn) Icons.Default.Subtitles else Icons.Default.SubtitlesOff,
                         contentDescription = if (isBannerOn) "Hide note banner" else "Show note banner",
-                        tint = if (isBannerOn) ColorGold else ColorGold.copy(alpha = 0.5f),
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
-                    .border(1.dp, ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                    .clickable {
-                        viewModel.isPlaying = false
-                        PianoPlayer.stopAllNotes()
-                        onSetClick()
-                    },
-                contentAlignment = Alignment.Center
+            RollButton(
+                onClick = {
+                    viewModel.isPlaying = false
+                    PianoPlayer.stopAllNotes()
+                    onSetClick()
+                }
             ) {
                 Icon(
                     imageVector = Icons.Default.Tune,
-                    contentDescription = null,
-                    tint = ColorGold,
+                    contentDescription = "Practice settings",
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -294,26 +275,24 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
-        Row(
-            modifier = Modifier
-                .height(38.dp)
-                .background(if (isNormal) ColorSurface.copy(alpha = 0.8f) else colorGold, RoundedCornerShape(10.dp))
-                .border(1.dp, if (isNormal) ColorSlate.copy(alpha = 0.5f) else colorGold, RoundedCornerShape(10.dp))
-                .clickable { expanded = true }
-                .padding(start = 10.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        RollButton(
+            isOn = !isNormal,
+            onClick = { expanded = true },
+            onClickLabel = "Change playback speed"
         ) {
             Text(
                 text = speedLabel(speed),
                 fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = if (isNormal) Color.White else Color.Black
+                fontWeight = FontWeight.Bold,
+                color = if (isNormal) Color.White else LocalContentColor.current,
+                modifier = Modifier.padding(start = 10.dp)
             )
             Icon(
                 Icons.Default.ArrowDropDown,
                 contentDescription = "Playback speed",
-                tint = if (isNormal) colorGold else Color.Black,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier
+                    .padding(end = 4.dp)
+                    .size(20.dp)
             )
         }
         DropdownMenu(
