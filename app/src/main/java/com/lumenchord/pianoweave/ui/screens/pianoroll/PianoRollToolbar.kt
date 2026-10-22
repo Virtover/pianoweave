@@ -44,7 +44,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -431,7 +435,14 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
 @Composable
 private fun NoteChip(pitch: Int, color: Color, lightColor: Color) {
     val name = midiPitchName(pitch)
-    val letter = name.takeWhile { !it.isDigit() && it != '-' }.replace("#", "♯")
+    val pitchClass = name.takeWhile { !it.isDigit() && it != '-' }
+    // The ♯ glyph sits low beside a capital letter, so it's drawn smaller and raised
+    val letter = buildAnnotatedString {
+        append(pitchClass.take(1))
+        if (pitchClass.endsWith("#")) {
+            withStyle(SpanStyle(fontSize = 17.sp, baselineShift = BaselineShift(0.28f))) { append("♯") }
+        }
+    }
     val octave = name.drop(name.takeWhile { !it.isDigit() && it != '-' }.length)
     Row(
         modifier = Modifier
