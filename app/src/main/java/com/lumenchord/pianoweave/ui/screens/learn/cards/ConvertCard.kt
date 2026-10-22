@@ -89,6 +89,10 @@ import com.lumenchord.pianoweave.ui.screens.learn.TranscriptionTermsDialog
 import com.lumenchord.pianoweave.util.AppLinks
 import com.lumenchord.pianoweave.util.LegalConsent
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.Dp
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -495,32 +499,42 @@ fun TranscriptionInputCard(
                 val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
                 val canTranscribe = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
                     !viewModel.isCalculatingCost
-                val buttonShape = PillShape
+                // Fades from waiting to ready as a link is pasted, rather than switching abruptly
+                val readiness by animateFloatAsState(
+                    targetValue = if (canTranscribe) 1f else 0f,
+                    animationSpec = tween(durationMillis = 260),
+                    label = "transcribeReadiness"
+                )
+                val container = lerp(accent.copy(alpha = 0.08f), accent, readiness)
+                val content = lerp(accent.copy(alpha = 0.45f), MaterialTheme.colorScheme.onSecondary, readiness)
+                val interaction = remember { MutableInteractionSource() }
+                val pressed by interaction.collectIsPressedAsState()
+                val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "transcribePress")
 
                 Button(
                     onClick = {
                         if (hasAcceptedTerms) transcribe() else showTermsDialog = true
                     },
                     enabled = canTranscribe,
+                    interactionSource = interaction,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
                         .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
-                        .then(
-                            // A faint sheen on top, so the ready button reads as lit rather than flat
-                            if (canTranscribe) Modifier
-                                .clip(buttonShape)
-                                .background(accent)
-                                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f), Color.Transparent)))
-                            else Modifier
-                        ),
-                    shape = buttonShape,
+                        .graphicsLayer {
+                            scaleX = pressScale
+                            scaleY = pressScale
+                        }
+                        .clip(PillShape)
+                        .background(container)
+                        // A faint sheen on top once ready, so it reads as lit rather than flat
+                        .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
+                    shape = PillShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.onSecondary,
-                        // Not ready yet: a faint outline of the accent, not a gray slab
-                        disabledContainerColor = accent.copy(alpha = 0.08f),
-                        disabledContentColor = accent.copy(alpha = 0.45f)
+                        contentColor = content,
+                        disabledContainerColor = Color.Transparent,
+                        disabledContentColor = content
                     )
                 ) {
                     Row(
@@ -536,9 +550,9 @@ fun TranscriptionInputCard(
                             if (isBilled && cost != null) {
                                 Spacer(Modifier.width(10.dp))
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.15f),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.35f))
+                                    shape = PillShape,
+                                    color = content.copy(alpha = 0.14f),
+                                    contentColor = content
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -548,14 +562,12 @@ fun TranscriptionInputCard(
                                         Icon(
                                             imageVector = Icons.Default.MonetizationOn,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSecondary,
                                             modifier = Modifier.size(15.dp)
                                         )
                                         Text(
                                             text = "$cost",
                                             fontWeight = FontWeight.Black,
-                                            fontSize = 13.sp,
-                                            color = MaterialTheme.colorScheme.onSecondary
+                                            fontSize = 13.sp
                                         )
                                     }
                                 }
@@ -1014,7 +1026,7 @@ fun TranscriptionProgressCard(
                     Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, maxLines = 2)
                     if (progress < 1f) {
                         Spacer(Modifier.height(8.dp))
-                        ProgressLine(fraction = progress, color = accent)
+                        TranscriptionProgressBar(progress = progress, color = accent)
                     }
                 }
             }
@@ -1107,6 +1119,32 @@ fun TranscriptionProgressCard(
             }
         }
     }
+}
+
+/**
+ * The transcription's progress: a solid accent fill on a faint accent track. The server reports only
+ * every few seconds, so the fill glides to each new value instead of jumping.
+ */
+@Composable
+private fun TranscriptionProgressBar(progress: Float, color: Color) {
+    val modifier = Modifier
+        .fillMaxWidth()
+        .height(8.dp)
+        .clip(PillShape)
+    val track = color.copy(alpha = 0.15f)
+    val shown by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        label = "transcriptionProgress"
+    )
+    LinearProgressIndicator(
+        progress = { shown },
+        modifier = modifier,
+        color = color,
+        trackColor = track,
+        gapSize = 0.dp,
+        drawStopIndicator = {}
+    )
 }
 
 @Composable
