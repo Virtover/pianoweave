@@ -48,6 +48,7 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -327,6 +328,8 @@ private fun ModernPianoPlayerContent(
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
     var isUiHidden by remember { mutableStateOf(false) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     BackHandler(enabled = isUiHidden) {
         isUiHidden = false
@@ -411,10 +414,41 @@ private fun ModernPianoPlayerContent(
             }
 
             if (isWaitingAtBaseline && waitTargetPitches.isNotEmpty() && viewModel.isStrikeOverlayEnabled) {
-                WaitModeOverlay(notes = waitTargetPitches, isUiHidden = isUiHidden)
+                WaitModeOverlay(
+                    notes = waitTargetPitches,
+                    isUiHidden = isUiHidden,
+                    onDismiss = {
+                        viewModel.setStrikeOverlayEnabled(context, false)
+                        coroutineScope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Note banner hidden. Bring it back from the toolbar or Settings.",
+                                actionLabel = "Undo",
+                                duration = SnackbarDuration.Short
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.setStrikeOverlayEnabled(context, true)
+                            }
+                        }
+                    }
+                )
             }
 
             SeekIndicatorOverlay(seekInfo)
+
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = ColorSurface,
+                    contentColor = Color.White,
+                    actionColor = LocalAppTheme.current.primaryColor
+                )
+            }
 
             DraggableVisibilityButton(
                 isUiHidden = isUiHidden,

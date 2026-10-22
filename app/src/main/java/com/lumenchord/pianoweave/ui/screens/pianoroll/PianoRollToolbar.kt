@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,18 +21,22 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.SubtitlesOff
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -236,6 +241,25 @@ internal fun ModernToolbar(
                     }
                 }
             }
+            if (viewModel.isWaitModeEnabled) {
+                // Quick on/off for the STRIKE banner, next to the mode it belongs to
+                val isBannerOn = viewModel.isStrikeOverlayEnabled
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(ColorSurface.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+                        .border(1.dp, if (isBannerOn) ColorGold.copy(alpha = 0.6f) else ColorSlate.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        .clickable { viewModel.setStrikeOverlayEnabled(current, !isBannerOn) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isBannerOn) Icons.Default.Subtitles else Icons.Default.SubtitlesOff,
+                        contentDescription = if (isBannerOn) "Hide note banner" else "Show note banner",
+                        tint = if (isBannerOn) ColorGold else ColorGold.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
             Box(
                 modifier = Modifier
                     .size(38.dp)
@@ -316,34 +340,83 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit) {
     }
 }
 
+/**
+ * "STRIKE: …" banner shown while wait mode is paused on a note. [onDismiss] hides it for good
+ * (the ✕ or a swipe up); it can be brought back from the toolbar or Settings.
+ */
 @Composable
-internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false) {
+internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDismiss: () -> Unit) {
     val appTheme = LocalAppTheme.current
     val ColorWaitTarget = appTheme.waitTargetColor
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val topPadding = if (isPortrait || !isUiHidden) 56.dp else 12.dp
+    val dismissDistancePx = with(LocalDensity.current) { 48.dp.toPx() }
+
+    // Follows the finger upwards while swiping; snaps back if released early
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val animatedOffsetY by animateFloatAsState(
+        targetValue = dragOffsetY,
+        animationSpec = tween(durationMillis = 120),
+        label = "strikeBannerDrag"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = topPadding)
-            .pointerInput(Unit) { detectTapGestures { } },
+            .padding(top = topPadding),
         contentAlignment = Alignment.TopCenter
     ) {
         Surface(
+            modifier = Modifier
+                .graphicsLayer {
+                    translationY = animatedOffsetY
+                    alpha = 1f - (-animatedOffsetY / dismissDistancePx).coerceIn(0f, 0.7f)
+                }
+                // Only the pill itself catches touches, so the notes around it stay usable
+                .pointerInput(Unit) { detectTapGestures { } }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (-dragOffsetY >= dismissDistancePx) onDismiss()
+                            dragOffsetY = 0f
+                        },
+                        onDragCancel = { dragOffsetY = 0f },
+                        onVerticalDrag = { change, dy ->
+                            change.consume()
+                            dragOffsetY = (dragOffsetY + dy).coerceAtMost(0f)
+                        }
+                    )
+                },
             color = ColorWaitTarget.copy(alpha = 0.8f),
             shape = RoundedCornerShape(16.dp),
             shadowElevation = 10.dp,
             border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.8f))
         ) {
-            Text(
-                text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) },
-                modifier = Modifier.padding(horizontal = 32.dp, vertical = 14.dp),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
-                color = Color.Black
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "STRIKE: " + notes.sorted().joinToString("   ") { midiPitchName(it) },
+                    modifier = Modifier.padding(start = 28.dp, top = 14.dp, bottom = 14.dp),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.Black
+                )
+                Box(
+                    modifier = Modifier
+                        .padding(start = 10.dp, end = 8.dp)
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Hide note banner",
+                        tint = Color.Black.copy(alpha = 0.6f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 }

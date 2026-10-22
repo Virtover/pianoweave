@@ -33,8 +33,6 @@ fun VisualizerSettingsSection(
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
     val colorTextDim = MaterialTheme.colorScheme.tertiary
 
-    var isStrikeOverlay by remember { mutableStateOf(viewModel.isStrikeOverlayEnabled) }
-
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Strike Overlay Section
         Row(
@@ -52,11 +50,9 @@ fun VisualizerSettingsSection(
                 Text("Show STRIKE instruction banner in wait mode", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
             }
             Switch(
-                checked = isStrikeOverlay,
-                onCheckedChange = {
-                    isStrikeOverlay = it
-                    viewModel.setStrikeOverlayEnabled(context, it)
-                },
+                // Read straight from the view model: the banner can also be hidden from the toolbar or by swiping it away
+                checked = viewModel.isStrikeOverlayEnabled,
+                onCheckedChange = { viewModel.setStrikeOverlayEnabled(context, it) },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.Black,
                     checkedTrackColor = colorAccent,
