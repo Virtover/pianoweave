@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -154,9 +155,9 @@ internal fun SettingsDialog(
                                 containerColor = colorGold,
                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = PillShape
                         ) {
-                            Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                            Text("Done", fontWeight = FontWeight.Black, fontSize = 14.sp)
                         }
                     }
                 }

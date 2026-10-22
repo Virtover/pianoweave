@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -107,7 +108,7 @@ internal fun NotEnoughCreditsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             border = BorderStroke(1.dp, ColorSlate),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color.White
@@ -128,14 +129,14 @@ internal fun NotEnoughCreditsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = ColorGold,
                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
                             )
                         ) {
                             Text(
-                                text = "BUY CREDITS",
+                                text = "Buy credits",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp
                             )

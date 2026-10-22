@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -116,7 +117,7 @@ fun CloudSyncDialogs(
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .heightIn(min = 46.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = PillShape,
                                 border = BorderStroke(1.dp, colorSlate)
                             ) {
                                 Text(
@@ -133,7 +134,7 @@ fun CloudSyncDialogs(
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .heightIn(min = 46.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = PillShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = colorPrimary,
                                     contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
@@ -232,7 +233,7 @@ fun CloudSyncDialogs(
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .heightIn(min = 46.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = PillShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = colorPrimary,
                                     contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
@@ -251,7 +252,7 @@ fun CloudSyncDialogs(
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .heightIn(min = 46.dp),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = PillShape
                             ) {
                                 Text(
                                     text = "Turn Off",
@@ -415,7 +416,7 @@ fun CloudSyncDialogs(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = PillShape,
                                 border = BorderStroke(1.dp, colorSlate)
                             ) {
                                 Text(
@@ -434,7 +435,7 @@ fun CloudSyncDialogs(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = PillShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = colorPrimary,
                                     contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary

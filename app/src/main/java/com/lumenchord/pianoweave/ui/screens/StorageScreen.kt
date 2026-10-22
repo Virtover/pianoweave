@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens
 
 import android.Manifest
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -218,7 +219,7 @@ fun StorageScreen(
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .heightIn(min = 46.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = PillShape,
                                 border = BorderStroke(1.dp, colorSlate),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                             ) {
@@ -239,7 +240,7 @@ fun StorageScreen(
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .heightIn(min = 46.dp),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = PillShape
                             ) {
                                 Text(
                                     text = "Delete",

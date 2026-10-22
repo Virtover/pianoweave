@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -117,7 +118,7 @@ internal fun TranscriptionTermsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             border = BorderStroke(1.dp, colorSlate),
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
@@ -136,7 +137,7 @@ internal fun TranscriptionTermsDialog(
                             modifier = Modifier
                                 .weight(1.4f)
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = colorGold,

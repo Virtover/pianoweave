@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -143,7 +144,7 @@ fun VisualizerSettingsSection(
                 OutlinedButton(
                     onClick = onOpenThemeDialog,
                     border = BorderStroke(1.dp, colorAccent),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = PillShape,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Row(

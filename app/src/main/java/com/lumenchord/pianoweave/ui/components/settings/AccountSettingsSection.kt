@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components.settings
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,7 +96,7 @@ fun AccountSettingsSection(
                                 OutlinedButton(
                                     onClick = { viewModel.signInWithGoogle(context) },
                                     enabled = !viewModel.isGoogleAuthLoading && !isTranscribing,
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = PillShape,
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                     modifier = Modifier.height(30.dp),
                                     border = BorderStroke(
@@ -115,7 +116,7 @@ fun AccountSettingsSection(
                                     OutlinedButton(
                                         onClick = onShowSignOutConfirm,
                                         enabled = !isTranscribing,
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = PillShape,
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                         modifier = Modifier.height(30.dp),
                                         border = BorderStroke(
@@ -136,7 +137,7 @@ fun AccountSettingsSection(
                             Button(
                                 onClick = { viewModel.signInWithGoogle(context) },
                                 enabled = !viewModel.isGoogleAuthLoading,
-                                shape = RoundedCornerShape(6.dp),
+                                shape = PillShape,
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                                 modifier = Modifier.height(30.dp),
                                 colors = ButtonDefaults.buttonColors(

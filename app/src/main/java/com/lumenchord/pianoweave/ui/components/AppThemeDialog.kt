@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -203,15 +204,15 @@ fun AppThemeDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
+                            .height(46.dp),
+                        shape = PillShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = previewTheme.primaryColor,
                             contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
                         )
                     ) {
                         Text(
-                            "DONE",
+                            "Done",
                             fontWeight = FontWeight.Black,
                             fontSize = 14.sp,
                             color = if (previewTheme.isLightAccent) Color.Black else Color.White

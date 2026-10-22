@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -161,14 +162,14 @@ fun AppSettingsDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
+                            .height(46.dp),
+                        shape = PillShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = previewTheme.primaryColor,
                             contentColor = if (previewTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Text("DONE", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        Text("Done", fontWeight = FontWeight.Black, fontSize = 14.sp)
                     }
                 }
             }
@@ -244,7 +245,7 @@ fun AppSettingsDialog(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = PillShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = previewTheme.primaryColor,
                                     contentColor = if (previewTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
@@ -265,7 +266,7 @@ fun AppSettingsDialog(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(46.dp),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = PillShape
                             ) {
                                 Text(
                                     text = "Sign Out",

@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -135,7 +136,7 @@ fun NoGoogleAccountDialog(
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .heightIn(min = 46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
@@ -158,7 +159,7 @@ fun NoGoogleAccountDialog(
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .heightIn(min = 46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = appTheme.primaryColor,

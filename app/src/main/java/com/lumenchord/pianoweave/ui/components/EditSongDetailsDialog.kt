@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import android.content.res.Configuration
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -177,8 +178,8 @@ fun EditSongDetailsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .heightIn(min = 44.dp),
-                            shape = RoundedCornerShape(12.dp),
+                                .heightIn(min = 46.dp),
+                            shape = PillShape,
                             border = BorderStroke(1.dp, colorSlate),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
@@ -198,8 +199,8 @@ fun EditSongDetailsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .heightIn(min = 44.dp),
-                            shape = RoundedCornerShape(12.dp),
+                                .heightIn(min = 46.dp),
+                            shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = colorPrimary,

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -64,3 +65,9 @@ fun PianoWeaveTheme(
         )
     }
 }
+
+/**
+ * The shape of every button: a full pill, so anything that can be pressed reads the same across cards
+ * and dialogs. Cards, fields and tiles keep their rounded rectangles, which tells them apart.
+ */
+val PillShape = RoundedCornerShape(percent = 50)

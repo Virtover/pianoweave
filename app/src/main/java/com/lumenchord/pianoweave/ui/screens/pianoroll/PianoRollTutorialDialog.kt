@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -162,7 +163,7 @@ internal fun PianoRollTutorialDialog(onDismiss: () -> Unit) {
                         }
                         Button(
                             onClick = { if (isLast) onDismiss() else stepIndex++ },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = colorGold,
                                 contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary

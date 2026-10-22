@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -101,7 +102,7 @@ internal fun DiscardRecordingDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = colorGold,
@@ -122,7 +123,7 @@ internal fun DiscardRecordingDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = PillShape
                         ) {
                             Text(
                                 text = if (isRecording) "Discard" else "Delete",

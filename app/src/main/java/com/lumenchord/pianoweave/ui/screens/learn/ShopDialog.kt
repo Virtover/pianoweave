@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -299,7 +300,7 @@ internal fun ShopDialog(
                                                 }
                                             },
                                             enabled = details != null && activity != null,
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = PillShape,
                                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = ColorGold,
@@ -380,7 +381,7 @@ internal fun ShopDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(46.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = PillShape,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = ColorGold,
                                 contentColor = if (appTheme.isLightAccent) Color.Black else Color.White

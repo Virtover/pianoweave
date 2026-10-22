@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -138,7 +139,7 @@ fun LoopingSection(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = PillShape,
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         border = BorderStroke(1.dp, colorAccent.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = colorAccent)
@@ -155,7 +156,7 @@ fun LoopingSection(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = PillShape,
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         border = BorderStroke(1.dp, colorAccent.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = colorAccent)

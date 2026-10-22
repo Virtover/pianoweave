@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.lumenchord.pianoweave.ui.theme.PillShape
 
 @Composable
 fun dangerBorder(alpha: Float = 0.8f): BorderStroke {
@@ -38,7 +39,7 @@ fun DangerButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = RoundedCornerShape(12.dp),
+    shape: Shape = PillShape,
     content: @Composable RowScope.() -> Unit
 ) {
     OutlinedButton(

@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
 import androidx.compose.animation.core.Animatable
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -200,7 +201,7 @@ fun TranscriptionSuccessCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(if (isLandscape) 42.dp else 52.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = PillShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accent,
                     contentColor = MaterialTheme.colorScheme.onSecondary
@@ -494,7 +495,7 @@ fun TranscriptionInputCard(
                 val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
                 val canTranscribe = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
                     !viewModel.isCalculatingCost
-                val buttonShape = RoundedCornerShape(14.dp)
+                val buttonShape = PillShape
 
                 Button(
                     onClick = {
@@ -902,7 +903,7 @@ private fun RecordingArea(
                     modifier = Modifier
                         .weight(1f)
                         .height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = PillShape,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -921,7 +922,7 @@ private fun RecordingArea(
                     modifier = Modifier
                         .weight(1.4f)
                         .height(44.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = PillShape,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RecordRed, contentColor = Color.White)
                 ) {
@@ -1056,7 +1057,7 @@ fun TranscriptionProgressCard(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = PillShape,
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     colors = ButtonDefaults.buttonColors(
                         disabledContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
@@ -1079,7 +1080,7 @@ fun TranscriptionProgressCard(
                     onClick = onCancelClick,
                     enabled = !viewModel.isCancelling,
                     modifier = Modifier.height(48.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = PillShape
                 ) {
                     if (viewModel.isCancelling) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onErrorContainer)
