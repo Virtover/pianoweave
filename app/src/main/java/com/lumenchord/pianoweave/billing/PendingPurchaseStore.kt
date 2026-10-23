@@ -38,7 +38,10 @@ object PendingPurchaseStore {
         val json = prefs.getString(KEY_PENDING_PURCHASES, null) ?: return emptyList()
         return try {
             val type = object : TypeToken<List<PendingPurchase>>() {}.type
-            gson.fromJson(json, type) ?: emptyList()
+            val list: List<PendingPurchase> = gson.fromJson(json, type) ?: emptyList()
+            // Gson leaves fields it can't match null, e.g. entries an older release build stored with
+            // field names renamed by R8; such an entry can't be verified, so it's skipped, not crashed on
+            list.filter { (it.productId as String?) != null && (it.purchaseToken as String?) != null }
         } catch (_: Exception) {
             emptyList()
         }

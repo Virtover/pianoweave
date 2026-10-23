@@ -8,6 +8,7 @@ import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.cloud.PendingDetailEdits
+import com.lumenchord.pianoweave.cloud.isCloudFallback
 import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.midi.isSharedSourceKey
 import com.lumenchord.pianoweave.midi.MidiStorage
@@ -120,6 +121,10 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 initialCloudSongs.removeAll(corruptedCloudSongs.toSet())
 
                 removeDuplicateCloudCopies(context, initialCloudSongs, MidiStorage.listAll(context), token)
+
+                // Best effort, so every build reads them directly; the details were already read above
+                initialCloudSongs.filter { it.hasLegacyDescription && !it.hasLostMetadata }
+                    .parallelMap { GoogleDriveManager.rewriteLegacyDescription(context, it, token) }
 
                 unlinkImportsSharingCloudCopy(context)
 
@@ -275,7 +280,14 @@ internal fun PianoWeaveViewModel.disableCloudSyncImpl(context: Context) {
 
 /** A cloud copy whose metadata was lost (placeholder) or never readable (no description: "cloud://" URL). */
 private val CloudMidi.hasLostMetadata: Boolean
-    get() = metadata.isPlaceholder || videoUrl.startsWith("cloud://")
+    get() = metadata.isPlaceholder || metadata.isCloudFallback || videoUrl.startsWith("cloud://")
+
+/**
+ * A local song without real details: a placeholder, or the stand-in from the Drive file name given
+ * when the cloud copy's description couldn't be read (release builds once stored it unreadably).
+ */
+private val StoredMidi.hasLostMetadata: Boolean
+    get() = metadata.isPlaceholder || metadata.isCloudFallback
 
 /**
  * Older versions linked imports with the same file name to one cloud copy by their shared key. Keeps one
@@ -342,9 +354,9 @@ private suspend fun repairLostMetadata(
     for (local in localSongs) {
         val cloud = cloudById[local.cloudFileId] ?: cloudByUrl[local.videoUrl] ?: continue
         when {
-            local.metadata.isPlaceholder && !cloud.hasLostMetadata ->
+            local.hasLostMetadata && !cloud.hasLostMetadata ->
                 MidiStorage.updateMetadata(context, local, cloud.metadata)
-            !local.metadata.isPlaceholder && cloud.hasLostMetadata ->
+            !local.hasLostMetadata && cloud.hasLostMetadata ->
                 cloudCopiesToFix += cloud to local
         }
     }

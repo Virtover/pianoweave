@@ -19,3 +19,10 @@
 -keep class com.lumenchord.pianoweave.worker.TranscriptionWorker {
     <init>(android.content.Context, androidx.work.WorkerParameters);
 }
+
+# Stored as JSON with Gson outside the api package: Drive file descriptions (read by other builds and
+# devices), the cached cloud song list and pending purchases. Renamed fields made them unreadable to
+# any other build, so cloud songs came back without their details.
+-keep class com.lumenchord.pianoweave.cloud.CloudMetadataEnvelope { <fields>; <init>(...); }
+-keep class com.lumenchord.pianoweave.cloud.CloudMidi { <fields>; <init>(...); }
+-keep class com.lumenchord.pianoweave.billing.PendingPurchase { <fields>; <init>(...); }
