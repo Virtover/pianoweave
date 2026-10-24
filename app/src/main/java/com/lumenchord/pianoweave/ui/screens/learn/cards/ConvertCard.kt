@@ -408,18 +408,12 @@ fun TranscriptionInputCard(
                                 .background(color = statusColor, shape = CircleShape)
                         )
 
-                        // Most people never change servers, so only a custom one is named.
-                        if (!viewModel.isUsingDefaultServer) {
-                            Text(
-                                text = "Custom",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
+                        // A custom server shows the server icon of Server Settings in place of the gear: a word
+                        // ("Custom") widened the chip enough to cut off the title in portrait.
+                        val isCustom = !viewModel.isUsingDefaultServer
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Server Settings",
+                            imageVector = if (isCustom) Icons.Default.Dns else Icons.Default.Settings,
+                            contentDescription = if (isCustom) "Custom server settings" else "Server Settings",
                             tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(16.dp)
                         )
