@@ -5,6 +5,7 @@ import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +34,9 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.util.findActivity
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
 
 @Composable
 internal fun ShopDialog(
@@ -53,13 +57,17 @@ internal fun ShopDialog(
     var isLoadingProducts by remember { mutableStateOf(true) }
     var isBillingConnected by remember { mutableStateOf(false) }
     var purchaseErrorMessage by remember { mutableStateOf<String?>(null) }
+    // From Google confirming a purchase until the server has credited it
+    var verifyingProductId by remember { mutableStateOf<String?>(null) }
 
     val billingManager = remember {
         GooglePlayBillingManager(
             context = context,
             onPurchaseCompleted = { token, productId ->
                 coroutineScope.launch {
+                    verifyingProductId = productId
                     val success = viewModel.verifyGooglePlayPurchase(context, productId, token)
+                    verifyingProductId = null
                     if (success) {
                         viewModel.refreshUserBalance(context)
                     } else {
@@ -68,6 +76,7 @@ internal fun ShopDialog(
                 }
             },
             onPurchaseError = { errorMsg ->
+                verifyingProductId = null
                 purchaseErrorMessage = errorMsg
             }
         )
@@ -236,9 +245,20 @@ internal fun ShopDialog(
                         } else {
                             viewModel.serverOffers.forEach { offer ->
                                 val details = productDetailsMap[offer.productId]
-                                val priceText = details?.oneTimePurchaseOfferDetails?.formattedPrice ?: "Buy"
+                                val priceText = details?.let(::formatPrice) ?: "Buy"
+                                val isVerifying = verifyingProductId == offer.productId
+                                // Locked while a purchase is being credited, so nobody buys twice by accident
+                                val canBuy = details != null && activity != null && verifyingProductId == null
+                                val onAccent = if (appTheme.isLightAccent) Color.Black else Color.White
 
+                                // The whole row buys the pack, not just its price
                                 Surface(
+                                    onClick = {
+                                        if (activity != null && details != null) {
+                                            billingManager.launchPurchaseFlow(activity, details)
+                                        }
+                                    },
+                                    enabled = canBuy,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(14.dp),
                                     color = ColorSlate.copy(alpha = 0.3f),
@@ -267,21 +287,18 @@ internal fun ShopDialog(
 
                                         Spacer(Modifier.width(12.dp))
 
-                                        Button(
-                                            onClick = {
-                                                if (activity != null && details != null) {
-                                                    billingManager.launchPurchaseFlow(activity, details)
-                                                }
-                                            },
-                                            enabled = details != null && activity != null,
-                                            shape = PillShape,
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = ColorGold,
-                                                contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
-                                            )
+                                        Box(
+                                            modifier = Modifier
+                                                .heightIn(min = 32.dp)
+                                                .background(if (canBuy || isVerifying) ColorGold else ColorGold.copy(alpha = 0.3f), PillShape)
+                                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Text(priceText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            if (isVerifying) {
+                                                CircularProgressIndicator(color = onAccent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                                            } else {
+                                                Text(priceText, color = onAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            }
                                         }
                                     }
                                 }
@@ -434,5 +451,24 @@ private fun BalanceLine(credits: Int) {
                 )
             }
         }
+    }
+}
+/**
+ * The pack's price as "16.99 PLN": the amount in the phone's number format, then the currency code.
+ * Built here from Google Play's amount and currency rather than its own text, which can mix decimal
+ * commas and dots between packs.
+ */
+private fun formatPrice(details: ProductDetails): String? {
+    val offer = details.oneTimePurchaseOfferDetails ?: return null
+    return try {
+        val currency = Currency.getInstance(offer.priceCurrencyCode)
+        val digits = currency.defaultFractionDigits.coerceAtLeast(0)
+        val amount = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+            minimumFractionDigits = digits
+            maximumFractionDigits = digits
+        }.format(offer.priceAmountMicros / 1_000_000.0)
+        "$amount ${currency.currencyCode}"
+    } catch (_: IllegalArgumentException) {
+        offer.formattedPrice
     }
 }
