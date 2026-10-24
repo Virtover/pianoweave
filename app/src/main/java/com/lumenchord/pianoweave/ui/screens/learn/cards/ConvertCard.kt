@@ -470,7 +470,7 @@ fun TranscriptionInputCard(
                     .fillMaxWidth()
                     .onFocusChanged { linkInputAnchors.isLinkFieldFocused = it.isFocused }
                     .onGloballyPositioned { linkInputAnchors.linkFieldTopInRoot = it.positionInRoot().y },
-                placeholder = { Text("Paste a link", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                placeholder = { Text(if (isLandscape) "Paste a piano cover link" else "Piano cover link", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
                 enabled = !viewModel.isLoading,
                 shape = RoundedCornerShape(14.dp),

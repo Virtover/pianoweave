@@ -69,7 +69,9 @@ internal fun TranscriptionTermsDialog(
 
                     Text(
                         text = buildAnnotatedString {
-                            append("A transcription is a copy of the music, turned into an AI-made MIDI version. ")
+                            append("The AI turns only the piano part into MIDI. ")
+                            append("Vocals and other instruments are left out, so it isn't a full arrangement. ")
+                            append("Solo piano works best.\n\n")
                             append("Only transcribe music you have the right to copy and modify. ")
                             appendLink("Terms of Service", AppLinks.TERMS_OF_SERVICE, colorGold)
                         },
