@@ -12,6 +12,7 @@ import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
+import com.android.billingclient.api.QueryPurchasesParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,7 +32,7 @@ class GooglePlayBillingManager(
 
     private var isConnected = false
 
-    fun startConnection(onConnectedCallback: (() -> Unit)? = null) {
+    fun startConnection(onFailed: (() -> Unit)? = null, onConnectedCallback: (() -> Unit)? = null) {
         if (isConnected) {
             onConnectedCallback?.invoke()
             return
@@ -42,6 +43,9 @@ class GooglePlayBillingManager(
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                     isConnected = true
                     onConnectedCallback?.invoke()
+                } else {
+                    // e.g. no Play Store, or not signed in to it: nothing will load, so say so
+                    coroutineScope.launch { onFailed?.invoke() }
                 }
             }
 
@@ -77,6 +81,25 @@ class GooglePlayBillingManager(
                     onResult(productDetailsResult.productDetailsList)
                 } else {
                     onResult(emptyList())
+                }
+            }
+        }
+    }
+
+    /**
+     * Hands every paid purchase that was never credited to [onPurchaseCompleted] again. One paid while the
+     * shop wasn't open (a pending payment that cleared later, or a closed app) never reached the listener,
+     * and Google refunds a purchase that isn't consumed within three days. The server consumes a purchase
+     * once it has credited it, so only uncredited ones are still listed here.
+     */
+    fun recoverUncreditedPurchases() {
+        startConnection {
+            val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
+            billingClient.queryPurchasesAsync(params) { result, purchases ->
+                if (result.responseCode != BillingClient.BillingResponseCode.OK) return@queryPurchasesAsync
+                purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }.forEach { purchase ->
+                    val productId = purchase.products.firstOrNull() ?: return@forEach
+                    coroutineScope.launch { onPurchaseCompleted(purchase.purchaseToken, productId) }
                 }
             }
         }

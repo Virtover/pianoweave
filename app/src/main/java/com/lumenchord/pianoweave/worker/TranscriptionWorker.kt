@@ -6,7 +6,6 @@ import androidx.work.WorkerParameters
 import com.lumenchord.pianoweave.api.PianoApi
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
-import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
@@ -25,8 +24,9 @@ class TranscriptionWorker(
         val jobId = inputData.getString(KEY_JOB_ID) ?: return Result.failure()
         val stableUrl = inputData.getString(KEY_URL) ?: return Result.failure()
         val serverUrl = inputData.getString(KEY_SERVER_URL) ?: DEFAULT_SERVER_URL
-        // Needed to tell the official server apart (and send the token only there) in a cold process.
-        runCatching { AppConfig.initialize(applicationContext) }
+        // In a cold process: tells the official server apart (the token goes only there) and gives each
+        // server its password, without which a password-protected server refuses every request.
+        PianoApiFactory.initializeInBackground(applicationContext)
         val api = PianoApiFactory.getApi(serverUrl)
 
         try {
@@ -40,7 +40,7 @@ class TranscriptionWorker(
                 when (job.status) {
                     "completed" -> return saveCompletedJob(api, serverUrl, jobId, job, stableUrl)
                     "failed" -> {
-                        ActiveJobStore.clear(applicationContext)
+                        ActiveJobStore.clear(applicationContext, jobId)
                         return Result.failure()
                     }
                     else -> delay(POLL_INTERVAL_MS)
@@ -60,7 +60,7 @@ class TranscriptionWorker(
         stableUrl: String
     ): Result {
         if (MidiStorage.find(applicationContext, stableUrl) != null) {
-            ActiveJobStore.clear(applicationContext)
+            ActiveJobStore.clear(applicationContext, jobId)
             return Result.success()
         }
 
@@ -81,7 +81,7 @@ class TranscriptionWorker(
             } catch (_: Exception) {}
         }
 
-        ActiveJobStore.clear(applicationContext)
+        ActiveJobStore.clear(applicationContext, jobId)
         return Result.success()
     }
 

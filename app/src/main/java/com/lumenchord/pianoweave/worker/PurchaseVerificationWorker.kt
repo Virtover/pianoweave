@@ -11,11 +11,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.lumenchord.pianoweave.api.PianoApiFactory
-import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
-import com.lumenchord.pianoweave.billing.isServerUnavailable
+import com.lumenchord.pianoweave.billing.isVerificationRetryable
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.util.AppPrefs
 import retrofit2.HttpException
@@ -34,8 +33,9 @@ class PurchaseVerificationWorker(
             serverUrl = inputData.getString(KEY_SERVER_URL) ?: DEFAULT_SERVER_URL,
             userId = inputData.getString(KEY_USER_ID) ?: ""
         )
-        // Needed to tell the official server apart (and send the token only there) in a cold process.
-        runCatching { AppConfig.initialize(applicationContext) }
+        // In a cold process: tells the official server apart (the token goes only there) and gives each
+        // server its password, without which a password-protected server refuses every request.
+        PianoApiFactory.initializeInBackground(applicationContext)
         val api = PianoApiFactory.getApi(purchase.serverUrl)
 
         return try {
@@ -46,8 +46,8 @@ class PurchaseVerificationWorker(
             AppPrefs.get(applicationContext).edit().putInt(AppPrefs.USER_CREDITS, response.minutes).apply()
             Result.success()
         } catch (e: HttpException) {
-            // Restarting or starting up: no answer yet, try again later
-            if (isServerUnavailable(e)) return Result.retry()
+            // No answer about the purchase yet (see isVerificationRetryable): try again later
+            if (isVerificationRetryable(e)) return Result.retry()
             // Any other HTTP status counts as an answer from the server.
             PendingPurchaseStore.removePendingPurchase(applicationContext, purchase.purchaseToken)
             Result.success()

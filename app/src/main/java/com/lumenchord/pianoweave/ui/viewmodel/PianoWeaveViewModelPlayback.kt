@@ -66,9 +66,12 @@ internal fun PianoWeaveViewModel.openPracticeSessionImpl(context: Context, song:
     activePracticeSong = song
 }
 
+/**
+ * Re-reads the library. Preferences are loaded once at start (MainActivity); reloading them here re-checked
+ * the server on every library refresh (each tab switch, delete and sync), flickering its status.
+ */
 internal fun PianoWeaveViewModel.loadSongsImpl(context: Context) {
     songs = MidiStorage.list(context)
-    loadPreferencesImpl(context)
     resumeActiveJobIfAnyImpl(context)
 }
 

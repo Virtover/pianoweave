@@ -23,7 +23,13 @@ object ActiveJobStore {
         return ActiveJob(jobId, url)
     }
 
-    fun clear(context: Context) {
+    /**
+     * Forgets the saved job; with [jobId], only if it is still that job. A background worker finishing an
+     * older job must not forget the one the user started since.
+     */
+    @Synchronized
+    fun clear(context: Context, jobId: String? = null) {
+        if (jobId != null && load(context)?.jobId != jobId) return
         AppPrefs.get(context).edit()
             .remove(AppPrefs.ACTIVE_JOB_ID)
             .remove(AppPrefs.ACTIVE_JOB_URL)

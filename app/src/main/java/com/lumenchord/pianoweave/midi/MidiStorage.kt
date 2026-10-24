@@ -124,20 +124,20 @@ object MidiStorage {
         }
     }
 
+    /**
+     * The library's song for [videoUrl], if it has one. A song deleted from the library doesn't count:
+     * transcribing its link again must give a song that shows, not reopen the deleted one.
+     */
     fun find(
         context: Context,
         videoUrl: String
     ): File? {
         val id = idForUrl(videoUrl)
-
-        val midiFile = File(
-            directory(context),
-            "$id.mid"
-        )
-
-        return midiFile.takeIf {
-            it.exists() && it.length() > 0
-        }
+        val dir = directory(context)
+        val midiFile = File(dir, "$id.mid")
+        if (!midiFile.exists() || midiFile.length() == 0L) return null
+        val (isDeleted, _, _) = readDeletionAndCloudId(File(dir, "$id$METADATA_EXTENSION"))
+        return midiFile.takeUnless { isDeleted }
     }
 
     private fun readDeletionAndCloudId(metadataFile: File): Triple<Boolean, Long, String> {
@@ -300,8 +300,9 @@ object MidiStorage {
 
                 if (!metadataFile.exists()) return@mapNotNull null
 
-                val lines = metadataFile.readLines()
-                if (lines.isEmpty()) return@mapNotNull null
+                // Reads don't take the write lock, so the song may be deleted between the check and here
+                val lines = runCatching { metadataFile.readLines() }.getOrNull()
+                if (lines.isNullOrEmpty()) return@mapNotNull null
 
                 val (isDeleted, deletedAt, cloudFileId) = readDeletionAndCloudId(metadataFile)
                 val originalUrl = lines[0]
@@ -330,11 +331,7 @@ object MidiStorage {
         metadataFile: File,
         midiFile: File
     ): VideoMetadata {
-        if (!metadataFile.exists()) {
-            return fallbackMetadata()
-        }
-
-        val lines = metadataFile.readLines()
+        val lines = runCatching { metadataFile.readLines() }.getOrNull() ?: return fallbackMetadata()
 
         if (lines.size < 12) {
             return fallbackMetadata(

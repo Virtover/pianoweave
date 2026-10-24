@@ -156,9 +156,16 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 val cloudSongsToDelete = initialCloudSongs.filter {
                     it.id in deletedLocalCloudIds || it.videoUrl in deletedLocalUrls
                 }
-                cloudSongsToDelete.parallelMap { GoogleDriveManager.deleteCloudMidi(context, it.id, token) }
+                val stillInCloud = cloudSongsToDelete.parallelMap { cloud ->
+                    cloud.takeIf { GoogleDriveManager.deleteCloudMidi(context, it.id, token).isFailure }
+                }.filterNotNull()
+                // Not downloaded again now either way; the deletion is retried on the next sync
                 initialCloudSongs.removeAll(cloudSongsToDelete.toSet())
-                deletedLocal.forEach { MidiStorage.hardDelete(context, it) }
+                // A deleted song is forgotten only once its cloud copy is gone. Forgotten earlier, a copy
+                // whose deletion failed would come back as a new song on the next sync.
+                deletedLocal.filterNot { song ->
+                    stillInCloud.any { it.id == song.cloudFileId || (!song.videoUrl.isSharedSourceKey && it.videoUrl == song.videoUrl) }
+                }.forEach { MidiStorage.hardDelete(context, it) }
 
                 val remainingCloudByUrl = initialCloudSongs.filterNot { it.videoUrl.isSharedSourceKey }.associateBy { it.videoUrl }
                 val remainingCloudById = initialCloudSongs.associateBy { it.id }

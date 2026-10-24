@@ -24,7 +24,11 @@ object SecretStore {
     // Requests read the secret every time; decrypting once per stored value is enough
     @Volatile private var cache: Pair<String, String?>? = null
 
+    // Secrets the Keystore failed to encrypt (it can on some devices): kept for this run only, never stored plain
+    private val memoryOnly = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     fun get(context: Context, key: String): String? {
+        memoryOnly[key]?.let { return it }
         val stored = AppPrefs.get(context).getString(key, null)?.takeIf { it.isNotEmpty() } ?: return null
         cache?.let { (cachedStored, plain) -> if (cachedStored == stored) return plain }
         val plain = decrypt(stored)
@@ -34,11 +38,13 @@ object SecretStore {
 
     /** Saves [value] under [key]; null or empty removes it. */
     fun put(context: Context, key: String, value: String?) {
+        memoryOnly.remove(key)
         val edit = AppPrefs.get(context).edit()
-        if (value.isNullOrEmpty()) {
+        val stored = value?.takeIf { it.isNotEmpty() }?.let { runCatching { encrypt(it) }.getOrNull() }
+        if (stored == null) {
             edit.remove(key)
+            if (!value.isNullOrEmpty()) memoryOnly[key] = value
         } else {
-            val stored = encrypt(value)
             edit.putString(key, stored)
             cache = stored to value
         }

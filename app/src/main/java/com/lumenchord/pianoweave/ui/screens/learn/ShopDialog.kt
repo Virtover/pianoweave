@@ -74,7 +74,7 @@ internal fun ShopDialog(
                     if (success) {
                         viewModel.refreshUserBalance(context)
                     } else {
-                        purchaseErrorMessage = "Server unreachable. Your purchase has been saved and will automatically verify when the server comes back online."
+                        purchaseErrorMessage = "Your purchase is saved but couldn't be credited yet. It will be credited automatically as soon as the server confirms it."
                     }
                 }
             },
@@ -86,8 +86,15 @@ internal fun ShopDialog(
     }
 
     DisposableEffect(Unit) {
-        billingManager.startConnection {
+        billingManager.startConnection(
+            onFailed = {
+                isLoadingProducts = false
+                purchaseErrorMessage = "Google Play Billing isn't available. Check that you're signed in to the Play Store."
+            }
+        ) {
             isBillingConnected = true
+            // Credits any earlier purchase that was paid for but never reached the server
+            billingManager.recoverUncreditedPurchases()
         }
         onDispose { billingManager.destroy() }
     }

@@ -17,7 +17,9 @@ suspend fun PianoApi.verify(purchase: PendingPurchase, authHeader: String?): Ver
     )
 
 /**
- * True if [e] is not a real answer about the purchase: the server is restarting or starting up (502-504
- * from it or a proxy in front of it). The purchase must then stay pending and be verified again later.
+ * True if [e] is not a real answer about the purchase, so it must stay pending and be verified again
+ * later: the server is restarting or failing (5xx), busy (408, 429), or turned the request away before
+ * looking at the purchase (401: an expired Google sign-in, or a server password the app lacks). Dropping
+ * the purchase then would leave it paid for and never credited.
  */
-fun isServerUnavailable(e: HttpException): Boolean = e.code() in 502..504
+fun isVerificationRetryable(e: HttpException): Boolean = e.code() >= 500 || e.code() in setOf(401, 408, 429)

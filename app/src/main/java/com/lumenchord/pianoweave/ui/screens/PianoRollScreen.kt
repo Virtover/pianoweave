@@ -243,6 +243,9 @@ private fun ModernPianoPlayerContent(
     LaunchedEffect(viewModel.isPlaying, viewModel.speedMultiplier, viewModel.isWaitModeEnabled, noteEvents) {
         if (!viewModel.isPlaying) return@LaunchedEffect
 
+        // Play at the end starts the song over; otherwise it stopped again at once and seemed broken
+        if (!viewModel.isLoopingEnabled && viewModel.playheadMs >= songDurationMs) viewModel.playheadMs = 0L
+
         if (isSongSoundOn) {
             val resumed = noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs < (it.startMs + it.durationMs) }
             resumed.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }

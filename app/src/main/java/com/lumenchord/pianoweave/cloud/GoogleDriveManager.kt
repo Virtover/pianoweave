@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import com.google.gson.annotations.SerializedName
+import com.lumenchord.pianoweave.api.DriveFileItem
 import com.lumenchord.pianoweave.api.GoogleDriveApiFactory
 import com.lumenchord.pianoweave.api.VideoMetadata
 import com.lumenchord.pianoweave.api.sanitizeVideoMetadata
@@ -164,9 +165,17 @@ object GoogleDriveManager {
     ): Result<List<CloudMidi>> = withContext(Dispatchers.IO) {
         try {
             val cloudList = GoogleAuthManager.executeWithAuthRetry(context, authHeader) { header ->
-                val listResponse = GoogleDriveApiFactory.api.listFiles(authHeader = header)
+                // Every page: a song missing from the list counts as deleted on another device, and sync
+                // would delete it here too. Drive may return fewer files per page than asked, even under 1000.
+                val items = mutableListOf<DriveFileItem>()
+                var pageToken: String? = null
+                do {
+                    val page = GoogleDriveApiFactory.api.listFiles(authHeader = header, pageToken = pageToken)
+                    page.files?.let(items::addAll)
+                    pageToken = page.nextPageToken?.takeIf { it.isNotBlank() }
+                } while (pageToken != null)
 
-                listResponse.files?.mapNotNull { item ->
+                items.mapNotNull { item ->
                     val fileId = item.id ?: return@mapNotNull null
                     val fileName = item.name ?: return@mapNotNull null
                     val size = item.size?.toLongOrNull() ?: 0L
@@ -220,7 +229,7 @@ object GoogleDriveManager {
                         createdTime = createdTime,
                         hasLegacyDescription = hasLegacyDescription
                     )
-                } ?: emptyList()
+                }
             }
 
             Result.success(cloudList.sortedByDescending { it.effectiveAddedAt })

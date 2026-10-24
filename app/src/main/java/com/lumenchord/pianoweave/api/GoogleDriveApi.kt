@@ -23,7 +23,9 @@ data class DriveFileItem(
 )
 
 data class DriveFileListResponse(
-    val files: List<DriveFileItem>?
+    val files: List<DriveFileItem>?,
+    /** Set while more files follow; passed back as pageToken to get them. */
+    val nextPageToken: String? = null
 )
 
 interface GoogleDriveApi {
@@ -33,8 +35,9 @@ interface GoogleDriveApi {
         @Header("Authorization") authHeader: String?,
         @Query("spaces") spaces: String = "appDataFolder",
         @Query("q") q: String = "'appDataFolder' in parents and trashed = false",
-        @Query("fields") fields: String = "files(id,name,size,modifiedTime,createdTime,description)",
-        @Query("pageSize") pageSize: Int = 1000
+        @Query("fields") fields: String = "nextPageToken,files(id,name,size,modifiedTime,createdTime,description)",
+        @Query("pageSize") pageSize: Int = 1000,
+        @Query("pageToken") pageToken: String? = null
     ): DriveFileListResponse
 
     @POST("upload/drive/v3/files")

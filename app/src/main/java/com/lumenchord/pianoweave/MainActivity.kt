@@ -15,6 +15,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.concurrent.thread
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -50,15 +51,18 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: PianoWeaveViewModel by viewModels()
 
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
+    // One request for all of them: Android shows one permission request at a time and drops a second
+    // one made while the first is open, so the notification prompt never appeared on a fresh install
+    private val requestPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         PianoApiFactory.initialize(application, applicationContext)
         PianoPlayer.initialize(applicationContext)
-        AcousticNoteDetector.initialize(applicationContext)
+        // Loads a large model; off the main thread so it never holds up the first frame
+        thread(name = "AcousticInit") { AcousticNoteDetector.initialize(applicationContext) }
         enableEdgeToEdge()
 
         // Load saved preferences (including theme & server settings) early
@@ -73,17 +77,14 @@ class MainActivity : ComponentActivity() {
         // Initialize physical hardware MIDI listener framework at application launch
         MidiInputManager.initialize(applicationContext)
 
-        // Request audio permission for acoustic detection (used in Wait Mode)
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        // Microphone for acoustic detection (wait mode), notifications for finished transcriptions and
+        // exports, and on Android 9 and below storage, which saving an export to Downloads needs there
+        val wanted = buildList {
+            add(Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (wanted.isNotEmpty()) requestPermissionsLauncher.launch(wanted.toTypedArray())
 
         setContent {
             val currentTheme = AppThemeManager.getTheme(viewModel.selectedThemeId)
@@ -120,7 +121,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        AcousticNoteDetector.cleanup()
+        // Only when leaving for good; a recreated activity (e.g. resized window) keeps the loaded model
+        if (isFinishing) AcousticNoteDetector.cleanup()
         super.onDestroy()
     }
 }

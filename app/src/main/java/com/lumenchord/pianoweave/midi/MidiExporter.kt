@@ -60,7 +60,12 @@ object MidiExporter {
                 throw e
             }
         } else {
-            // Android 9 and below: needs WRITE_EXTERNAL_STORAGE (maxSdkVersion="28")
+            // Android 9 and below: needs WRITE_EXTERNAL_STORAGE (maxSdkVersion="28", asked for at launch)
+            if (context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                error("Allow storage access for Piano Weave in Settings to save to Downloads")
+            }
             val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             dir.mkdirs()
             var target = File(dir, fileName)

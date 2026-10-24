@@ -61,6 +61,13 @@ object PianoApiFactory {
         AppConfig.initialize(context)
     }
 
+    /** For background work in a process the app's screen hasn't started; never throws. */
+    fun initializeInBackground(context: Context) {
+        val app = context.applicationContext as? Application ?: return
+        if (application == null) application = app
+        runCatching { AppConfig.initialize(app) }
+    }
+
     /**
      * True if [url] points at the official server from config.txt. Returns false while the
      * config is not loaded, so callers fail closed (no token is sent).

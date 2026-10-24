@@ -11,7 +11,7 @@ import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
-import com.lumenchord.pianoweave.billing.isServerUnavailable
+import com.lumenchord.pianoweave.billing.isVerificationRetryable
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.util.AppPrefs
@@ -356,8 +356,8 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
         }
         true
     } catch (e: HttpException) {
-        // Restarting or starting up: keep it pending, PurchaseVerificationWorker retries in the background
-        if (isServerUnavailable(e)) return@withContext false
+        // No answer about the purchase yet: keep it pending, PurchaseVerificationWorker retries in the background
+        if (isVerificationRetryable(e)) return@withContext false
         // Any other HTTP status code from the server counts as an answer.
         PendingPurchaseStore.removePendingPurchase(context, purchaseToken)
         true

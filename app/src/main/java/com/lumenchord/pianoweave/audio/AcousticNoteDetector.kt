@@ -77,7 +77,7 @@ object AcousticNoteDetector {
     // thresholds (for tuning / comparing voice vs piano).
     private const val DEBUG_PROFILES = false
 
-    private var isInitialized = false
+    @Volatile private var isInitialized = false
     @Volatile private var isRunning = false
     private var thread: Thread? = null
     private var interpreter: Interpreter? = null
@@ -102,6 +102,7 @@ object AcousticNoteDetector {
     /**
      * One-time setup of the model and native engine.
      */
+    @Synchronized
     fun initialize(context: Context) {
         if (isInitialized) return
         try {
@@ -505,6 +506,7 @@ object AcousticNoteDetector {
         activePitches.clear()
     }
 
+    @Synchronized
     fun cleanup() {
         stop()
         interpreter?.close()
