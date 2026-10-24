@@ -15,6 +15,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 object PianoApiFactory {
 
     private const val AUTHORIZATION = "Authorization"
+    private const val SERVER_PASSWORD_HEADER = "X-Server-Password"
 
     private var application: Application? = null
     private var cachedBaseUrl: String? = null
@@ -33,6 +34,16 @@ object PianoApiFactory {
                 val request = chain.request()
                 if (request.header(AUTHORIZATION) != null && !isOfficialServer(request.url)) {
                     chain.proceed(request.newBuilder().removeHeader(AUTHORIZATION).build())
+                } else {
+                    chain.proceed(request)
+                }
+            })
+            // Each server's password goes to that server alone, never to another one or a link's host
+            .addInterceptor(Interceptor { chain ->
+                val request = chain.request()
+                val password = serverPasswordFor(request.url)
+                if (password != null && request.header(SERVER_PASSWORD_HEADER) == null) {
+                    chain.proceed(request.newBuilder().header(SERVER_PASSWORD_HEADER, password).build())
                 } else {
                     chain.proceed(request)
                 }
@@ -61,10 +72,41 @@ object PianoApiFactory {
     private fun isOfficialServer(url: HttpUrl): Boolean {
         val official = AppConfig.getConfigOrNull()?.baseUrl?.let { withTrailingSlash(it).toHttpUrlOrNull() }
             ?: return false
-        return url.scheme == official.scheme &&
-            url.host == official.host &&
-            url.port == official.port &&
-            url.encodedPath.startsWith(official.encodedPath)
+        return url.isUnder(official)
+    }
+
+    /**
+     * The official server's password from config.txt for the official server; the user's saved one for
+     * the custom server it belongs to. The official server never gets the custom one, even when the
+     * custom URL points at the same address.
+     */
+    private fun serverPasswordFor(url: HttpUrl): String? =
+        if (isOfficialServer(url)) AppConfig.getConfigOrNull()?.serverPassword
+        else customServerPasswordFor(url)
+
+    private fun customServerPasswordFor(url: HttpUrl): String? {
+        val prefs = AppPrefs.get(application ?: return null)
+        val password = prefs.getString(AppPrefs.CUSTOM_SERVER_PASSWORD, null)?.takeIf { it.isNotEmpty() } ?: return null
+        val custom = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, null)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { withTrailingSlash(it.trim()).toHttpUrlOrNull() }
+            ?: return null
+        return password.takeIf { url.isUnder(custom) && !isOfficialServer(url) }
+    }
+
+    private fun HttpUrl.isUnder(base: HttpUrl) =
+        scheme == base.scheme && host == base.host && port == base.port && encodedPath.startsWith(base.encodedPath)
+
+    /**
+     * True if the server turned a request away for lack of its password (or a wrong one): 401 with the
+     * Basic challenge it sends only then. A 401 for Google sign-in has no such challenge.
+     */
+    fun isServerPasswordRequired(code: Int, headers: okhttp3.Headers?): Boolean =
+        code == 401 && headers?.get("WWW-Authenticate")?.trim()?.startsWith("Basic", ignoreCase = true) == true
+
+    fun isServerPasswordRequired(error: Throwable): Boolean {
+        val response = (error as? retrofit2.HttpException)?.response() ?: return false
+        return isServerPasswordRequired(response.code(), response.headers())
     }
 
     fun getApi(baseUrl: String): PianoApi {

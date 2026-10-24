@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import com.lumenchord.pianoweave.ui.screens.learn.DiscardRecordingDialog
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
+import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 import kotlinx.coroutines.launch
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -501,12 +502,17 @@ fun TranscriptionInputCard(
                 }
             )
 
+            val needsPassword = viewModel.serverStatus == ServerStatus.PASSWORD_REQUIRED
+            if (needsPassword && !viewModel.isLoading) {
+                ServerPasswordNotice(isOfficialServer = viewModel.isUsingDefaultServer, onClick = onOpenServerSettings)
+            }
+
             if (!viewModel.isLoading && !viewModel.isRecording) {
                 val isBilled = viewModel.isBilledServer
                 val cost = viewModel.estimatedCostCredits
                 val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
                 val canTranscribe = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
-                    !viewModel.isCalculatingCost
+                    !viewModel.isCalculatingCost && !needsPassword
                 // Fades from waiting to ready as a link is pasted, rather than switching abruptly
                 val readiness by animateFloatAsState(
                     targetValue = if (canTranscribe) 1f else 0f,
@@ -590,6 +596,51 @@ fun TranscriptionInputCard(
             if (hasAcceptedTerms) {
                 RightsFootnote()
             }
+        }
+    }
+}
+
+/**
+ * The server is private and the app has no password for it, or the wrong one. In [Moods.Watch]: it asks
+ * for attention, nothing is broken. A custom server's password is the user's to enter; the official one
+ * comes with the app, so then the way out is a newer app or another server, both in Server Settings.
+ */
+@Composable
+private fun ServerPasswordNotice(isOfficialServer: Boolean, onClick: () -> Unit) {
+    val watch = Moods.Watch.core
+    // The whole notice is the button, so it needs no room for one beside the text on a narrow screen
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = watch.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, watch.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconBadge(Icons.Default.Lock, tint = watch, size = 30.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isOfficialServer) "Official server is locked" else "Server password needed",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                // Wraps rather than cutting off on narrow phones or with large system fonts
+                Text(
+                    text = if (isOfficialServer) "Update the app or pick a server" else "Tap to enter it",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = watch
+                )
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = if (isOfficialServer) "Open server settings" else "Enter server password",
+                tint = watch,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

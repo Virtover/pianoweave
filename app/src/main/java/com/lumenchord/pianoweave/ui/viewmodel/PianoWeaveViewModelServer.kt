@@ -52,10 +52,11 @@ internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): 
     try {
         val api = PianoApiFactory.getApi(url)
         val response = api.checkHealth()
-        if (response.code() > 0) {
-            ServerStatus.ONLINE
-        } else {
-            ServerStatus.OFFLINE
+        when {
+            // The saved password, if any, went along: this means it's missing or wrong
+            PianoApiFactory.isServerPasswordRequired(response.code(), response.headers()) -> ServerStatus.PASSWORD_REQUIRED
+            response.code() > 0 -> ServerStatus.ONLINE
+            else -> ServerStatus.OFFLINE
         }
     } catch (_: Exception) {
         ServerStatus.OFFLINE
@@ -123,9 +124,10 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                             refreshUserBalanceImpl(targetContext)
                         }
                     }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
                     billingProvider = "none"
                     maxUploadSizeMb = null
+                    if (PianoApiFactory.isServerPasswordRequired(e)) serverStatus = ServerStatus.PASSWORD_REQUIRED
                 }
             }
         } else if (serverStatus == ServerStatus.OFFLINE) {
@@ -255,6 +257,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
     isCustomServer = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
     customServerUrl = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, "") ?: ""
+    customServerPassword = prefs.getString(AppPrefs.CUSTOM_SERVER_PASSWORD, "") ?: ""
 
     // Schedule background retries for any pending purchase verifications across app restarts
     PurchaseVerificationWorker.scheduleAllPending(context)
@@ -266,6 +269,16 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
 
 internal fun PianoWeaveViewModel.openShopImpl(context: Context) {
     withEnsuredSignInImpl(context) { showShopDialog = true }
+}
+
+/** Saves the custom server's password (blank removes it) and checks the server again with it. */
+internal fun PianoWeaveViewModel.updateServerPasswordImpl(context: Context, password: String) {
+    if (isLoading) return
+    customServerPassword = password
+    AppPrefs.get(context).edit().apply {
+        if (password.isEmpty()) remove(AppPrefs.CUSTOM_SERVER_PASSWORD) else putString(AppPrefs.CUSTOM_SERVER_PASSWORD, password)
+    }.apply()
+    if (isCustomServer) checkServerHealthAndInfoImpl(context, isUserAction = true)
 }
 
 internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) {

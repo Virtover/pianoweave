@@ -7,3 +7,6 @@ SUPPORT_ME_URL=https://ko-fi.com/krzysztofolszak
 DISCORD_URL=https://discord.gg/vzMyRZewmb
 # Google OAuth "Web application" client ID. Also set in docs/config.js (webClientId).
 WEB_CLIENT_ID=""
+# Optional: only if the official server has a password (secrets/server_password on the server).
+# It ships inside the APK, so it keeps strangers off the server but is not a real secret.
+DEFAULT_SERVER_PASSWORD=""

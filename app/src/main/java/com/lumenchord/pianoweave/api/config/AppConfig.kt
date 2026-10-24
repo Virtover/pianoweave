@@ -7,7 +7,9 @@ data class ServerConfig(
     val name: String,
     val supportMeLink: String? = null,
     val webClientId: String? = null,
-    val discordLink: String? = null
+    val discordLink: String? = null,
+    /** The official server's password, if it has one; sent to that server alone. */
+    val serverPassword: String? = null
 )
 
 object AppConfig {
@@ -23,6 +25,7 @@ object AppConfig {
     private const val CLIENT_ID = "CLIENT_ID"
     private const val DISCORD_URL = "DISCORD_URL"
     private const val DISCORD_LINK = "DISCORD_LINK"
+    private const val DEFAULT_SERVER_PASSWORD = "DEFAULT_SERVER_PASSWORD"
     private var config: ServerConfig? = null
 
     fun initialize(
@@ -81,7 +84,9 @@ object AppConfig {
         val webClientId = values[WEB_CLIENT_ID] ?: values[GOOGLE_CLIENT_ID] ?: values[CLIENT_ID]
         val discordLink = (values[DISCORD_URL] ?: values[DISCORD_LINK])?.takeIf { it.isNotBlank() }
 
-        config = ServerConfig(url, name, supportMeLink, webClientId, discordLink)
+        val serverPassword = values[DEFAULT_SERVER_PASSWORD]?.takeIf { it.isNotEmpty() }
+
+        config = ServerConfig(url, name, supportMeLink, webClientId, discordLink, serverPassword)
     }
 
     fun getConfig(): ServerConfig {

@@ -72,6 +72,8 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
     var customServerUrl by mutableStateOf("")
         internal set
+    var customServerPassword by mutableStateOf("")
+        internal set
     var isCustomServer by mutableStateOf(false)
         internal set
     var serverStatus by mutableStateOf(ServerStatus.UNKNOWN)
@@ -298,6 +300,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun refreshUserBalance(context: Context) = refreshUserBalanceImpl(context)
     fun loadPreferences(context: Context) = loadPreferencesImpl(context)
     fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) = updateServerSettingsImpl(context, useCustom, customUrl, customClientId)
+    fun updateServerPassword(context: Context, password: String) = updateServerPasswordImpl(context, password)
     suspend fun verifyGooglePlayPurchase(context: Context, productId: String, purchaseToken: String): Boolean = verifyGooglePlayPurchaseImpl(context, productId, purchaseToken)
 
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)

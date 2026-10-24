@@ -13,6 +13,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.*
@@ -21,6 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,6 +49,8 @@ internal fun ServerSettingsDialog(
     var selectedUseCustom by remember { mutableStateOf(viewModel.isCustomServer) }
     var customUrlText by remember { mutableStateOf(viewModel.customServerUrl) }
     var customClientIdText by remember { mutableStateOf(viewModel.customGoogleClientId) }
+    var passwordText by remember { mutableStateOf(viewModel.customServerPassword) }
+    var isPasswordVisible by remember { mutableStateOf(false) }
     var urlError by remember { mutableStateOf<String?>(null) }
     var dialogTestStatus by remember { mutableStateOf(ServerStatus.CHECKING) }
 
@@ -66,7 +74,8 @@ internal fun ServerSettingsDialog(
         viewModel.defaultServerUrl
     }
 
-    LaunchedEffect(selectedUseCustom, customUrlText) {
+    // The saved password goes along with the test, so a new one is tried as it's typed
+    LaunchedEffect(selectedUseCustom, customUrlText, passwordText) {
         if (candidateUrl.isNotBlank()) {
             dialogTestStatus = ServerStatus.CHECKING
             dialogTestStatus = viewModel.testServerConnection(candidateUrl)
@@ -283,6 +292,49 @@ internal fun ServerSettingsDialog(
                                                 }) {
                                                     Icon(Icons.Default.Clear, "Clear", tint = ColorTextDim)
                                                 }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = ColorGold,
+                                            unfocusedBorderColor = ColorSlate,
+                                            focusedLabelColor = ColorGold,
+                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                            cursorColor = ColorGold,
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        )
+                                    )
+
+                                    val passwordRejected = dialogTestStatus == ServerStatus.PASSWORD_REQUIRED
+                                    OutlinedTextField(
+                                        value = passwordText,
+                                        onValueChange = {
+                                            passwordText = it
+                                            viewModel.updateServerPassword(context, it)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text("Password (optional)", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        singleLine = true,
+                                        isError = passwordRejected,
+                                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                                        trailingIcon = {
+                                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                                Icon(
+                                                    if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                                    contentDescription = if (isPasswordVisible) "Hide password" else "Show password",
+                                                    tint = ColorTextDim
+                                                )
+                                            }
+                                        },
+                                        supportingText = {
+                                            when {
+                                                passwordRejected && passwordText.isEmpty() ->
+                                                    Text("This server needs a password", color = MaterialTheme.colorScheme.error)
+                                                passwordRejected -> Text("Incorrect password", color = MaterialTheme.colorScheme.error)
+                                                // Short enough for one line on a narrow phone
+                                                else -> Text("Only if the server has one")
                                             }
                                         },
                                         shape = RoundedCornerShape(8.dp),

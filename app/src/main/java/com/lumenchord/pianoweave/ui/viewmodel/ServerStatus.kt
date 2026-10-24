@@ -9,7 +9,9 @@ enum class ServerStatus {
     ONLINE,
     OFFLINE,
     CHECKING,
-    UNKNOWN
+    UNKNOWN,
+    /** Reachable, but it has a password and the app has none or the wrong one. */
+    PASSWORD_REQUIRED
 }
 
 val ServerStatus.statusColor: Color
@@ -19,6 +21,7 @@ val ServerStatus.statusColor: Color
         ServerStatus.OFFLINE -> Moods.Lament.core
         ServerStatus.CHECKING -> Moods.Watch.core
         ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+        ServerStatus.PASSWORD_REQUIRED -> Moods.Watch.core
     }
 
 val ServerStatus.displayText: String
@@ -27,4 +30,5 @@ val ServerStatus.displayText: String
         ServerStatus.OFFLINE -> "Offline"
         ServerStatus.CHECKING -> "Checking..."
         ServerStatus.UNKNOWN -> "Unknown"
+        ServerStatus.PASSWORD_REQUIRED -> "Password needed"
     }

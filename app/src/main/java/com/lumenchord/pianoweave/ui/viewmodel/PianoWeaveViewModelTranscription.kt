@@ -146,6 +146,11 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
 /** Shows why a transcription could not be submitted, preferring the server's own explanation. */
 internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exception) {
     val errMsg = when {
+        PianoApiFactory.isServerPasswordRequired(e) -> {
+            serverStatus = ServerStatus.PASSWORD_REQUIRED
+            if (isUsingDefaultServer) "The server turned this app version away. Updating the app should fix it."
+            else "This server needs a password. Enter it in Server Settings."
+        }
         e is HttpException && e.code() == 401 && !isUsingDefaultServer ->
             "This server requires Google sign-in. Your Google account is only shared with the official server."
         e is HttpException -> serverErrorDetail(context, e) ?: "Server error (HTTP ${e.code()})"
