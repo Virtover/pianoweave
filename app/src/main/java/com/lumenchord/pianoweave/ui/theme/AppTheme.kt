@@ -140,7 +140,13 @@ object AppThemeManager {
         createTheme("sunburst", "Morning Joy", Color(0xFFF0DD66)), // Joy that comes in the morning (Ps 30:5)
         createTheme("orange", "Dayspring", Color(0xFFF7AE81)), // Hope at first light (Lk 1:78)
         createTheme("coral", "Hearth", Color(0xFFED8F61)), // Warmth of fellowship (Acts 2:46)
-        createTheme("solar", "Burning Bush", Color(0xFFF87C49)), // Holy awe, fire that does not consume (Ex 3:2)
+        // Holy awe, fire that does not consume (Ex 3:2). Warm through and through: an ember-gold keyboard
+        // line rather than the derived crimson, and backgrounds that glow faintly like a fireside.
+        createTheme(
+            "solar", "Burning Bush", Color(0xFFF87C49),
+            customBaseline = Color(0xFFFFB258),
+            palette = NeutralPalette.tinted(hue = 22f, strength = 1.3f, depth = 0.92f)
+        ),
         createTheme("copper", "Potter's Clay", Color(0xFFC79170)), // Humility in His hands (Is 64:8)
         createTheme("goldenrod", "Harvest", Color(0xFFC19B54)), // Gratitude, reaping with joy (Ps 126:6)
         createTheme("crimson", "Scarlet Cord", Color(0xFFF27C7E)), // Redemption held by faith (Josh 2:18)
@@ -153,7 +159,14 @@ object AppThemeManager {
         createTheme("electric_purple", "Iris", Color(0xFFBD9FF2)), // Wonder (Ps 8:3)
         createTheme("royal_violet", "Royal Robe", Color(0xFFCD85D8)), // Dignity, a royal priesthood (1 Pet 2:9)
         createTheme("deep_velvet", "Night Watch", Color(0xFFA194E7)), // Longing, meditating through the night (Ps 63:6)
-        createTheme("indigo", "Evening Prayer", Color(0xFF9FA6DD)), // Devotion rising like incense (Ps 141:2)
+        // Communion with God: "may my prayer be set before you like incense" (Ps 141:2). Both sides of the
+        // meeting: the prayer rising in a warm dusk lilac, His light answering in a soft gold keyboard
+        // line, held in the deep blue of the evening sky.
+        createTheme(
+            "indigo", "Evening Prayer", Color(0xFFD3A6CE),
+            customBaseline = Color(0xFFF5D38E),
+            palette = NeutralPalette.tinted(hue = 232f, strength = 1.25f, depth = 0.9f)
+        ),
         createTheme("midnight", "Starry Host", Color(0xFFA0BDFF)), // Awe at the stars He names (Ps 147:4)
         createTheme("sapphire", "Sapphire Heaven", Color(0xFF5DA6EF)), // Majesty, holiness (Ex 24:10)
         createTheme("electric_blue", "Open Sky", Color(0xFF75C9F7)), // Praise, the heavens declare (Ps 19:1)
@@ -171,7 +184,36 @@ object AppThemeManager {
         createTheme("champagne", "Fine Linen", Color(0xFFF4E6CE), tint = 0.6f), // Purity (Rev 19:8)
         createTheme("silver", "Refined Silver", Color(0xFFCCD2D7)), // The pure word, refined (Ps 12:6)
         createTheme("titanium", "Rock of Refuge", Color(0xFF9DAEB9)), // Security, my refuge (Ps 18:2)
+
+        // Deep themes, for evenings and quieter hearts: darker backgrounds and lower, still readable
+        // accents. Like the lament psalms, each holds sorrow or night together with trust.
+        createTheme( // Longing in sorrow, "deep calls to deep" (Ps 42:7)
+            "deep_waters", "Deep Waters", Color(0xFF5F9FD2),
+            palette = NeutralPalette.tinted(hue = 215f, strength = 1.2f, depth = DEEP_THEME_DEPTH)
+        ),
+        createTheme( // Surrender in anguish, "not my will, but yours" (Lk 22:42)
+            "gethsemane", "Gethsemane", Color(0xFF8CA66C),
+            palette = NeutralPalette.tinted(hue = 95f, strength = 1f, depth = DEEP_THEME_DEPTH)
+        ),
+        createTheme( // Mourning turned to hope: a crown of beauty instead of ashes (Is 61:3)
+            "beauty_for_ashes", "Beauty for Ashes", Color(0xFFD9897C),
+            // Gold rising from the ashes on the keyboard line; backgrounds close to charcoal
+            customBaseline = Color(0xFFFEBD56),
+            palette = NeutralPalette.tinted(hue = 20f, strength = 0.6f, depth = DEEP_THEME_DEPTH)
+        ),
+        createTheme( // Communion by candlelight (Lk 22:12)
+            "upper_room", "Upper Room", Color(0xFFDB9249),
+            customBaseline = Color(0xFFFEBD56),
+            palette = NeutralPalette.tinted(hue = 32f, strength = 1.3f, depth = DEEP_THEME_DEPTH)
+        ),
+        createTheme( // Refuge in the dark, under the shadow of His wings (Ps 91:4)
+            "shadow_of_wings", "Shadow of Wings", Color(0xFFB48BCE),
+            palette = NeutralPalette.tinted(hue = 285f, strength = 1.1f, depth = DEEP_THEME_DEPTH)
+        ),
     )
+
+    /** How much darker the deep themes' backgrounds are than the others'. */
+    private const val DEEP_THEME_DEPTH = 0.8f
 
     fun getTheme(id: String?): AppTheme {
         return themes.find { it.id == id } ?: defaultTheme
