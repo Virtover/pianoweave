@@ -199,14 +199,21 @@ Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, j
 
     float *destPtr = static_cast<float *>(env->GetDirectBufferAddress(destination));
     if (destPtr == nullptr) return 0;
+    // Never write past the buffer the caller passed
+    const jlong capacityFrames = env->GetDirectBufferCapacity(destination) / static_cast<jlong>(sizeof(float));
+    if (capacityFrames <= 0) return 0;
 
     int64_t currentWriteIndex = writeIndex.load(std::memory_order_acquire);
+    // A negative index would read before the ring; one older than the ring has been overwritten already
+    if (startIndex < 0 || currentWriteIndex - startIndex > RING_BUFFER_SIZE) return 0;
     const int64_t availableFrames = currentWriteIndex - startIndex;
     if (availableFrames <= 0) return 0;
 
-    const int32_t framesToCopy = static_cast<int32_t>(std::min<int64_t>(frames, availableFrames));
+    const int32_t framesToCopy = static_cast<int32_t>(
+            std::min<int64_t>(std::min<int64_t>(frames, availableFrames), capacityFrames));
 
-    for (int32_t i = 0; i < frames; ++i) {
+    // Only frames that were written; the rest of the ring holds older audio
+    for (int32_t i = 0; i < framesToCopy; ++i) {
         destPtr[i] = ringBuffer[(startIndex + i) % RING_BUFFER_SIZE];
     }
 

@@ -123,7 +123,9 @@ internal fun MediaTimelineFooter(
 
                 if (viewModel.isLoopingEnabled) {
                     RangeSlider(
-                        value = viewModel.loopStartMs.toFloat()..viewModel.loopEndMs.toFloat(),
+                        // Ordered, since the loop settings can set the end before the start
+                        value = minOf(viewModel.loopStartMs, viewModel.loopEndMs).toFloat()..
+                            maxOf(viewModel.loopStartMs, viewModel.loopEndMs).toFloat(),
                         onValueChange = {
                             viewModel.loopStartMs = it.start.toLong()
                             viewModel.loopEndMs = it.endInclusive.toLong()

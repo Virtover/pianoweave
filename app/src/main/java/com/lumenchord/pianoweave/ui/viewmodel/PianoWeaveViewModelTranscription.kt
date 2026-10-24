@@ -145,7 +145,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             if (cloudSong != null) {
                 progress = 1f
                 status = "Loaded from cloud library!"
-                readySong = cloudSong
+                selectLocalSong(context, cloudSong.file)
                 isLoading = false
                 return@launch
             }
@@ -228,19 +228,22 @@ private fun PianoWeaveViewModel.serverErrorDetail(context: Context, e: HttpExcep
 internal fun formatClockTime(context: Context, epochSec: Long): String =
     android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(epochSec * 1000))
 
-/** Returns the cloud-library copy of [stableUrl], using the local cache or downloading it from Drive. */
+/**
+ * Downloads [stableUrl]'s song into the library if the cloud library (as of the last sync) has it, linked
+ * to that cloud copy. Only with sync on and signed in: otherwise the list may be another account's, and
+ * getting a token could interrupt the transcription with a sign-in prompt.
+ */
 private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, stableUrl: String): StoredMidi? {
-    val cloudList = cloudSongs.ifEmpty { CloudAccountCache.loadCloudSongs(context) }
+    if (!isCloudSyncEnabled || !isGoogleSignedIn) return null
+    val cloudList = cloudSongs.ifEmpty { withContext(Dispatchers.IO) { CloudAccountCache.loadCloudSongs(context) } }
     val match = cloudList.firstOrNull { it.videoUrl == stableUrl } ?: return null
-
-    val cachedFile = CloudAccountCache.getCachedMidiFile(context, match.id)
-    if (cachedFile != null && cachedFile.exists()) {
-        return StoredMidi(file = cachedFile, videoUrl = match.videoUrl, metadata = match.metadata)
-    }
 
     val token = ensureGoogleAuthToken(context)
     if (token.isNullOrBlank()) return null
-    return GoogleDriveManager.downloadMidiFile(context, match, token).getOrNull()
+    // Gone since the last sync (e.g. deleted on another device): null, and the server transcribes it
+    val stored = GoogleDriveManager.downloadMidiFile(context, match, token).getOrNull() ?: return null
+    withContext(Dispatchers.IO) { MidiStorage.updateCloudFileId(context, stored, match.id) }
+    return stored.copy(cloudFileId = match.id)
 }
 
 /**

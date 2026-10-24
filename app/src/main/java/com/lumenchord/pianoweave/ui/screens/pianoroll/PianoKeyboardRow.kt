@@ -79,49 +79,59 @@ internal fun PianoKeyboardRow(
                         val activePointers = mutableMapOf<PointerId, Int>()
                         val tw = size.width.toFloat()
                         val th = size.height.toFloat()
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                event.changes.forEach { change ->
-                                    val pId = change.id
-                                    when {
-                                        change.changedToDown() -> {
-                                            val p = findPitchAt(change.position, start, end, tw, numWhiteKeys, th)
-                                            if (p != -1) {
-                                                activePointers[pId] = p
-                                                MidiInputManager.simulateNoteOn(p)
-                                                PianoPlayer.noteOn(p)
+                        // Releases held keys if this handler stops mid-press (a layout change or leaving the
+                        // screen restarts it); they would otherwise sound on and count as held in wait mode
+                        try {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    event.changes.forEach { change ->
+                                        val pId = change.id
+                                        when {
+                                            change.changedToDown() -> {
+                                                val p = findPitchAt(change.position, start, end, tw, numWhiteKeys, th)
+                                                if (p != -1) {
+                                                    activePointers[pId] = p
+                                                    MidiInputManager.simulateNoteOn(p)
+                                                    PianoPlayer.noteOn(p)
+                                                }
+                                                change.consume()
                                             }
-                                            change.consume()
-                                        }
-                                        change.changedToUp() || !change.pressed -> {
-                                            activePointers.remove(pId)?.let { oldP ->
-                                                MidiInputManager.simulateNoteOff(oldP)
-                                                PianoPlayer.noteOff(oldP)
-                                            }
-                                            change.consume()
-                                        }
-                                        change.positionChanged() -> {
-                                            val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys, th)
-                                            val oldP = activePointers[pId]
-                                            if (newP != oldP) {
-                                                if (oldP != null) {
+                                            change.changedToUp() || !change.pressed -> {
+                                                activePointers.remove(pId)?.let { oldP ->
                                                     MidiInputManager.simulateNoteOff(oldP)
                                                     PianoPlayer.noteOff(oldP)
                                                 }
-                                                if (newP != -1) {
-                                                    activePointers[pId] = newP
-                                                    MidiInputManager.simulateNoteOn(newP)
-                                                    PianoPlayer.noteOn(newP)
-                                                } else {
-                                                    activePointers.remove(pId)
-                                                }
+                                                change.consume()
                                             }
-                                            change.consume()
+                                            change.positionChanged() -> {
+                                                val newP = findPitchAt(change.position, start, end, tw, numWhiteKeys, th)
+                                                val oldP = activePointers[pId]
+                                                if (newP != oldP) {
+                                                    if (oldP != null) {
+                                                        MidiInputManager.simulateNoteOff(oldP)
+                                                        PianoPlayer.noteOff(oldP)
+                                                    }
+                                                    if (newP != -1) {
+                                                        activePointers[pId] = newP
+                                                        MidiInputManager.simulateNoteOn(newP)
+                                                        PianoPlayer.noteOn(newP)
+                                                    } else {
+                                                        activePointers.remove(pId)
+                                                    }
+                                                }
+                                                change.consume()
+                                            }
                                         }
                                     }
                                 }
                             }
+                        } finally {
+                            activePointers.values.forEach { pitch ->
+                                MidiInputManager.simulateNoteOff(pitch)
+                                PianoPlayer.noteOff(pitch)
+                            }
+                            activePointers.clear()
                         }
                     }
                 } else Modifier

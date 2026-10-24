@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.api.isPlaceholder
+import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
@@ -78,7 +79,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 hasCloudSyncError = true
                 cloudSyncError = "Google account sign-in required for sync."
                 showCloudSyncErrorDialog = true
-                saveCloudSyncState(context, enabled = true, hasError = true, errorMsg = cloudSyncError)
+                saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = true, errorMsg = cloudSyncError)
             }
             return@launch
         }
@@ -105,20 +106,26 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                         if (showModalProgress) {
                             showCloudSyncErrorDialog = true
                         }
-                        saveCloudSyncState(context, enabled = true, hasError = true, errorMsg = cloudSyncError)
+                        saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = true, errorMsg = cloudSyncError)
                         loadSongsImpl(context)
                     }
                     return@launch
                 }
 
-                // Only now that the new account's Drive is readable: a failed sign-in must not empty the library.
-                adoptCloudAccount(context, replaceLibrary = !uploadPreviousAccountSongs)
-
                 val initialCloudSongs = initialCloudResult.getOrDefault(emptyList()).toMutableList()
+
+                // Only now that the new account's Drive is readable: a failed sign-in must not empty the library.
+                adoptCloudAccount(context, replaceLibrary = !uploadPreviousAccountSongs, cloudIds = initialCloudSongs.map { it.id }.toSet())
+
                 // Corrupted cloud files: delete in parallel
                 val corruptedCloudSongs = initialCloudSongs.filter { it.sizeBytes == 0L || it.name.isBlank() }
                 corruptedCloudSongs.parallelMap { GoogleDriveManager.deleteCloudMidi(context, it.id, token) }
                 initialCloudSongs.removeAll(corruptedCloudSongs.toSet())
+                // A good local song linked to a corrupted copy uploads again; still linked, it would look
+                // deleted on another device below and be deleted here too
+                val corruptedIds = corruptedCloudSongs.map { it.id }.toSet()
+                MidiStorage.listAll(context).filter { it.cloudFileId in corruptedIds }
+                    .forEach { MidiStorage.updateCloudFileId(context, it, "") }
 
                 removeDuplicateCloudCopies(context, initialCloudSongs, MidiStorage.listAll(context), token)
 
@@ -165,7 +172,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 // whose deletion failed would come back as a new song on the next sync.
                 deletedLocal.filterNot { song ->
                     stillInCloud.any { it.id == song.cloudFileId || (!song.videoUrl.isSharedSourceKey && it.videoUrl == song.videoUrl) }
-                }.forEach { MidiStorage.hardDelete(context, it) }
+                }.forEach { MidiStorage.forgetDeleted(context, it) }
 
                 val remainingCloudByUrl = initialCloudSongs.filterNot { it.videoUrl.isSharedSourceKey }.associateBy { it.videoUrl }
                 val remainingCloudById = initialCloudSongs.associateBy { it.id }
@@ -202,11 +209,13 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 }
 
                 // 3 + 4. Upload and download concurrently
+                val uploaded = ConcurrentLinkedQueue<CloudMidi>()
                 coroutineScope {
                     val uploads = async {
                         songsToUpload.parallelMap { localMidi ->
                             GoogleDriveManager.uploadMidi(context, localMidi, token).fold(
                                 onSuccess = {
+                                    uploaded.add(it)
                                     MidiStorage.updateCloudFileId(context, localMidi, it.id)
                                     // The new cloud copy already carries any edited details.
                                     PendingDetailEdits.remove(context, localMidi)
@@ -240,6 +249,11 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                     uploads.await()
                     downloads.await()
                 }
+
+                // What Drive holds now, so a transcription can take a song from it instead of the server
+                val cloudLibrary = initialCloudSongs + uploaded
+                CloudAccountCache.saveCloudSongs(context, cloudLibrary)
+                withContext(Dispatchers.Main) { cloudSongs = cloudLibrary }
             }
 
             withContext(Dispatchers.Main) {
@@ -257,7 +271,8 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 if (hasCloudSyncError && showModalProgress) {
                     showCloudSyncErrorDialog = true
                 }
-                saveCloudSyncState(context, enabled = true, hasError = hasCloudSyncError, errorMsg = cloudSyncError)
+                // Enabled as the user left it: signing out during a sync turned it off, and it stays off
+                saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = hasCloudSyncError, errorMsg = cloudSyncError)
                 loadSongsImpl(context)
             }
         } catch (e: Exception) {
@@ -270,7 +285,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 if (showModalProgress) {
                     showCloudSyncErrorDialog = true
                 }
-                saveCloudSyncState(context, enabled = true, hasError = true, errorMsg = cloudSyncError)
+                saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = true, errorMsg = cloudSyncError)
                 loadSongsImpl(context)
             }
         }
@@ -433,17 +448,31 @@ private fun sameDetails(local: StoredMidi, cloud: CloudMidi): Boolean {
  * another account they are dropped first: with [replaceLibrary] (switch while sync is on) the old
  * account's songs are removed so the new account's library replaces them; otherwise (sync turned on
  * after a switch) they are kept and uploaded to the new account.
+ *
+ * The links also belong to one Drive app folder, which is per Google Cloud project: another Google
+ * client ID (Server Settings) can mean another, empty folder. Every linked song would then look deleted
+ * on another device and be deleted here, so if none of the links is in [cloudIds] after the client ID
+ * changed, the songs are kept and unlinked instead, and upload to the new folder.
  */
-private fun PianoWeaveViewModel.adoptCloudAccount(context: Context, replaceLibrary: Boolean) {
+private suspend fun PianoWeaveViewModel.adoptCloudAccount(context: Context, replaceLibrary: Boolean, cloudIds: Set<String>) {
     val prefs = AppPrefs.get(context)
     val libraryAccount = prefs.getString(AppPrefs.CLOUD_LIBRARY_ACCOUNT, null)
+    val libraryClientId = prefs.getString(AppPrefs.CLOUD_LIBRARY_CLIENT_ID, null)
     val currentAccount = googleUserEmail
-    if (!libraryAccount.isNullOrBlank() && !libraryAccount.equals(currentAccount, ignoreCase = true)) {
-        MidiStorage.detachFromCloudAccount(context, removeSyncedSongs = replaceLibrary)
+    val currentClientId = GoogleAuthManager.getActiveClientId(context)
+    val linkedIds = MidiStorage.listAll(context).map { it.cloudFileId }.filter { it.isNotBlank() }
+    val switchedAccount = !libraryAccount.isNullOrBlank() && !libraryAccount.equals(currentAccount, ignoreCase = true)
+    val switchedFolder = !switchedAccount && !libraryClientId.isNullOrBlank() && libraryClientId != currentClientId &&
+        linkedIds.isNotEmpty() && linkedIds.none { it in cloudIds }
+    if (switchedAccount || switchedFolder) {
+        MidiStorage.detachFromCloudAccount(context, removeSyncedSongs = switchedAccount && replaceLibrary)
         CloudAccountCache.clearCache(context)
-        cloudSongs = emptyList()
+        withContext(Dispatchers.Main) { cloudSongs = emptyList() }
     }
-    prefs.edit().putString(AppPrefs.CLOUD_LIBRARY_ACCOUNT, currentAccount).apply()
+    prefs.edit()
+        .putString(AppPrefs.CLOUD_LIBRARY_ACCOUNT, currentAccount)
+        .putString(AppPrefs.CLOUD_LIBRARY_CLIENT_ID, currentClientId)
+        .apply()
 }
 
 private fun PianoWeaveViewModel.describeSyncError(error: Throwable?): String =

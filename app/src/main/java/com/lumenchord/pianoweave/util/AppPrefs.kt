@@ -32,6 +32,8 @@ object AppPrefs {
     const val HAS_SHOWN_CLOUD_BACKUP_DIALOG = "has_shown_cloud_backup_dialog"
     /** Email of the Google account the local library's cloud links (file ids, pending deletions) belong to. */
     const val CLOUD_LIBRARY_ACCOUNT = "cloud_library_account"
+    /** Google client ID the library was last synced with; the Drive app folder belongs to its project. */
+    const val CLOUD_LIBRARY_CLIENT_ID = "cloud_library_client_id"
     /** MIDI file names of songs whose edited details have not reached their cloud copy yet. */
     const val PENDING_DETAIL_EDITS = "pending_detail_edits"
 

@@ -244,7 +244,9 @@ private fun ModernPianoPlayerContent(
         if (!viewModel.isPlaying) return@LaunchedEffect
 
         // Play at the end starts the song over; otherwise it stopped again at once and seemed broken
-        if (!viewModel.isLoopingEnabled && viewModel.playheadMs >= songDurationMs) viewModel.playheadMs = 0L
+        if (!(viewModel.isLoopingEnabled && viewModel.loopEndMs > viewModel.loopStartMs) && viewModel.playheadMs >= songDurationMs) {
+            viewModel.playheadMs = 0L
+        }
 
         if (isSongSoundOn) {
             val resumed = noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs < (it.startMs + it.durationMs) }
@@ -328,13 +330,16 @@ private fun ModernPianoPlayerContent(
             }
             lastTriggeredHeadMs = next
 
-            if (viewModel.isLoopingEnabled && next >= viewModel.loopEndMs) {
+            // A loop ending at or before its start (set that way in the loop settings) can't play: it
+            // jumped back every frame, restarting its notes, so it counts as no loop
+            val isLooping = viewModel.isLoopingEnabled && viewModel.loopEndMs > viewModel.loopStartMs
+            if (isLooping && next >= viewModel.loopEndMs) {
                 viewModel.playheadMs = viewModel.loopStartMs
                 lastTriggeredHeadMs = viewModel.loopStartMs
                 PianoPlayer.stopAllNotes()
                 val loopNotes = noteEvents.filter { viewModel.loopStartMs >= it.startMs && viewModel.loopStartMs < (it.startMs + it.durationMs) }
                 if (isSongSoundOn) loopNotes.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
-            } else if (!viewModel.isLoopingEnabled && next >= songDurationMs) {
+            } else if (!isLooping && next >= songDurationMs) {
                 viewModel.playheadMs = songDurationMs
                 viewModel.isPlaying = false
             } else {

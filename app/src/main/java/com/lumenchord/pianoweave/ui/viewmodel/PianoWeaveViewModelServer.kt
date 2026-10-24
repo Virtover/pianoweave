@@ -59,7 +59,8 @@ internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): 
             response.code() > 0 -> ServerStatus.ONLINE
             else -> ServerStatus.OFFLINE
         }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
         ServerStatus.OFFLINE
     }
 }
@@ -95,7 +96,10 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
     val url = activeServerUrl
     ServerMaintenance.watch(url)
     startMaintenanceWatch()
-    viewModelScope.launch {
+    // Only the newest check counts: typing a server URL checks on every key, and an older check
+    // answering last would otherwise show the status of a half-typed address
+    serverCheckJob?.cancel()
+    serverCheckJob = viewModelScope.launch {
         serverStatus = ServerStatus.CHECKING
         serverStatus = testServerConnectionImpl(url)
         val targetContext = context ?: appContext
@@ -128,6 +132,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                         }
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     billingProvider = "none"
                     maxUploadSizeMb = null
                     if (PianoApiFactory.isServerPasswordRequired(e)) serverStatus = ServerStatus.PASSWORD_REQUIRED

@@ -85,7 +85,9 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
     if (isGoogleSignedIn) {
         viewModelScope.launch(Dispatchers.IO) {
             val token = googleToken
-            if (token.isNotBlank()) {
+            // Waits for a running sync: one that listed the song before it was deleted would upload it
+            // again after this deleted its cloud copy, and the next sync would bring it back
+            if (token.isNotBlank()) GoogleDriveManager.libraryMutex.withLock {
                 try {
                     val fileId = if (song.cloudFileId.isNotBlank()) {
                         song.cloudFileId
@@ -99,7 +101,7 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
                     if (!fileId.isNullOrBlank()) {
                         val deleteResult = GoogleDriveManager.deleteCloudMidi(context, fileId, token)
                         if (deleteResult.isSuccess) {
-                            MidiStorage.hardDelete(context, song)
+                            MidiStorage.forgetDeleted(context, song)
                             withContext(Dispatchers.Main) {
                                 hasCloudSyncError = false
                                 cloudSyncError = null
@@ -110,7 +112,7 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
                             throw Exception(deleteResult.exceptionOrNull()?.localizedMessage ?: "Failed to delete from Drive")
                         }
                     } else {
-                        MidiStorage.hardDelete(context, song)
+                        MidiStorage.forgetDeleted(context, song)
                         withContext(Dispatchers.Main) {
                             loadSongsImpl(context)
                         }

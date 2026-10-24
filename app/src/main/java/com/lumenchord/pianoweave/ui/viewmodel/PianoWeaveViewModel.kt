@@ -256,6 +256,7 @@ class PianoWeaveViewModel : ViewModel() {
     internal var balanceTickerJob: Job? = null
     internal var costJob: Job? = null
     internal var autoReconnectJob: Job? = null
+    internal var serverCheckJob: Job? = null
     internal var maintenanceWatchJob: Job? = null
     internal var appContext: Context? = null
 

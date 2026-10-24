@@ -80,7 +80,10 @@ object SimpleMidiReader {
             )
         }
 
-        val allNotes = mutableListOf<MidiNoteEvent>()
+        // Notes are read in ticks and timed at the end with one tempo map for the whole file: in format 1
+        // the tempo events sit in the first track and apply to every track
+        val tickNotes = mutableListOf<TickNote>()
+        val tempoChanges = mutableListOf<Pair<Long, Int>>()
 
         /*
          * MIDI format 2 contains independent sequences.
@@ -98,12 +101,7 @@ object SimpleMidiReader {
             }
 
             if (buffer.intSafe() != 0x4D54726B) {
-                return allNotes.sortedWith(
-                    compareBy(
-                        { it.startMs },
-                        { it.pitch }
-                    )
-                )
+                break
             }
 
             val trackLength = buffer.intSafe()
@@ -128,8 +126,8 @@ object SimpleMidiReader {
             parseTrack(
                 buffer = buffer,
                 trackEnd = trackEnd,
-                division = division,
-                output = allNotes
+                output = tickNotes,
+                tempoChanges = tempoChanges
             )
 
             /*
@@ -142,28 +140,32 @@ object SimpleMidiReader {
             }
         }
 
-        return allNotes.sortedWith(
-            compareBy(
-                { it.startMs },
-                { it.pitch }
+        val tempoMap = TempoMap(tempoChanges, division)
+        return tickNotes
+            .map { note ->
+                val startMs = tempoMap.toMs(note.startTick)
+                MidiNoteEvent(
+                    pitch = note.pitch,
+                    startMs = startMs,
+                    durationMs = tempoMap.toMs(note.endTick) - startMs,
+                    velocity = note.velocity
+                )
+            }
+            .sortedWith(
+                compareBy(
+                    { it.startMs },
+                    { it.pitch }
+                )
             )
-        )
     }
 
     private fun parseTrack(
         buffer: ByteBuffer,
         trackEnd: Int,
-        division: Int,
-        output: MutableList<MidiNoteEvent>
+        output: MutableList<TickNote>,
+        tempoChanges: MutableList<Pair<Long, Int>>
     ) {
         var currentTicks = 0L
-        var currentMs = 0.0
-
-        /*
-         * MIDI starts with the conventional 120 BPM
-         * tempo if no tempo event has appeared yet.
-         */
-        var microsecondsPerQuarter = 500_000.0
 
         /*
          * Running status is only valid for channel messages.
@@ -192,11 +194,6 @@ object SimpleMidiReader {
                 ) ?: break
 
             currentTicks += deltaTime
-
-            currentMs +=
-                deltaTime *
-                        microsecondsPerQuarter /
-                        (1000.0 * division)
 
             /*
              * We need at least one event/status byte.
@@ -290,8 +287,7 @@ object SimpleMidiReader {
                                 b3
 
                     if (tempo > 0) {
-                        microsecondsPerQuarter =
-                            tempo.toDouble()
+                        tempoChanges += currentTicks to tempo
                     }
                 } else {
                     buffer.position(
@@ -366,7 +362,7 @@ object SimpleMidiReader {
 
                     finishNote(
                         pitch = pitch,
-                        endMs = currentMs.toLong(),
+                        endTick = currentTicks,
                         activeNotes = activeNotes,
                         output = output
                     )
@@ -400,7 +396,7 @@ object SimpleMidiReader {
                          */
                         finishNote(
                             pitch = pitch,
-                            endMs = currentMs.toLong(),
+                            endTick = currentTicks,
                             activeNotes = activeNotes,
                             output = output
                         )
@@ -411,8 +407,8 @@ object SimpleMidiReader {
                             }
                             .add(
                                 ActiveNote(
-                                    startMs =
-                                        currentMs.toLong(),
+                                    startTick =
+                                        currentTicks,
                                     velocity = velocity
                                 )
                             )
@@ -470,10 +466,10 @@ object SimpleMidiReader {
 
     private fun finishNote(
         pitch: Int,
-        endMs: Long,
+        endTick: Long,
         activeNotes:
         HashMap<Int, MutableList<ActiveNote>>,
-        output: MutableList<MidiNoteEvent>
+        output: MutableList<TickNote>
     ) {
         val notes = activeNotes[pitch]
             ?: return
@@ -488,15 +484,12 @@ object SimpleMidiReader {
          */
         val note = notes.removeAt(0)
 
-        val duration =
-            endMs - note.startMs
-
-        if (duration >= 0) {
+        if (endTick >= note.startTick) {
             output.add(
-                MidiNoteEvent(
+                TickNote(
                     pitch = pitch,
-                    startMs = note.startMs,
-                    durationMs = duration,
+                    startTick = note.startTick,
+                    endTick = endTick,
                     velocity = note.velocity
                 )
             )
@@ -595,7 +588,47 @@ object SimpleMidiReader {
     }
 
     private data class ActiveNote(
-        val startMs: Long,
+        val startTick: Long,
         val velocity: Int
     )
+
+    private data class TickNote(
+        val pitch: Int,
+        val startTick: Long,
+        val endTick: Long,
+        val velocity: Int
+    )
+
+    /**
+     * Ticks to milliseconds under the file's tempo changes ([tempoChanges]: tick to microseconds per
+     * quarter note). Until the first one, MIDI's conventional 120 BPM applies.
+     */
+    private class TempoMap(tempoChanges: List<Pair<Long, Int>>, private val division: Int) {
+        private val ticks = mutableListOf(0L)
+        private val startMs = mutableListOf(0.0)
+        private val tempos = mutableListOf(500_000.0)
+
+        init {
+            // Stable sort: of several changes at one tick, the last one read wins
+            for ((tick, tempo) in tempoChanges.sortedBy { it.first }) {
+                val last = ticks.lastIndex
+                if (tick == ticks[last]) {
+                    tempos[last] = tempo.toDouble()
+                } else {
+                    startMs += msAt(last, tick)
+                    ticks += tick
+                    tempos += tempo.toDouble()
+                }
+            }
+        }
+
+        private fun msAt(segment: Int, tick: Long): Double =
+            startMs[segment] + (tick - ticks[segment]) * tempos[segment] / (1000.0 * division)
+
+        fun toMs(tick: Long): Long {
+            var segment = ticks.binarySearch(tick)
+            if (segment < 0) segment = -segment - 2
+            return msAt(segment.coerceAtLeast(0), tick).toLong()
+        }
+    }
 }

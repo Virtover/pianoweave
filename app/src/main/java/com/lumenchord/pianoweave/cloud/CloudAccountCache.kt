@@ -6,6 +6,10 @@ import com.google.gson.reflect.TypeToken
 import com.lumenchord.pianoweave.api.sanitizeVideoMetadata
 import java.io.File
 
+/**
+ * The cloud library as of the last sync (the list only; the songs themselves are in the library).
+ * Older versions also kept a second copy of every downloaded song here; [saveCloudSongs] removes them.
+ */
 object CloudAccountCache {
 
     private val gson = Gson()
@@ -23,6 +27,7 @@ object CloudAccountCache {
     fun saveCloudSongs(context: Context, cloudSongs: List<CloudMidi>) {
         try {
             val dir = cacheFolder(context)
+            dir.listFiles()?.filter { it.extension == "mid" }?.forEach { it.delete() }
             val indexFile = File(dir, INDEX_FILE)
             val json = gson.toJson(cloudSongs)
             indexFile.writeText(json)
@@ -66,40 +71,7 @@ object CloudAccountCache {
         }
     }
 
-    fun getCachedMidiFile(context: Context, fileId: String): File? {
-        val dir = cacheFolder(context)
-        val midiFile = File(dir, "$fileId.mid")
-        return if (midiFile.exists() && midiFile.length() > 0) midiFile else null
-    }
 
-    fun saveMidiContent(context: Context, fileId: String, sourceFile: File): File {
-        val dir = cacheFolder(context)
-        val midiFile = File(dir, "$fileId.mid")
-        if (sourceFile.absolutePath != midiFile.absolutePath) {
-            sourceFile.copyTo(midiFile, overwrite = true)
-        }
-        return midiFile
-    }
-
-    fun saveMidiBytes(context: Context, fileId: String, bytes: ByteArray): File {
-        val dir = cacheFolder(context)
-        val midiFile = File(dir, "$fileId.mid")
-        midiFile.writeBytes(bytes)
-        return midiFile
-    }
-
-    fun deleteCloudSong(context: Context, fileId: String) {
-        try {
-            val dir = cacheFolder(context)
-            File(dir, "$fileId.mid").delete()
-
-            val current = loadCloudSongs(context)
-            val updated = current.filterNot { it.id == fileId }
-            saveCloudSongs(context, updated)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
 
     fun clearCache(context: Context) {
         try {

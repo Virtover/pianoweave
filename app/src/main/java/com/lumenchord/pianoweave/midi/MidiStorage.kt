@@ -393,6 +393,17 @@ object MidiStorage {
         }
     }
 
+    /**
+     * Removes a soft-deleted song for good, unless it is no longer deleted: transcribing its link again
+     * (or downloading it) since reuses the same files, and that new song must stay.
+     */
+    fun forgetDeleted(context: Context, storedMidi: StoredMidi) {
+        synchronized(writeLock) {
+            val (isDeleted, _, _) = readDeletionAndCloudId(metadataFileFor(context, storedMidi))
+            if (isDeleted || !metadataFileFor(context, storedMidi).exists()) hardDelete(context, storedMidi)
+        }
+    }
+
     fun importFile(
         context: Context,
         uri: Uri

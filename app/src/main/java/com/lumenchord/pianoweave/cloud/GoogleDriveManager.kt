@@ -308,7 +308,6 @@ object GoogleDriveManager {
                 // Songs sharing a key would overwrite each other's local file.
                 storageKey = if (cloudMidi.videoUrl.isSharedSourceKey) "cloud://${cloudMidi.id}" else cloudMidi.videoUrl
             )
-            CloudAccountCache.saveMidiBytes(context, cloudMidi.id, bytes)
 
             Result.success(storedMidi)
         } catch (e: Exception) {
