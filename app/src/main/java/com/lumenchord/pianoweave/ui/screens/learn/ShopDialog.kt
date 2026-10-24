@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
@@ -114,7 +116,8 @@ internal fun ShopDialog(
                 .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = ColorGold,
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
                     .heightIn(max = 620.dp),
@@ -135,41 +138,12 @@ internal fun ShopDialog(
                             .padding(horizontal = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ShoppingCart,
-                                    contentDescription = null,
-                                    tint = ColorGold,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Text(
-                                    text = "Credits Shop",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = ColorGold
-                                )
-                            }
-
-                            IconButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = ColorTextDim
-                                )
-                            }
-                        }
+                        DialogHeader(
+                            title = "Credits Shop",
+                            icon = Icons.Default.ShoppingCart,
+                            onClose = onDismiss,
+                            titleColor = ColorGold
+                        )
 
                         // Compact Combined Balance & Renewal Card
                         Surface(

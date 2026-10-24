@@ -35,9 +35,13 @@ fun IconBadge(
     }
 }
 
-/** A faint wash of [color] fading down from the top of a card, so cards of one screen read as a set. */
-fun Modifier.cardWash(color: Color): Modifier =
-    background(Brush.verticalGradient(listOf(color.copy(alpha = 0.07f), Color.Transparent)))
+/**
+ * A faint wash of [color] fading down from the top of a card, so cards of one screen read as a set.
+ * [strength] from 0 to 1 dims it, e.g. to hand the light to another card.
+ */
+fun Modifier.cardWash(color: Color, strength: Float = 1f): Modifier =
+    if (strength <= 0f) this
+    else background(Brush.verticalGradient(listOf(color.copy(alpha = 0.07f * strength), Color.Transparent)))
 
 /** A quiet well until focused, so the accent marks only where the user is typing. */
 @Composable

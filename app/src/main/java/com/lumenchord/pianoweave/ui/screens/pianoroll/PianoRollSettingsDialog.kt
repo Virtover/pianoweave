@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
@@ -7,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +39,6 @@ internal fun SettingsDialog(
     val appTheme = LocalAppTheme.current
     val colorGold = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     LaunchedEffect(Unit) {
         viewModel.isPlaying = false
@@ -53,7 +55,8 @@ internal fun SettingsDialog(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = colorGold,
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .heightIn(max = 650.dp),
@@ -74,27 +77,12 @@ internal fun SettingsDialog(
                             .padding(horizontal = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
-                        // Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Settings",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = colorGold
-                            )
-                            IconButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = colorTextDim)
-                            }
-                        }
-
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        DialogHeader(
+                            title = "Settings",
+                            icon = Icons.Default.Tune,
+                            onClose = onDismiss,
+                            titleColor = colorGold
+                        )
 
                         // Transposition Section
                         TranspositionSection(viewModel = viewModel)

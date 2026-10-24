@@ -34,7 +34,6 @@ fun MicPermissionDialog(
     val colorGold = appTheme.primaryColor
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -43,7 +42,8 @@ fun MicPermissionDialog(
                 .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = colorGold,
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
@@ -57,43 +57,12 @@ fun MicPermissionDialog(
                         .padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = colorGold,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "Microphone Permission Required",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = colorGold
-                            )
-                        }
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = colorTextDim
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                    DialogHeader(
+                        title = "Microphone Permission Required",
+                        icon = icon,
+                        onClose = onDismiss,
+                        titleColor = colorGold
+                    )
 
                     Text(
                         text = "$reason Please open Settings to enable microphone access.",

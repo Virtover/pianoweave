@@ -118,7 +118,8 @@ fun AppThemeDialog(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = previewTheme.primaryColor,
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
                     .fillMaxHeight(0.88f),
@@ -139,45 +140,13 @@ fun AppThemeDialog(
                             .fillMaxWidth()
                             .weight(1f)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Palette,
-                                    contentDescription = null,
-                                    tint = previewTheme.primaryColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Text(
-                                    text = "Theme Settings",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = previewTheme.primaryColor
-                                )
-                            }
-
-                            IconButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = MaterialTheme.colorScheme.tertiary
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                        DialogHeader(
+                            title = "Theme Settings",
+                            icon = Icons.Default.Palette,
+                            onClose = onDismiss,
+                            titleColor = previewTheme.primaryColor
                         )
+                        Spacer(Modifier.height(14.dp))
 
                         Column(
                             modifier = Modifier

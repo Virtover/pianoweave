@@ -58,7 +58,8 @@ fun BilledServerGoogleAccountDialog(
                 .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = appTheme.primaryColor,
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
@@ -73,44 +74,11 @@ fun BilledServerGoogleAccountDialog(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AccountCircle,
-                                contentDescription = null,
-                                tint = appTheme.primaryColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                text = "Google Account Needed",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = appTheme.primaryColor
-                            )
-                        }
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                    DialogHeader(
+                        title = "Google Account Needed",
+                        icon = Icons.Default.AccountCircle,
+                        onClose = onDismiss,
+                        titleColor = appTheme.primaryColor
                     )
 
                     Text(

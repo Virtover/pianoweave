@@ -21,7 +21,6 @@ import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @Composable
 fun VisualizerSettingsSection(
@@ -66,59 +65,27 @@ fun VisualizerSettingsSection(
         HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
         // Speed Section
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text("Speed", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Set playback speed (0.25x - 2.0x)", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
-                }
-                Surface(
-                    color = colorSlate.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.dp, colorAccent.copy(alpha = 0.4f))
-                ) {
-                    val speedText = when (viewModel.speedMultiplier) {
-                        0.25f -> "0.25x"
-                        0.5f -> "0.5x"
-                        1.0f -> "1.0x"
-                        1.25f -> "1.25x"
-                        1.5f -> "1.5x"
-                        2.0f -> "2.0x"
-                        else -> String.format(Locale.US, "%.2fx", viewModel.speedMultiplier)
-                    }
-                    Text(
-                        text = speedText,
-                        color = colorAccent,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val speedValues = PLAYBACK_SPEEDS
-            val currentIndex = speedValues.indices.minByOrNull { abs(speedValues[it] - viewModel.speedMultiplier) } ?: 2
-            Slider(
-                value = currentIndex.toFloat(),
-                onValueChange = { newValue ->
-                    val index = newValue.roundToInt().coerceIn(0, speedValues.size - 1)
-                    viewModel.selectPlaybackSpeed(context, speedValues[index])
-                },
-                valueRange = 0f..(speedValues.size - 1).toFloat(),
-                steps = speedValues.size - 2,
-                colors = SliderDefaults.colors(
-                    thumbColor = colorAccent,
-                    activeTrackColor = colorAccent,
-                    inactiveTrackColor = colorSlate
-                )
+            val normalIndex = speedValues.indexOf(1.0f)
+            val currentIndex = speedValues.indices.minByOrNull { abs(speedValues[it] - viewModel.speedMultiplier) } ?: normalIndex
+            val speedText = formatSpeed(viewModel.speedMultiplier)
+            SettingHeader(
+                title = "Speed",
+                subtitle = "Slow down to learn, speed up to challenge",
+                value = if (currentIndex == normalIndex) "Normal" else speedText,
+                isDefault = currentIndex == normalIndex,
+                accent = colorAccent,
+                onReset = { viewModel.selectPlaybackSpeed(context, 1.0f) }
+            )
+            StepSlider(
+                stepCount = speedValues.size,
+                index = currentIndex,
+                onIndexChange = { viewModel.selectPlaybackSpeed(context, speedValues[it]) },
+                originIndex = normalIndex,
+                labels = speedValues.indices.associateWith { formatSpeed(speedValues[it]) },
+                accent = colorAccent,
+                valueDescription = "Playback speed, $speedText"
             )
         }
 
@@ -164,3 +131,7 @@ fun VisualizerSettingsSection(
         }
     }
 }
+
+/** "0.25x", "0.5x", "1x", "1.25x": no trailing zeros, so the labels under the speed slider stay short. */
+private fun formatSpeed(speed: Float): String =
+    String.format(Locale.US, "%.2f", speed).trimEnd('0').trimEnd('.') + "x"

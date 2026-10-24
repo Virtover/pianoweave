@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -9,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -104,7 +107,8 @@ internal fun ServerSettingsDialog(
                 .padding(horizontal = 20.dp, vertical = 20.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = ColorGold,
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
                     .heightIn(max = 620.dp),
@@ -125,31 +129,12 @@ internal fun ServerSettingsDialog(
                             .padding(horizontal = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Server Settings",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = ColorGold
-                            )
-                            IconButton(
-                                onClick = onDismiss,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = ColorTextDim
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+                        DialogHeader(
+                            title = "Server Settings",
+                            icon = Icons.Default.Dns,
+                            onClose = onDismiss,
+                            titleColor = ColorGold
+                        )
 
                         Text(
                             text = "Select the backend server used for transcribing piano audio/video links into MIDI.",

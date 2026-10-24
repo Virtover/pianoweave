@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.components.IconBadge
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 
 private data class TutorialStep(
     val icon: ImageVector,
@@ -69,7 +71,8 @@ internal fun PianoRollTutorialDialog(onDismiss: () -> Unit) {
         onDismissRequest = {},
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
     ) {
-        Surface(
+        DialogSurface(
+            light = colorGold,
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 420.dp),
@@ -82,14 +85,7 @@ internal fun PianoRollTutorialDialog(onDismiss: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(colorGold.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(step.icon, contentDescription = null, tint = colorGold, modifier = Modifier.size(30.dp))
-                }
+                IconBadge(step.icon, tint = colorGold, size = 56.dp)
 
                 Text(
                     text = step.title,

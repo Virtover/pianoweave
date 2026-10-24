@@ -43,7 +43,6 @@ fun EditSongDetailsDialog(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorPrimary = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -76,7 +75,8 @@ fun EditSongDetailsDialog(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = colorPrimary,
                 modifier = Modifier
                     .widthIn(max = 560.dp)
                     .fillMaxWidth(if (isLandscape) 0.88f else 0.95f)
@@ -93,43 +93,12 @@ fun EditSongDetailsDialog(
                         .padding(if (isLandscape) 12.dp else 16.dp),
                     verticalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 14.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null,
-                                tint = colorPrimary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                text = "Edit Song Details",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = colorPrimary
-                            )
-                        }
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = colorTextDim
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                    DialogHeader(
+                        title = "Edit Song Details",
+                        icon = Icons.Default.Edit,
+                        onClose = onDismiss,
+                        titleColor = colorPrimary
+                    )
 
                     if (isLandscape) {
                         Row(

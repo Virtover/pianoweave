@@ -1,10 +1,13 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -29,7 +32,6 @@ internal fun DiscardRecordingDialog(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorGold = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -38,7 +40,8 @@ internal fun DiscardRecordingDialog(
                 .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = colorGold,
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
@@ -53,32 +56,12 @@ internal fun DiscardRecordingDialog(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (isRecording) "Discard Recording?" else "Delete Recording?",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = colorGold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = colorTextDim
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                    DialogHeader(
+                        title = if (isRecording) "Discard Recording?" else "Delete Recording?",
+                        icon = Icons.Default.Delete,
+                        onClose = onDismiss,
+                        titleColor = colorGold
+                    )
 
                     Text(
                         text = if (isRecording) {

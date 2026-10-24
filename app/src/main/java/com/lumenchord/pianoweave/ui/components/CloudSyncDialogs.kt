@@ -35,7 +35,6 @@ fun CloudSyncDialogs(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorPrimary = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     // Turn ON Cloud Sync Confirmation Dialog
     if (viewModel.showTurnOnCloudSyncConfirmDialog) {
@@ -46,7 +45,8 @@ fun CloudSyncDialogs(
                     .padding(horizontal = 12.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
+                DialogSurface(
+                    light = colorPrimary,
                     modifier = Modifier
                         .fillMaxWidth(0.98f)
                         .wrapContentHeight(),
@@ -60,41 +60,12 @@ fun CloudSyncDialogs(
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Cloud,
-                                    contentDescription = null,
-                                    tint = colorPrimary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Text(
-                                    text = "Turn on Cloud Sync?",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = colorPrimary
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.showTurnOnCloudSyncConfirmDialog = false },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = colorTextDim
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        DialogHeader(
+                            title = "Turn on Cloud Sync?",
+                            icon = Icons.Default.Cloud,
+                            onClose = { viewModel.showTurnOnCloudSyncConfirmDialog = false },
+                            titleColor = colorPrimary
+                        )
 
                         Text(
                             text = "Turning on cloud sync will back up your local MIDI tracks to Google Drive and keep your library synced across all your devices.",
@@ -162,7 +133,8 @@ fun CloudSyncDialogs(
                     .padding(horizontal = 12.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
+                DialogSurface(
+                    light = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .fillMaxWidth(0.98f)
                         .wrapContentHeight(),
@@ -176,41 +148,12 @@ fun CloudSyncDialogs(
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CloudOff,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Text(
-                                    text = "Turn off Cloud Sync?",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.showTurnOffCloudSyncConfirmDialog = false },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = colorTextDim
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        DialogHeader(
+                            title = "Turn off Cloud Sync?",
+                            icon = Icons.Default.CloudOff,
+                            onClose = { viewModel.showTurnOffCloudSyncConfirmDialog = false },
+                            titleColor = MaterialTheme.colorScheme.error
+                        )
 
                         Text(
                             text = "Your songs will remain stored locally on this device, but won't be synced to Google Drive.",
@@ -282,7 +225,8 @@ fun CloudSyncDialogs(
                     .padding(horizontal = 12.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
+                DialogSurface(
+                    light = colorPrimary,
                     modifier = Modifier
                         .fillMaxWidth(0.98f)
                         .wrapContentHeight(),
@@ -296,25 +240,12 @@ fun CloudSyncDialogs(
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Sync,
-                                contentDescription = null,
-                                tint = colorPrimary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "Syncing with Cloud",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = colorPrimary
-                            )
-                        }
-
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        DialogHeader(
+                            title = "Syncing with Cloud",
+                            icon = Icons.Default.Sync,
+                            onClose = null,
+                            titleColor = colorPrimary
+                        )
 
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth(),
@@ -345,7 +276,8 @@ fun CloudSyncDialogs(
                     .padding(horizontal = 12.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
+                DialogSurface(
+                    light = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .fillMaxWidth(0.98f)
                         .wrapContentHeight(),
@@ -359,41 +291,12 @@ fun CloudSyncDialogs(
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ErrorOutline,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Text(
-                                    text = "Cloud Sync Failed",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.showCloudSyncErrorDialog = false },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = colorTextDim
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        DialogHeader(
+                            title = "Cloud Sync Failed",
+                            icon = Icons.Default.ErrorOutline,
+                            onClose = { viewModel.showCloudSyncErrorDialog = false },
+                            titleColor = MaterialTheme.colorScheme.error
+                        )
 
                         Text(
                             text = viewModel.cloudSyncError ?: "Some files failed to sync with cloud storage.",

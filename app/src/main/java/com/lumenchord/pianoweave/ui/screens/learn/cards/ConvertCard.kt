@@ -327,6 +327,12 @@ fun TranscriptionInputCard(
 
     val accent = MaterialTheme.colorScheme.secondary
     val cardShape = RoundedCornerShape(20.dp)
+    // While a transcription runs, the progress card below carries the light, so this one dims.
+    val washStrength by animateFloatAsState(
+        targetValue = if (viewModel.isLoading) 0f else 1f,
+        animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
+        label = "convertCardWash"
+    )
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = cardShape,
@@ -338,7 +344,7 @@ fun TranscriptionInputCard(
     ) {
         Column(
             modifier = Modifier
-                .cardWash(accent)
+                .cardWash(accent, washStrength)
                 // Landscape has about 330dp of height: tighter, so the whole card fits without scrolling
                 .padding(if (isLandscape) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)

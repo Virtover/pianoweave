@@ -323,7 +323,6 @@ fun ExportConfirmationDialog(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorPrimary = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -332,7 +331,8 @@ fun ExportConfirmationDialog(
                 .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = colorPrimary,
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
@@ -347,43 +347,12 @@ fun ExportConfirmationDialog(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.DriveFileMove,
-                                contentDescription = null,
-                                tint = colorPrimary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Text(
-                                text = "Export MIDI File",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = colorPrimary
-                            )
-                        }
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = colorTextDim
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                    DialogHeader(
+                        title = "Export MIDI File",
+                        icon = Icons.AutoMirrored.Filled.DriveFileMove,
+                        onClose = onDismiss,
+                        titleColor = colorPrimary
+                    )
 
                     val message = if (!songTitle.isNullOrBlank()) {
                         "Do you want to export \"$songTitle\" as a Standard MIDI file (.mid) to your device's Downloads folder?"

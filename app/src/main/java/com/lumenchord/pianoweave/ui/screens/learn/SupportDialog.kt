@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import android.content.Intent
@@ -32,7 +34,6 @@ internal fun SupportDialog(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorGold = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -41,7 +42,8 @@ internal fun SupportDialog(
                 .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = colorGold,
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
@@ -56,42 +58,13 @@ internal fun SupportDialog(
                         .padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Favorite,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "Support Piano Weave",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = colorGold
-                            )
-                        }
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = colorTextDim
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                    DialogHeader(
+                        title = "Support Piano Weave",
+                        icon = Icons.Default.Favorite,
+                        onClose = onDismiss,
+                        titleColor = colorGold,
+                        iconTint = MaterialTheme.colorScheme.error
+                    )
 
                     Text(
                         text = "Transcription is free at the moment. If you want, you can support me.",

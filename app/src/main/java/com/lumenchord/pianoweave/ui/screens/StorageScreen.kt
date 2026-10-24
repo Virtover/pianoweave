@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.Manifest
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import android.content.Context
@@ -78,7 +80,6 @@ fun StorageScreen(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorGold = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     var searchQuery by remember { mutableStateOf("") }
     var songPendingDelete by remember { mutableStateOf<StoredMidi?>(null) }
@@ -124,31 +125,15 @@ fun StorageScreen(
 
     // Invalid File Alert Dialog
     importError?.let { errorMsg ->
-        AlertDialog(
-            onDismissRequest = onClearImportError,
-            title = { Text("Invalid File Format") },
-            text = { Text(errorMsg) },
-            confirmButton = {
-                TextButton(onClick = onClearImportError) {
-                    Text("OK", fontWeight = FontWeight.Bold)
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.error,
-            textContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-
-    // Delete confirmation dialog
-    songPendingDelete?.let { song ->
-        Dialog(onDismissRequest = { songPendingDelete = null }) {
+        Dialog(onDismissRequest = onClearImportError) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 12.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
+                DialogSurface(
+                    light = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .fillMaxWidth(0.98f)
                         .wrapContentHeight(),
@@ -162,42 +147,68 @@ fun StorageScreen(
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        DialogHeader(
+                            title = "Invalid File Format",
+                            icon = Icons.Default.ErrorOutline,
+                            onClose = onClearImportError,
+                            titleColor = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = errorMsg,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 22.sp
+                        )
+                        Button(
+                            onClick = onClearImportError,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 46.dp),
+                            shape = PillShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorGold,
+                                contentColor = if (LocalAppTheme.current.isLightAccent) MaterialTheme.colorScheme.surface
+                                else MaterialTheme.colorScheme.onPrimary
+                            )
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = null,
-                                    tint = colorGold,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Text(
-                                    text = "Delete Track?",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = colorGold
-                                )
-                            }
-                            IconButton(
-                                onClick = { songPendingDelete = null },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = colorTextDim
-                                )
-                            }
+                            Text("OK", fontWeight = FontWeight.Black, fontSize = 13.sp)
                         }
+                    }
+                }
+            }
+        }
+    }
 
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+    // Delete confirmation dialog
+    songPendingDelete?.let { song ->
+        Dialog(onDismissRequest = { songPendingDelete = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                DialogSurface(
+                    light = colorGold,
+                    modifier = Modifier
+                        .fillMaxWidth(0.98f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = colorSurface,
+                    border = BorderStroke(1.dp, colorSlate)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        DialogHeader(
+                            title = "Delete Track?",
+                            icon = Icons.Default.Delete,
+                            onClose = { songPendingDelete = null },
+                            titleColor = colorGold
+                        )
 
                         Text(
                             text = "Are you sure you want to delete '${song.metadata.title}'? The track will be removed from your library.",

@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
@@ -29,7 +31,6 @@ internal fun NotEnoughCreditsDialog(
     val ColorSurface = MaterialTheme.colorScheme.surface
     val ColorGold = appTheme.primaryColor
     val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val ColorTextDim = MaterialTheme.colorScheme.tertiary
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -38,7 +39,8 @@ internal fun NotEnoughCreditsDialog(
                 .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Surface(
+            DialogSurface(
+                light = ColorGold,
                 modifier = Modifier
                     .fillMaxWidth(0.98f)
                     .wrapContentHeight(),
@@ -53,42 +55,12 @@ internal fun NotEnoughCreditsDialog(
                         .padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MonetizationOn,
-                                contentDescription = null,
-                                tint = ColorGold,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = "More Credits Needed",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = ColorGold
-                            )
-                        }
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = ColorTextDim
-                            )
-                        }
-                    }
-
-                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
+                    DialogHeader(
+                        title = "More Credits Needed",
+                        icon = Icons.Default.MonetizationOn,
+                        onClose = onDismiss,
+                        titleColor = ColorGold
+                    )
 
                     Text(
                         text = "This transcription requires $requiredCredits credits (1 credit = 1 minute), but you only have $availableCredits credits remaining.\n\nWould you like to buy more credits in the shop?",
