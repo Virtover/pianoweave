@@ -74,7 +74,8 @@ import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import com.lumenchord.pianoweave.ui.screens.learn.DiscardRecordingDialog
 import com.lumenchord.pianoweave.ui.viewmodel.statusColor
@@ -332,25 +333,61 @@ fun TranscriptionInputCard(
             else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
         )
     ) {
-        Column {
         Column(
-            // Landscape has about 330dp of height: tighter, so the whole card fits without scrolling
-            modifier = Modifier.padding(if (isLandscape) 12.dp else 16.dp),
+            modifier = Modifier
+                // A faint accent wash from the top, so the card reads as the screen's starting point
+                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.07f), Color.Transparent)))
+                // Landscape has about 330dp of height: tighter, so the whole card fits without scrolling
+                .padding(if (isLandscape) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
         ) {
+            val sourceSelector = @Composable { modifier: Modifier ->
+                SourceSelector(
+                    selected = source,
+                    enabled = !viewModel.isLoading && !viewModel.isRecording,
+                    isCompact = !isLandscape,
+                    onSelect = { viewModel.selectTranscriptionSource(it) },
+                    modifier = modifier
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isLandscape) 26.dp else 30.dp)
+                        .background(accent.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(if (isLandscape) 15.dp else 17.dp)
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
                 Text(
                     text = "AI Transcription",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    modifier = if (isLandscape) Modifier else Modifier.weight(1f),
                     color = accent
                 )
+
+                // Landscape is short but wide: the source choice shares the title's row instead of taking its own.
+                if (isLandscape) {
+                    if (canUseFiles) {
+                        sourceSelector(Modifier.weight(1f).padding(horizontal = 16.dp))
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                } else {
+                    Spacer(Modifier.width(8.dp))
+                }
 
                 val statusColor = viewModel.serverStatus.statusColor
 
@@ -393,26 +430,8 @@ fun TranscriptionInputCard(
                 }
             }
 
-            if (canUseFiles) {
-                SourceSelector(
-                    selected = source,
-                    enabled = !viewModel.isLoading && !viewModel.isRecording,
-                    isCompact = !isLandscape,
-                    onSelect = { viewModel.selectTranscriptionSource(it) }
-                )
-            }
-
-            // A reminder of what the terms dialog said, so it only appears once the user has agreed to them.
-            if (hasAcceptedTerms) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Convert music you've the right to use",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TermsInfoButton()
-                }
+            if (canUseFiles && !isLandscape) {
+                sourceSelector(Modifier)
             }
 
             if (source == TranscriptionSource.Record) {
@@ -577,41 +596,42 @@ fun TranscriptionInputCard(
                     }
                 }
             }
-        }
+
+            // A reminder of what the terms dialog said, so it only appears once the user has agreed to them.
+            // A quiet footnote under the button, rather than a row of its own between the source and the input.
+            if (hasAcceptedTerms) {
+                RightsFootnote()
+            }
         }
     }
 }
 
-/** An info icon whose tooltip links to the Terms of Service, which explain what may be transcribed. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** "Only convert music you have the right to use", with the Terms of Service that explain it one tap away. */
 @Composable
-private fun TermsInfoButton() {
-    val tooltipState = rememberTooltipState(isPersistent = true)
-    val scope = rememberCoroutineScope()
+private fun RightsFootnote() {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
     val linkColor = MaterialTheme.colorScheme.secondary
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberRichTooltipPositionProvider(),
-        tooltip = {
-            RichTooltip {
-                Text(
-                    text = buildAnnotatedString { appendLink("Terms of Service", AppLinks.TERMS_OF_SERVICE, linkColor) },
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        },
-        state = tooltipState
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
-            onClick = { scope.launch { tooltipState.show() } },
-            modifier = Modifier.size(28.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = "What you can transcribe",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp)
-            )
-        }
+        Icon(
+            imageVector = Icons.Outlined.Info,
+            contentDescription = null,
+            tint = muted,
+            modifier = Modifier.size(13.dp)
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = buildAnnotatedString {
+                append("Only convert music you have the right to use · ")
+                appendLink("Terms", AppLinks.TERMS_OF_SERVICE, linkColor)
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = muted,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -625,76 +645,109 @@ private fun SourceSelector(
     selected: TranscriptionSource,
     enabled: Boolean,
     isCompact: Boolean,
-    onSelect: (TranscriptionSource) -> Unit
+    onSelect: (TranscriptionSource) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val options = listOf(
         Triple(TranscriptionSource.Link, "Link", Icons.Default.Link),
         Triple(TranscriptionSource.File, "File", Icons.Default.AudioFile),
-        // "Record" doesn't fit a third of a portrait row at full text size.
-        Triple(TranscriptionSource.Record, if (isCompact) "Mic" else "Record", Icons.Default.Mic)
+        Triple(TranscriptionSource.Record, "Mic", Icons.Default.Mic)
     )
     val accent = MaterialTheme.colorScheme.secondary
     val outline = MaterialTheme.colorScheme.outlineVariant
     val pill = RoundedCornerShape(percent = 50)
+    val labelStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(if (isCompact) 42.dp else 38.dp)
-            .clip(pill)
-            .border(1.dp, outline, pill)
-            .selectableGroup()
-    ) {
-        options.forEachIndexed { index, (source, label, icon) ->
-            val isFirst = index == 0
-            val isLast = index == options.lastIndex
-            val isSelected = source == selected
-            val shape = RoundedCornerShape(
-                topStartPercent = if (isFirst) 50 else 0,
-                bottomStartPercent = if (isFirst) 50 else 0,
-                topEndPercent = if (isLast) 50 else 0,
-                bottomEndPercent = if (isLast) 50 else 0
-            )
-            val contentColor = (if (isSelected) accent else MaterialTheme.colorScheme.onSurface)
-                .copy(alpha = if (enabled) 1f else 0.38f)
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        // One size for every label, the largest at which all of them fit, so the segments read as a set
+        // rather than each shrinking on its own.
+        val segmentWidth = (maxWidth - SegmentDivider * (options.size - 1)) / options.size
+        val labelFontSize = remember(segmentWidth, labelStyle, density) {
+            val labelWidthsPx = options.indices.map { index ->
+                val padding = segmentPadding(isFirst = index == 0, isLast = index == options.lastIndex)
+                with(density) { (segmentWidth - padding - SegmentIconWithGap).toPx() }
+            }
+            var size = LabelMaxFontSize
+            while (size > LabelMinFontSize && options.indices.any { index ->
+                    textMeasurer.measure(options[index].second, labelStyle.copy(fontSize = size.sp), maxLines = 1)
+                        .size.width > labelWidthsPx[index]
+                }) {
+                size -= 0.5f
+            }
+            size.sp
+        }
 
-            if (!isFirst) VerticalDivider(color = outline)
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .then(
-                        if (isSelected) Modifier
-                            .background(accent.copy(alpha = 0.18f), shape)
-                            .border(1.dp, accent.copy(alpha = 0.6f), shape)
-                        else Modifier
-                    )
-                    .selectable(
-                        selected = isSelected,
-                        enabled = enabled,
-                        role = Role.RadioButton,
-                        onClick = { onSelect(source) }
-                    )
-                    // The rounded ends eat into the outer segments, so their content keeps clear of the curve.
-                    .padding(start = if (isFirst) 12.dp else 6.dp, end = if (isLast) 12.dp else 6.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = label,
-                    color = contentColor,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
-                    softWrap = false,
-                    autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp),
-                    modifier = Modifier.weight(1f, fill = false)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(if (isCompact) 42.dp else 36.dp)
+                .clip(pill)
+                .border(1.dp, outline, pill)
+                .selectableGroup()
+        ) {
+            options.forEachIndexed { index, (source, label, icon) ->
+                val isFirst = index == 0
+                val isLast = index == options.lastIndex
+                val isSelected = source == selected
+                val shape = RoundedCornerShape(
+                    topStartPercent = if (isFirst) 50 else 0,
+                    bottomStartPercent = if (isFirst) 50 else 0,
+                    topEndPercent = if (isLast) 50 else 0,
+                    bottomEndPercent = if (isLast) 50 else 0
                 )
+                val contentColor = (if (isSelected) accent else MaterialTheme.colorScheme.onSurface)
+                    .copy(alpha = if (enabled) 1f else 0.38f)
+
+                if (!isFirst) VerticalDivider(thickness = SegmentDivider, color = outline)
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .then(
+                            if (isSelected) Modifier
+                                .background(accent.copy(alpha = 0.18f), shape)
+                                .border(1.dp, accent.copy(alpha = 0.6f), shape)
+                            else Modifier
+                        )
+                        .selectable(
+                            selected = isSelected,
+                            enabled = enabled,
+                            role = Role.RadioButton,
+                            onClick = { onSelect(source) }
+                        )
+                        // The rounded ends eat into the outer segments, so their content keeps clear of the curve.
+                        .padding(start = if (isFirst) 12.dp else 6.dp, end = if (isLast) 12.dp else 6.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = label,
+                        color = contentColor,
+                        style = labelStyle.copy(fontSize = labelFontSize),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
             }
         }
     }
 }
+
+private val SegmentDivider = 1.dp
+/** Icon (18dp) plus the gap before the label. */
+private val SegmentIconWithGap = 24.dp
+private const val LabelMaxFontSize = 14f
+private const val LabelMinFontSize = 10f
+
+/** Matches the segment padding: the outer ends keep clear of the pill's curve. */
+private fun segmentPadding(isFirst: Boolean, isLast: Boolean): Dp =
+    (if (isFirst) 12.dp else 6.dp) + (if (isLast) 12.dp else 6.dp)
 
 /** The empty file slot: one large target that also says which files work and how big they may be. */
 @Composable

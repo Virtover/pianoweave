@@ -11,6 +11,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -131,7 +135,11 @@ private fun PianoWeaveApp(
     viewModel: PianoWeaveViewModel,
     context: Context
 ) {
-    var selectedTab by remember { mutableStateOf(AppTab.Learn) }
+    // Tabs are pages, so Learn and Library can also be reached by swiping left or right
+    val pagerState = rememberPagerState { AppTab.entries.size }
+    val scope = rememberCoroutineScope()
+    val selectedTab = AppTab.entries[pagerState.currentPage]
+    val selectTab = { tab: AppTab -> scope.launch { pagerState.animateScrollToPage(tab.ordinal) }; Unit }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showVerseOfLight by remember { mutableStateOf(false) }
     // The first discovery takes a longer hold; once found, shorter is enough
@@ -143,8 +151,8 @@ private fun PianoWeaveApp(
     val snackbarHost = remember { SnackbarHostState() }
 
     // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
-    LaunchedEffect(selectedTab) {
-        if (selectedTab == AppTab.Storage) {
+    LaunchedEffect(pagerState.settledPage) {
+        if (AppTab.entries[pagerState.settledPage] == AppTab.Storage) {
             viewModel.loadSongs(context)
         }
     }
@@ -157,9 +165,9 @@ private fun PianoWeaveApp(
 
     AdaptiveNavigation(
         isLearnSelected = selectedTab == AppTab.Learn,
-        onLearnSelect = { selectedTab = AppTab.Learn },
+        onLearnSelect = { selectTab(AppTab.Learn) },
         isStorageSelected = selectedTab == AppTab.Storage,
-        onStorageSelect = { selectedTab = AppTab.Storage },
+        onStorageSelect = { selectTab(AppTab.Storage) },
         onOpenSettingsDialog = { showSettingsDialog = true },
         logoHoldMillis = when (verseOfLightOpens) {
             0 -> 7_000L
@@ -174,38 +182,44 @@ private fun PianoWeaveApp(
             }
         }
     ) {
-        when (selectedTab) {
-            AppTab.Learn -> {
-                LearnScreen(
-                    viewModel = viewModel,
-                    context = context,
-                    onSongSelect = { selectedSong ->
-                        viewModel.openPracticeSession(context, selectedSong)
-                        viewModel.readySong = null
-                    }
-                )
-            }
-
-            AppTab.Storage -> {
-                StorageScreen(
-                    viewModel = viewModel,
-                    songs = viewModel.songs,
-                    onSongsChange = { /* Handled reactively by viewModel state updates */ },
-                    context = context,
-                    onSongSelect = { clickedSong ->
-                        viewModel.openPracticeSession(context, clickedSong)
-                    },
-                    onDeleteClick = { songToDelete ->
-                        viewModel.deleteSong(context, songToDelete)
-                    },
-                    onImportMidi = { uri ->
-                        viewModel.importMidiFile(context, uri)
-                    },
-                    importError = viewModel.importError,
-                    onClearImportError = {
-                        viewModel.clearImportError()
-                    }
-                )
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            key = { AppTab.entries[it] }
+        ) { page ->
+            when (AppTab.entries[page]) {
+                AppTab.Learn -> {
+                    LearnScreen(
+                        viewModel = viewModel,
+                        context = context,
+                        onSongSelect = { selectedSong ->
+                            viewModel.openPracticeSession(context, selectedSong)
+                            viewModel.readySong = null
+                        }
+                    )
+                }
+    
+                AppTab.Storage -> {
+                    StorageScreen(
+                        viewModel = viewModel,
+                        songs = viewModel.songs,
+                        onSongsChange = { /* Handled reactively by viewModel state updates */ },
+                        context = context,
+                        onSongSelect = { clickedSong ->
+                            viewModel.openPracticeSession(context, clickedSong)
+                        },
+                        onDeleteClick = { songToDelete ->
+                            viewModel.deleteSong(context, songToDelete)
+                        },
+                        onImportMidi = { uri ->
+                            viewModel.importMidiFile(context, uri)
+                        },
+                        importError = viewModel.importError,
+                        onClearImportError = {
+                            viewModel.clearImportError()
+                        }
+                    )
+                }
             }
         }
     }
