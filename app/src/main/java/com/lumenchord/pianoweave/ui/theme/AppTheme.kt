@@ -158,7 +158,14 @@ object AppThemeManager {
         createTheme("lavender", "Lavender", Color(0xFFD4BCEB)), // Rest for the soul (Mt 11:29)
         createTheme("electric_purple", "Iris", Color(0xFFBD9FF2)), // Wonder (Ps 8:3)
         createTheme("royal_violet", "Royal Robe", Color(0xFFCD85D8)), // Dignity, a royal priesthood (1 Pet 2:9)
-        createTheme("deep_velvet", "Night Watch", Color(0xFFA194E7)), // Longing, meditating through the night (Ps 63:6)
+        // Keeping watch: "I meditate on you through the watches of the night" (Ps 63:6), waiting "more
+        // than watchmen wait for the morning" (Ps 130:6). A deep midnight with a midnight-indigo accent,
+        // and the watchman's lamp as the keyboard line, in the amber of Moods.Watch.
+        createTheme(
+            "deep_velvet", "Night Watch", Color(0xFF8EA2DE),
+            customBaseline = Moods.Watch.core,
+            palette = NeutralPalette.tinted(hue = 228f, strength = 1.3f, depth = DEEP_THEME_DEPTH)
+        ),
         // Communion with God: "may my prayer be set before you like incense" (Ps 141:2). Both sides of the
         // meeting: the prayer rising in a warm dusk lilac, His light answering in a soft gold keyboard
         // line, held in the deep blue of the evening sky.
