@@ -17,7 +17,7 @@ object AppPrefs {
     // Server
     const val USE_CUSTOM_SERVER = "use_custom_server"
     const val CUSTOM_SERVER_URL = "custom_server_url"
-    /** Optional password of the custom server; only ever sent to [CUSTOM_SERVER_URL]. */
+    /** Optional password of the custom server, encrypted (read via [SecretStore]); only ever sent to [CUSTOM_SERVER_URL]. */
     const val CUSTOM_SERVER_PASSWORD = "custom_server_password"
     const val USER_CREDITS = "user_credits"
 

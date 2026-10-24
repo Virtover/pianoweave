@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.billing.MIN_BALANCE_TO_TRANSCRIBE
+import com.lumenchord.pianoweave.billing.owedMinutes
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import androidx.compose.foundation.BorderStroke
@@ -22,7 +24,8 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 
 @Composable
 internal fun NotEnoughCreditsDialog(
-    requiredCredits: Int,
+    /** Null when the cost isn't known yet (the server measures an upload after receiving it). */
+    requiredCredits: Int?,
     availableCredits: Int,
     onBuyCredits: () -> Unit,
     onDismiss: () -> Unit
@@ -63,7 +66,7 @@ internal fun NotEnoughCreditsDialog(
                     )
 
                     Text(
-                        text = "This transcription requires $requiredCredits credits (1 credit = 1 minute), but you only have $availableCredits credits remaining.\n\nWould you like to buy more credits in the shop?",
+                        text = notEnoughCreditsText(requiredCredits, availableCredits),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.9f),
                         lineHeight = 22.sp
@@ -119,3 +122,19 @@ internal fun NotEnoughCreditsDialog(
         }
     }
 }
+
+/** What the transcription needs against what the user has, which can be minutes owed after a refund. */
+internal fun notEnoughCreditsText(required: Int?, available: Int): String {
+    val needs = if (required != null) "This transcription requires $required ${credits(required)} (1 credit = 1 minute)"
+    else "A transcription needs at least $MIN_BALANCE_TO_TRANSCRIBE credit (1 credit = 1 minute)"
+    val owed = owedMinutes(available)
+    val has = if (owed > 0) {
+        "but your balance is $owed ${credits(owed)} below zero: a refunded purchase had already been used. " +
+            "New credits cover that first."
+    } else {
+        "but you only have $available ${credits(available)} remaining."
+    }
+    return "$needs, $has\n\nWould you like to buy more credits in the shop?"
+}
+
+private fun credits(n: Int) = if (n == 1) "credit" else "credits"

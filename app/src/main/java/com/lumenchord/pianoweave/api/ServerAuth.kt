@@ -5,7 +5,7 @@ import com.lumenchord.pianoweave.auth.GoogleAuthManager
 
 /**
  * Runs a transcription-server call. Only the official server gets the user's Google token
- * (with silent refresh on 401/503); custom servers always get a null auth header, so callers
+ * (with a silent refresh when it is refused for the token); custom servers always get a null auth header, so callers
  * fall back to the anonymous X-User-Id identity.
  */
 suspend fun <T> executeServerCall(

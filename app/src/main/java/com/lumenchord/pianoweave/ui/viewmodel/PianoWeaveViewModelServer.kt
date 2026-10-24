@@ -15,6 +15,7 @@ import com.lumenchord.pianoweave.billing.isServerUnavailable
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.SecretStore
 import com.lumenchord.pianoweave.util.findActivity
 import com.lumenchord.pianoweave.worker.PurchaseVerificationWorker
 import kotlinx.coroutines.CancellationException
@@ -118,6 +119,8 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     if (isBilledServer) {
                         if (isGoogleSignedIn) {
                             refreshUserBalanceImpl(targetContext)
+                            // Billing is known only now; a link or file chosen before has no cost yet
+                            if (estimatedCostCredits == null) recalculateCostImpl()
                         } else if (isUserAction) {
                             signInWithGoogleImpl(targetContext, isAutoSignIn = true, onResult = null)
                         } else {
@@ -213,22 +216,30 @@ internal fun PianoWeaveViewModel.startBalanceTicker(context: Context) {
 
 internal fun PianoWeaveViewModel.refreshUserBalanceImpl(context: Context) {
     if (!isBilledServer) return
+    viewModelScope.launch { loadUserBalance(context) }
+}
+
+/** Asks the server for the balance and shows it; returns it, or null if the server couldn't be asked. */
+internal suspend fun PianoWeaveViewModel.loadUserBalance(context: Context): Int? {
+    if (!isBilledServer) return null
     val url = activeServerUrl
     val uId = getOrCreateUserIdImpl(context)
-    viewModelScope.launch {
-        try {
-            val balance = executeServerCallImpl(context, url) { authHeader ->
-                val api = PianoApiFactory.getApi(url)
-                api.getUserBalance(
-                    authHeader = authHeader,
-                    userId = if (authHeader == null) uId else null
-                )
-            }
-            userCredits = balance.minutes
-            freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
-            freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
-            startBalanceTicker(context)
-        } catch (_: Exception) {}
+    return try {
+        val balance = executeServerCallImpl(context, url) { authHeader ->
+            val api = PianoApiFactory.getApi(url)
+            api.getUserBalance(
+                authHeader = authHeader,
+                userId = if (authHeader == null) uId else null
+            )
+        }
+        userCredits = balance.minutes
+        freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
+        freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
+        startBalanceTicker(context)
+        balance.minutes
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        null
     }
 }
 
@@ -258,7 +269,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
     isCustomServer = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
     customServerUrl = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, "") ?: ""
-    customServerPassword = prefs.getString(AppPrefs.CUSTOM_SERVER_PASSWORD, "") ?: ""
+    customServerPassword = SecretStore.get(context, AppPrefs.CUSTOM_SERVER_PASSWORD).orEmpty()
 
     // Schedule background retries for any pending purchase verifications across app restarts
     PurchaseVerificationWorker.scheduleAllPending(context)
@@ -276,9 +287,7 @@ internal fun PianoWeaveViewModel.openShopImpl(context: Context) {
 internal fun PianoWeaveViewModel.updateServerPasswordImpl(context: Context, password: String) {
     if (isLoading) return
     customServerPassword = password
-    AppPrefs.get(context).edit().apply {
-        if (password.isEmpty()) remove(AppPrefs.CUSTOM_SERVER_PASSWORD) else putString(AppPrefs.CUSTOM_SERVER_PASSWORD, password)
-    }.apply()
+    SecretStore.put(context, AppPrefs.CUSTOM_SERVER_PASSWORD, password)
     if (isCustomServer) checkServerHealthAndInfoImpl(context, isUserAction = true)
 }
 

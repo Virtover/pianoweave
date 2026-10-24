@@ -8,7 +8,12 @@ data class CreateTranscriptionRequest(
 
 data class CreateTranscriptionResponse(
     @SerializedName("job_id") val job_id: String,
-    @SerializedName("status") val status: String
+    @SerializedName("status") val status: String,
+    /**
+     * The balance after this job was charged; final, also for an upload, whose cost the server works out
+     * from the decoded audio and may differ a little from the estimate. Null on unbilled servers.
+     */
+    @SerializedName("minutes") val minutes: Int? = null
 )
 
 data class TranscriptionStatusResponse(
@@ -21,6 +26,10 @@ data class TranscriptionStatusResponse(
     @SerializedName("title") val title: String? = null,
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null
 )
+
+/** Why a failed job failed. The server writes its "error" for users, so it is shown as it is. */
+val TranscriptionStatusResponse.failureMessage: String
+    get() = (error as String?)?.trim()?.takeIf { it.isNotEmpty() } ?: "The server could not transcribe this."
 
 data class VideoMetadata(
     @SerializedName("title") val title: String = PLACEHOLDER_TITLE,
@@ -112,6 +121,7 @@ data class ServerInfoResponse(
 
 data class UserBalanceResponse(
     @SerializedName("user_id") val userId: String,
+    /** Can be negative: a refunded purchase whose minutes were already used (see [com.lumenchord.pianoweave.billing.owedMinutes]). */
     @SerializedName("minutes") val minutes: Int,
     @SerializedName("free_minutes_seconds_until_next_grant") val freeMinutesSecondsUntilNextGrant: Long? = null,
     @SerializedName("free_minutes_next_grant_at") val freeMinutesNextGrantAt: Long? = null

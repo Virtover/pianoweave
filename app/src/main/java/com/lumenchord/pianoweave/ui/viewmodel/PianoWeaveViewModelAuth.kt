@@ -70,6 +70,8 @@ internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSi
 
                 if (isBilledServer) {
                     refreshUserBalance(context)
+                    // A billed server tells the cost only to signed-in users
+                    recalculateCostImpl()
                 }
 
                 pendingSignInAction?.invoke()
@@ -121,6 +123,9 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false).apply()
     if (isBilledServer) {
         userCredits = 0
+        costJob?.cancel()
+        estimatedCostCredits = null
+        isCalculatingCost = false
         markServerUnauthenticated(context, activeServerUrl)
     }
 }

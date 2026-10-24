@@ -26,11 +26,15 @@ interface PianoApi {
         @Header("X-User-Id") userId: String? = null
     ): UserBalanceResponse
 
-    /** Cost of a video link, or of a file of the given length before it is uploaded. Pass exactly one. */
+    /**
+     * Cost of a video link, or of a file of the given length before it is uploaded. Pass exactly one. A
+     * billed server answers only signed-in users (401 without [authHeader]).
+     */
     @GET("api/billing/cost")
     suspend fun getBillingCost(
         @Query("source_url") sourceUrl: String? = null,
-        @Query("duration_seconds") durationSeconds: Float? = null
+        @Query("duration_seconds") durationSeconds: Float? = null,
+        @Header("Authorization") authHeader: String? = null
     ): BillingCostResponse
 
     @POST("api/billing/google-play/verify")

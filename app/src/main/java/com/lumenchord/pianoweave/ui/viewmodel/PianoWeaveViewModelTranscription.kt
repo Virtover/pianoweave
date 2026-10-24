@@ -10,14 +10,17 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
+import com.lumenchord.pianoweave.api.CreateTranscriptionResponse
 import com.lumenchord.pianoweave.api.MaintenanceNotice
 import com.lumenchord.pianoweave.api.MaintenanceTexts
 import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
+import com.lumenchord.pianoweave.api.failureMessage
 import com.lumenchord.pianoweave.api.isUploadSourceKey
+import com.lumenchord.pianoweave.api.retryWhenBusy
 import com.google.gson.Gson
-import com.google.gson.JsonParser
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.CompletedTranscriptions
@@ -43,7 +46,9 @@ private const val CANCEL_JOB_ID_WAIT_MS = 10000L
 internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
     costJob?.cancel()
     val stableUrl = normalizeUrlImpl(url)
-    if (stableUrl.isBlank() || !isBilledServer) {
+    val context = appContext
+    // Signed out: a billed server tells the cost only after sign-in, which recalculates it
+    if (stableUrl.isBlank() || !isBilledServer || !isGoogleSignedIn || context == null) {
         estimatedCostCredits = null
         isCalculatingCost = false
         return
@@ -51,14 +56,31 @@ internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
     isCalculatingCost = true
     costJob = viewModelScope.launch {
         try {
-            val api = PianoApiFactory.getApi(activeServerUrl)
-            estimatedCostCredits = api.getBillingCost(sourceUrl = stableUrl).costMinutes
-        } catch (_: Exception) {
+            estimatedCostCredits = fetchBillingCost(context, sourceUrl = stableUrl)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
             estimatedCostCredits = null
         } finally {
             isCalculatingCost = false
         }
     }
+}
+
+/**
+ * The server's cost in minutes of a link or of a file's length. Signed in only: a billed server answers
+ * 401 without the Google token. While it is busy checking other videos it is asked again after a moment.
+ */
+internal suspend fun PianoWeaveViewModel.fetchBillingCost(
+    context: Context,
+    sourceUrl: String? = null,
+    durationSeconds: Float? = null
+): Int {
+    val url = activeServerUrl
+    return retryWhenBusy {
+        executeServerCallImpl(context, url) { authHeader ->
+            PianoApiFactory.getApi(url).getBillingCost(sourceUrl = sourceUrl, durationSeconds = durationSeconds, authHeader = authHeader)
+        }
+    }.costMinutes
 }
 
 internal fun PianoWeaveViewModel.updateUrlImpl(url: String) {
@@ -129,7 +151,9 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             }
 
             status = "Submitting request to server..."
-            val jobId = submitTranscription(context, stableUrl)
+            val submitted = submitTranscription(context, stableUrl)
+            val jobId = submitted.job_id
+            submitted.minutes?.let { userCredits = it }
             currentJobId = jobId
             ActiveJobStore.save(context, jobId, stableUrl)
             enqueueTranscriptionWorker(context, jobId, stableUrl)
@@ -143,9 +167,24 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
     }
 }
 
+/** The balance can't cover a transcription; found by the app, where the server's 402 never came through. */
+internal class InsufficientBalanceException : Exception("You don't have enough credits for this transcription.")
+
 /** Shows why a transcription could not be submitted, preferring the server's own explanation. */
 internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exception) {
     val errMsg = when {
+        e is InsufficientBalanceException || ServerErrors.isPaymentRequired(e) -> {
+            // Offer to buy more, with the balance as the server now has it (it may be owed minutes)
+            if (isBilledServer) {
+                refreshUserBalanceImpl(context)
+                showNotEnoughCreditsDialog = true
+            }
+            (e as? HttpException)?.let { serverErrorDetail(context, it) } ?: InsufficientBalanceException().message!!
+        }
+        // Too many in progress: the server says how many it allows. Not retried, the user decides when.
+        ServerErrors.isTooManyRequests(e) ->
+            serverErrorDetail(context, e as HttpException)
+                ?: "You have too many transcriptions in progress. Wait for one to finish, then try again."
         PianoApiFactory.isServerPasswordRequired(e) -> {
             serverStatus = ServerStatus.PASSWORD_REQUIRED
             if (isUsingDefaultServer) "The server turned this app version away. Updating the app should fix it."
@@ -168,24 +207,18 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
  * restart or shutdown (`{"detail": {"message": ..., "maintenance": {...}}}`) gets its own text.
  */
 private fun PianoWeaveViewModel.serverErrorDetail(context: Context, e: HttpException): String? = try {
-    val body = e.response()?.errorBody()?.string().orEmpty()
-    val detail = JsonParser.parseString(body).asJsonObject.get("detail")
-    when {
-        detail == null -> null
-        detail.isJsonPrimitive -> detail.asString.takeIf { it.isNotBlank() }
-        detail.isJsonObject -> {
-            val notice = detail.asJsonObject.get("maintenance")
-                ?.let { Gson().fromJson(it, MaintenanceNotice::class.java) }
-                ?.takeIf { it.isValid }
-            if (notice != null) {
-                ServerMaintenance.onNotice(activeServerUrl, notice)
-                val retryAfter = e.response()?.headers()?.get("Retry-After")?.trim()?.toLongOrNull()
-                MaintenanceTexts.refusal(notice, System.currentTimeMillis() / 1000, retryAfter) { formatClockTime(context, it) }
-            } else {
-                detail.asJsonObject.get("message")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
-            }
-        }
-        else -> null
+    val body = ServerErrors.errorBody(e)
+    val notice = ServerErrors.detail(body)
+        ?.takeIf { it.isJsonObject }
+        ?.asJsonObject?.get("maintenance")
+        ?.let { Gson().fromJson(it, MaintenanceNotice::class.java) }
+        ?.takeIf { it.isValid }
+    if (notice != null) {
+        ServerMaintenance.onNotice(activeServerUrl, notice)
+        val retryAfter = ServerErrors.retryAfterSeconds(e.response()?.headers())
+        MaintenanceTexts.refusal(notice, System.currentTimeMillis() / 1000, retryAfter) { formatClockTime(context, it) }
+    } else {
+        ServerErrors.detailMessage(body)
     }
 } catch (_: Exception) {
     null
@@ -210,20 +243,24 @@ private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, sta
     return GoogleDriveManager.downloadMidiFile(context, match, token).getOrNull()
 }
 
-/** Creates the server job and returns its id. Billed servers require a signed-in user. */
-private suspend fun PianoWeaveViewModel.submitTranscription(context: Context, stableUrl: String): String {
+/**
+ * Creates the server job; the response has its id and the balance after the charge. Billed servers require
+ * a signed-in user. A server busy checking other videos is asked again after the delay it gives.
+ */
+private suspend fun PianoWeaveViewModel.submitTranscription(context: Context, stableUrl: String): CreateTranscriptionResponse {
     val uId = getOrCreateUserId(context)
-    val response = executeServerCallImpl(context) { authHeader ->
-        if (isBilledServer && authHeader == null) {
-            throw IllegalAccessException("Google authentication required.")
+    return retryWhenBusy {
+        executeServerCallImpl(context) { authHeader ->
+            if (isBilledServer && authHeader == null) {
+                throw IllegalAccessException("Google authentication required.")
+            }
+            PianoApiFactory.getApi(activeServerUrl).createTranscription(
+                request = CreateTranscriptionRequest(source_url = stableUrl),
+                authHeader = authHeader,
+                userId = if (!isBilledServer) uId else null
+            )
         }
-        PianoApiFactory.getApi(activeServerUrl).createTranscription(
-            request = CreateTranscriptionRequest(source_url = stableUrl),
-            authHeader = authHeader,
-            userId = if (!isBilledServer) uId else null
-        )
     }
-    return response.job_id
 }
 
 internal fun PianoWeaveViewModel.enqueueTranscriptionWorker(context: Context, jobId: String, stableUrl: String) {
@@ -334,7 +371,7 @@ private fun PianoWeaveViewModel.applyJobStatus(job: TranscriptionStatusResponse)
             else "AI model transcribing notes..."
         "completed" -> "Transcription completed."
         "failed" -> {
-            val errMsg = job.error ?: "Failed: Server processing error"
+            val errMsg = job.failureMessage
             transcriptionError = errMsg
             "Error: $errMsg"
         }
