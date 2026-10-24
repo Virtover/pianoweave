@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.theme.PillShape
+import com.lumenchord.pianoweave.ui.components.SettingLabel
 import kotlin.math.roundToInt
 
 /**
@@ -53,15 +54,13 @@ internal fun SettingHeader(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
+        SettingLabel(
+            title = title,
+            subtitle = subtitle,
             modifier = Modifier
                 .weight(1f)
-                .padding(end = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(subtitle, color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
-        }
+                .padding(end = 12.dp)
+        )
         Surface(
             onClick = onReset,
             enabled = !isDefault,

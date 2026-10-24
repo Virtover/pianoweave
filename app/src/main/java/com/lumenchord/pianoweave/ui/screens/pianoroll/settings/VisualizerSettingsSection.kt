@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import java.util.Locale
@@ -31,36 +32,17 @@ fun VisualizerSettingsSection(
     val appTheme = LocalAppTheme.current
     val colorAccent = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Strike Overlay Section
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text("Strike Overlay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Show STRIKE instruction banner in wait mode", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
-            }
-            Switch(
-                // Read straight from the view model: the banner can also be hidden from the toolbar or by swiping it away
-                checked = viewModel.isStrikeOverlayEnabled,
-                onCheckedChange = { viewModel.setStrikeOverlayEnabled(context, it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.Black,
-                    checkedTrackColor = colorAccent,
-                    uncheckedThumbColor = colorTextDim,
-                    uncheckedTrackColor = colorSlate
-                )
-            )
-        }
+        SettingToggleRow(
+            title = "Strike Overlay",
+            subtitle = "Show STRIKE instruction banner in wait mode",
+            // Read straight from the view model: the banner can also be hidden from the toolbar or by swiping it away
+            checked = viewModel.isStrikeOverlayEnabled,
+            onCheckedChange = { viewModel.setStrikeOverlayEnabled(context, it) },
+            accent = colorAccent
+        )
 
         HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 

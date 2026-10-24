@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.screens.pianoroll.formatTime
 import com.lumenchord.pianoweave.ui.screens.pianoroll.parseTimeToMs
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
 @Composable
@@ -36,37 +37,18 @@ fun LoopingSection(
     val appTheme = LocalAppTheme.current
     val colorAccent = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val colorTextDim = MaterialTheme.colorScheme.tertiary
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text("Loop Playback", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Repeat section during practice", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 16.sp)
-            }
-            Switch(
-                checked = isLooping,
-                onCheckedChange = {
-                    onLoopingChange(it)
-                    viewModel.isLoopingEnabled = it
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.Black,
-                    checkedTrackColor = colorAccent,
-                    uncheckedThumbColor = colorTextDim,
-                    uncheckedTrackColor = colorSlate
-                )
-            )
-        }
+        SettingToggleRow(
+            title = "Loop Playback",
+            subtitle = "Repeat section during practice",
+            checked = isLooping,
+            onCheckedChange = {
+                onLoopingChange(it)
+                viewModel.isLoopingEnabled = it
+            },
+            accent = colorAccent
+        )
 
         AnimatedVisibility(
             visible = isLooping,

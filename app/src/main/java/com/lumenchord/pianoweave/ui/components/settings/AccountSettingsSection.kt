@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components.settings
 
+import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
@@ -192,57 +193,21 @@ fun AccountSettingsSection(
             color = MaterialTheme.colorScheme.background,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Cloud,
-                        contentDescription = null,
-                        tint = previewTheme.primaryColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Cloud Library Sync",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (viewModel.isCloudSyncEnabled) "Syncing library with Google Drive" else "Cloud sync is turned off",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            SettingToggleRow(
+                title = "Cloud Library Sync",
+                subtitle = if (viewModel.isCloudSyncEnabled) "Syncing library with Google Drive" else "Cloud sync is turned off",
+                checked = viewModel.isCloudSyncEnabled,
+                onCheckedChange = { checked ->
+                    if (checked) {
+                        viewModel.requestTurnOnCloudSync(context)
+                    } else {
+                        viewModel.requestTurnOffCloudSync(context)
                     }
-                }
-
-                Switch(
-                    checked = viewModel.isCloudSyncEnabled,
-                    onCheckedChange = { checked ->
-                        if (checked) {
-                            viewModel.requestTurnOnCloudSync(context)
-                        } else {
-                            viewModel.requestTurnOffCloudSync(context)
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = previewTheme.primaryColor,
-                        checkedTrackColor = previewTheme.primaryColor.copy(alpha = 0.3f),
-                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
-            }
+                },
+                icon = Icons.Default.Cloud,
+                accent = previewTheme.primaryColor,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
         }
     }
 }
