@@ -74,6 +74,7 @@ import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -644,6 +645,9 @@ private fun ServerPasswordNotice(isOfficialServer: Boolean, onClick: () -> Unit)
 private fun RightsFootnote() {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
     val linkColor = MaterialTheme.colorScheme.secondary
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Portrait has room for one short line only; the full sentence wrapped and left "Terms" on a line of its own
+    val notice = if (isLandscape) "Only convert music you have the right to use · " else "Convert music you've the right to use · "
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
@@ -658,12 +662,16 @@ private fun RightsFootnote() {
         Spacer(Modifier.width(5.dp))
         Text(
             text = buildAnnotatedString {
-                append("Only convert music you have the right to use · ")
+                append(notice)
                 appendLink("Terms", AppLinks.TERMS_OF_SERVICE, linkColor)
             },
             style = MaterialTheme.typography.labelSmall,
             color = muted,
-            textAlign = TextAlign.Center
+            maxLines = 1,
+            softWrap = false,
+            // Steps down a little on the narrowest phones or with large system fonts instead of wrapping
+            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = MaterialTheme.typography.labelSmall.fontSize),
+            modifier = Modifier.weight(1f, fill = false)
         )
     }
 }

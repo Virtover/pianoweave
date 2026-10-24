@@ -20,8 +20,17 @@ data class AppTheme(
     val successColor: Color,
     val successLightColor: Color,
     val isLightAccent: Boolean = false,
-    val palette: NeutralPalette = NeutralPalette.Slate
+    val palette: NeutralPalette = NeutralPalette.Slate,
+    /** A gentle, living touch on the falling-notes stage, taken from the theme's own image. */
+    val stageOrnament: StageOrnament = StageOrnament.None
 )
+
+/** What moves on a theme's falling-notes stage, behind the notes. Each is faint, slow and never in the way. */
+enum class StageOrnament {
+    None,
+    /** A night sky: still stars that twinkle, fading toward the horizon (Night Watch). */
+    Stars
+}
 
 /** The non-accent colors: backgrounds, cards, text and the falling-notes stage. */
 data class NeutralPalette(
@@ -67,13 +76,16 @@ data class NeutralPalette(
          * Slate with its slight tint turned to [hue] (0-360), so the backgrounds quietly take on
          * the theme's own color while keeping Slate's brightness. [strength] scales how much tint
          * there is (1 = as much as Slate's blue) and [depth] below 1 makes the darks deeper.
+         * [textStrength] tints the text greys separately: a strongly colored night or dusk keeps
+         * its text near neutral, since tinting greys that much also dims them.
          */
-        fun tinted(hue: Float, strength: Float = 1f, depth: Float = 1f): NeutralPalette {
+        fun tinted(hue: Float, strength: Float = 1f, depth: Float = 1f, textStrength: Float = strength): NeutralPalette {
             fun Color.retint(isDark: Boolean = true): Color {
                 val hsv = FloatArray(3)
                 AndroidColor.colorToHSV(toArgb(), hsv)
                 val value = if (isDark) hsv[2] * depth else hsv[2]
-                return Color(AndroidColor.HSVToColor(floatArrayOf(hue, (hsv[1] * strength).coerceIn(0f, 1f), value.coerceIn(0f, 1f))))
+                val saturation = hsv[1] * if (isDark) strength else textStrength
+                return Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation.coerceIn(0f, 1f), value.coerceIn(0f, 1f))))
             }
             return with(Slate) {
                 NeutralPalette(
@@ -109,7 +121,7 @@ object AppThemeManager {
     private val lamplightTheme = createTheme(
         id = "lamplight",
         name = "Lamplight",
-        primary = Color(0xFFF8CC8C),
+        primary = Color(0xFFFAD093),
         customWaitTarget = Color(0xFF5CCFFF),
         customSuccess = Color(0xFF4ADE80),
         customBaseline = Color(0xFFFF8A5C),
@@ -120,7 +132,7 @@ object AppThemeManager {
     private val classicGoldTheme = createTheme(
         id = "gold",
         name = "Classic Gold",
-        primary = Color(0xFFD3B555),
+        primary = Color(0xFFDBB955),
         customWaitTarget = Color(0xFF00D2FF),
         customSuccess = Color(0xFF2EA043),
         customBaseline = Color(0xFFFD9B4A),
@@ -136,61 +148,96 @@ object AppThemeManager {
     val themes: List<AppTheme> = listOf(
         lamplightTheme,
         classicGoldTheme,
-        createTheme("amber", "Honey", Color(0xFFF3AA36)), // Delight in His word (Ps 19:10)
-        createTheme("sunburst", "Morning Joy", Color(0xFFF0DD66)), // Joy that comes in the morning (Ps 30:5)
-        createTheme("orange", "Dayspring", Color(0xFFF7AE81)), // Hope at first light (Lk 1:78)
-        createTheme("coral", "Hearth", Color(0xFFED8F61)), // Warmth of fellowship (Acts 2:46)
+        createTheme("sunburst", "Morning Joy", Color(0xFFF1E065)), // Joy that comes in the morning (Ps 30:5)
+        createTheme("orange", "Dayspring", Color(0xFFFDB080)), // Hope at first light (Lk 1:78)
         // Holy awe, fire that does not consume (Ex 3:2). Warm through and through: an ember-gold keyboard
         // line rather than the derived crimson, and backgrounds that glow faintly like a fireside.
         createTheme(
-            "solar", "Burning Bush", Color(0xFFF87C49),
+            "solar", "Burning Bush", Color(0xFFF87840),
             customBaseline = Color(0xFFFFB258),
             palette = NeutralPalette.tinted(hue = 22f, strength = 1.3f, depth = 0.92f)
         ),
-        createTheme("copper", "Potter's Clay", Color(0xFFC79170)), // Humility in His hands (Is 64:8)
-        createTheme("goldenrod", "Harvest", Color(0xFFC19B54)), // Gratitude, reaping with joy (Ps 126:6)
-        createTheme("crimson", "Scarlet Cord", Color(0xFFF27C7E)), // Redemption held by faith (Josh 2:18)
-        createTheme("ruby", "Pomegranate", Color(0xFFE680A1)), // Abundant love (Song 4:3)
-        createTheme("rose", "Rose of Sharon", Color(0xFFF1A1CD)), // Tender love (Song 2:1)
-        createTheme("magenta", "Desert Bloom", Color(0xFFF89993)), // Restoration, the desert in flower (Is 35:1)
-        createTheme("cherry", "Almond Blossom", Color(0xFFF5C9DD)), // Renewal, the first to wake (Num 17:8)
-        createTheme("rose_gold", "Rose Gold", Color(0xFFCA999F)), // Gentleness (Phil 4:5)
-        createTheme("lavender", "Lavender", Color(0xFFD4BCEB)), // Rest for the soul (Mt 11:29)
-        createTheme("electric_purple", "Iris", Color(0xFFBD9FF2)), // Wonder (Ps 8:3)
-        createTheme("royal_violet", "Royal Robe", Color(0xFFCD85D8)), // Dignity, a royal priesthood (1 Pet 2:9)
+        // Joy at the reaping: "Those who sow with tears will reap with songs of joy; those who go out weeping,
+        // carrying seed to sow, will return with songs of joy, carrying sheaves with them" (Ps 126:5-6). Sun-ripe
+        // wheat in a golden field: the stage glows like the field at sunset, the keyboard line is the sheaves.
+        // Its sibling, Sowing in Tears, is the first half of the same psalm.
+        createTheme(
+            "goldenrod", "Harvest", Color(0xFFFCA942),
+            customBaseline = Color(0xFFFBD452),
+            palette = NeutralPalette.tinted(hue = 40f, strength = 1.5f),
+            stage = listOf(Color(0xFF170F07), Color(0xFF22170A), Color(0xFF3A270C), Color(0xFF2A2014))
+        ),
+        createTheme("crimson", "Scarlet Cord", Color(0xFFF47C84)), // Redemption held by faith (Josh 2:18)
+        createTheme("rose", "Rose of Sharon", Color(0xFFF4A1CF)), // Tender love (Song 2:1)
+        createTheme("cherry", "Almond Blossom", Color(0xFFF8CAE0)), // Renewal, the first to wake (Num 17:8)
+        createTheme("lavender", "Lavender", Color(0xFFCDB7E2)), // Rest for the soul (Mt 11:29)
+        createTheme("electric_purple", "Iris", Color(0xFFBE9FF1)), // Wonder (Ps 8:3)
+        createTheme("royal_violet", "Royal Robe", Color(0xFFCD81D6)), // Dignity, a royal priesthood (1 Pet 2:9)
         // Keeping watch: "I meditate on you through the watches of the night" (Ps 63:6), waiting "more
-        // than watchmen wait for the morning" (Ps 130:6). A deep midnight with a midnight-indigo accent,
-        // and the watchman's lamp as the keyboard line, in the amber of Moods.Watch.
+        // than watchmen wait for the morning" (Ps 130:6). One of the few strongly colored themes: a true
+        // night-navy all around, moonlight as the accent, and the watchman's lamp as the keyboard line,
+        // in the amber of Moods.Watch.
         createTheme(
-            "deep_velvet", "Night Watch", Color(0xFF8EA2DE),
+            "deep_velvet", "Night Watch", Color(0xFFB2D0FC),
             customBaseline = Moods.Watch.core,
-            palette = NeutralPalette.tinted(hue = 228f, strength = 1.3f, depth = DEEP_THEME_DEPTH)
+            palette = NeutralPalette.tinted(hue = 222f, strength = 3.4f, depth = 0.95f, textStrength = 1.3f),
+            // A night sky: darkest overhead, a faint deep-blue horizon above the keys where the lamp sits
+            stage = listOf(Color(0xFF01030A), Color(0xFF040A1A), Color(0xFF0B1631), Color(0xFF101A33)),
+            stageOrnament = StageOrnament.Stars
         ),
-        // Communion with God: "may my prayer be set before you like incense" (Ps 141:2). Both sides of the
-        // meeting: the prayer rising in a warm dusk lilac, His light answering in a soft gold keyboard
-        // line, held in the deep blue of the evening sky.
+        // Warm evening communion with God: "may my prayer be set before you like incense, the lifting up
+        // of my hands like the evening sacrifice" (Ps 141:2). One of the few strongly colored themes: the
+        // whole room in a deep, warm dusk plum, the afterglow of sunset as the accent, and His light as a
+        // soft gold keyboard line.
         createTheme(
-            "indigo", "Evening Prayer", Color(0xFFD3A6CE),
+            "indigo", "Evening Prayer", Color(0xFFE79F9C),
             customBaseline = Color(0xFFF5D38E),
-            palette = NeutralPalette.tinted(hue = 232f, strength = 1.25f, depth = 0.9f)
+            palette = NeutralPalette.tinted(hue = 328f, strength = 3f, depth = 1f, textStrength = 1.3f)
         ),
-        createTheme("midnight", "Starry Host", Color(0xFFA0BDFF)), // Awe at the stars He names (Ps 147:4)
-        createTheme("sapphire", "Sapphire Heaven", Color(0xFF5DA6EF)), // Majesty, holiness (Ex 24:10)
-        createTheme("electric_blue", "Open Sky", Color(0xFF75C9F7)), // Praise, the heavens declare (Ps 19:1)
-        createTheme("cyan", "Living Water", Color(0xFF72E0F6)), // Refreshment, thirst met (Jn 4:10)
-        createTheme("neon_cyan", "Morning Dew", Color(0xFFABECEF)), // Gentle grace (Hos 14:5)
-        createTheme("aqua", "Still Waters", Color(0xFF81BFD4)), // Calm, being led (Ps 23:2)
-        createTheme("cyber_turquoise", "Galilee", Color(0xFF56C2BA)), // The call to follow (Mt 4:18)
-        createTheme("teal", "Riverside", Color(0xFF85C291)), // Steadfastness, rooted by streams (Ps 1:3)
-        createTheme("mint", "Spring Rain", Color(0xFF77E3BC)), // Blessing that falls in season (Joel 2:23)
-        createTheme("emerald", "Green Pastures", Color(0xFF7FCE7E)), // Provision and rest (Ps 23:2)
-        createTheme("toxic_green", "Evergreen", Color(0xFF68B08D)), // Perseverance, leaf that does not wither (Ps 1:3)
-        createTheme("lime", "New Growth", Color(0xFFB9E270)), // New beginnings (Is 43:19)
-        createTheme("chartreuse", "Vineyard", Color(0xFFD488B8)), // Abiding and fruitfulness (Jn 15:5)
-        createTheme("olive", "Olive Tree", Color(0xFFACB16D)), // Faithfulness, flourishing (Ps 52:8)
-        createTheme("champagne", "Fine Linen", Color(0xFFF4E6CE), tint = 0.6f), // Purity (Rev 19:8)
-        createTheme("silver", "Refined Silver", Color(0xFFCCD2D7)), // The pure word, refined (Ps 12:6)
-        createTheme("titanium", "Rock of Refuge", Color(0xFF9DAEB9)), // Security, my refuge (Ps 18:2)
+        createTheme("cyan", "Living Water", Color(0xFF6DE1F6)), // Refreshment, thirst met (Jn 4:10)
+        // Gentle grace: "I will be like the dew to Israel; he will blossom like a lily" (Hos 14:5). Dew on a
+        // garden at sunrise, not frost: a soft fresh sage, a sunrise-peach keyboard line, a warm green morning.
+        createTheme(
+            "neon_cyan", "Morning Dew", Color(0xFFBDDBBA),
+            customBaseline = Color(0xFFFFC29A),
+            palette = NeutralPalette.tinted(hue = 95f, strength = 1.2f),
+            stage = listOf(Color(0xFF0C110E), Color(0xFF121812), Color(0xFF2A1E16), Color(0xFF1C221B))
+        ),
+        // Calm, being led: "He leads me beside still waters, He restores my soul" (Ps 23:2-3). Warm, not cold:
+        // the water stays blue, but evening sunlight lies on it as a soft golden keyboard line, and the room
+        // is gently warm.
+        createTheme(
+            "aqua", "Still Waters", Color(0xFF82C5DC),
+            customBaseline = Color(0xFFF2CB83),
+            palette = NeutralPalette.tinted(hue = 32f, strength = 1f)
+        ),
+        createTheme("mint", "Spring Rain", Color(0xFF79DFB7)), // Blessing that falls in season (Joel 2:23)
+        createTheme("emerald", "Green Pastures", Color(0xFF7ECB79)), // Provision and rest (Ps 23:2)
+        // New beginnings: "I am doing a new thing; now it springs up" (Is 43:19). Growth out of the earth: the
+        // lime notes are young shoots, the keyboard line is rich soil with their light breaking through at
+        // its center, and the stage darkens toward the soil below.
+        createTheme(
+            "lime", "New Growth", Color(0xFFB5E171),
+            customBaseline = Color(0xFFA77C56),
+            stage = listOf(Color(0xFF07090A), Color(0xFF0A100B), Color(0xFF19140D), Color(0xFF1C1A14))
+        ),
+        // Faithfulness, flourishing: "like a green olive tree in the house of God" (Ps 52:8). The stage is the
+        // tree: the shade of silvery olive leaves above, the warm dark of roots and earth below, and the
+        // keyboard line its trunk, in grey-brown bark.
+        createTheme(
+            "olive", "Olive Tree", Color(0xFFACB470),
+            customBaseline = Color(0xFFB19270),
+            stage = listOf(Color(0xFF0E120C), Color(0xFF10120D), Color(0xFF17120C), Color(0xFF1A1D16))
+        ),
+        createTheme("champagne", "Fine Linen", Color(0xFFF8E8CE), tint = 0.6f), // Purity (Rev 19:8)
+        // Security in a living God: "The Lord is my rock, my fortress and my deliverer" (Ps 18:2). Not dead
+        // stone: sun-warmed rock, and the keyboard line is the water that flowed from it (Ex 17:6), for
+        // "that rock was Christ" (1 Cor 10:4).
+        createTheme(
+            "titanium", "Rock of Refuge", Color(0xFFC8B49C),
+            customBaseline = Color(0xFF4DDAE9),
+            palette = NeutralPalette.tinted(hue = 34f, strength = 0.9f)
+        ),
 
         // Deep themes, for evenings and quieter hearts: darker backgrounds and lower, still readable
         // accents. Like the lament psalms, each holds sorrow or night together with trust.
@@ -198,32 +245,109 @@ object AppThemeManager {
             "deep_waters", "Deep Waters", Color(0xFF5F9FD2),
             palette = NeutralPalette.tinted(hue = 215f, strength = 1.2f, depth = DEEP_THEME_DEPTH)
         ),
-        createTheme( // Surrender in anguish, "not my will, but yours" (Lk 22:42)
-            "gethsemane", "Gethsemane", Color(0xFF8CA66C),
-            palette = NeutralPalette.tinted(hue = 95f, strength = 1f, depth = DEEP_THEME_DEPTH)
-        ),
-        createTheme( // Mourning turned to hope: a crown of beauty instead of ashes (Is 61:3)
-            "beauty_for_ashes", "Beauty for Ashes", Color(0xFFD9897C),
-            // Gold rising from the ashes on the keyboard line; backgrounds close to charcoal
-            customBaseline = Color(0xFFFEBD56),
-            palette = NeutralPalette.tinted(hue = 20f, strength = 0.6f, depth = DEEP_THEME_DEPTH)
-        ),
         createTheme( // Communion by candlelight (Lk 22:12)
-            "upper_room", "Upper Room", Color(0xFFDB9249),
+            "upper_room", "Upper Room", Color(0xFFE79A51),
             customBaseline = Color(0xFFFEBD56),
             palette = NeutralPalette.tinted(hue = 32f, strength = 1.3f, depth = DEEP_THEME_DEPTH)
         ),
-        createTheme( // Refuge in the dark, under the shadow of His wings (Ps 91:4)
-            "shadow_of_wings", "Shadow of Wings", Color(0xFFB48BCE),
-            palette = NeutralPalette.tinted(hue = 285f, strength = 1.1f, depth = DEEP_THEME_DEPTH)
+        // Through the valley (Ps 23:4): sorrow, fear, anger and wrath, each held where Jesus meets it. Strongly
+        // colored dark rooms, like Night Watch; text stays near neutral so it reads easily.
+        // Sorrow carried in hope, the first half of Harvest's psalm: "those who go out weeping, carrying seed
+        // to sow" (Ps 126:5-6); and Jesus: "unless a kernel of wheat falls to the ground and dies, it remains
+        // only a single seed. But if it dies, it produces many seeds" (Jn 12:24). An overcast room, notes
+        // falling like rain-grey tears, and a keyboard line of earth holding the seed's hidden gold.
+        createTheme(
+            "sowing_in_tears", "Sowing in Tears", Color(0xFFA7B6C6),
+            customBaseline = Color(0xFFC7A667),
+            palette = NeutralPalette.tinted(hue = 215f, strength = 1.6f, depth = 0.85f, textStrength = 1.3f),
+            stage = listOf(Color(0xFF0E1218), Color(0xFF12161C), Color(0xFF1C1610), Color(0xFF1A1E25))
+        ),
+        // Sorrow, grief: "a man of sorrows, and acquainted with grief" (Is 53:3); "Jesus wept" (Jn 11:35).
+        // A deep night of grief in grey violet, and a gentle rose keyboard line: His compassion, weeping with us.
+        createTheme(
+            "man_of_sorrows", "Man of Sorrows", Color(0xFFA8A5D2),
+            customBaseline = Color(0xFFEDA7B9),
+            palette = NeutralPalette.tinted(hue = 250f, strength = 2.2f, depth = 0.8f, textStrength = 1.3f),
+            stage = listOf(Color(0xFF08070F), Color(0xFF0E0C18), Color(0xFF171426), Color(0xFF17152A))
+        ),
+        // Fear, and the One who stills it: "Peace, be still" (Mk 4:39); "Take courage! It is I. Don't be afraid"
+        // (Mt 14:27). A storm-dark sea, notes the pale of foam, and a gold keyboard line: He is in the boat.
+        createTheme(
+            "storm_on_the_lake", "Storm on the Lake", Color(0xFFA4E1E4),
+            customBaseline = Color(0xFFEFC469),
+            palette = NeutralPalette.tinted(hue = 195f, strength = 2.4f, depth = 0.8f, textStrength = 1.3f),
+            stage = listOf(Color(0xFF080E12), Color(0xFF0B181D), Color(0xFF0F2A30), Color(0xFF12242A))
+        ),
+        // Anger that is holy: "Zeal for your house will consume me" (Jn 2:17, Ps 69:9), as He clears the temple;
+        // He "looked around at them in anger, deeply distressed at their stubborn hearts" (Mk 3:5). A smoldering
+        // ember room, copper-flame notes, and a keyboard line of temple gold: anger for what is holy.
+        createTheme(
+            "zeal", "Zeal for Your House", Color(0xFFE57669),
+            customBaseline = Color(0xFFF4CC64),
+            palette = NeutralPalette.tinted(hue = 10f, strength = 2.6f, depth = 0.85f, textStrength = 1.3f),
+            stage = listOf(Color(0xFF120605), Color(0xFF1E0A07), Color(0xFF3A1408), Color(0xFF2A120E))
+        ),
+        // Wrath, borne by Him: "My Father, if it is possible, may this cup be taken from me. Yet not as I will"
+        // (Mt 26:39); the cup of His wrath (Is 51:17); "we shall be saved from God's wrath through him" (Rom 5:9).
+        // A near-black wine room, deep garnet notes, and a keyboard line of pale dawn: after the cup, "It is
+        // finished", and the morning.
+        createTheme(
+            "the_cup", "The Cup", Color(0xFFDC7D96),
+            customBaseline = Color(0xFFF1E4BF),
+            palette = NeutralPalette.tinted(hue = 345f, strength = 2.8f, depth = 0.72f, textStrength = 1.3f),
+            stage = listOf(Color(0xFF080305), Color(0xFF120509), Color(0xFF200710), Color(0xFF1E0A12))
         ),
     )
+
+    /**
+     * The themes as the picker shows them: by the feeling each expresses, so neighbors read as kin and
+     * the choice is first of a feeling, then of a color.
+     */
+    val themeGroups: List<Pair<String, List<AppTheme>>> = listOf(
+        "Joy & Glory" to listOf("lamplight", "gold", "sunburst", "goldenrod"),
+        // Right after Harvest, so its sibling Sowing in Tears sits beside it; and, as in Psalm 23, the valley
+        // comes before the green pastures and still waters
+        "Through the Valley" to listOf("sowing_in_tears", "man_of_sorrows", "storm_on_the_lake", "zeal", "the_cup"),
+        "Hope & Love" to listOf("orange", "crimson", "rose", "cherry"),
+        "Awe & Wonder" to listOf("solar", "royal_violet", "electric_purple"),
+        "Peace & Rest" to listOf("lavender", "aqua", "cyan", "neon_cyan", "mint", "emerald"),
+        "Faithfulness" to listOf("lime", "olive", "titanium", "champagne"),
+        "Evening & Night" to listOf("indigo", "upper_room", "deep_velvet", "deep_waters"),
+    ).map { (feeling, ids) -> feeling to ids.map { id -> themes.first { it.id == id } } }
 
     /** How much darker the deep themes' backgrounds are than the others'. */
     private const val DEEP_THEME_DEPTH = 0.8f
 
+    /**
+     * Themes that were merged into another of the same feeling, so their colors could stay distinct. A
+     * saved choice of one moves to the theme that took its place instead of falling back to the default.
+     */
+    private val mergedThemeIds = mapOf(
+        "amber" to "gold",
+        "coral" to "solar",
+        "copper" to "goldenrod",
+        "ruby" to "crimson",
+        "chartreuse" to "royal_violet",
+        "magenta" to "orange",
+        "rose_gold" to "cherry",
+        "midnight" to "deep_velvet",
+        "sapphire" to "deep_waters",
+        "electric_blue" to "aqua",
+        "cyber_turquoise" to "aqua",
+        "teal" to "emerald",
+        "toxic_green" to "emerald",
+        "silver" to "champagne",
+        "gethsemane" to "olive",
+        "beauty_for_ashes" to "upper_room",
+        "shadow_of_wings" to "deep_velvet"
+    )
+
+    /** The theme id to use for a saved [id], following merged themes to their replacement. */
+    fun resolveId(id: String?): String? = mergedThemeIds[id] ?: id
+
     fun getTheme(id: String?): AppTheme {
-        return themes.find { it.id == id } ?: defaultTheme
+        val resolved = resolveId(id)
+        return themes.find { it.id == resolved } ?: defaultTheme
     }
 
     private fun createTheme(
@@ -236,7 +360,10 @@ object AppThemeManager {
         customBaseline: Color? = null,
         /** How strongly the backgrounds take on the theme's color; 0 keeps plain Slate. */
         tint: Float = 0.9f,
-        palette: NeutralPalette? = null
+        palette: NeutralPalette? = null,
+        /** The falling-notes stage from top to bottom, then its lane lines; the palette's own otherwise. */
+        stage: List<Color>? = null,
+        stageOrnament: StageOrnament = StageOrnament.None
     ): AppTheme {
         val hsv = FloatArray(3)
         AndroidColor.colorToHSV(primary.toArgb(), hsv)
@@ -294,7 +421,12 @@ object AppThemeManager {
             successLightColor = successLightColor,
             isLightAccent = resolvedIsLightAccent,
             // Near-gray accents have no real hue to borrow, so they keep Slate
-            palette = palette ?: if (sat < 0.15f || tint <= 0f) NeutralPalette.Slate else NeutralPalette.tinted(hue, strength = tint)
+            palette = (palette ?: if (sat < 0.15f || tint <= 0f) NeutralPalette.Slate else NeutralPalette.tinted(hue, strength = tint))
+                .let { base ->
+                    if (stage == null) base
+                    else base.copy(stageTop = stage[0], stageMiddle = stage[1], stageBottom = stage[2], stageLane = stage[3])
+                },
+            stageOrnament = stageOrnament
         )
     }
 }

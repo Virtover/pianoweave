@@ -236,7 +236,8 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     val prefs = AppPrefs.get(context)
     getOrCreateUserIdImpl(context)
     isStrikeOverlayEnabled = prefs.getBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, true)
-    selectedThemeId = prefs.getString(AppPrefs.SELECTED_THEME_ID, AppThemeManager.defaultTheme.id) ?: AppThemeManager.defaultTheme.id
+    // A theme merged into another resolves to its replacement, so the picker shows it as selected
+    selectedThemeId = AppThemeManager.resolveId(prefs.getString(AppPrefs.SELECTED_THEME_ID, null)) ?: AppThemeManager.defaultTheme.id
     topBarSpeed = prefs.getFloat(AppPrefs.TOP_BAR_SPEED, 1.0f)
     isCloudSyncEnabled = prefs.getBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false)
     hasCloudSyncError = prefs.getBoolean(AppPrefs.HAS_CLOUD_SYNC_ERROR, false)

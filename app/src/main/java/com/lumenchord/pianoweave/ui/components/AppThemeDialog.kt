@@ -21,9 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.lumenchord.pianoweave.ui.theme.AppTheme
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -33,71 +35,100 @@ fun AppThemeGrid(
     onSelectTheme: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedId by remember(selectedThemeId) { mutableStateOf(selectedThemeId) }
+    var selectedId by remember(selectedThemeId) { mutableStateOf(AppThemeManager.resolveId(selectedThemeId) ?: selectedThemeId) }
 
-    Box(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        FlowRow(
-            modifier = Modifier.wrapContentWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            AppThemeManager.themes.forEach { theme ->
-                val isSelected = theme.id == selectedId
-                Surface(
-                    modifier = Modifier
-                        .width(60.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable {
-                            selectedId = theme.id
-                            onSelectTheme(theme.id)
-                        },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background,
-                    border = BorderStroke(
-                        width = if (isSelected) 2.dp else 1.dp,
-                        color = if (isSelected) theme.primaryColor else MaterialTheme.colorScheme.tertiaryContainer
-                    )
+        AppThemeManager.themeGroups.forEach { (feeling, themes) ->
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = feeling.uppercase(),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(theme.primaryColor, CircleShape)
-                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
-                            contentAlignment = Alignment.BottomEnd
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .background(theme.waitTargetColor, CircleShape)
-                                    .border(1.dp, Color.Black, CircleShape)
-                            )
-                            if (isSelected) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = 0.25f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = if (theme.isLightAccent) Color.Black else Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
+                    themes.forEach { theme ->
+                        ThemeTile(
+                            theme = theme,
+                            isSelected = theme.id == selectedId,
+                            onClick = {
+                                selectedId = theme.id
+                                onSelectTheme(theme.id)
                             }
-                        }
+                        )
                     }
                 }
             }
+        }
+        Text(
+            text = AppThemeManager.getTheme(selectedId).name,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = AppThemeManager.getTheme(selectedId).primaryColor,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 2.dp),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * One theme as a small piece of itself: its own backdrop, its accent, and beneath it the keyboard line in
+ * its baseline color, so themes with close accents still differ by the room they make.
+ */
+@Composable
+private fun ThemeTile(
+    theme: AppTheme,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        modifier = Modifier
+            .width(60.dp)
+            .clip(shape)
+            .clickable(onClickLabel = "Use ${theme.name}", onClick = onClick),
+        shape = shape,
+        color = theme.palette.surface,
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) theme.primaryColor else Color.White.copy(alpha = 0.1f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(top = 9.dp, bottom = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(theme.primaryColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = if (theme.isLightAccent) Color.Black else Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .size(width = 34.dp, height = 3.dp)
+                    .background(theme.baselineColor, PillShape)
+            )
         }
     }
 }

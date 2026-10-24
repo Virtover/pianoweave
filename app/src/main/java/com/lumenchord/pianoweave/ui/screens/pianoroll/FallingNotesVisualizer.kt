@@ -2,7 +2,13 @@ package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -10,11 +16,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.theme.StageOrnament
+import kotlin.math.PI
+import kotlin.math.sin
 
 @Composable
 internal fun FallingNotesVisualizer(
@@ -38,6 +48,16 @@ internal fun FallingNotesVisualizer(
 
     val scale = 0.25f
     val glowAlpha = (0.30f - 0.25f * ColorBaseline.luminance()).coerceIn(0.08f, 0.24f)
+    // Drives the stage ornament; only runs for a theme that has one, so other stages don't redraw for it
+    val ornament = appTheme.stageOrnament
+    val ornamentTime = if (ornament != StageOrnament.None) {
+        rememberInfiniteTransition(label = "stageOrnament").animateFloat(
+            initialValue = 0f,
+            targetValue = ORNAMENT_CYCLE,
+            animationSpec = infiniteRepeatable(tween(durationMillis = (ORNAMENT_CYCLE * 1000).toInt(), easing = LinearEasing)),
+            label = "stageOrnamentTime"
+        )
+    } else null
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
@@ -53,6 +73,12 @@ internal fun FallingNotesVisualizer(
             ),
             size = size
         )
+
+        val t = ornamentTime?.value ?: 0f
+        when (ornament) {
+            StageOrnament.Stars -> drawStars(t)
+            StageOrnament.None -> Unit
+        }
 
         // 1. Grid Lanes
         for (i in 0..numWhiteKeys) {
@@ -185,5 +211,55 @@ internal fun FallingNotesVisualizer(
 
         whiteEvents.forEach { drawNote(it) }
         blackEvents.forEach { drawNote(it) }
+    }
+}
+
+/** One star of a night-sky stage, placed by fractions of the stage's width and height. */
+private class StageStar(
+    val x: Float,
+    val y: Float,
+    val radiusDp: Float,
+    val brightness: Float,
+    /** Twinkle speed in radians per second of the ornament clock, and where in its twinkle the star starts. */
+    val speed: Float,
+    val phase: Float
+)
+
+/** Seconds of the ornament clock before it loops; long, so the loop is never noticed. */
+private const val ORNAMENT_CYCLE = 60f
+
+/** Whole cycles of [count] per loop of the clock, as radians per second, so everything loops seamlessly. */
+private fun cyclesPerLoop(count: Int) = (2 * PI * count / ORNAMENT_CYCLE).toFloat()
+
+/** How far down the stage the stars reach before they have faded out (fraction of its height). */
+private const val STAR_SKY_DEPTH = 0.8f
+
+/** A fixed scatter, the same every time, so the sky doesn't shift between songs or rotations. */
+private val STAGE_STARS: List<StageStar> = kotlin.random.Random(147).let { random ->
+    List(56) {
+        // Most stars faint and small, a few brighter ones
+        val bright = random.nextFloat() < 0.12f
+        StageStar(
+            x = random.nextFloat(),
+            y = random.nextFloat() * STAR_SKY_DEPTH,
+            radiusDp = if (bright) 1.3f + random.nextFloat() * 0.4f else 0.6f + random.nextFloat() * 0.5f,
+            brightness = if (bright) 0.45f + random.nextFloat() * 0.2f else 0.12f + random.nextFloat() * 0.2f,
+            // Whole cycles per loop of the clock, so every star is back where it started when it loops
+            speed = cyclesPerLoop(6 + random.nextInt(18)),
+            phase = random.nextFloat() * (2 * PI).toFloat()
+        )
+    }
+}
+
+/** Night sky: still stars, each breathing on its own slow rhythm, fading toward the horizon above the keys. */
+private fun DrawScope.drawStars(t: Float) {
+    STAGE_STARS.forEach { star ->
+        val fade = 1f - (star.y / STAR_SKY_DEPTH).coerceIn(0f, 1f)
+        val twinkle = 0.65f + 0.35f * sin(t * star.speed + star.phase)
+        drawCircle(
+            color = Color.White.copy(alpha = star.brightness * fade * twinkle),
+            radius = star.radiusDp.dp.toPx(),
+            center = Offset(star.x * size.width, star.y * size.height)
+        )
     }
 }
