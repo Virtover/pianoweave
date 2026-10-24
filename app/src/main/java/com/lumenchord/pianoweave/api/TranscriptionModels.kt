@@ -29,7 +29,7 @@ data class TranscriptionStatusResponse(
 
 /** Why a failed job failed. The server writes its "error" for users, so it is shown as it is. */
 val TranscriptionStatusResponse.failureMessage: String
-    get() = (error as String?)?.trim()?.takeIf { it.isNotEmpty() } ?: "The server could not transcribe this."
+    get() = error?.trim()?.takeIf { it.isNotEmpty() } ?: "The server could not transcribe this."
 
 data class VideoMetadata(
     @SerializedName("title") val title: String = PLACEHOLDER_TITLE,

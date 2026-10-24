@@ -492,11 +492,7 @@ object MidiStorage {
             } catch (_: Exception) {}
         }
         if (result == null) {
-            result = uri.path
-            val cut = result?.lastIndexOf('/')
-            if (cut != -1 && cut != null) {
-                result = result?.substring(cut + 1)
-            }
+            result = uri.path?.substringAfterLast('/')
         }
         return result ?: "imported.mid"
     }
