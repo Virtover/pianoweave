@@ -46,6 +46,8 @@ fun DialogSurface(
 }
 
 private fun Modifier.dialogLight(light: Color): Modifier = drawBehind {
+    // Bright accents are dimmed so the light looks the same in every theme
+    val scale = glowScale(light)
     val top = Offset(size.width / 2f, 0f)
     // A circle squashed into a wide oval: the pool is broad but doesn't reach far down tall dialogs
     val depth = 170.dp.toPx()
@@ -53,7 +55,7 @@ private fun Modifier.dialogLight(light: Color): Modifier = drawBehind {
     scale(scaleX = stretch, scaleY = 1f, pivot = top) {
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(light.copy(alpha = 0.09f), light.copy(alpha = 0.03f), Color.Transparent),
+                colors = listOf(light.copy(alpha = 0.09f * scale), light.copy(alpha = 0.03f * scale), Color.Transparent),
                 center = top,
                 radius = depth
             ),
@@ -63,7 +65,7 @@ private fun Modifier.dialogLight(light: Color): Modifier = drawBehind {
     }
     drawRect(
         brush = Brush.horizontalGradient(
-            listOf(Color.Transparent, light.copy(alpha = 0.4f), Color.Transparent)
+            listOf(Color.Transparent, light.copy(alpha = 0.4f * scale), Color.Transparent)
         ),
         size = Size(size.width, 1.5.dp.toPx())
     )

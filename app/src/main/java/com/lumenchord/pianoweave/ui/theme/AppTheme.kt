@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.ui.theme
 import android.graphics.Color as AndroidColor
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 
 data class AppTheme(
@@ -108,17 +109,18 @@ object AppThemeManager {
     private val lamplightTheme = createTheme(
         id = "lamplight",
         name = "Lamplight",
-        primary = Color(0xFFFFC266),
+        primary = Color(0xFFF8CC8C),
         customWaitTarget = Color(0xFF5CCFFF),
         customSuccess = Color(0xFF4ADE80),
         customBaseline = Color(0xFFFF8A5C),
         palette = NeutralPalette.tinted(hue = 28f, strength = 1.35f, depth = 0.88f)
     )
 
+    /** Reverence before His glory (Psalm 29:2). */
     private val classicGoldTheme = createTheme(
         id = "gold",
         name = "Classic Gold",
-        primary = Color(0xFFD4AF37),
+        primary = Color(0xFFD3B555),
         customWaitTarget = Color(0xFF00D2FF),
         customSuccess = Color(0xFF2EA043),
         customBaseline = Color(0xFFFD9B4A),
@@ -134,41 +136,41 @@ object AppThemeManager {
     val themes: List<AppTheme> = listOf(
         lamplightTheme,
         classicGoldTheme,
-        createTheme("amber", "Honey", Color(0xFFFFB300)), // Psalm 19:10
-        createTheme("sunburst", "Morning Joy", Color(0xFFFFD93D)), // Psalm 30:5
-        createTheme("orange", "Dayspring", Color(0xFFFF7A1A)), // Luke 1:78
-        createTheme("coral", "Hearth", Color(0xFFFF5722)),
-        createTheme("solar", "Burning Bush", Color(0xFFFF3D00)), // Exodus 3:2
-        createTheme("copper", "Potter's Clay", Color(0xFFD35400)), // Isaiah 64:8
-        createTheme("goldenrod", "Harvest", Color(0xFFDAA520)), // Psalm 126:6
-        createTheme("crimson", "Scarlet Cord", Color(0xFFE53935)), // Joshua 2:18
-        createTheme("ruby", "Pomegranate", Color(0xFFD81B60)), // Song of Songs 4:3
-        createTheme("rose", "Rose of Sharon", Color(0xFFEC407A)), // Song of Songs 2:1
-        createTheme("magenta", "Desert Bloom", Color(0xFFF06292)), // Isaiah 35:1
-        createTheme("cherry", "Almond Blossom", Color(0xFFFF8FB8)), // Numbers 17:8
-        createTheme("rose_gold", "Rose Gold", Color(0xFFB76E79)),
-        createTheme("lavender", "Lavender", Color(0xFFB388FF)),
-        createTheme("electric_purple", "Iris", Color(0xFFAB47BC)),
-        createTheme("royal_violet", "Royal Robe", Color(0xFF8E24AA)), // 1 Peter 2:9
-        createTheme("deep_velvet", "Night Watch", Color(0xFF7B2CBF)), // Psalm 63:6
-        createTheme("indigo", "Evening Prayer", Color(0xFF5C6BC0)), // Psalm 141:2
-        createTheme("midnight", "Starry Host", Color(0xFF3D5AFE)), // Psalm 147:4
-        createTheme("sapphire", "Sapphire Heaven", Color(0xFF1E88E5)), // Exodus 24:10
-        createTheme("electric_blue", "Open Sky", Color(0xFF00B0FF)), // Psalm 19:1
-        createTheme("cyan", "Living Water", Color(0xFF00E5FF)), // John 4:10
-        createTheme("neon_cyan", "Morning Dew", Color(0xFF8BE9F5)), // Hosea 14:5
-        createTheme("aqua", "Still Waters", Color(0xFF00ACC1)), // Psalm 23:2
-        createTheme("cyber_turquoise", "Galilee", Color(0xFF1DE9B6)), // Matthew 4:18
-        createTheme("teal", "Riverside", Color(0xFF009688)), // Psalm 1:3
-        createTheme("mint", "Spring Rain", Color(0xFF2EE59D)), // Joel 2:23
-        createTheme("emerald", "Green Pastures", Color(0xFF2ECC71)), // Psalm 23:2
-        createTheme("toxic_green", "Evergreen", Color(0xFF43A047)), // Psalm 1:3, "its leaf does not wither"
-        createTheme("lime", "New Growth", Color(0xFFA3E635)), // Isaiah 43:19
-        createTheme("chartreuse", "Vineyard", Color(0xFFC0CA33)), // John 15:5
-        createTheme("olive", "Olive Tree", Color(0xFFAFB42B)), // Psalm 52:8
-        createTheme("champagne", "Fine Linen", Color(0xFFF7E7CE), tint = 0.6f), // Revelation 19:8
-        createTheme("silver", "Refined Silver", Color(0xFFECEFF1)), // Psalm 12:6
-        createTheme("titanium", "Rock of Refuge", Color(0xFF90A4AE)) // Psalm 18:2
+        createTheme("amber", "Honey", Color(0xFFF3AA36)), // Delight in His word (Ps 19:10)
+        createTheme("sunburst", "Morning Joy", Color(0xFFF0DD66)), // Joy that comes in the morning (Ps 30:5)
+        createTheme("orange", "Dayspring", Color(0xFFF7AE81)), // Hope at first light (Lk 1:78)
+        createTheme("coral", "Hearth", Color(0xFFED8F61)), // Warmth of fellowship (Acts 2:46)
+        createTheme("solar", "Burning Bush", Color(0xFFF87C49)), // Holy awe, fire that does not consume (Ex 3:2)
+        createTheme("copper", "Potter's Clay", Color(0xFFC79170)), // Humility in His hands (Is 64:8)
+        createTheme("goldenrod", "Harvest", Color(0xFFC19B54)), // Gratitude, reaping with joy (Ps 126:6)
+        createTheme("crimson", "Scarlet Cord", Color(0xFFF27C7E)), // Redemption held by faith (Josh 2:18)
+        createTheme("ruby", "Pomegranate", Color(0xFFE680A1)), // Abundant love (Song 4:3)
+        createTheme("rose", "Rose of Sharon", Color(0xFFF1A1CD)), // Tender love (Song 2:1)
+        createTheme("magenta", "Desert Bloom", Color(0xFFF89993)), // Restoration, the desert in flower (Is 35:1)
+        createTheme("cherry", "Almond Blossom", Color(0xFFF5C9DD)), // Renewal, the first to wake (Num 17:8)
+        createTheme("rose_gold", "Rose Gold", Color(0xFFCA999F)), // Gentleness (Phil 4:5)
+        createTheme("lavender", "Lavender", Color(0xFFD4BCEB)), // Rest for the soul (Mt 11:29)
+        createTheme("electric_purple", "Iris", Color(0xFFBD9FF2)), // Wonder (Ps 8:3)
+        createTheme("royal_violet", "Royal Robe", Color(0xFFCD85D8)), // Dignity, a royal priesthood (1 Pet 2:9)
+        createTheme("deep_velvet", "Night Watch", Color(0xFFA194E7)), // Longing, meditating through the night (Ps 63:6)
+        createTheme("indigo", "Evening Prayer", Color(0xFF9FA6DD)), // Devotion rising like incense (Ps 141:2)
+        createTheme("midnight", "Starry Host", Color(0xFFA0BDFF)), // Awe at the stars He names (Ps 147:4)
+        createTheme("sapphire", "Sapphire Heaven", Color(0xFF5DA6EF)), // Majesty, holiness (Ex 24:10)
+        createTheme("electric_blue", "Open Sky", Color(0xFF75C9F7)), // Praise, the heavens declare (Ps 19:1)
+        createTheme("cyan", "Living Water", Color(0xFF72E0F6)), // Refreshment, thirst met (Jn 4:10)
+        createTheme("neon_cyan", "Morning Dew", Color(0xFFABECEF)), // Gentle grace (Hos 14:5)
+        createTheme("aqua", "Still Waters", Color(0xFF81BFD4)), // Calm, being led (Ps 23:2)
+        createTheme("cyber_turquoise", "Galilee", Color(0xFF56C2BA)), // The call to follow (Mt 4:18)
+        createTheme("teal", "Riverside", Color(0xFF85C291)), // Steadfastness, rooted by streams (Ps 1:3)
+        createTheme("mint", "Spring Rain", Color(0xFF77E3BC)), // Blessing that falls in season (Joel 2:23)
+        createTheme("emerald", "Green Pastures", Color(0xFF7FCE7E)), // Provision and rest (Ps 23:2)
+        createTheme("toxic_green", "Evergreen", Color(0xFF68B08D)), // Perseverance, leaf that does not wither (Ps 1:3)
+        createTheme("lime", "New Growth", Color(0xFFB9E270)), // New beginnings (Is 43:19)
+        createTheme("chartreuse", "Vineyard", Color(0xFFD488B8)), // Abiding and fruitfulness (Jn 15:5)
+        createTheme("olive", "Olive Tree", Color(0xFFACB16D)), // Faithfulness, flourishing (Ps 52:8)
+        createTheme("champagne", "Fine Linen", Color(0xFFF4E6CE), tint = 0.6f), // Purity (Rev 19:8)
+        createTheme("silver", "Refined Silver", Color(0xFFCCD2D7)), // The pure word, refined (Ps 12:6)
+        createTheme("titanium", "Rock of Refuge", Color(0xFF9DAEB9)), // Security, my refuge (Ps 18:2)
     )
 
     fun getTheme(id: String?): AppTheme {
@@ -224,12 +226,9 @@ object AppThemeManager {
         }
         val successLightColor = if (hue in 80f..160f) Color(0xFF80D8FF) else Color(0xFF69C67E)
 
-        val colorInt = primary.toArgb()
-        val red = AndroidColor.red(colorInt) / 255f
-        val green = AndroidColor.green(colorInt) / 255f
-        val blue = AndroidColor.blue(colorInt) / 255f
-        val luminance = 0.299f * red + 0.587f * green + 0.114f * blue
-        val resolvedIsLightAccent = isLightAccent || (luminance > 0.55f)
+        // Dark text on the accent wherever it reads better than white: the WCAG contrast of the two
+        // is equal at a relative luminance of about 0.18, so soft accents get dark text.
+        val resolvedIsLightAccent = isLightAccent || primary.luminance() > 0.179f
 
         return AppTheme(
             id = id,
