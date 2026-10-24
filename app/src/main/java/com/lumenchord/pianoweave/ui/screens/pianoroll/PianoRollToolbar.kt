@@ -18,14 +18,12 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
@@ -54,15 +52,15 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.PianoPlayer
 import com.lumenchord.pianoweave.midi.MidiInputManager
+import com.lumenchord.pianoweave.ui.components.AppDropdownMenu
+import com.lumenchord.pianoweave.ui.components.AppMenuItem
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
-import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.delay
@@ -310,65 +308,25 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit) {
                     .size(20.dp)
             )
         }
-        // Dressed like the toolbar's own buttons: the roll's dark surface, a faint edge, rounded throughout
-        DropdownMenu(
+        // On the roll's own dark surface, like the toolbar buttons that open it
+        AppDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            shape = RoundedCornerShape(18.dp),
-            containerColor = ColorSurface,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-            shadowElevation = 8.dp,
-            offset = DpOffset(0.dp, 6.dp)
+            heading = "Playback speed",
+            containerColor = ColorSurface
         ) {
-            Text(
-                text = "PLAYBACK SPEED",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-                color = Color.White.copy(alpha = 0.45f),
-                modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 4.dp, bottom = 6.dp)
-            )
             PLAYBACK_SPEEDS.forEach { option ->
-                val isSelected = option == speed
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 6.dp, vertical = 1.dp)
-                        .widthIn(min = 148.dp)
-                        .clip(PillShape)
-                        .background(if (isSelected) colorGold.copy(alpha = 0.16f) else Color.Transparent)
-                        .selectable(selected = isSelected, role = Role.RadioButton) {
-                            expanded = false
-                            onSelect(option)
-                        }
-                        .padding(start = 12.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = speedLabel(option),
-                        fontSize = 15.sp,
-                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                        color = if (isSelected) colorGold else Color.White
-                    )
-                    if (option == 1.0f) {
-                        Text(
-                            text = "Normal",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.45f),
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
+                AppMenuItem(
+                    text = speedLabel(option),
+                    hint = if (option == 1.0f) "Normal" else null,
+                    selected = option == speed,
+                    tint = colorGold,
+                    role = Role.RadioButton,
+                    onClick = {
+                        expanded = false
+                        onSelect(option)
                     }
-                    Spacer(Modifier.weight(1f))
-                    if (isSelected) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = colorGold,
-                            modifier = Modifier
-                                .padding(start = 12.dp)
-                                .size(18.dp)
-                        )
-                    }
-                }
+                )
             }
         }
     }
