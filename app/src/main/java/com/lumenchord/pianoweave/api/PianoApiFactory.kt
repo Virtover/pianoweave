@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.SecretStore
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
@@ -85,8 +86,9 @@ object PianoApiFactory {
         else customServerPasswordFor(url)
 
     private fun customServerPasswordFor(url: HttpUrl): String? {
-        val prefs = AppPrefs.get(application ?: return null)
-        val password = prefs.getString(AppPrefs.CUSTOM_SERVER_PASSWORD, null)?.takeIf { it.isNotEmpty() } ?: return null
+        val app = application ?: return null
+        val prefs = AppPrefs.get(app)
+        val password = SecretStore.get(app, AppPrefs.CUSTOM_SERVER_PASSWORD) ?: return null
         val custom = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, null)
             ?.takeIf { it.isNotBlank() }
             ?.let { withTrailingSlash(it.trim()).toHttpUrlOrNull() }

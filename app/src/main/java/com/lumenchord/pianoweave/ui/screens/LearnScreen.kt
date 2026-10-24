@@ -24,6 +24,8 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.api.ServerMaintenance
+import com.lumenchord.pianoweave.billing.creditsLabel
+import com.lumenchord.pianoweave.billing.owedMinutes
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
@@ -31,6 +33,7 @@ import com.lumenchord.pianoweave.ui.components.ServerMaintenanceBanner
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.ui.theme.Moods
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -179,7 +182,7 @@ fun LearnScreen(
 
     if (viewModel.showNotEnoughCreditsDialog && viewModel.isGoogleSignedIn) {
         NotEnoughCreditsDialog(
-            requiredCredits = viewModel.estimatedCostCredits ?: 0,
+            requiredCredits = viewModel.estimatedCostCredits,
             availableCredits = viewModel.userCredits,
             onBuyCredits = { viewModel.openShop(context) },
             onDismiss = { viewModel.dismissNotEnoughCredits() }
@@ -237,10 +240,12 @@ fun LearnScreen(
                                     tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
                                     modifier = Modifier.size(15.dp)
                                 )
+                                // Owed minutes ask for attention in the Watch amber, never alarm
                                 Text(
-                                    text = "${viewModel.userCredits} Credits",
+                                    text = creditsLabel(viewModel.userCredits),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                                    color = if (owedMinutes(viewModel.userCredits) > 0) Moods.Watch.light
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
                                 )
                                 Icon(
                                     imageVector = Icons.Default.Add,

@@ -1,6 +1,9 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.billing.creditsLabel
+import com.lumenchord.pianoweave.billing.owedMinutes
 import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.theme.Moods
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -188,6 +191,12 @@ internal fun ShopDialog(
                                         Spacer(Modifier.height(2.dp))
                                         BalanceLine(viewModel.userCredits)
                                     }
+                                }
+
+                                val owed = owedMinutes(viewModel.userCredits)
+                                if (owed > 0) {
+                                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.4f))
+                                    OwedNote(owed)
                                 }
 
                                 val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
@@ -398,7 +407,8 @@ private fun BalanceLine(credits: Int) {
 
     val creditsStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black)
     val rateStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
-    val creditsText = "$credits Credits"
+    val creditsText = creditsLabel(credits)
+    val creditsColor = if (owedMinutes(credits) > 0) Moods.Watch.light else Color.White
     val rateText = "1 Min = 1 Credit"
     val rateColor = MaterialTheme.colorScheme.secondary
     val gap = 12.dp
@@ -418,7 +428,7 @@ private fun BalanceLine(credits: Int) {
                 Text(
                     text = creditsText,
                     style = creditsStyle,
-                    color = Color.White,
+                    color = creditsColor,
                     maxLines = 1
                 )
                 Text(
@@ -437,7 +447,7 @@ private fun BalanceLine(credits: Int) {
                 Text(
                     text = creditsText,
                     style = creditsStyle,
-                    color = Color.White,
+                    color = creditsColor,
                     maxLines = 1
                 )
                 Text(
@@ -470,5 +480,32 @@ private fun formatPrice(details: ProductDetails): String? {
         "$amount ${currency.currencyCode}"
     } catch (_: IllegalArgumentException) {
         offer.formattedPrice
+    }
+}
+
+
+/**
+ * Minutes owed after a refund of minutes already used. Said plainly and kindly: "Let no debt remain
+ * outstanding, except the continuing debt to love one another" (Romans 13:8).
+ */
+@Composable
+private fun OwedNote(owed: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            tint = Moods.Watch.core,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = "A refunded purchase had already been used, so $owed ${if (owed == 1) "credit is" else "credits are"} owed. " +
+                "New credits cover that first.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Moods.Watch.light
+        )
     }
 }

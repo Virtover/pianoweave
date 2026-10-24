@@ -20,6 +20,7 @@ import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.util.findActivity
@@ -86,8 +87,9 @@ object GoogleAuthManager {
     }
 
     /**
-     * Runs [apiCall] with the given (or saved) token. On HTTP 401/503 the token is refreshed and the
-     * call is retried once; otherwise the original error is rethrown. On 401 the rejected token is first
+     * Runs [apiCall] with the given (or saved) token. When the refusal may be about the token (see
+     * [ServerErrors.canRefreshToken]) the token is refreshed and the call is retried once; otherwise the
+     * original error is rethrown. On a token 401 the rejected token is first
      * evicted from Play services' cache, which would otherwise keep returning it (e.g. after access was
      * revoked by the account deletion page); if access was revoked, the refresh asks for consent again.
      */
@@ -101,10 +103,12 @@ object GoogleAuthManager {
         try {
             return apiCall(authHeader)
         } catch (e: HttpException) {
+            // A missing server password or a busy server says nothing about the token: keep it
+            if (!ServerErrors.canRefreshToken(e.code(), e.response()?.headers())) throw e
             if (e.code() == 401) {
                 authHeader?.removePrefix("Bearer ")?.let { clearCachedToken(context, it) }
             }
-            val canRefresh = (e.code() == 401 || e.code() == 503) && getActiveClientId(context).isNotBlank()
+            val canRefresh = getActiveClientId(context).isNotBlank()
             val refreshedUser = if (canRefresh) silentRefresh(context).getOrNull() else null
             if (refreshedUser != null) {
                 return apiCall(getAuthHeader(refreshedUser.token))

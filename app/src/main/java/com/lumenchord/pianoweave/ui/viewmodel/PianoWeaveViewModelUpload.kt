@@ -6,9 +6,12 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.api.CreateTranscriptionResponse
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.UploadFormats
 import com.lumenchord.pianoweave.api.uploadSourceKey
+import com.lumenchord.pianoweave.billing.canAfford
 import com.lumenchord.pianoweave.worker.ActiveJobStore
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -49,7 +52,12 @@ internal fun PianoWeaveViewModel.selectTranscriptionSourceImpl(source: Transcrip
     transcriptionSource = source
     transcriptionError = null
     // The cost shown belongs to the chosen source.
-    if (source == TranscriptionSource.Link) {
+    recalculateCostImpl()
+}
+
+/** Works out the cost of what the chosen source would transcribe, or clears it if there is nothing yet. */
+internal fun PianoWeaveViewModel.recalculateCostImpl() {
+    if (transcriptionSource == TranscriptionSource.Link) {
         calculateCostForUrlImpl(videoUrl)
     } else sourceMediaFile?.let { calculateCostForFile(it) } ?: run {
         costJob?.cancel()
@@ -110,8 +118,10 @@ internal fun PianoWeaveViewModel.limitProblem(file: SelectedMediaFile): String? 
 internal fun PianoWeaveViewModel.calculateCostForFile(file: SelectedMediaFile) {
     costJob?.cancel()
     val duration = file.durationSeconds
-    if (duration == null || !isBilledServer) {
+    val context = appContext
+    if (duration == null || !isBilledServer || !isGoogleSignedIn || context == null) {
         // Unknown length: the server works out the cost after the upload and still enforces the balance.
+        // Signed out: a billed server tells the cost only after sign-in, which recalculates it.
         estimatedCostCredits = null
         isCalculatingCost = false
         return
@@ -119,8 +129,7 @@ internal fun PianoWeaveViewModel.calculateCostForFile(file: SelectedMediaFile) {
     isCalculatingCost = true
     costJob = viewModelScope.launch {
         try {
-            estimatedCostCredits = PianoApiFactory.getApi(activeServerUrl)
-                .getBillingCost(durationSeconds = duration).costMinutes
+            estimatedCostCredits = fetchBillingCost(context, durationSeconds = duration)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             estimatedCostCredits = null
@@ -181,9 +190,19 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
 
     transcriptionJob = viewModelScope.launch {
         isLoading = true
-        isUploading = true
         readySong = null
         progress = 0f
+
+        // The server turns a low balance away before it reads the upload, and the client then often
+        // reports a broken connection instead of why, so the balance is checked before sending anything.
+        if (isBilledServer && !hasBalanceForUpload(context, file)) {
+            isLoading = false
+            status = "Ready to convert."
+            showNotEnoughCreditsDialog = true
+            return@launch
+        }
+
+        isUploading = true
         status = "Uploading \"${file.name}\"..."
 
         val body = MediaUploadBody(context.contentResolver, file) { fraction ->
@@ -195,9 +214,12 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
         try {
             // Once the whole file is sent the server queues and bills the job, so its id must not be
             // lost to a cancellation: cancelling stops the body instead (see cancelTranscriptionImpl).
-            val jobId = withContext(NonCancellable) {
+            val submitted = withContext(NonCancellable) {
                 submitUpload(context, file, body)
             }
+            val jobId = submitted.job_id
+            // The server measures the decoded audio, so this, not the estimate, is what was charged
+            submitted.minutes?.let { userCredits = it }
             currentJobId = jobId
             isUploading = false
             if (body.isCancelled) return@launch // the cancel flow deletes the job
@@ -222,7 +244,13 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             if (body.isCancelled) return@launch
-            failTranscriptionStart(context, e)
+            // A connection broken mid-upload may be the server's refusal of a low balance (402) in disguise
+            val balance = if (isBilledServer && ServerErrors.isBrokenUpload(e)) loadUserBalance(context) else null
+            if (balance != null && !canAfford(balance, estimatedCostCredits)) {
+                failTranscriptionStart(context, InsufficientBalanceException())
+            } else {
+                failTranscriptionStart(context, e)
+            }
         } finally {
             isUploading = false
             activeUpload = null
@@ -230,11 +258,29 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
     }
 }
 
+/**
+ * True if the balance covers [file], or if that can't be told now (the server still enforces it). Uses
+ * the cost shown, or asks for it when the length is known but the cost isn't yet.
+ */
+private suspend fun PianoWeaveViewModel.hasBalanceForUpload(context: Context, file: SelectedMediaFile): Boolean {
+    status = "Checking your balance..."
+    val balance = loadUserBalance(context) ?: return true
+    val cost = estimatedCostCredits ?: file.durationSeconds?.let { duration ->
+        try {
+            fetchBillingCost(context, durationSeconds = duration).also { estimatedCostCredits = it }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+    return canAfford(balance, cost)
+}
+
 private suspend fun PianoWeaveViewModel.submitUpload(
     context: Context,
     file: SelectedMediaFile,
     body: MediaUploadBody
-): String {
+): CreateTranscriptionResponse {
     val uId = getOrCreateUserId(context)
     return executeServerCallImpl(context) { authHeader ->
         if (isBilledServer && authHeader == null) {
@@ -246,7 +292,7 @@ private suspend fun PianoWeaveViewModel.submitUpload(
             authHeader = authHeader,
             userId = if (!isBilledServer) uId else null
         )
-    }.job_id
+    }
 }
 
 /**
