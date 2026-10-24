@@ -48,6 +48,7 @@ import androidx.core.content.ContextCompat
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.hasEditableDetails
+import com.lumenchord.pianoweave.ui.components.quietFieldColors
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.components.CloudSyncDialogs
 import com.lumenchord.pianoweave.ui.components.DangerButton
@@ -566,11 +567,9 @@ fun StorageScreen(
                             enabled = true,
                             isError = false,
                             interactionSource = interactionSource,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                                cursorColor = MaterialTheme.colorScheme.secondary
-                            ),
-                            shape = RoundedCornerShape(10.dp)
+                            // The same quiet well as the Transcribe card's link field
+                            colors = quietFieldColors(),
+                            shape = RoundedCornerShape(if (isLandscape) 12.dp else 14.dp)
                         )
                     }
                 )

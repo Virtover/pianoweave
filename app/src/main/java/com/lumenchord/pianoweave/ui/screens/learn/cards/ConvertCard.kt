@@ -84,6 +84,9 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import com.lumenchord.pianoweave.ui.components.appendLink
+import com.lumenchord.pianoweave.ui.components.IconBadge
+import com.lumenchord.pianoweave.ui.components.cardWash
+import com.lumenchord.pianoweave.ui.components.quietFieldColors
 import androidx.compose.material.icons.outlined.Info
 import com.lumenchord.pianoweave.ui.screens.learn.LinkInputAnchors
 import com.lumenchord.pianoweave.ui.screens.learn.TranscriptionTermsDialog
@@ -335,8 +338,7 @@ fun TranscriptionInputCard(
     ) {
         Column(
             modifier = Modifier
-                // A faint accent wash from the top, so the card reads as the screen's starting point
-                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.07f), Color.Transparent)))
+                .cardWash(accent)
                 // Landscape has about 330dp of height: tighter, so the whole card fits without scrolling
                 .padding(if (isLandscape) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
@@ -355,19 +357,7 @@ fun TranscriptionInputCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(if (isLandscape) 26.dp else 30.dp)
-                        .background(accent.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(if (isLandscape) 15.dp else 17.dp)
-                    )
-                }
+                IconBadge(Icons.Default.AutoAwesome, tint = accent, size = if (isLandscape) 26.dp else 30.dp)
                 Spacer(Modifier.width(10.dp))
                 Text(
                     text = "AI Transcription",
@@ -482,15 +472,7 @@ fun TranscriptionInputCard(
                 singleLine = true,
                 enabled = !viewModel.isLoading,
                 shape = RoundedCornerShape(14.dp),
-                // A quiet well until focused, so the accent marks only where the user is typing
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
-                    disabledBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                    focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                    cursorColor = MaterialTheme.colorScheme.secondary
-                ),
+                colors = quietFieldColors(),
                 leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary) },
                 trailingIcon = {
                     if (viewModel.isLoading) return@OutlinedTextField
@@ -1048,6 +1030,8 @@ fun TranscriptionProgressCard(
     modifier: Modifier = Modifier
 ) {
     val accent = MaterialTheme.colorScheme.secondary
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val onSurface = MaterialTheme.colorScheme.onSurface
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -1055,42 +1039,44 @@ fun TranscriptionProgressCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .cardWash(accent)
+                .padding(if (isLandscape) 12.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (progress > 0f) {
-                            Text(
-                                text = "${(progress * 100).toInt()}%",
-                                color = accent,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
-                    }
-                    Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, maxLines = 2)
-                    if (progress < 1f) {
-                        Spacer(Modifier.height(8.dp))
-                        TranscriptionProgressBar(progress = progress, color = accent)
-                    }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(Icons.Default.GraphicEq, tint = accent, size = if (isLandscape) 26.dp else 30.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Transcribing",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp),
+                    color = accent,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+                if (progress > 0f) {
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        color = accent,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+            Column {
+                Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                if (progress < 1f) {
+                    Spacer(Modifier.height(8.dp))
+                    TranscriptionProgressBar(progress = progress, color = accent)
                 }
             }
 
             if (viewModel.isBilledServer) {
                 val retentionText = viewModel.formatRetentionTime()
+                // The same quiet well as the link field, so the note sits in the card rather than on top of it
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color.Black.copy(alpha = 0.25f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
+                    shape = RoundedCornerShape(14.dp),
+                    color = onSurface.copy(alpha = 0.04f),
+                    border = BorderStroke(1.dp, onSurface.copy(alpha = 0.14f))
                 ) {
                     Row(
                         modifier = Modifier.padding(10.dp),
@@ -1098,9 +1084,9 @@ fun TranscriptionProgressCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Api,
+                            imageVector = Icons.Outlined.Info,
                             contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.7f),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier.size(16.dp).padding(top = 2.dp)
                         )
                         Text(
@@ -1206,49 +1192,35 @@ fun TranscriptionErrorCard(
     errorMessage: String,
     onErrorDismiss: () -> Unit
 ) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     // Sorrow that is held, not alarm: Moods.Lament (Psalm 56:8)
+    val lament = Moods.Lament.core
     DangerCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         borderAlpha = 0.45f
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .cardWash(lament)
+                .padding(if (isLandscape) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // A tear, kept in His bottle
-                    Icon(
-                        imageVector = Icons.Default.WaterDrop,
-                        contentDescription = "Error",
-                        tint = Moods.Lament.core,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "Transcription Failed",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
-                        )
-                    }
-                }
-
+                // A tear, kept in His bottle
+                IconBadge(Icons.Default.WaterDrop, tint = lament, size = if (isLandscape) 26.dp else 30.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Transcription failed",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
                 IconButton(
                     onClick = onErrorDismiss,
                     modifier = Modifier.size(28.dp)
@@ -1261,6 +1233,11 @@ fun TranscriptionErrorCard(
                     )
                 }
             }
+            Text(
+                text = errorMessage,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+            )
         }
     }
 }

@@ -6,12 +6,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,15 +56,15 @@ fun ServerMaintenanceBanner(notice: MaintenanceNotice, modifier: Modifier = Modi
         border = BorderStroke(1.dp, watch.core.copy(alpha = 0.45f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .cardWash(watch.core)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                imageVector = if (notice.isShutdown) Icons.Default.PowerSettingsNew else Icons.Default.RestartAlt,
-                contentDescription = null,
-                tint = watch.core,
-                modifier = Modifier.size(24.dp)
+            IconBadge(
+                icon = if (notice.isShutdown) Icons.Default.PowerSettingsNew else Icons.Default.RestartAlt,
+                tint = watch.core
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
