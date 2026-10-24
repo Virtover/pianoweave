@@ -198,7 +198,9 @@ internal fun ServerSettingsDialog(
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Text(
-                                            text = viewModel.defaultServerUrl.ifBlank { "Configured in assets/config/config.txt" },
+                                            // https:// and the trailing slash say nothing here; http:// stays visible as a warning
+                                            text = viewModel.defaultServerUrl.removePrefix("https://").removeSuffix("/")
+                                                .ifBlank { "Configured in assets/config/config.txt" },
                                             fontSize = 12.sp,
                                             color = ColorTextDim,
                                             maxLines = 1,
