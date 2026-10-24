@@ -212,7 +212,17 @@ object AppThemeManager {
             palette = NeutralPalette.tinted(hue = 32f, strength = 1f)
         ),
         createTheme("mint", "Spring Rain", Color(0xFF79DFB7)), // Blessing that falls in season (Joel 2:23)
-        createTheme("emerald", "Green Pastures", Color(0xFF7ECB79)), // Provision and rest (Ps 23:2)
+        // Full of life, rest and peace: "He makes me lie down in green pastures... He restores my soul" (Ps
+        // 23:2-3), and the tender rest of the Beloved's garden: "My beloved is mine and I am his; he browses
+        // among the lilies" (Song 2:16), be-shoshanim, as in Maja Sowinska's "Be Szoszanim". Tender living
+        // green for the notes, a calm meadow on the stage with a blossom warmth near the keys, and a soft
+        // rose-blossom keyboard line for the lilies and roses among the green.
+        createTheme(
+            "emerald", "Green Pastures", Color(0xFF95D587),
+            customBaseline = Color(0xFFF7AAC4),
+            palette = NeutralPalette.tinted(hue = 125f, strength = 1.6f),
+            stage = listOf(Color(0xFF0C1A15), Color(0xFF11231A), Color(0xFF2A2A20), Color(0xFF1A2C20))
+        ),
         // New beginnings: "I am doing a new thing; now it springs up" (Is 43:19). Growth out of the earth: the
         // lime notes are young shoots, the keyboard line is rich soil with their light breaking through at
         // its center, and the stage darkens toward the soil below.
@@ -229,7 +239,16 @@ object AppThemeManager {
             customBaseline = Color(0xFFB19270),
             stage = listOf(Color(0xFF0E120C), Color(0xFF10120D), Color(0xFF17120C), Color(0xFF1A1D16))
         ),
-        createTheme("champagne", "Fine Linen", Color(0xFFF8E8CE), tint = 0.6f), // Purity (Rev 19:8)
+        // Living faith: "Fine linen, bright and clean... stands for the righteous acts of God's holy people"
+        // (Rev 19:8). Faith lived out, woven like the priests' linen with blue thread (Ex 28:5-6), the blue cord
+        // worn "so you will remember all the commands of the Lord and do them" (Num 15:38-39). Radiant ivory
+        // notes in a warm room, with that living blue thread as the keyboard line.
+        createTheme(
+            "champagne", "Fine Linen", Color(0xFFF4EAD5),
+            customBaseline = Color(0xFF539AF2),
+            palette = NeutralPalette.tinted(hue = 45f, strength = 1.2f),
+            stage = listOf(Color(0xFF12100D), Color(0xFF1A1611), Color(0xFF262016), Color(0xFF221E17))
+        ),
         // Security in a living God: "The Lord is my rock, my fortress and my deliverer" (Ps 18:2). Not dead
         // stone: sun-warmed rock, and the keyboard line is the water that flowed from it (Ex 17:6), for
         // "that rock was Christ" (1 Cor 10:4).
