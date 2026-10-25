@@ -10,12 +10,31 @@
 </p>
 
 <p align="center">
-  <a href="#-features">Features</a> •
   <a href="#-community--support">Community & Support</a> •
   <a href="#-screenshots">Screenshots</a> •
+  <a href="#-features">Features</a> •
   <a href="#-setup">Setup</a> •
   <a href="#-key-modules">Key Modules</a> •
   <a href="#license">License</a>
+</p>
+
+---
+
+## 💬 Community & Support
+
+<p align="center">
+  Questions, ideas or a song that didn't transcribe well? Join the Discord.<br>
+  Piano Weave is made by one developer; if it helps your playing, a Ko-fi keeps it growing.
+</p>
+
+<p align="center">
+  <a href="https://discord.gg/vzMyRZewmb">
+    <img src="https://img.shields.io/badge/Join%20the%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Discord" height="40" />
+  </a>
+  &nbsp;
+  <a href="https://ko-fi.com/Y3G527Q9PN">
+    <img src="https://img.shields.io/badge/Support%20on%20Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi" height="40" />
+  </a>
 </p>
 
 ---
@@ -70,17 +89,6 @@
 * **MIDI Keyboards:** USB and virtual MIDI keyboards connect automatically. Their notes play through the app's piano sound, which can be turned off for keyboards with their own speakers.
 * **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations, with many selectable color themes.
 * **Cloud Persistence & Sync:** Google Drive integration and cloud account support for seamless backup and synchronization of your saved MIDI songs and practice sessions.
-
-## 💬 Community & Support
-
-<p align="center">
-  <a href="https://discord.gg/vzMyRZewmb">
-    <img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" />
-  </a>
-  <a href="https://ko-fi.com/Y3G527Q9PN">
-    <img src="https://img.shields.io/badge/Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi" />
-  </a>
-</p>
 
 ## 🛠️ Setup
 
