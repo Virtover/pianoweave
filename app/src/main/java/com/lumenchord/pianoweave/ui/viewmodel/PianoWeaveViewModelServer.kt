@@ -14,6 +14,7 @@ import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.billing.isVerificationRetryable
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
+import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.util.SecretStore
 import com.lumenchord.pianoweave.util.findActivity
@@ -252,6 +253,8 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     val prefs = AppPrefs.get(context)
     getOrCreateUserIdImpl(context)
     isStrikeOverlayEnabled = prefs.getBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, true)
+    isKeyboardSoundEnabled = prefs.getBoolean(AppPrefs.IS_KEYBOARD_SOUND_ENABLED, true)
+    MidiInputManager.isSoundEnabled = isKeyboardSoundEnabled
     // A theme merged into another resolves to its replacement, so the picker shows it as selected
     selectedThemeId = AppThemeManager.resolveId(prefs.getString(AppPrefs.SELECTED_THEME_ID, null)) ?: AppThemeManager.defaultTheme.id
     topBarSpeed = prefs.getFloat(AppPrefs.TOP_BAR_SPEED, 1.0f)

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -45,6 +46,19 @@ fun VisualizerSettingsSection(
         )
 
         HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+        // Only meaningful with a MIDI keyboard plugged in, so it appears with one
+        if (MidiInputManager.isConnected) {
+            SettingToggleRow(
+                title = "Keyboard Sound",
+                subtitle = "Play your MIDI keyboard through the app. Turn off if it has its own speakers",
+                checked = viewModel.isKeyboardSoundEnabled,
+                onCheckedChange = { viewModel.setKeyboardSoundEnabled(context, it) },
+                accent = colorAccent
+            )
+
+            HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+        }
 
         // Speed Section
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

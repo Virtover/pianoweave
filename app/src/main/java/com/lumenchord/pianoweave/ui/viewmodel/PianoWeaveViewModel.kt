@@ -61,6 +61,8 @@ class PianoWeaveViewModel : ViewModel() {
     var isWaitModeEnabled by mutableStateOf(false)
     var isStrikeOverlayEnabled by mutableStateOf(true)
         internal set
+    var isKeyboardSoundEnabled by mutableStateOf(true)
+        internal set
 
     var isLoopingEnabled by mutableStateOf(false)
     var loopStartMs by mutableLongStateOf(0L)
@@ -309,6 +311,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
     fun selectPlaybackSpeed(context: Context, speed: Float) = selectPlaybackSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
+    fun setKeyboardSoundEnabled(context: Context, enabled: Boolean) = setKeyboardSoundEnabledImpl(context, enabled)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
     fun openShop(context: Context) = openShopImpl(context)
     fun dismissShop() { showShopDialog = false }

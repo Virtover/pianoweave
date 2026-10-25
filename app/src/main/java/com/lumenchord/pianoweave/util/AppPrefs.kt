@@ -45,6 +45,8 @@ object AppPrefs {
     const val SELECTED_THEME_ID = "selected_theme_id"
     const val TOP_BAR_SPEED = "top_bar_speed"
     const val IS_STRIKE_OVERLAY_ENABLED = "is_strike_overlay_enabled"
+    /** Whether notes from a connected MIDI keyboard are played through the app's piano sound. */
+    const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
     const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
     /** Legacy flag: the hidden verse screen was opened at least once (superseded by the count below). */
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"

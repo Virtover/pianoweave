@@ -14,6 +14,7 @@ import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.MidiExporter
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -49,6 +50,12 @@ internal fun PianoWeaveViewModel.setTopBarSpeedImpl(context: Context, speed: Flo
 internal fun PianoWeaveViewModel.setStrikeOverlayEnabledImpl(context: Context, enabled: Boolean) {
     isStrikeOverlayEnabled = enabled
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, enabled).apply()
+}
+
+internal fun PianoWeaveViewModel.setKeyboardSoundEnabledImpl(context: Context, enabled: Boolean) {
+    isKeyboardSoundEnabled = enabled
+    MidiInputManager.isSoundEnabled = enabled
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_KEYBOARD_SOUND_ENABLED, enabled).apply()
 }
 
 internal fun PianoWeaveViewModel.openPracticeSessionImpl(context: Context, song: StoredMidi) {

@@ -314,6 +314,13 @@ private fun ModernPianoPlayerContent(
                         required.forEach { p ->
                             MidiInputManager.consumedPressTimestamps[p] = MidiInputManager.lastPressTimestamps[p] ?: 0L
                         }
+                        // The jump below skips the trigger pass, so the rest of the song at this point
+                        // (other hand, keys off screen) sounds here. The keys just played are left out:
+                        // the keyboard, or its sound through the app, already plays them
+                        if (isSongSoundOn) {
+                            noteEvents.filter { abs(it.startMs - upcoming) <= 30L && it.pitch !in required }
+                                .forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+                        }
                         lastCompletedWaitOnsetMs = upcoming
                         currentWaitOnsetMs = -1L
                         chordHits.clear()

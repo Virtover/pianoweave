@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.lumenchord.pianoweave.audio.PianoPlayer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -36,6 +37,20 @@ object MidiInputManager {
         private set
 
     fun isMidiDeviceConnected(): Boolean = isConnected
+
+    /**
+     * Whether keyboard notes are played through the app's piano. On by default: many MIDI keyboards have no
+     * speakers and would be silent; one with its own sound would be heard twice, so it can be turned off.
+     */
+    @Volatile
+    var isSoundEnabled = true
+        set(value) {
+            field = value
+            if (!value) releaseSoundingNotes()
+        }
+
+    /** Keyboard notes this app is sounding, so a note off (or turning the sound off) stops only those. */
+    private val soundingPitches = ConcurrentHashMap.newKeySet<Int>()
 
     @Suppress("DEPRECATION")
     fun initialize(context: Context) {
@@ -88,8 +103,17 @@ object MidiInputManager {
                 return@openDevice
             }
             val parser = MidiNoteParser(
-                onNoteOn = { pitch, _ -> simulateExternalNoteOn(pitch) },
-                onNoteOff = { pitch -> simulateExternalNoteOff(pitch) }
+                onNoteOn = { pitch, velocity ->
+                    if (isSoundEnabled) {
+                        PianoPlayer.noteOn(pitch, velocity)
+                        soundingPitches.add(pitch)
+                    }
+                    simulateExternalNoteOn(pitch)
+                },
+                onNoteOff = { pitch ->
+                    if (soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch)
+                    simulateExternalNoteOff(pitch)
+                }
             )
             outputPort.connect(object : MidiReceiver() {
                 override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
@@ -108,6 +132,7 @@ object MidiInputManager {
         activePort = null
         activeDevice = null
         isConnected = false
+        releaseSoundingNotes()
         externalPresses.clear()
         syncPressedKeys()
     }
@@ -132,6 +157,12 @@ object MidiInputManager {
     fun simulateExternalNoteOff(pitch: Int) {
         externalPresses.remove(pitch)
         syncPressedKeys()
+    }
+
+    private fun releaseSoundingNotes() {
+        soundingPitches.toList().forEach { pitch ->
+            if (soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch)
+        }
     }
 
     private fun syncPressedKeys() {
