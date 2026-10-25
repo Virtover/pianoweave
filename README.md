@@ -24,27 +24,39 @@
 
 <table width="100%">
   <tr>
+    <th width="50%" align="center">Piano Weave</th>
+    <th width="50%" align="center">Wait Mode</th>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/landscape_01_hero.png" width="100%" alt="Piano Weave Screen" />
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/landscape_02_wait_mode.png" width="100%" alt="Wait Mode Screen" />
+    </td>
+  </tr>
+  <tr>
     <th width="50%" align="center">AI Transcription</th>
+    <th width="50%" align="center">Practice</th>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/landscape_03_transcribe.png" width="100%" alt="AI Transcription Screen" />
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/landscape_04_practice.png" width="100%" alt="Practice Screen" />
+    </td>
+  </tr>
+  <tr>
     <th width="50%" align="center">MIDI Library</th>
+    <th width="50%" align="center">Server Settings</th>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="screenshots/transcription_landscape.jpg" width="100%" alt="AI Transcription Screen" />
+      <img src="screenshots/landscape_05_library.png" width="100%" alt="MIDI Library Screen" />
     </td>
     <td width="50%" align="center">
-      <img src="screenshots/midi_library.jpg" width="100%" alt="MIDI Library Screen" />
-    </td>
-  </tr>
-  <tr>
-    <th width="50%" align="center">Interactive Piano Roll</th>
-    <th width="50%" align="center">Interactive Piano Roll (with Controls)</th>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="screenshots/piano_roll_landscape.jpg" width="100%" alt="Interactive Piano Roll Screen" />
-    </td>
-    <td width="50%" align="center">
-      <img src="screenshots/piano_roll_landscape_2.jpg" width="100%" alt="Interactive Piano Roll with Controls" />
+      <img src="screenshots/landscape_06_server.png" width="100%" alt="Server Settings Screen" />
     </td>
   </tr>
 </table>
