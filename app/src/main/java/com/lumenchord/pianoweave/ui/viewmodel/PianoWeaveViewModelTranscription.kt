@@ -193,7 +193,7 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
         e is HttpException && e.code() == 401 && !isUsingDefaultServer ->
             "This server requires Google sign-in. Your Google account is only shared with the official server."
         e is HttpException -> serverErrorDetail(context, e) ?: "Server error (HTTP ${e.code()})"
-        else -> e.localizedMessage ?: "Connection error"
+        else -> connectionMessage(e) ?: e.localizedMessage ?: "Connection error"
     }
     transcriptionError = errMsg
     status = "Error: $errMsg"

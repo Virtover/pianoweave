@@ -116,7 +116,7 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
                                 loadSongsImpl(context)
                             }
                         } else {
-                            throw Exception(deleteResult.exceptionOrNull()?.localizedMessage ?: "Failed to delete from Drive")
+                            throw deleteResult.exceptionOrNull() ?: Exception("Failed to delete from Drive")
                         }
                     } else {
                         MidiStorage.forgetDeleted(context, song)
@@ -127,7 +127,7 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
                         hasCloudSyncError = true
-                        cloudSyncError = "Failed to delete file from cloud: ${e.localizedMessage ?: "Network error"}"
+                        cloudSyncError = "Failed to delete file from cloud: ${connectionMessage(e, DRIVE) ?: e.localizedMessage ?: "Network error"}"
                         saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = true, errorMsg = cloudSyncError)
                         loadSongsImpl(context)
                     }

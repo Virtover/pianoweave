@@ -222,7 +222,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                                 },
                                 onFailure = { err ->
                                     Log.w(TAG, "Upload failed", err)
-                                    failures.add("Upload '${localMidi.metadata.title}': ${err.localizedMessage ?: "Unknown error"}")
+                                    failures.add("Upload '${localMidi.metadata.title}': ${connectionMessage(err, DRIVE) ?: err.localizedMessage ?: "Unknown error"}")
                                 }
                             )
                             reportProgress("Syncing ${localMidi.metadata.title}")
@@ -240,7 +240,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                                 },
                                 onFailure = { err ->
                                     Log.w(TAG, "Download failed", err)
-                                    failures.add("Download '${cloudSong.metadata.title}': ${err.localizedMessage ?: "Unknown error"}")
+                                    failures.add("Download '${cloudSong.metadata.title}': ${connectionMessage(err, DRIVE) ?: err.localizedMessage ?: "Unknown error"}")
                                 }
                             )
                             reportProgress("Syncing ${cloudSong.metadata.title}")
@@ -479,5 +479,9 @@ private fun PianoWeaveViewModel.describeSyncError(error: Throwable?): String =
     when ((error as? HttpException)?.code()) {
         401 -> "Google Drive access for $googleUserEmail has expired or was removed. Sign in again to restore it."
         403 -> "Google Drive access is not granted for $googleUserEmail. Sign in again and allow Piano Weave to use its Google Drive data."
-        else -> "Sync error: ${error?.localizedMessage ?: "Failed to connect to Google Drive."}"
+        else -> error?.let { connectionMessage(it, DRIVE) }
+            ?: "Sync error: ${error?.localizedMessage ?: "Failed to connect to Google Drive."}"
     }
+
+/** How connection messages name Drive: "Couldn't reach Google Drive." */
+internal const val DRIVE = "Google Drive"

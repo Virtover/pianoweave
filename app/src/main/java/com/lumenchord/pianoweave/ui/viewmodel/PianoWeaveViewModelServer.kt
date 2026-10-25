@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import android.content.Context
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.api.ConnectionErrors
 import com.lumenchord.pianoweave.api.MaintenanceNotice
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerMaintenance
@@ -16,6 +17,7 @@ import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.Connectivity
 import com.lumenchord.pianoweave.util.SecretStore
 import com.lumenchord.pianoweave.util.findActivity
 import com.lumenchord.pianoweave.worker.PurchaseVerificationWorker
@@ -62,9 +64,26 @@ internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): 
         }
     } catch (e: Exception) {
         if (e is CancellationException) throw e
-        ServerStatus.OFFLINE
+        if (!isOnline()) ServerStatus.NO_INTERNET else ServerStatus.OFFLINE
     }
 }
+
+private fun PianoWeaveViewModel.isOnline(): Boolean = appContext?.let(Connectivity::isOnline) ?: true
+
+/**
+ * [ConnectionErrors.message] for a request that got no answer: from the selected server, or from [target]
+ * (such as "Google Drive"). Null if [e] is not a connection failure.
+ */
+internal fun PianoWeaveViewModel.connectionMessage(e: Throwable, target: String? = null): String? =
+    if (target != null) ConnectionErrors.message(e, isOnline(), target)
+    else ConnectionErrors.message(
+        e,
+        isOnline(),
+        target = if (isUsingDefaultServer) "the server" else "this server",
+        isCustomServer = !isUsingDefaultServer
+    )
+
+private val ServerStatus.isUnreachable get() = this == ServerStatus.OFFLINE || this == ServerStatus.NO_INTERNET
 
 internal fun PianoWeaveViewModel.startAutoReconnectImpl(context: Context? = null) {
     if (context != null) {
@@ -72,9 +91,9 @@ internal fun PianoWeaveViewModel.startAutoReconnectImpl(context: Context? = null
     }
     if (autoReconnectJob?.isActive == true) return
     autoReconnectJob = viewModelScope.launch {
-        while (serverStatus == ServerStatus.OFFLINE) {
+        while (serverStatus.isUnreachable) {
             delay(reconnectIntervalMs(ServerMaintenance.notice))
-            if (serverStatus != ServerStatus.OFFLINE) break
+            if (!serverStatus.isUnreachable) break
             val targetContext = appContext ?: context
             checkServerHealthAndInfoImpl(targetContext, isUserAction = false, fromAutoReconnect = true)
         }
@@ -139,7 +158,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     if (PianoApiFactory.isServerPasswordRequired(e)) serverStatus = ServerStatus.PASSWORD_REQUIRED
                 }
             }
-        } else if (serverStatus == ServerStatus.OFFLINE) {
+        } else if (serverStatus.isUnreachable) {
             startAutoReconnectImpl(targetContext)
         }
     }
