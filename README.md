@@ -63,11 +63,12 @@
 
 ## ✨ Features
 
-* **AI Transcription:** Uses a FastAPI backend to transcribe piano performances from online video URLs (e.g. YouTube) into MIDI data.
+* **AI Transcription:** Turns the piano part of a video link (e.g. YouTube), an audio/video file or a microphone recording into MIDI, using a FastAPI backend. Vocals and other instruments are left out, so the result is the piano part, not a full arrangement; piano covers give the best results.
 * **Ultra-Pro Piano Roll:** Practice with a high-fidelity interactive roll featuring A/B looping, speed control, and transposition.
 * **Grand Piano Sound:** Powered by FluidSynth and high-quality SoundFonts for a rich, realistic acoustic piano experience.
-* **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations.
-* **Wait Mode:** Acoustic note detection that pauses playback until you strike the correct notes.
+* **Wait Mode:** Pauses at each note until you play it, listening to a connected MIDI keyboard or, without one, to your acoustic piano through the microphone. With a keyboard the rest of the song plays along; with the microphone the song stays silent so the phone isn't heard as your playing.
+* **MIDI Keyboards:** USB and virtual MIDI keyboards connect automatically. Their notes play through the app's piano sound, which can be turned off for keyboards with their own speakers.
+* **Adaptive UI:** Optimized for both landscape (tablet/practice mode) and portrait (browsing mode) orientations, with many selectable color themes.
 * **Cloud Persistence & Sync:** Google Drive integration and cloud account support for seamless backup and synchronization of your saved MIDI songs and practice sessions.
 
 ## 💬 Community & Support
@@ -182,9 +183,10 @@ Keep the upload keystore safe. It is required for future release uploads to Goog
 
 ## 🚀 Key Modules
 
-* **`audio`:** Real-time FluidSynth integration for grand piano synthesis.
-* **`midi`:** Binary MIDI parsing and hardware input management.
+* **`audio`:** Real-time FluidSynth integration for grand piano synthesis, plus microphone note detection for wait mode.
+* **`midi`:** Binary MIDI parsing, the song library and hardware input management.
 * **`api`:** Retrofit-based communication with the transcription backend.
+* **`auth`, `billing`, `cloud`:** Google sign-in, Play Billing credits and Google Drive sync.
 * **`ui`:** Modern Jetpack Compose implementation of the practicing dashboard.
 
 ## License

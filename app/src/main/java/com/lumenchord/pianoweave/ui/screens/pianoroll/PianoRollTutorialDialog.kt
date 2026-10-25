@@ -46,9 +46,9 @@ private val tutorialSteps = listOf(
         title = "Wait mode",
         body = "The song pauses at each note until you play it, so you can learn at your own pace.",
         highlights = listOf(
-            Icons.Default.Mic to "Works acoustically: it listens to your real piano through the microphone. ",
+            Icons.Default.Mic to "Works acoustically: it listens to your real piano through the microphone.",
             Icons.Default.Hearing to "Keep your phone near the piano, in a quiet room, for the best experience.",
-            //Icons.Default.Piano to "Have a MIDI keyboard? Connect it and it's used instead."
+            Icons.Default.Piano to "Have a USB MIDI keyboard? Plug it in and it's used instead, with the rest of the song playing along."
         )
     ),
     TutorialStep(
