@@ -23,10 +23,6 @@
   <a href="#license">License</a>
 </p>
 
-<p align="center">
-  <img src="screenshots/landscape_01_hero.png" width="100%" alt="Piano Weave" />
-</p>
-
 ## Features
 
 * **AI transcription:** Turns the piano part of a video link (e.g. YouTube), an audio/video file or a microphone recording into MIDI. Vocals and other instruments are left out, so you get the piano part, not a full arrangement. Piano covers give the best results.
@@ -40,6 +36,12 @@
 ## Screenshots
 
 <table>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="screenshots/landscape_01_hero.png" width="100%" alt="Piano Weave" /><br>
+      <sub><b>Piano Weave</b></sub>
+    </td>
+  </tr>
   <tr>
     <td width="50%" align="center">
       <img src="screenshots/landscape_02_wait_mode.png" width="100%" alt="Wait mode" /><br>
