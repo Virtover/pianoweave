@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.PrivacyTip
@@ -48,6 +49,14 @@ fun AboutSettingsSection(
                 onClick = { context.openUrl(discordLink) }
             )
         }
+
+        LinkRow(
+            icon = Icons.Default.Feedback,
+            title = "Suggestions & Bug Reports",
+            subtitle = "Share an idea or tell us what went wrong",
+            previewTheme = previewTheme,
+            onClick = { context.openUrl(AppLinks.SUGGESTIONS_AND_BUG_REPORTS) }
+        )
 
         LinkRow(
             icon = Icons.Default.PrivacyTip,
