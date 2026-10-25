@@ -38,7 +38,7 @@
 <table>
   <tr>
     <td colspan="2" align="center">
-      <img src="screenshots/landscape_01_hero.png" width="100%" alt="Piano Weave" /><br>
+      <img src="screenshots/landscape_01_hero.png" width="50%" alt="Piano Weave" /><br>
       <sub><b>Piano Weave</b></sub>
     </td>
   </tr>
