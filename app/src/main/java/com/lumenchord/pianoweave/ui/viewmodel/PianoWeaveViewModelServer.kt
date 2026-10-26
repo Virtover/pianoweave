@@ -31,11 +31,16 @@ import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.util.UUID
 
-internal fun PianoWeaveViewModel.formatRetentionTimeImpl(seconds: Long? = cleanupIntervalSeconds): String {
-    val s = seconds ?: 86400L
+/** Servers from before `result_retention_seconds` kept finished jobs for a fixed hour. */
+private const val LEGACY_RESULT_RETENTION_SECONDS = 3600L
+
+internal fun PianoWeaveViewModel.formatRetentionTimeImpl(seconds: Long? = resultRetentionSeconds): String {
+    val s = seconds ?: LEGACY_RESULT_RETENTION_SECONDS
+    val days = s / 86400
     val hours = s / 3600
     val mins = s / 60
     return when {
+        days >= 1 && s % 86400 == 0L -> "$days day${if (days > 1) "s" else ""}"
         hours >= 1 -> "$hours hour${if (hours > 1) "s" else ""}"
         mins >= 1 -> "$mins minute${if (mins > 1) "s" else ""}"
         else -> "$s seconds"
@@ -133,7 +138,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     ServerMaintenance.onNotice(url, info.maintenance)
                     billingProvider = info.billingProvider ?: "none"
                     serverOffers = info.offers ?: emptyList()
-                    cleanupIntervalSeconds = info.cleanupIntervalSeconds
+                    resultRetentionSeconds = info.resultRetentionSeconds
                     maxUploadSizeMb = info.maxUploadSizeMb
                     maxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0

@@ -109,7 +109,7 @@ class PianoWeaveViewModel : ViewModel() {
     var serverOffers by mutableStateOf<List<ServerOffer>>(emptyList())
         internal set
 
-    var cleanupIntervalSeconds by mutableStateOf<Long?>(null)
+    var resultRetentionSeconds by mutableStateOf<Long?>(null)
         internal set
 
     var estimatedCostCredits by mutableStateOf<Int?>(null)
@@ -295,7 +295,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun discardRecording() = discardRecordingImpl()
     fun normalizeUrl(url: String): String = normalizeUrlImpl(url)
 
-    fun formatRetentionTime(seconds: Long? = cleanupIntervalSeconds): String = formatRetentionTimeImpl(seconds)
+    fun formatRetentionTime(seconds: Long? = resultRetentionSeconds): String = formatRetentionTimeImpl(seconds)
     fun getOrCreateUserId(context: Context): String = getOrCreateUserIdImpl(context)
     suspend fun testServerConnection(url: String): ServerStatus = testServerConnectionImpl(url)
     fun checkServerHealthAndInfo(context: Context? = null) = checkServerHealthAndInfoImpl(context)

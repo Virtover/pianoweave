@@ -1149,7 +1149,7 @@ fun TranscriptionProgressCard(
                             modifier = Modifier.size(16.dp).padding(top = 2.dp)
                         )
                         Text(
-                            text = "If you close the app during transcription and do not reconnect within $retentionText, it will be deleted from server and spent credits will be lost.",
+                            text = "If you close the app during transcription and do not reconnect within $retentionText, the result will be deleted from server and spent credits will be lost.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 16.sp

@@ -108,7 +108,8 @@ data class ServerOffer(
 data class ServerInfoResponse(
     @SerializedName("billing_provider") val billingProvider: String? = "none",
     @SerializedName("offers") val offers: List<ServerOffer>? = emptyList(),
-    @SerializedName("cleanup_interval_seconds") val cleanupIntervalSeconds: Long? = null,
+    /** How long a finished job's status and MIDI stay retrievable, counted from when it ended. Absent on older servers. */
+    @SerializedName("result_retention_seconds") val resultRetentionSeconds: Long? = null,
     @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Float? = null,
     /** Absent on servers that cannot transcribe uploaded files. */
     @SerializedName("max_upload_size_mb") val maxUploadSizeMb: Float? = null,
