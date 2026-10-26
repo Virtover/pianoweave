@@ -50,6 +50,8 @@ class PianoWeaveViewModel : ViewModel() {
      */
     var uploadOfferedFor by mutableStateOf<String?>(null)
         internal set
+    /** The error the cost check of a pasted link showed, which a different link replaces (see updateUrlImpl). */
+    internal var costCheckError: String? = null
 
     var isCancelling by mutableStateOf(false)
         internal set

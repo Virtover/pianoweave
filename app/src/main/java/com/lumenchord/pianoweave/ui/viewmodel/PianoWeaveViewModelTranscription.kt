@@ -63,7 +63,9 @@ internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
             estimatedCostCredits = null
             // Links are off for a while: say so now, rather than after the user taps Transcribe
             if (ServerErrors.errorCode(e) == ServerErrors.SOURCE_TEMPORARILY_UNAVAILABLE) {
-                showTranscriptionError(linksOffMessage(e), offerUpload = true)
+                val message = linksOffMessage(e)
+                showTranscriptionError(message, offerUpload = true)
+                costCheckError = message
             }
         } finally {
             isCalculatingCost = false
@@ -90,7 +92,14 @@ internal suspend fun PianoWeaveViewModel.fetchBillingCost(
 
 internal fun PianoWeaveViewModel.updateUrlImpl(url: String) {
     if (isLoading) return
+    val isNewLink = url != videoUrl
     videoUrl = url
+    // Links are refused per video site: a link to another site may well work, so the refusal goes with
+    // the link it was about. An error from a submit stays until it is dismissed.
+    if (isNewLink && costCheckError != null) {
+        if (transcriptionError == costCheckError) clearTranscriptionErrorImpl()
+        costCheckError = null
+    }
     if (url.isBlank()) {
         status = "Paste a video link above to begin."
         progress = 0f
@@ -243,12 +252,24 @@ private fun PianoWeaveViewModel.showTranscriptionError(message: String, offerUpl
 private fun PianoWeaveViewModel.canOfferUpload(): Boolean =
     supportsFileUpload && transcriptionSource == TranscriptionSource.Link
 
-/** Video links are off on the server after a site refused it; Retry-After says for how long. */
-private fun linksOffMessage(e: Throwable): String {
-    val seconds = (e as? HttpException)?.let { ServerErrors.retryAfterSeconds(it.response()?.headers()) }
+/**
+ * Links to a video site are off on the server after the site refused it or stopped answering. The server's
+ * message names the site ("Links to youtube.com cannot be read at the moment; try again later, ..."); its
+ * "later" becomes the time Retry-After gives.
+ */
+internal fun linksOffMessage(e: Throwable): String {
+    val http = e as? HttpException
+    val seconds = http?.let { ServerErrors.retryAfterSeconds(it.response()?.headers()) }
+    val serverMessage = http?.let { ServerErrors.detailMessage(ServerErrors.errorBody(it)) }
+    if (serverMessage != null) {
+        val timed = if (seconds != null) serverMessage.replace(TRY_AGAIN_LATER, "try again in ${formatWait(seconds)}") else serverMessage
+        return if (timed.endsWith(".")) timed else "$timed."
+    }
     val wait = seconds?.let { " in ${formatWait(it)}" } ?: " later"
     return "Video links can't be read at the moment. Try again$wait, or upload the file instead."
 }
+
+private val TRY_AGAIN_LATER = Regex("try again later", RegexOption.IGNORE_CASE)
 
 /** A wait in words: "a minute", "25 minutes", "about 3 hours". */
 internal fun formatWait(seconds: Long): String {
