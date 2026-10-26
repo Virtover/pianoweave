@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/vzMyRZewmb"><img src="https://img.shields.io/badge/Join%20the%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Discord" height="36" /></a>
+  <a href="https://discord.gg/apuqsu5Z7A"><img src="https://img.shields.io/badge/Join%20the%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Discord" height="36" /></a>
   &nbsp;
   <a href="https://ko-fi.com/Y3G527Q9PN"><img src="https://img.shields.io/badge/Support%20on%20Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi" height="36" /></a>
 </p>

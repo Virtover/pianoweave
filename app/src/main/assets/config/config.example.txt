@@ -4,7 +4,7 @@ DEFAULT_API_BASE_URL=https://server.pianoweave.com/
 DEFAULT_SERVER_NAME="Piano Weave Cloud"
 SUPPORT_ME_URL=https://ko-fi.com/krzysztofolszak
 # Optional: shows a Discord button in app settings when set.
-DISCORD_URL=https://discord.gg/vzMyRZewmb
+DISCORD_URL=https://discord.gg/apuqsu5Z7A
 # Google OAuth "Web application" client ID. Also set in docs/config.js (webClientId).
 WEB_CLIENT_ID=""
 # Optional: only if the official server has a password (secrets/server_password on the server).
