@@ -168,4 +168,54 @@ class ServerErrorsTest {
         assertFalse(ServerErrors.canRefreshToken(429, headersOf()))
         assertFalse(ServerErrors.canRefreshToken(402, headersOf()))
     }
+
+    // --- Retrying a submission with its Idempotency-Key ---
+
+    @Test
+    fun conflictWithRetryAfterIsWaitedOut() {
+        // The first try with this key is still checking the link or receiving the file
+        assertEquals(5000L, ServerErrors.submitRetryDelayMs(httpError(409, "", "Retry-After", "5")))
+        assertFalse(ServerErrors.isAlreadyProcessed(httpError(409, "", "Retry-After", "5")))
+        assertFalse(ServerErrors.isSubmissionSettled(httpError(409, "", "Retry-After", "5")))
+        // A busy server is waited out as before
+        assertEquals(5000L, ServerErrors.submitRetryDelayMs(httpError(503, "", "Retry-After", "5")))
+    }
+
+    @Test
+    fun conflictWithoutRetryAfterMeansAlreadyProcessed() {
+        val expired = httpError(409, """{"detail": "already processed"}""")
+        assertNull(ServerErrors.submitRetryDelayMs(expired))
+        assertTrue(ServerErrors.isAlreadyProcessed(expired))
+        assertTrue(ServerErrors.isSubmissionSettled(expired))
+    }
+
+    @Test
+    fun keyIsKeptWhileTheJobMayExist() {
+        // No answer, a timeout or a server error: the job may have been queued, so the same key must find it
+        assertFalse(ServerErrors.isSubmissionSettled(IOException("unexpected end of stream")))
+        assertFalse(ServerErrors.isSubmissionSettled(httpError(408)))
+        assertFalse(ServerErrors.isSubmissionSettled(httpError(503)))
+        assertFalse(ServerErrors.isSubmissionSettled(httpError(504)))
+        // A refusal: nothing was queued, the next submission is a new one
+        assertTrue(ServerErrors.isSubmissionSettled(httpError(402)))
+        assertTrue(ServerErrors.isSubmissionSettled(httpError(422)))
+        assertTrue(ServerErrors.isSubmissionSettled(httpError(429)))
+    }
+
+    @Test
+    fun submissionRetriesWithTheSameCallUntilTheConflictClears() = runBlocking {
+        var calls = 0
+        val waits = mutableListOf<Long>()
+        val result = retryWhenBusy(
+            attempts = ServerErrors.SUBMIT_ATTEMPTS,
+            wait = { waits += it },
+            retryDelayMs = ServerErrors::submitRetryDelayMs
+        ) {
+            calls++
+            if (calls < 3) throw httpError(409, "", "Retry-After", "5")
+            "job-1"
+        }
+        assertEquals("job-1", result)
+        assertEquals(listOf(5000L, 5000L), waits)
+    }
 }

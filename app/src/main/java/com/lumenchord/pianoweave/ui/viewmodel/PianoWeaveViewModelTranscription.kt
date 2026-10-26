@@ -27,6 +27,7 @@ import com.lumenchord.pianoweave.midi.CompletedTranscriptions
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.worker.ActiveJobStore
+import com.lumenchord.pianoweave.worker.PendingSubmissionStore
 import com.lumenchord.pianoweave.worker.TranscriptionWorker
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -181,6 +182,8 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
             }
             (e as? HttpException)?.let { serverErrorDetail(context, it) } ?: InsufficientBalanceException().message!!
         }
+        ServerErrors.isAlreadyProcessed(e) ->
+            "This was already transcribed, but the result has expired on the server. Tap Transcribe to start it again."
         // Too many in progress: the server says how many it allows. Not retried, the user decides when.
         ServerErrors.isTooManyRequests(e) ->
             serverErrorDetail(context, e as HttpException)
@@ -252,19 +255,37 @@ private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, sta
  */
 private suspend fun PianoWeaveViewModel.submitTranscription(context: Context, stableUrl: String): CreateTranscriptionResponse {
     val uId = getOrCreateUserId(context)
-    return retryWhenBusy {
-        executeServerCallImpl(context) { authHeader ->
-            if (isBilledServer && authHeader == null) {
-                throw IllegalAccessException("Google authentication required.")
+    val serverUrl = activeServerUrl
+    // One key per submission: every retry below, and a tap after a lost answer, finds the same job
+    val key = PendingSubmissionStore.keyFor(context, "link|$serverUrl|$stableUrl")
+    return settlingSubmission(context, key) {
+        retryWhenBusy(attempts = ServerErrors.SUBMIT_ATTEMPTS, retryDelayMs = ServerErrors::submitRetryDelayMs) {
+            executeServerCallImpl(context) { authHeader ->
+                if (isBilledServer && authHeader == null) {
+                    throw IllegalAccessException("Google authentication required.")
+                }
+                PianoApiFactory.getApi(serverUrl).createTranscription(
+                    request = CreateTranscriptionRequest(source_url = stableUrl),
+                    authHeader = authHeader,
+                    userId = if (!isBilledServer) uId else null,
+                    idempotencyKey = key
+                )
             }
-            PianoApiFactory.getApi(activeServerUrl).createTranscription(
-                request = CreateTranscriptionRequest(source_url = stableUrl),
-                authHeader = authHeader,
-                userId = if (!isBilledServer) uId else null
-            )
         }
     }
 }
+
+/**
+ * Runs a submission sent with [key] and drops the key once the server has answered it for good: with the
+ * job, or with a refusal. After anything else the job may exist, so the key stays for the next try.
+ */
+internal suspend fun <T> settlingSubmission(context: Context, key: String, submit: suspend () -> T): T =
+    try {
+        submit().also { PendingSubmissionStore.settle(context, key) }
+    } catch (e: Exception) {
+        if (e !is CancellationException && ServerErrors.isSubmissionSettled(e)) PendingSubmissionStore.settle(context, key)
+        throw e
+    }
 
 internal fun PianoWeaveViewModel.enqueueTranscriptionWorker(context: Context, jobId: String, stableUrl: String) {
     val workRequest = OneTimeWorkRequestBuilder<TranscriptionWorker>()

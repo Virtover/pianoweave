@@ -12,6 +12,12 @@ object ServerErrors {
 
     /** Tries a busy server this many times in all before the refusal is shown. */
     const val BUSY_ATTEMPTS = 4
+
+    /**
+     * Sends a submission this many times in all while the server is busy or still checking the link or
+     * receiving the file from an earlier try with the same key (about a minute at its usual 5 s).
+     */
+    const val SUBMIT_ATTEMPTS = 12
     private const val MAX_BUSY_WAIT_SEC = 30L
 
     /** The error body's text. Peeked, so it can be read again (Retrofit buffers error bodies). */
@@ -49,6 +55,33 @@ object ServerErrors {
 
     /** 402: the balance doesn't cover the transcription. */
     fun isPaymentRequired(e: Throwable): Boolean = (e as? HttpException)?.code() == 402
+
+    /**
+     * How long to wait before sending a submission again with the same key: as [busyRetryDelayMs], or a 409
+     * with Retry-After, meaning an earlier try with that key is still checking the link or uploading.
+     */
+    fun submitRetryDelayMs(e: Throwable): Long? {
+        val http = e as? HttpException ?: return null
+        if (http.code() != 409) return busyRetryDelayMs(e)
+        val seconds = retryAfterSeconds(http.response()?.headers()) ?: return null
+        return seconds.coerceIn(1, MAX_BUSY_WAIT_SEC) * 1000
+    }
+
+    /** 409 without Retry-After: this key's job was transcribed and has since expired on the server. */
+    fun isAlreadyProcessed(e: Throwable): Boolean {
+        val http = e as? HttpException ?: return false
+        return http.code() == 409 && retryAfterSeconds(http.response()?.headers()) == null
+    }
+
+    /**
+     * True if the server gave a submission its final answer, so its key is done with: a refusal it reached
+     * a decision on. Not after a lost connection, a timeout, a 409 still in progress or a 5xx, after which
+     * the job may exist and the same key finds it.
+     */
+    fun isSubmissionSettled(e: Throwable): Boolean {
+        val code = (e as? HttpException)?.code() ?: return false
+        return code in 400..499 && code != 408 && (code != 409 || isAlreadyProcessed(e))
+    }
 
     /**
      * How long to wait before asking again, when the server is only busy (503 with Retry-After, e.g. while
@@ -98,6 +131,7 @@ object ServerErrors {
 suspend fun <T> retryWhenBusy(
     attempts: Int = ServerErrors.BUSY_ATTEMPTS,
     wait: suspend (Long) -> Unit = { delay(it) },
+    retryDelayMs: (HttpException) -> Long? = ServerErrors::busyRetryDelayMs,
     call: suspend () -> T
 ): T {
     var attempt = 1
@@ -105,7 +139,7 @@ suspend fun <T> retryWhenBusy(
         try {
             return call()
         } catch (e: HttpException) {
-            val delayMs = ServerErrors.busyRetryDelayMs(e)
+            val delayMs = retryDelayMs(e)
             if (delayMs == null || attempt >= attempts) throw e
             attempt++
             wait(delayMs)

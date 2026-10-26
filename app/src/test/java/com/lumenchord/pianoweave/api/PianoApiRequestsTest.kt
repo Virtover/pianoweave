@@ -45,6 +45,29 @@ class PianoApiRequestsTest {
             .create(PianoApi::class.java)
     }
 
+    // --- Idempotency-Key ---
+
+    @Test
+    fun linkSubmitSendsTheIdempotencyKey() = runBlocking {
+        api(202, """{"job_id": "job-1", "status": "queued"}""")
+            .createTranscription(CreateTranscriptionRequest("https://example.com/v/1"), idempotencyKey = "key-1")
+        assertEquals("key-1", lastRequest!!.header("Idempotency-Key"))
+    }
+
+    @Test
+    fun uploadSendsTheIdempotencyKey() = runBlocking {
+        api(202, """{"job_id": "job-1", "status": "queued"}""")
+            .uploadTranscription("song.mp3", "abc".toRequestBody(), idempotencyKey = "key-2")
+        assertEquals("key-2", lastRequest!!.header("Idempotency-Key"))
+    }
+
+    @Test
+    fun withoutAKeyNoHeaderIsSent() = runBlocking {
+        api(202, """{"job_id": "job-1", "status": "queued"}""")
+            .createTranscription(CreateTranscriptionRequest("https://example.com/v/1"))
+        assertNull(lastRequest!!.header("Idempotency-Key"))
+    }
+
     // --- 1. Billing cost needs the Google sign-in ---
 
     @Test

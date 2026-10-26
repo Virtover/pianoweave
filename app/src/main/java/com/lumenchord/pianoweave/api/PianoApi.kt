@@ -44,20 +44,29 @@ interface PianoApi {
         @Body request: VerifyPurchaseRequest
     ): VerifyPurchaseResponse
 
+    /**
+     * Queues a link. The same [idempotencyKey] on a retry answers with the job it already queued (202) instead
+     * of a second one; see PendingSubmissionStore.
+     */
     @POST("api/transcriptions")
     suspend fun createTranscription(
         @Body request: CreateTranscriptionRequest,
         @Header("Authorization") authHeader: String? = null,
-        @Header("X-User-Id") userId: String? = null
+        @Header("X-User-Id") userId: String? = null,
+        @Header("Idempotency-Key") idempotencyKey: String? = null
     ): CreateTranscriptionResponse
 
-    /** Transcribes an audio or video file sent as the raw body; [filename] becomes the song's title. */
+    /**
+     * Transcribes an audio or video file sent as the raw body; [filename] becomes the song's title. A retry
+     * with the same [idempotencyKey] is answered before the server reads the file.
+     */
     @POST("api/transcriptions/upload")
     suspend fun uploadTranscription(
         @Query("filename") filename: String,
         @Body file: RequestBody,
         @Header("Authorization") authHeader: String? = null,
-        @Header("X-User-Id") userId: String? = null
+        @Header("X-User-Id") userId: String? = null,
+        @Header("Idempotency-Key") idempotencyKey: String? = null
     ): CreateTranscriptionResponse
 
     @GET("api/transcriptions/{jobId}")
