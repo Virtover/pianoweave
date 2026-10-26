@@ -10,6 +10,19 @@ import java.io.IOException
 /** Reading the transcription server's refusals: what they say, and which ones to wait out. */
 object ServerErrors {
 
+    /** A video site refused the server or didn't answer in time; Retry-After says when links work again. */
+    const val SOURCE_TEMPORARILY_UNAVAILABLE = "source_temporarily_unavailable"
+    /** A restart or a stopped worker interrupted the job; its minutes were given back. */
+    const val TRANSCRIPTION_INTERRUPTED = "transcription_interrupted"
+
+    /** Codes about the link itself, for which uploading the file instead may work. */
+    private val UPLOAD_MAY_WORK = setOf(
+        SOURCE_TEMPORARILY_UNAVAILABLE, "source_video_unavailable", "source_unsupported", "source_failed"
+    )
+
+    /** True if [code] is about the link, so the file itself can be uploaded instead. */
+    fun uploadMayWork(code: String?): Boolean = code in UPLOAD_MAY_WORK
+
     /** Tries a busy server this many times in all before the refusal is shown. */
     const val BUSY_ATTEMPTS = 4
 
@@ -46,6 +59,14 @@ object ServerErrors {
         }
         return text?.trim()?.takeIf { it.isNotEmpty() }
     }
+
+    /** The `"error_code"` of a detail object, which the app acts on rather than on the message. */
+    fun errorCode(body: String): String? {
+        val detail = detail(body)?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+        return detail.get("error_code")?.takeIf { it.isJsonPrimitive }?.asString
+    }
+
+    fun errorCode(e: Throwable): String? = (e as? HttpException)?.let { errorCode(errorBody(it)) }
 
     fun retryAfterSeconds(headers: Headers?): Long? =
         headers?.get("Retry-After")?.trim()?.toLongOrNull()?.takeIf { it >= 0 }
@@ -92,8 +113,11 @@ object ServerErrors {
         val http = e as? HttpException ?: return null
         if (http.code() != 503) return null
         val seconds = retryAfterSeconds(http.response()?.headers()) ?: return null
-        val detail = detail(errorBody(http))
+        val body = errorBody(http)
+        val detail = detail(body)
         if (detail != null && detail.isJsonObject && detail.asJsonObject.has("maintenance")) return null
+        // Video links are off for a while (up to a day): asking again before then only waits in vain
+        if (errorCode(body) == SOURCE_TEMPORARILY_UNAVAILABLE) return null
         return seconds.coerceIn(1, MAX_BUSY_WAIT_SEC) * 1000
     }
 

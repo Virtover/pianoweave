@@ -61,6 +61,10 @@ internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             estimatedCostCredits = null
+            // Links are off for a while: say so now, rather than after the user taps Transcribe
+            if (ServerErrors.errorCode(e) == ServerErrors.SOURCE_TEMPORARILY_UNAVAILABLE) {
+                showTranscriptionError(linksOffMessage(e), offerUpload = true)
+            }
         } finally {
             isCalculatingCost = false
         }
@@ -173,7 +177,9 @@ internal class InsufficientBalanceException : Exception("You don't have enough c
 
 /** Shows why a transcription could not be submitted, preferring the server's own explanation. */
 internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exception) {
+    val errorCode = ServerErrors.errorCode(e)
     val errMsg = when {
+        errorCode == ServerErrors.SOURCE_TEMPORARILY_UNAVAILABLE -> linksOffMessage(e)
         e is InsufficientBalanceException || ServerErrors.isPaymentRequired(e) -> {
             // Offer to buy more, with the balance as the server now has it (it may be owed minutes)
             if (isBilledServer) {
@@ -198,8 +204,7 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
         e is HttpException -> serverErrorDetail(context, e) ?: "Server error (HTTP ${e.code()})"
         else -> connectionMessage(e) ?: e.localizedMessage ?: "Connection error"
     }
-    transcriptionError = errMsg
-    status = "Error: $errMsg"
+    showTranscriptionError(errMsg, offerUpload = ServerErrors.uploadMayWork(errorCode))
     ActiveJobStore.clear(context)
     currentJobId = null
     isLoading = false
@@ -225,6 +230,36 @@ private fun PianoWeaveViewModel.serverErrorDetail(context: Context, e: HttpExcep
     }
 } catch (_: Exception) {
     null
+}
+
+/** Shows [message] as the transcription error, with the offer to upload the file if [offerUpload] and possible. */
+private fun PianoWeaveViewModel.showTranscriptionError(message: String, offerUpload: Boolean) {
+    transcriptionError = message
+    uploadOfferedFor = message.takeIf { offerUpload && canOfferUpload() }
+    status = "Error: $message"
+}
+
+/** A link was refused, and this server takes uploads instead. */
+private fun PianoWeaveViewModel.canOfferUpload(): Boolean =
+    supportsFileUpload && transcriptionSource == TranscriptionSource.Link
+
+/** Video links are off on the server after a site refused it; Retry-After says for how long. */
+private fun linksOffMessage(e: Throwable): String {
+    val seconds = (e as? HttpException)?.let { ServerErrors.retryAfterSeconds(it.response()?.headers()) }
+    val wait = seconds?.let { " in ${formatWait(it)}" } ?: " later"
+    return "Video links can't be read at the moment. Try again$wait, or upload the file instead."
+}
+
+/** A wait in words: "a minute", "25 minutes", "about 3 hours". */
+internal fun formatWait(seconds: Long): String {
+    val minutes = (seconds + 59) / 60
+    val hours = (seconds + 1800) / 3600
+    return when {
+        minutes <= 1 -> "a minute"
+        minutes < 60 -> "$minutes minutes"
+        hours <= 1 -> "about an hour"
+        else -> "about $hours hours"
+    }
 }
 
 /** Unix seconds as a clock time in the user's format, e.g. "15:30" or "3:30 PM". */
@@ -397,6 +432,7 @@ private fun PianoWeaveViewModel.applyJobStatus(job: TranscriptionStatusResponse)
         "failed" -> {
             val errMsg = job.failureMessage
             transcriptionError = errMsg
+            uploadOfferedFor = errMsg.takeIf { ServerErrors.uploadMayWork(job.errorCode) && canOfferUpload() }
             "Error: $errMsg"
         }
         else -> job.status

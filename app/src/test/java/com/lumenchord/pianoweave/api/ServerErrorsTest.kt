@@ -169,6 +169,56 @@ class ServerErrorsTest {
         assertFalse(ServerErrors.canRefreshToken(402, headersOf()))
     }
 
+    // --- Error codes ---
+
+    private val linksOff = """{"detail": {"message": "Video links cannot be read at the moment; try again later, or upload the file instead", "error_code": "source_temporarily_unavailable"}}"""
+
+    @Test
+    fun errorCodeIsReadFromTheDetailObject() {
+        assertEquals("source_temporarily_unavailable", ServerErrors.errorCode(httpError(503, linksOff, "Retry-After", "1500")))
+        assertEquals(
+            "Video links cannot be read at the moment; try again later, or upload the file instead",
+            ServerErrors.detailMessage(linksOff)
+        )
+        // A plain string detail, and FastAPI's own list, have no code
+        assertNull(ServerErrors.errorCode(httpError(503, """{"detail": "Server is restarting"}""")))
+        assertNull(ServerErrors.errorCode(httpError(422, """{"detail": [{"loc": ["body"], "msg": "x"}]}""")))
+    }
+
+    @Test
+    fun linksOffIsNotRetriedButABusyCheckIs() {
+        // Retry-After can be up to a day here; waiting it out in the app would only hang the submit
+        assertNull(ServerErrors.busyRetryDelayMs(httpError(503, linksOff, "Retry-After", "30")))
+        assertNull(ServerErrors.submitRetryDelayMs(httpError(503, linksOff, "Retry-After", "30")))
+        val busy = """{"detail": {"message": "Too many videos are being checked; try again in a moment", "error_code": "source_busy"}}"""
+        assertEquals(5000L, ServerErrors.busyRetryDelayMs(httpError(503, busy, "Retry-After", "5")))
+    }
+
+    @Test
+    fun uploadIsOfferedOnlyForLinkProblems() {
+        assertTrue(ServerErrors.uploadMayWork("source_temporarily_unavailable"))
+        assertTrue(ServerErrors.uploadMayWork("source_video_unavailable"))
+        assertTrue(ServerErrors.uploadMayWork("source_unsupported"))
+        assertTrue(ServerErrors.uploadMayWork("source_failed"))
+        assertFalse(ServerErrors.uploadMayWork("source_busy"))
+        assertFalse(ServerErrors.uploadMayWork("insufficient_minutes"))
+        assertFalse(ServerErrors.uploadMayWork("transcription_failed"))
+        assertFalse(ServerErrors.uploadMayWork(null))
+    }
+
+    @Test
+    fun interruptedJobSaysItCanBeSentAgain() {
+        val job = TranscriptionStatusResponse(
+            job_id = "j", status = "failed", progress = 0.4f,
+            error = "Transcription interrupted because its worker stopped", errorCode = "transcription_interrupted"
+        )
+        assertEquals(
+            "Transcription interrupted because its worker stopped. Its minutes were given back; tap Transcribe to try again.",
+            job.failureMessage
+        )
+        assertEquals("Converting failed", job.copy(error = "Converting failed", errorCode = "transcription_failed").failureMessage)
+    }
+
     // --- Retrying a submission with its Idempotency-Key ---
 
     @Test

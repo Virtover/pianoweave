@@ -37,5 +37,6 @@ internal fun TranscriptionProgressCard(
 @Composable
 internal fun TranscriptionErrorCard(
     errorMessage: String,
-    onErrorDismiss: () -> Unit
-) = ExternalErrorCard(errorMessage, onErrorDismiss)
+    onErrorDismiss: () -> Unit,
+    onUploadInstead: (() -> Unit)? = null
+) = ExternalErrorCard(errorMessage, onErrorDismiss, onUploadInstead)

@@ -28,8 +28,15 @@ internal fun PianoWeaveViewModel.setSelectedThemeImpl(context: Context, themeId:
 
 internal fun PianoWeaveViewModel.clearTranscriptionErrorImpl() {
     transcriptionError = null
+    uploadOfferedFor = null
     status = if (videoUrl.isNotBlank()) "Ready to convert." else "Paste a video link above to begin."
     progress = 0f
+}
+
+/** The server can't read the link: switches to picking the file to upload instead. */
+internal fun PianoWeaveViewModel.uploadInsteadOfLinkImpl() {
+    clearTranscriptionErrorImpl()
+    selectTranscriptionSourceImpl(TranscriptionSource.File)
 }
 
 /** The playback speeds offered in the player. */

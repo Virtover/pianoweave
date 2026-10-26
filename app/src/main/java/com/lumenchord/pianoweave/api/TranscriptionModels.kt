@@ -21,6 +21,8 @@ data class TranscriptionStatusResponse(
     @SerializedName("status") val status: String,
     @SerializedName("progress") val progress: Float,
     @SerializedName("error") val error: String?,
+    /** Why a failed job failed, as a stable code (see ServerErrors); null otherwise and on older servers. */
+    @SerializedName("error_code") val errorCode: String? = null,
     @SerializedName("metadata") val metadata: VideoMetadata? = null,
     @SerializedName("minutes") val minutes: Int? = null,
     @SerializedName("title") val title: String? = null,
@@ -29,7 +31,13 @@ data class TranscriptionStatusResponse(
 
 /** Why a failed job failed. The server writes its "error" for users, so it is shown as it is. */
 val TranscriptionStatusResponse.failureMessage: String
-    get() = error?.trim()?.takeIf { it.isNotEmpty() } ?: "The server could not transcribe this."
+    get() {
+        val message = error?.trim()?.takeIf { it.isNotEmpty() } ?: "The server could not transcribe this."
+        // Nothing was wrong with the song: it can simply be sent again, at no loss
+        return if (errorCode == ServerErrors.TRANSCRIPTION_INTERRUPTED) {
+            "${message.trimEnd('.')}. Its minutes were given back; tap Transcribe to try again."
+        } else message
+    }
 
 data class VideoMetadata(
     @SerializedName("title") val title: String = PLACEHOLDER_TITLE,

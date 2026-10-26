@@ -339,7 +339,10 @@ fun LearnScreen(
                             val errorMsg = viewModel.transcriptionError ?: viewModel.status.removePrefix("Error: ")
                             TranscriptionErrorCard(
                                 errorMessage = errorMsg,
-                                onErrorDismiss = { viewModel.clearTranscriptionError() }
+                                onErrorDismiss = { viewModel.clearTranscriptionError() },
+                                onUploadInstead = if (viewModel.uploadOfferedFor == errorMsg) {
+                                    { viewModel.uploadInsteadOfLink() }
+                                } else null
                             )
                         }
 

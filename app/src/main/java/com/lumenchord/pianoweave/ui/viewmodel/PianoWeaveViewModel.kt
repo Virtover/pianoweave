@@ -44,6 +44,12 @@ class PianoWeaveViewModel : ViewModel() {
 
     var transcriptionError by mutableStateOf<String?>(null)
         internal set
+    /**
+     * The error message (as in [transcriptionError]) for which uploading the file instead is offered, because
+     * the server could not read the link. Matched by text, so a later, different error never shows the offer.
+     */
+    var uploadOfferedFor by mutableStateOf<String?>(null)
+        internal set
 
     var isCancelling by mutableStateOf(false)
         internal set
@@ -308,6 +314,7 @@ class PianoWeaveViewModel : ViewModel() {
 
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)
     fun clearTranscriptionError() = clearTranscriptionErrorImpl()
+    fun uploadInsteadOfLink() = uploadInsteadOfLinkImpl()
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
     fun selectPlaybackSpeed(context: Context, speed: Float) = selectPlaybackSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)

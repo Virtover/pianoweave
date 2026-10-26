@@ -1249,7 +1249,9 @@ private fun TranscriptionProgressBar(progress: Float, color: Color) {
 @Composable
 fun TranscriptionErrorCard(
     errorMessage: String,
-    onErrorDismiss: () -> Unit
+    onErrorDismiss: () -> Unit,
+    /** Shown as "Upload a file instead" when the server could not read the link. */
+    onUploadInstead: (() -> Unit)? = null
 ) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     // Sorrow that is held, not alarm: Moods.Lament (Psalm 56:8)
@@ -1297,6 +1299,17 @@ fun TranscriptionErrorCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
             )
+            if (onUploadInstead != null) {
+                TextButton(
+                    onClick = onUploadInstead,
+                    modifier = Modifier.align(Alignment.End),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Icon(Icons.Default.UploadFile, contentDescription = null, tint = lament, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Upload a file instead", fontWeight = FontWeight.Bold, color = lament)
+                }
+            }
         }
     }
 }
