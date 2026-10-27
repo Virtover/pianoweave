@@ -23,7 +23,8 @@
   <a href="#screenshots">Screenshots</a> •
   <a href="#build-from-source">Build from source</a> •
   <a href="#project-structure">Project structure</a> •
-  <a href="#license">License</a>
+  <a href="#license">License</a> •
+  <a href="COMMERCIAL.MD">Commercial use</a>
 </p>
 
 ## Features
@@ -167,13 +168,15 @@ For the page to work:
 
 ## License
 
-Piano Weave is licensed under the [PolyForm Noncommercial License](LICENSE).
+Piano Weave's source code is licensed under the
+[PolyForm Noncommercial License](LICENSE).
 
-Copyright (c) 2026 Krzysztof Olszak
+Commercial use requires prior permission from the copyright holder.
+See [COMMERCIAL.MD](COMMERCIAL.MD) for examples of permitted use,
+activities requiring a commercial license, and licensing enquiries.
 
-The software may be used, modified, and distributed for noncommercial purposes subject to the terms of the license.
-
-Commercial use is not permitted without prior permission from the copyright holder. For the full terms, see the LICENSE file.
+The license applies to this repository's source code, not automatically
+to the official app distributed by its author or to third-party software.
 
 ### Third-party software
 

@@ -49,6 +49,27 @@ for free does not give you any right to copy, rebuild, rename or republish it.
 
 If you are unsure whether your use is commercial, ask before you start.
 
+### Commercial apps backed by paid transcription services
+
+A commercial license is required to use this repository's Android client
+source code in an app that serves as a frontend for a monetized
+transcription service, even when the app itself is free.
+
+This includes, for example:
+- Forking Piano Weave and changing its default server URL to a separately
+  operated paid transcription server;
+- Distributing a modified or rebranded build that promotes paid
+  transcription credits, subscriptions, or usage fees;
+- Monetizing the service through payments outside the app, even when the
+  app contains no ads or in-app purchases.
+
+This requirement applies whether the transcription backend is self-hosted,
+operated by a third party, or based on the MIT-licensed Piano Transcription
+Server repository.
+
+The MIT license for the server does not grant commercial rights to the
+Piano Weave Android client source code, its derivatives, or its branding.
+
 ## Outputs
 
 PianoWeave processes music you provide. The author claims no rights in the
