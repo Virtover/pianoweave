@@ -14,7 +14,7 @@ import retrofit2.http.Streaming
 
 interface PianoApi {
 
-    @GET(".")
+    @GET("health")
     suspend fun checkHealth(): Response<ResponseBody>
 
     @GET("api/server-info")

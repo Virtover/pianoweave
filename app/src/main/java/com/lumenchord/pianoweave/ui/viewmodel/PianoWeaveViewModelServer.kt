@@ -64,7 +64,9 @@ internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): 
         when {
             // The saved password, if any, went along: this means it's missing or wrong
             PianoApiFactory.isServerPasswordRequired(response.code(), response.headers()) -> ServerStatus.PASSWORD_REQUIRED
-            response.code() > 0 -> ServerStatus.ONLINE
+            // Only the API's own /health answer counts: a proxy in front of a down server still answers
+            // (Cloudflare Tunnel with 502/530), and so does any other site at a mistyped address (404)
+            response.isSuccessful -> ServerStatus.ONLINE
             else -> ServerStatus.OFFLINE
         }
     } catch (e: Exception) {
