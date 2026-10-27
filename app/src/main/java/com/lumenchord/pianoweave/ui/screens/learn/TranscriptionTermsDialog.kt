@@ -73,6 +73,7 @@ internal fun TranscriptionTermsDialog(
                             append("Vocals and other instruments are left out, so it isn't a full arrangement. ")
                             append("Solo piano works best.\n\n")
                             append("Only transcribe music you have the right to copy and modify. ")
+                            append("By tapping Agree & Continue, you agree to the ")
                             appendLink("Terms of Service", AppLinks.TERMS_OF_SERVICE, colorGold)
                         },
                         style = MaterialTheme.typography.bodyMedium,

@@ -149,16 +149,14 @@
         </tbody>
     </table>
 
-    <h3>Information collected automatically by the Server</h3>
+    <h3>Information collected automatically by the Server and network infrastructure</h3>
     <p>
-        Like most online services, the Server and its hosting infrastructure may process technical
-        information such as your IP address, request time, request type and error messages. This is used to operate the
-        Server, prevent abuse and fix problems.
+        When your device or browser communicates with the official Server or its network infrastructure, technical metadata including your IP address, HTTP request headers, timestamp, and request details are automatically processed. The App itself does not request or access Android device location services, GPS, or location permissions. However, server and network infrastructure providers may process your IP address to operate the service, route network traffic, prevent abuse and automated attacks, troubleshoot errors, and infer coarse, approximate geographic region information (such as country or region) for security and routing purposes. IP addresses are not stored or treated as fully anonymous data during active network processing.
     </p>
 
     <h3>Information we do not collect</h3>
     <ul>
-        <li>The App does not collect your precise or approximate location.</li>
+        <li>The App does not access Android device location services, GPS hardware, or location permissions. (Coarse geographic region may be inferred from IP addresses by network infrastructure as described above.)</li>
         <li>The App does not read your contacts, messages or photos.</li>
         <li>The App does not record or upload audio from your microphone unless you start a recording yourself (see <a href="#microphone">Microphone</a>).</li>
         <li>The App does not contain advertising or advertising identifiers.</li>
@@ -205,30 +203,22 @@
     <p>I do not sell your personal information. Information is shared only as follows:</p>
     <ul>
         <li>
-            <strong>Google.</strong> The App uses Google Sign-In, Google Play Billing and, if you enable cloud sync, the Google Drive API.
-            The Server verifies your Google access token and your purchases with Google. Google's handling of this data is governed by the
-            <a href="https://policies.google.com/privacy" rel="noopener">Google Privacy Policy</a>.
+            <strong>Google.</strong> The App uses Google Sign-In (to verify identity), Google Play Billing (to process purchases and verify receipts), and, if you enable cloud sync, the Google Drive API (to store copies of your song library in your own Drive). Google handles data under the <a href="https://policies.google.com/privacy" rel="noopener">Google Privacy Policy</a>.
         </li>
         <li>
-            <strong>Video and audio websites.</strong> To transcribe a link, the Server requests the audio from the website that hosts it
-            (for example YouTube). That website sees a request coming from the Server's IP address, not from your device, and handles it under its own policies.
+            <strong>Cloudflare Tunnel & Network Infrastructure.</strong> Incoming API traffic to the Server may be routed through Cloudflare Tunnel and network infrastructure. In this role, Cloudflare processes request metadata and IP addresses to route traffic, mitigate DDoS attacks, and secure connection endpoints under <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">Cloudflare's Privacy Policy</a>.
         </li>
         <li>
-            <strong>Hosting and infrastructure providers.</strong> The Server runs on infrastructure that processes data on my behalf, including backups.
-            Backups are encrypted before they are stored outside the Server.
+            <strong>GPU processing and temporary storage (RunPod & Cloudflare R2).</strong> When outsourced GPU processing is enabled and the primary Server delegates a transcription job, the Server uploads the audio file (converted to a standard format) to temporary storage at Cloudflare R2. The job is then processed by <a href="https://www.runpod.io/legal/privacy-policy" rel="noopener">RunPod</a> on GPU infrastructure, and the generated MIDI file is returned to the Server. Neither RunPod nor Cloudflare R2 receives your Google account name, email address, purchase details, or original video links.
         </li>
         <li>
-            <strong>GPU processing and temporary storage.</strong> When the Server has more transcription jobs than its own
-            GPUs can handle, a job may be processed on <a href="https://www.runpod.io/legal/privacy-policy" rel="noopener">RunPod</a>
-            GPU capacity. In that case the Server uploads the job's audio (only the audio, converted to a standard format)
-            to temporary storage at <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">Cloudflare</a> (R2),
-            RunPod reads it from there, and the resulting MIDI file is returned to the Server. Your Google account,
-            email address, purchase information, device identifier, video link and file name are not sent to either provider.
-            Both act as processors on my behalf. The temporary storage is located in the European Union and GPU processing runs in EU data centers, but both companies are based outside the EU,
-            so data may be handled under safeguards such as standard contractual clauses.
+            <strong>Server Hosting & Backups.</strong> The Server, database, and encrypted backups run on hosting and cloud infrastructure providers engaged by the developer. Specific hosting providers, physical data center locations, backup storage providers, and international data transfer safeguards (such as Standard Contractual Clauses or Data Privacy Framework mechanisms) depend on the active production deployment configuration set by the service operator.
         </li>
         <li>
-            <strong>Legal reasons.</strong> I may disclose information if required by law or to protect rights, safety and the security of the service.
+            <strong>Video and audio platforms.</strong> When transcribing a link, the Server requests the audio directly from the platform hosting it (such as YouTube). That platform receives a request originating from the Server's IP address, not your device, and processes it under its own terms.
+        </li>
+        <li>
+            <strong>Legal reasons.</strong> Information may be disclosed if required by law or to protect rights, safety, and system security.
         </li>
     </ul>
     <p>
@@ -283,8 +273,8 @@
         </thead>
         <tbody>
         <tr>
-            <td><strong>Server account</strong> (Google account ID, email address, minute balance, transcription jobs and their files, transcription records)</td>
-            <td>Deleted from the Server immediately. Copies in encrypted backups disappear when those backups expire (within 30 days).</td>
+            <td><strong>Server account</strong> (Google account ID, email address, credit balance—distinguishing purchased credits and free promotional credits—transcription jobs and their files, transcription records)</td>
+            <td>Deleted from the Server immediately. Copies in encrypted backups disappear when those backups expire (within 30 days). Free promotional credits are forfeited upon deletion; purchased credits are not automatically refunded, without affecting statutory legal rights.</td>
         </tr>
         <tr>
             <td><strong>Purchase records</strong></td>
@@ -305,8 +295,7 @@
         </tbody>
     </table>
     <ul>
-        <li>Unused transcription minutes are removed together with the account and cannot be restored.</li>
-        <li>Deleting your account does not cancel or refund past purchases. Refunds are handled through Google Play.</li>
+        <li>Unused free promotional credits are forfeited upon account deletion. Deleting your account does not automatically refund past purchases, but does not affect statutory rights under mandatory consumer law. Refunds are processed through Google Play.</li>
         <li>After deletion, you can revoke the App's access to your Google account at <a href="https://myaccount.google.com/connections" rel="noopener">myaccount.google.com/connections</a>.</li>
     </ul>
 
@@ -326,8 +315,7 @@
 
     <h2 id="children">10. Children</h2>
     <p>
-        The App is not directed to children under 13 (or under 16 where applicable local law sets a higher age), and I do not knowingly collect personal
-        information from them. If you believe a child has provided personal information, contact me and I will delete it.
+        Piano Weave is a general-purpose music-learning application available to users of all ages. Where applicable law requires parental consent or legal guardian authorization for the collection or processing of personal data of children, such consent or authorization must be provided. If you believe personal information of a child was provided without required consent, please contact me so appropriate action can be taken.
     </p>
 
     <h2 id="changes">11. Changes to this policy</h2>
