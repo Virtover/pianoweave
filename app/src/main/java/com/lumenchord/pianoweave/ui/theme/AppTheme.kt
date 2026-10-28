@@ -316,6 +316,80 @@ object AppThemeManager {
             palette = NeutralPalette.tinted(hue = 345f, strength = 2.8f, depth = 0.72f, textStrength = 1.3f),
             stage = listOf(Color(0xFF080305), Color(0xFF120509), Color(0xFF200710), Color(0xFF1E0A12))
         ),
+
+        // Out of the depths (Ps 130:1): despair, loneliness, doubt and exhaustion, each answered the way the
+        // psalms answer it. Strongly colored dark rooms like the valley's; text stays near neutral.
+        // Despair: "Out of the depths I cry to you, Lord" (Ps 130:1); "the deep surrounded me, seaweed was wrapped
+        // around my head... But you, Lord my God, brought my life up from the pit" (Jon 2:5-6). A deep-sea room,
+        // brightest toward the surface above, sea-green notes, and a keyboard line of the light he lifts us to.
+        createTheme(
+            "out_of_the_depths", "Out of the Depths", Color(0xFF86C29E),
+            customBaseline = Color(0xFFF3DFA2),
+            palette = NeutralPalette.tinted(hue = 160f, strength = 2.4f, depth = 0.75f, textStrength = 1.3f),
+            stage = listOf(Color(0xFF0D211D), Color(0xFF07130F), Color(0xFF030806), Color(0xFF0F1E1A))
+        ),
+        // Loneliness: "I lie awake; I have become like a bird alone on a roof" (Ps 102:7); and Jesus: "not one
+        // sparrow falls to the ground outside your Father's care... So don't be afraid" (Mt 10:29-31). A lonely
+        // rooftop night in indigo, under the stars "he determines and calls each by name" (Ps 147:4), and a
+        // keyboard line in the sparrow's warm brown.
+        createTheme(
+            "sparrow_alone", "Sparrow on the Roof", Color(0xFF9EA8E6),
+            customBaseline = Color(0xFFC9A27A),
+            palette = NeutralPalette.tinted(hue = 232f, strength = 2.6f, depth = 0.85f, textStrength = 1.3f),
+            stage = listOf(Color(0xFF05060F), Color(0xFF0A0C1C), Color(0xFF12152B), Color(0xFF14172C)),
+            stageOrnament = StageOrnament.Stars
+        ),
+        // Doubt: "For now we see through a glass, darkly; but then face to face" (1 Cor 13:12); "I do believe;
+        // help me overcome my unbelief!" (Mk 9:24); "Stop doubting and believe" (Jn 20:27). A misty room, notes
+        // the grey-green of fog, and a keyboard line of polished bronze, the mirror of Paul's day.
+        createTheme(
+            "glass_darkly", "Through a Glass Darkly", Color(0xFFA9C8C2),
+            customBaseline = Color(0xFFC99A5E),
+            palette = NeutralPalette.tinted(hue = 175f, strength = 1.4f, depth = 0.82f, textStrength = 1.1f),
+            stage = listOf(Color(0xFF0B1011), Color(0xFF111819), Color(0xFF1A2122), Color(0xFF172021))
+        ),
+        // Exhaustion: Elijah "came to a broom bush, sat down under it and prayed that he might die. 'I have had
+        // enough, Lord'... an angel touched him and said, 'Get up and eat.' He looked around, and there by his
+        // head was some bread baked over hot coals" (1 Ki 19:4-6); "Come to me, all you who are weary" (Mt
+        // 11:28). A tired desert night, notes in the broom's grey-green, and a keyboard line of those coals.
+        createTheme(
+            "broom_tree", "Under the Broom Tree", Color(0xFFBCCB9F),
+            customBaseline = Color(0xFFF0915A),
+            palette = NeutralPalette.tinted(hue = 35f, strength = 1.1f, depth = 0.75f),
+            stage = listOf(Color(0xFF0B0A08), Color(0xFF110F0C), Color(0xFF1E140D), Color(0xFF1A1813))
+        ),
+
+        // Mercy and return: guilt, shame and regret, each met by forgiveness (Ps 51).
+        // Guilt: "Have mercy on me, O God... Cleanse me with hyssop, and I will be clean; wash me, and I will be
+        // whiter than snow... Create in me a pure heart" (Ps 51:1, 7, 10); "though your sins are like scarlet,
+        // they shall be as white as snow" (Is 1:18). An ash-grey room of repentance, snow-white notes, and a
+        // keyboard line of green hyssop.
+        createTheme(
+            "whiter_than_snow", "Whiter than Snow", Color(0xFFE4ECF5),
+            customBaseline = Color(0xFF9CBF84),
+            palette = NeutralPalette.tinted(hue = 212f, strength = 0.6f, depth = 0.8f),
+            stage = listOf(Color(0xFF0C0D10), Color(0xFF121418), Color(0xFF1E2126), Color(0xFF1A1C21))
+        ),
+        // Shame: the son who came home rehearsing "I am no longer worthy to be called your son", but "while he
+        // was still a long way off, his father saw him and was filled with compassion; he ran to his son" and
+        // called for "the best robe... a ring on his finger" (Lk 15:19-22). A dusk road in violet, notes the
+        // warm dust of that road, and a keyboard line in the gold of the ring.
+        createTheme(
+            "way_home", "The Way Home", Color(0xFFE8B49B),
+            customBaseline = Color(0xFFF2CF7A),
+            palette = NeutralPalette.tinted(hue = 290f, strength = 1.6f, depth = 0.85f, textStrength = 1.2f),
+            stage = listOf(Color(0xFF0D0912), Color(0xFF150E18), Color(0xFF2A1A1A), Color(0xFF1E1620))
+        ),
+        // Regret: Peter denied Him warming himself at a charcoal fire, and "went outside and wept bitterly" (Lk
+        // 22:62); by a charcoal fire at dawn, the risen Jesus asked him three times, "Do you love me?" and gave
+        // him back his calling (Jn 21:9, 15-17). A charcoal room before dawn, notes the rose of that sunrise
+        // over the lake, and a keyboard line of glowing coals.
+        createTheme(
+            "charcoal_fire", "Charcoal Fire", Color(0xFFD9B3CF),
+            customBaseline = Color(0xFFF08A4B),
+            palette = NeutralPalette.tinted(hue = 20f, strength = 0.8f, depth = 0.78f),
+            stage = listOf(Color(0xFF09080A), Color(0xFF0E0D10), Color(0xFF201310), Color(0xFF18161A))
+        ),
     )
 
     /**
@@ -327,6 +401,9 @@ object AppThemeManager {
         // Right after Harvest, so its sibling Sowing in Tears sits beside it; and, as in Psalm 23, the valley
         // comes before the green pastures and still waters
         "Through the Valley" to listOf("sowing_in_tears", "man_of_sorrows", "storm_on_the_lake", "zeal", "the_cup"),
+        "Out of the Depths" to listOf("out_of_the_depths", "sparrow_alone", "glass_darkly", "broom_tree"),
+        // After the valley and the depths, the way back: Psalm 51's cleansing, then the welcome home
+        "Mercy & Return" to listOf("whiter_than_snow", "way_home", "charcoal_fire"),
         "Hope & Love" to listOf("orange", "crimson", "rose", "cherry"),
         "Awe & Wonder" to listOf("solar", "royal_violet", "electric_purple"),
         "Peace & Rest" to listOf("lavender", "aqua", "cyan", "neon_cyan", "mint", "emerald"),
