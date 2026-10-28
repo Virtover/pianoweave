@@ -6,7 +6,7 @@ SUPPORT_ME_URL=https://ko-fi.com/krzysztofolszak
 # Optional: shows a Discord button in app settings when set.
 DISCORD_URL=https://discord.gg/apuqsu5Z7A
 # Google OAuth "Web application" client ID. Also set in docs/config.js (webClientId).
-WEB_CLIENT_ID=""
+WEB_CLIENT_ID="364237387363-9uhsmnol0lp4ndmkaf2i1v0456gfivp4.apps.googleusercontent.com"
 # Optional: only if the official server has a password (secrets/server_password on the server).
 # It ships inside the APK, so it keeps strangers off the server but is not a real secret.
 DEFAULT_SERVER_PASSWORD=""
