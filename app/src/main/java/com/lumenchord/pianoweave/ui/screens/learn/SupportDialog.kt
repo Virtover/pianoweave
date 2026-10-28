@@ -67,7 +67,7 @@ internal fun SupportDialog(
                     )
 
                     Text(
-                        text = "Transcription is free at the moment. If you want, you can support me.",
+                        text = "Transcription is free at the moment. If you'd like to support me, I'd be grateful.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.9f),
                         lineHeight = 22.sp
