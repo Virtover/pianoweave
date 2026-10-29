@@ -37,11 +37,14 @@ import com.lumenchord.pianoweave.ui.components.AdaptiveNavigation
 import com.lumenchord.pianoweave.ui.components.AppSettingsDialog
 import com.lumenchord.pianoweave.ui.components.BilledServerGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.NoGoogleAccountDialog
+import com.lumenchord.pianoweave.ui.components.ServerConnectionDialog
 import com.lumenchord.pianoweave.ui.screens.LearnScreen
 import com.lumenchord.pianoweave.ui.screens.PianoRollScreen
 import com.lumenchord.pianoweave.ui.viewmodel.*
 import com.lumenchord.pianoweave.ui.screens.StorageScreen
 import com.lumenchord.pianoweave.ui.screens.VerseOfLightScreen
+import com.lumenchord.pianoweave.ui.screens.learn.ServerSettingsDialog
+import com.lumenchord.pianoweave.ui.screens.learn.WelcomeTutorialDialog
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -228,6 +231,31 @@ private fun PianoWeaveApp(
 
     if (showVerseOfLight) {
         VerseOfLightScreen(onClose = { showVerseOfLight = false })
+    }
+
+    LaunchedEffect(Unit) { viewModel.showWelcomeTutorialIfFirstOpen(context) }
+
+    // The welcome tutorial goes first; a connection problem found meanwhile is explained after it
+    val connectionProblem = viewModel.startupConnectionProblem
+    if (viewModel.showWelcomeTutorial) {
+        WelcomeTutorialDialog(onDismiss = { viewModel.dismissWelcomeTutorial(context) })
+    } else if (connectionProblem != null) {
+        ServerConnectionDialog(
+            problem = connectionProblem,
+            isCustomServer = !viewModel.isUsingDefaultServer,
+            isChecking = viewModel.serverStatus == ServerStatus.CHECKING,
+            onRetry = { viewModel.checkServerHealthAndInfo(context) },
+            onOpenServerSettings = { viewModel.showServerSettingsDialog = true },
+            onDismiss = { viewModel.startupConnectionProblem = null }
+        )
+    }
+
+    if (viewModel.showServerSettingsDialog) {
+        ServerSettingsDialog(
+            viewModel = viewModel,
+            context = context,
+            onDismiss = { viewModel.showServerSettingsDialog = false }
+        )
     }
 
     if (showSettingsDialog) {

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import android.app.Activity
 import android.content.Context
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
@@ -56,7 +57,11 @@ internal fun PianoWeaveViewModel.getOrCreateUserIdImpl(context: Context): String
     return id
 }
 
-internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): ServerStatus = withContext(Dispatchers.IO) {
+/** Checks [url]'s /health; [onError] receives the failure when no answer came at all. */
+internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(
+    url: String,
+    onError: (Exception) -> Unit = {}
+): ServerStatus = withContext(Dispatchers.IO) {
     if (url.isBlank()) return@withContext ServerStatus.OFFLINE
     try {
         val api = PianoApiFactory.getApi(url)
@@ -71,7 +76,24 @@ internal suspend fun PianoWeaveViewModel.testServerConnectionImpl(url: String): 
         }
     } catch (e: Exception) {
         if (e is CancellationException) throw e
+        onError(e)
         if (!isOnline()) ServerStatus.NO_INTERNET else ServerStatus.OFFLINE
+    }
+}
+
+/** What the startup connection dialog should explain for [status], or null when the server is usable. */
+private fun PianoWeaveViewModel.connectionProblemFor(status: ServerStatus, error: Exception?): ServerConnectionProblem? {
+    val notice = ServerMaintenance.notice
+    return when (status) {
+        ServerStatus.ONLINE, ServerStatus.CHECKING, ServerStatus.UNKNOWN -> null
+        ServerStatus.PASSWORD_REQUIRED -> ServerConnectionProblem.PasswordRequired
+        ServerStatus.NO_INTERNET -> ServerConnectionProblem.NoInternet
+        ServerStatus.OFFLINE ->
+            if (notice != null && notice.hasStarted(System.currentTimeMillis() / 1000)) {
+                ServerConnectionProblem.Maintenance(notice)
+            } else {
+                ServerConnectionProblem.Unreachable(error?.let { connectionMessage(it) })
+            }
     }
 }
 
@@ -126,9 +148,12 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
     // Only the newest check counts: typing a server URL checks on every key, and an older check
     // answering last would otherwise show the status of a half-typed address
     serverCheckJob?.cancel()
+    // The check MainActivity runs on opening; the earlier one from loadPreferences has no Activity
+    val isStartupCheck = isInitialConnection && context is Activity
     serverCheckJob = viewModelScope.launch {
         serverStatus = ServerStatus.CHECKING
-        serverStatus = testServerConnectionImpl(url)
+        var connectError: Exception? = null
+        serverStatus = testServerConnectionImpl(url) { connectError = it }
         val targetContext = context ?: appContext
         if (serverStatus == ServerStatus.ONLINE) {
             autoReconnectJob?.cancel()
@@ -154,6 +179,14 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                             if (estimatedCostCredits == null) recalculateCostImpl()
                         } else if (isUserAction) {
                             signInWithGoogleImpl(targetContext, isAutoSignIn = true, onResult = null)
+                        } else if (context is Activity &&
+                            !AppPrefs.get(context).getBoolean(AppPrefs.HAS_PROMPTED_BILLED_SERVER_SIGN_IN, false)
+                        ) {
+                            // First ever connection to a billed server: offer sign-in once. Needs an
+                            // Activity for the account picker, so background reconnects wait for the next check.
+                            AppPrefs.get(context).edit()
+                                .putBoolean(AppPrefs.HAS_PROMPTED_BILLED_SERVER_SIGN_IN, true).apply()
+                            signInWithGoogleImpl(context, isAutoSignIn = true, onResult = null)
                         } else {
                             refreshUserBalanceImpl(targetContext)
                         }
@@ -167,6 +200,12 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
             }
         } else if (serverStatus.isUnreachable) {
             startAutoReconnectImpl(targetContext)
+        }
+        // Explained once on opening; while that dialog is up, later checks (auto-reconnect, "Try again")
+        // keep it current and close it once the server is back
+        if (isStartupCheck || startupConnectionProblem != null) {
+            isInitialConnection = false
+            startupConnectionProblem = connectionProblemFor(serverStatus, connectError)
         }
     }
     refreshOfficialServerBilling()

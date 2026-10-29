@@ -53,7 +53,6 @@ fun LearnScreen(
     context: Context,
     onSongSelect: (StoredMidi) -> Unit = {}
 ) {
-    var showServerSettingsDialog by remember { mutableStateOf(false) }
     var showCancelConfirmDialog by remember { mutableStateOf(false) }
     var songBeingEdited by remember { mutableStateOf<StoredMidi?>(null) }
 
@@ -142,14 +141,6 @@ fun LearnScreen(
                 viewModel.cancelTranscription(context)
             },
             onDismiss = { showCancelConfirmDialog = false }
-        )
-    }
-
-    if (showServerSettingsDialog) {
-        ServerSettingsDialog(
-            viewModel = viewModel,
-            context = context,
-            onDismiss = { showServerSettingsDialog = false }
         )
     }
 
@@ -316,7 +307,7 @@ fun LearnScreen(
                         TranscriptionInputCard(
                             viewModel = viewModel,
                             context = context,
-                            onOpenServerSettings = { showServerSettingsDialog = true },
+                            onOpenServerSettings = { viewModel.showServerSettingsDialog = true },
                             linkInputAnchors = linkInputAnchors
                         )
 

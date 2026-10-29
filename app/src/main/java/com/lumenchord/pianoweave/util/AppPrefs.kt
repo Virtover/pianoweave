@@ -13,6 +13,8 @@ object AppPrefs {
     const val GOOGLE_USER_EMAIL = "google_user_email"
     const val CUSTOM_GOOGLE_CLIENT_ID = "custom_google_client_id"
     const val LAST_BILLED_SERVER_UNAUTHENTICATED = "last_billed_server_unauthenticated"
+    /** Google sign-in was offered on the first ever connection to a billed server; it is not offered unasked again. */
+    const val HAS_PROMPTED_BILLED_SERVER_SIGN_IN = "has_prompted_billed_server_sign_in"
 
     // Server
     const val USE_CUSTOM_SERVER = "use_custom_server"
@@ -51,6 +53,8 @@ object AppPrefs {
     /** Whether notes from a connected MIDI keyboard are played through the app's piano sound. */
     const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
     const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
+    /** The first-open walkthrough (copy a link, transcribe, open the piano roll) was finished or skipped. */
+    const val HAS_SEEN_WELCOME_TUTORIAL = "has_seen_welcome_tutorial"
     /** Legacy flag: the hidden verse screen was opened at least once (superseded by the count below). */
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"
     /** How many times the hidden verse screen was opened; the logo hold gets shorter as it grows. */

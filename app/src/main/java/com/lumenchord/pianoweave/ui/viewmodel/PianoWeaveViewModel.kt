@@ -201,6 +201,10 @@ class PianoWeaveViewModel : ViewModel() {
     var showBilledServerGoogleAccountDialog by mutableStateOf(false)
     var savedUnauthenticatedServerUrl by mutableStateOf("")
     var isInitialConnection by mutableStateOf(true)
+    /** Why the server couldn't be used when the app opened; shows [com.lumenchord.pianoweave.ui.components.ServerConnectionDialog]. */
+    var startupConnectionProblem by mutableStateOf<ServerConnectionProblem?>(null)
+    var showServerSettingsDialog by mutableStateOf(false)
+    var showWelcomeTutorial by mutableStateOf(false)
 
     // --- Cloud Storage & Sync State ---
     var isCloudSyncEnabled by mutableStateOf(false)
@@ -365,6 +369,16 @@ class PianoWeaveViewModel : ViewModel() {
 
     fun markPianoRollTutorialSeen(context: Context) {
         AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SEEN_PIANO_ROLL_TUTORIAL, true).apply()
+    }
+
+    /** Shows the welcome tutorial if this is the app's first open. */
+    fun showWelcomeTutorialIfFirstOpen(context: Context) {
+        if (!AppPrefs.get(context).getBoolean(AppPrefs.HAS_SEEN_WELCOME_TUTORIAL, false)) showWelcomeTutorial = true
+    }
+
+    fun dismissWelcomeTutorial(context: Context) {
+        showWelcomeTutorial = false
+        AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SEEN_WELCOME_TUTORIAL, true).apply()
     }
 
     override fun onCleared() {
