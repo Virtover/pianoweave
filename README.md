@@ -106,6 +106,11 @@ Open the project in Android Studio and build the `:app` module, or build a debug
 
 Debug builds do not need a keystore. They are signed with the default Android debug key.
 
+> [!NOTE]
+> Self-built apps cannot make in-app purchases on the official Piano Weave server. Google Play Billing only works for the
+> official app installed from Google Play, so buying credits fails in any build you compile and sign yourself.
+> Transcription through your own server does not need purchases and works normally.
+
 All dependencies resolve from Maven Central, Google Maven, and the bundled `local-maven/` folder (see [Third-party software](#third-party-software)). No extra steps are required after cloning.
 
 <details>
