@@ -5,6 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.lumenchord.pianoweave.api.PianoApi
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
@@ -33,8 +34,8 @@ class TranscriptionWorker(
             while (!isStopped) {
                 val job = try {
                     withAuth(serverUrl) { header -> api.getTranscription(jobId, authHeader = header) }
-                } catch (_: Exception) {
-                    return Result.retry()
+                } catch (e: Exception) {
+                    return retryUnlessGone(e, jobId)
                 }
 
                 when (job.status) {
@@ -69,8 +70,8 @@ class TranscriptionWorker(
             CompletedTranscriptions.saveOnce(applicationContext, stableUrl, job) {
                 withAuth(serverUrl) { header -> api.downloadMidi(jobId, authHeader = header) }
             }
-        } catch (_: Exception) {
-            return Result.retry()
+        } catch (e: Exception) {
+            return retryUnlessGone(e, jobId)
         }
 
         val isCloudSyncEnabled = AppPrefs.get(applicationContext).getBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false)
@@ -83,6 +84,13 @@ class TranscriptionWorker(
 
         ActiveJobStore.clear(applicationContext, jobId)
         return Result.success()
+    }
+
+    /** Tries again later, unless the job or its MIDI expired on the server, which no retry brings back. */
+    private fun retryUnlessGone(e: Exception, jobId: String): Result {
+        if (!ServerErrors.isGoneFromServer(e)) return Result.retry()
+        ActiveJobStore.clear(applicationContext, jobId)
+        return Result.failure()
     }
 
     private suspend fun <T> withAuth(serverUrl: String, apiCall: suspend (authHeader: String?) -> T): T =

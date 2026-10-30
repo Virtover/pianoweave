@@ -423,20 +423,31 @@ internal suspend fun PianoWeaveViewModel.pollTranscriptionJob(context: Context, 
         }
     } catch (e: Exception) {
         if (e is CancellationException) throw e
+        if (ServerErrors.isGoneFromServer(e) && currentJobId == jobId) failGoneJob(context)
     } finally {
         isLoading = false
     }
 }
 
+/** Null while the server can't be reached or is busy; throws if the job is gone from it for good. */
 private suspend fun PianoWeaveViewModel.fetchJobStatusOrNull(context: Context, jobId: String): TranscriptionStatusResponse? =
     try {
         executeServerCallImpl(context) { authHeader ->
             PianoApiFactory.getApi(activeServerUrl).getTranscription(jobId, authHeader = authHeader)
         }
     } catch (e: Exception) {
-        if (e is CancellationException) throw e
+        if (e is CancellationException || ServerErrors.isGoneFromServer(e)) throw e
         null
     }
+
+/** The job or its MIDI expired on the server (or was removed): waiting longer would never end. */
+private fun PianoWeaveViewModel.failGoneJob(context: Context) {
+    showTranscriptionError(
+        "This transcription is no longer on the server; it may have expired. Tap Transcribe to start it again.",
+        offerUpload = false
+    )
+    finishActiveJob(context)
+}
 
 /** Mirrors server-side job state (progress, charged balance, status text) into the UI. */
 private fun PianoWeaveViewModel.applyJobStatus(job: TranscriptionStatusResponse) {
@@ -516,6 +527,10 @@ private suspend fun PianoWeaveViewModel.downloadMidiWithRetry(
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+            if (ServerErrors.isGoneFromServer(e)) {
+                failGoneJob(context)
+                return null
+            }
             status = "Retrying MIDI download..."
             delay(POLL_INTERVAL_MS)
         }

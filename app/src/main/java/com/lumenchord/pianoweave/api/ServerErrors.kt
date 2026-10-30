@@ -74,6 +74,15 @@ object ServerErrors {
     /** 429: the user already has as many transcriptions in progress as the server allows. */
     fun isTooManyRequests(e: Throwable): Boolean = (e as? HttpException)?.code() == 429
 
+    /**
+     * 404 from the API itself (with a `"detail"`): the job or its MIDI is gone from the server for good, e.g.
+     * expired. Not a proxy's 404 while the server restarts, which has no detail; that one is waited out.
+     */
+    fun isGoneFromServer(e: Throwable): Boolean {
+        val http = e as? HttpException ?: return false
+        return http.code() == 404 && detailMessage(errorBody(http)) != null
+    }
+
     /** 402: the balance doesn't cover the transcription. */
     fun isPaymentRequired(e: Throwable): Boolean = (e as? HttpException)?.code() == 402
 

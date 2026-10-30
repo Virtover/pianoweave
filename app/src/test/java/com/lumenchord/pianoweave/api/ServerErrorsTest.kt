@@ -153,6 +153,16 @@ class ServerErrorsTest {
         assertFalse(ServerErrors.isPaymentRequired(httpError(401)))
     }
 
+    @Test
+    fun expiredJobOrResultIsGoneFromTheServer() {
+        assertTrue(ServerErrors.isGoneFromServer(httpError(404, """{"detail": "Transcription job not found"}""")))
+        assertTrue(ServerErrors.isGoneFromServer(httpError(404, """{"detail": "MIDI result is no longer available"}""")))
+        // A proxy's page while the server restarts is waited out
+        assertFalse(ServerErrors.isGoneFromServer(httpError(404, "<html>Not Found</html>")))
+        assertFalse(ServerErrors.isGoneFromServer(httpError(409, """{"detail": "Transcription is not completed yet"}""")))
+        assertFalse(ServerErrors.isGoneFromServer(IOException("Connection reset")))
+    }
+
     // --- Server password vs. Google token ---
 
     @Test

@@ -53,6 +53,21 @@ object PianoApiFactory {
             .addInterceptor(Interceptor { chain ->
                 chain.proceed(chain.request()).also(ServerMaintenance::onResponse)
             })
+            // A redirect keeps the first request's headers: OkHttp drops Authorization only for another host,
+            // and the password never. The MIDI download may redirect to a signed object-storage link, which
+            // must get neither (storage refuses a second signature, and the password is the server's alone).
+            .addNetworkInterceptor(Interceptor { chain ->
+                val request = chain.request()
+                val builder = request.newBuilder()
+                if (request.header(AUTHORIZATION) != null && !isOfficialServer(request.url)) {
+                    builder.removeHeader(AUTHORIZATION)
+                }
+                val password = request.header(SERVER_PASSWORD_HEADER)
+                if (password != null && password != serverPasswordFor(request.url)) {
+                    builder.removeHeader(SERVER_PASSWORD_HEADER)
+                }
+                chain.proceed(builder.build())
+            })
             .build()
     }
 
