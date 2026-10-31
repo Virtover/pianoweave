@@ -317,7 +317,7 @@ object AppThemeManager {
             stage = listOf(Color(0xFF080305), Color(0xFF120509), Color(0xFF200710), Color(0xFF1E0A12))
         ),
 
-        // Out of the depths (Ps 130:1): despair, loneliness, doubt and exhaustion, each answered the way the
+        // Out of the depths (Ps 130:1): despair, loneliness, brokenness made whole, numbness, doubt and exhaustion, each answered the way the
         // psalms answer it. Strongly colored dark rooms like the valley's; text stays near neutral.
         // Despair: "Out of the depths I cry to you, Lord" (Ps 130:1); "the deep surrounded me, seaweed was wrapped
         // around my head... But you, Lord my God, brought my life up from the pit" (Jon 2:5-6). A deep-sea room,
@@ -338,6 +338,36 @@ object AppThemeManager {
             palette = NeutralPalette.tinted(hue = 232f, strength = 2.6f, depth = 0.85f, textStrength = 1.3f),
             stage = listOf(Color(0xFF05060F), Color(0xFF0A0C1C), Color(0xFF12152B), Color(0xFF14172C)),
             stageOrnament = StageOrnament.Stars
+        ),
+        // The wayfarer: glory and pain, greatness and brokenness, healed on the road back, as Elijah was. Fire fell from heaven
+        // at his prayer on Carmel (1 Ki 18:38); a day later one threat from Jezebel sent him running for his life (1
+        // Ki 19:2-3). At Horeb, still saying "I am the only one left, and now they are trying to kill me too", the
+        // Lord was not in the wind, the earthquake or the fire, but "after the fire came a gentle whisper" (1 Ki
+        // 19:10-12). He was not cast off but sent back to his calling, "Go back the way you came", and told he was
+        // never alone: "I reserve seven thousand in Israel" (1 Ki 19:15-18). He went, and on the way he took up the
+        // burden again: he found Elisha and threw his cloak around him (1 Ki 19:19). Also Odysseus, coming home with
+        // Troy on his conscience; and "take my yoke upon you... my burden is light" (Mt 11:29-30). Hard, with
+        // fire in it: a near-black room of iron and old blood, embers glowing low above the keys, notes of scarred,
+        // fire-burnished copper, and a keyboard line of flame gold, holding every broken piece together.
+        createTheme(
+            "wayfarer", "Wayfarer", Color(0xFFD8844E),
+            customBaseline = Color(0xFFF0B85A),
+            palette = NeutralPalette.tinted(hue = 8f, strength = 1.8f, depth = 0.7f, textStrength = 1.2f),
+            stage = listOf(Color(0xFF0A0808), Color(0xFF130D0C), Color(0xFF341A0C), Color(0xFF1C1513))
+        ),
+        // Numbness, relief by forgetting: Odysseus among the lotus, broken and wanting nothing but to forget home.
+        // "Are your wonders known in the land of forgetfulness?" (Ps 88:12); "let them drink and forget their
+        // poverty and remember their misery no more" (Prov 31:7). Jonah, running from his calling, asleep in the
+        // hold through the storm, and "very happy about the plant" whose shade eased him (Jon 1:5, 4:6). Yet the
+        // One forgotten does not forget: "Though she may forget, I will not forget you!" (Is 49:15); "I will lead
+        // her into the wilderness and speak tenderly to her" (Hos 2:14); "Wake up, sleeper, rise from the dead, and
+        // Christ will shine on you" (Eph 5:14). A hazy, drowsy room with soft contrast,
+        // dreamy lotus-pink notes, and a keyboard line of dulled honey, sweet and a little faded.
+        createTheme(
+            "sleeper", "Sleeper", Color(0xFFE3B5C8),
+            customBaseline = Color(0xFFD9C79A),
+            palette = NeutralPalette.tinted(hue = 320f, strength = 1.2f, depth = 0.9f),
+            stage = listOf(Color(0xFF141017), Color(0xFF18131A), Color(0xFF1D1719), Color(0xFF1F1A21))
         ),
         // Doubt: "For now we see through a glass, darkly; but then face to face" (1 Cor 13:12); "I do believe;
         // help me overcome my unbelief!" (Mk 9:24); "Stop doubting and believe" (Jn 20:27). A misty room, notes
@@ -401,7 +431,7 @@ object AppThemeManager {
         // Right after Harvest, so its sibling Sowing in Tears sits beside it; and, as in Psalm 23, the valley
         // comes before the green pastures and still waters
         "Through the Valley" to listOf("sowing_in_tears", "man_of_sorrows", "storm_on_the_lake", "zeal", "the_cup"),
-        "Out of the Depths" to listOf("out_of_the_depths", "sparrow_alone", "glass_darkly", "broom_tree"),
+        "Out of the Depths" to listOf("out_of_the_depths", "sparrow_alone", "wayfarer", "sleeper", "glass_darkly", "broom_tree"),
         // After the valley and the depths, the way back: Psalm 51's cleansing, then the welcome home
         "Mercy & Return" to listOf("whiter_than_snow", "way_home", "charcoal_fire"),
         "Hope & Love" to listOf("orange", "crimson", "rose", "cherry"),
