@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.background
@@ -21,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -42,7 +42,10 @@ fun AppThemeGrid(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         AppThemeManager.themeGroups.forEach { (feeling, themes) ->
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(
+                modifier = Modifier.animateContentSize(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Text(
                     text = feeling.uppercase(),
                     fontSize = 10.sp,
@@ -66,19 +69,22 @@ fun AppThemeGrid(
                         )
                     }
                 }
+                themes.firstOrNull { it.id == selectedId }?.let { ThemeName(it) }
             }
         }
-        Text(
-            text = AppThemeManager.getTheme(selectedId).name,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = AppThemeManager.getTheme(selectedId).primaryColor,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp),
-            textAlign = TextAlign.Center
-        )
     }
+}
+
+/** The selected theme's name, under its own row, so a pick is named where the eye already is. */
+@Composable
+private fun ThemeName(theme: AppTheme) {
+    Text(
+        text = theme.name,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = theme.primaryColor,
+        modifier = Modifier.padding(start = 2.dp)
+    )
 }
 
 /**
