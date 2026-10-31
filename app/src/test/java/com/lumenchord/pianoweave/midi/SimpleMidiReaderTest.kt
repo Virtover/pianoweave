@@ -62,4 +62,13 @@ class SimpleMidiReaderTest {
         assertEquals(250L, notes[0].startMs)
         assertEquals(250L, notes[0].durationMs)
     }
+
+    @Test
+    fun sustainPedalSpansComeFromControlChange64() {
+        // At 120 BPM: pedal down at 0, up at 500 ms (running status), down again at 1000 ms and never lifted.
+        // Other controllers (7, volume) are ignored.
+        val track = intArrayOf(0x00, 0xB0, 64, 127, 0x00, 0xB0, 7, 100, 0x83, 0x60, 64, 0, 0x83, 0x60, 64, 90) + endOfTrack
+        val song = SimpleMidiReader.parseSong(midi(0, track).inputStream())
+        assertEquals(listOf(SustainPedalSpan(0L, 500L), SustainPedalSpan(1000L, Long.MAX_VALUE)), song.sustainPedal)
+    }
 }

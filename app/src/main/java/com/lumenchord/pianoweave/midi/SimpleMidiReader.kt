@@ -7,21 +7,27 @@ import java.nio.ByteOrder
 
 object SimpleMidiReader {
 
-    fun parse(file: File): List<MidiNoteEvent> {
+    private val EMPTY_SONG = MidiSong(emptyList(), emptyList())
+
+    fun parse(file: File): List<MidiNoteEvent> = parseSong(file).notes
+
+    fun parse(inputStream: InputStream): List<MidiNoteEvent> = parseSong(inputStream).notes
+
+    fun parseSong(file: File): MidiSong {
         if (!file.exists() || file.length() == 0L) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         return file.inputStream().use {
-            parse(it)
+            parseSong(it)
         }
     }
 
-    fun parse(inputStream: InputStream): List<MidiNoteEvent> {
+    fun parseSong(inputStream: InputStream): MidiSong {
         val bytes = inputStream.readBytes()
 
         if (bytes.size < 14) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         val buffer = ByteBuffer
@@ -32,18 +38,18 @@ object SimpleMidiReader {
          * MThd
          */
         if (buffer.intSafe() != 0x4D546864) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         val headerLength = buffer.intSafe()
-            ?: return emptyList()
+            ?: return EMPTY_SONG
 
         if (headerLength < 6) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         if (buffer.remaining() < 6) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         val format = buffer.short.toInt() and 0xFFFF
@@ -57,11 +63,11 @@ object SimpleMidiReader {
          * which is what this reader supports.
          */
         if (division and 0x8000 != 0) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         if (division == 0) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         /*
@@ -72,7 +78,7 @@ object SimpleMidiReader {
 
         if (extraHeaderBytes > 0) {
             if (buffer.remaining() < extraHeaderBytes) {
-                return emptyList()
+                return EMPTY_SONG
             }
 
             buffer.position(
@@ -84,6 +90,8 @@ object SimpleMidiReader {
         // the tempo events sit in the first track and apply to every track
         val tickNotes = mutableListOf<TickNote>()
         val tempoChanges = mutableListOf<Pair<Long, Int>>()
+        // Sustain pedal (CC64) changes as tick to down; a piano has one pedal, whichever track holds it
+        val pedalChanges = mutableListOf<Pair<Long, Boolean>>()
 
         /*
          * MIDI format 2 contains independent sequences.
@@ -92,7 +100,7 @@ object SimpleMidiReader {
          * are the relevant ones.
          */
         if (format !in 0..1) {
-            return emptyList()
+            return EMPTY_SONG
         }
 
         for (trackIndex in 0 until numTracks) {
@@ -127,7 +135,8 @@ object SimpleMidiReader {
                 buffer = buffer,
                 trackEnd = trackEnd,
                 output = tickNotes,
-                tempoChanges = tempoChanges
+                tempoChanges = tempoChanges,
+                pedalChanges = pedalChanges
             )
 
             /*
@@ -141,7 +150,21 @@ object SimpleMidiReader {
         }
 
         val tempoMap = TempoMap(tempoChanges, division)
-        return tickNotes
+
+        val sustainPedal = mutableListOf<SustainPedalSpan>()
+        var pedalDownSinceTick: Long? = null
+        for ((tick, down) in pedalChanges.sortedBy { it.first }) {
+            val since = pedalDownSinceTick
+            if (down && since == null) {
+                pedalDownSinceTick = tick
+            } else if (!down && since != null) {
+                sustainPedal += SustainPedalSpan(tempoMap.toMs(since), tempoMap.toMs(tick))
+                pedalDownSinceTick = null
+            }
+        }
+        pedalDownSinceTick?.let { sustainPedal += SustainPedalSpan(tempoMap.toMs(it), Long.MAX_VALUE) }
+
+        val notes = tickNotes
             .map { note ->
                 val startMs = tempoMap.toMs(note.startTick)
                 MidiNoteEvent(
@@ -157,13 +180,15 @@ object SimpleMidiReader {
                     { it.pitch }
                 )
             )
+        return MidiSong(notes, sustainPedal)
     }
 
     private fun parseTrack(
         buffer: ByteBuffer,
         trackEnd: Int,
         output: MutableList<TickNote>,
-        tempoChanges: MutableList<Pair<Long, Int>>
+        tempoChanges: MutableList<Pair<Long, Int>>,
+        pedalChanges: MutableList<Pair<Long, Boolean>>
     ) {
         var currentTicks = 0L
 
@@ -415,12 +440,37 @@ object SimpleMidiReader {
                     }
                 }
 
+                0xB0 -> {
+                    /*
+                     * Control Change:
+                     *
+                     * status
+                     * controller
+                     * value
+                     *
+                     * Only the sustain pedal (64) is kept; 64 and up is down.
+                     */
+                    val controller =
+                        readByte(
+                            buffer,
+                            trackEnd
+                        ) ?: break
+
+                    val value =
+                        readByte(
+                            buffer,
+                            trackEnd
+                        ) ?: break
+
+                    if (controller == 64) {
+                        pedalChanges += currentTicks to (value >= 64)
+                    }
+                }
+
                 0xA0,
-                0xB0,
                 0xE0 -> {
                     /*
                      * Polyphonic pressure,
-                     * Control Change,
                      * Pitch Bend.
                      */
                     if (

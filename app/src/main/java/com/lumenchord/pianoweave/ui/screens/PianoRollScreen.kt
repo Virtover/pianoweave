@@ -41,6 +41,7 @@ import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.midi.SimpleMidiReader
 import com.lumenchord.pianoweave.midi.StoredMidi
+import com.lumenchord.pianoweave.midi.SustainPedalSpan
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
 import com.lumenchord.pianoweave.ui.components.RibbonLoader
 import com.lumenchord.pianoweave.ui.theme.DisplayFontFamily
@@ -60,6 +61,7 @@ fun PianoRollScreen(
     onBack: () -> Unit
 ) {
     var noteEvents by remember(song) { mutableStateOf<List<MidiNoteEvent>?>(null) }
+    var sustainPedal by remember(song) { mutableStateOf<List<SustainPedalSpan>>(emptyList()) }
     var parseError by remember(song) { mutableStateOf<String?>(null) }
 
     // System back leaves the song like the toolbar's back arrow instead of closing the app. While the
@@ -71,9 +73,11 @@ fun PianoRollScreen(
         noteEvents = null
         parseError = null
         try {
-            val parsed = withContext(Dispatchers.IO) {
-                SimpleMidiReader.parse(song.file)
+            val parsedSong = withContext(Dispatchers.IO) {
+                SimpleMidiReader.parseSong(song.file)
             }
+            val parsed = parsedSong.notes
+            sustainPedal = parsedSong.sustainPedal
             noteEvents = parsed
             val duration = (parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
             if (viewModel.loopEndMs == 0L) {
@@ -89,7 +93,7 @@ fun PianoRollScreen(
     } else if (noteEvents == null) {
         MidiLoadingScreen()
     } else {
-        ModernPianoPlayerContent(song, noteEvents!!, viewModel, onBack)
+        ModernPianoPlayerContent(song, noteEvents!!, sustainPedal, viewModel, onBack)
     }
 }
 
@@ -120,6 +124,7 @@ private fun MidiLoadingScreen() {
 private fun ModernPianoPlayerContent(
     song: StoredMidi,
     rawEvents: List<MidiNoteEvent>,
+    sustainPedal: List<SustainPedalSpan>,
     viewModel: PianoWeaveViewModel,
     onBack: () -> Unit
 ) {
@@ -248,9 +253,27 @@ private fun ModernPianoPlayerContent(
             viewModel.playheadMs = 0L
         }
 
+        // Pitches the song itself is sounding, so each gets its note off once no note of it is under the
+        // playhead any more (ended, or jumped past by wait mode) and the sustain pedal is up
+        val songSoundingPitches = mutableSetOf<Int>()
+        fun songNoteOn(note: MidiNoteEvent) {
+            PianoPlayer.noteOn(note.pitch, note.velocity)
+            songSoundingPitches.add(note.pitch)
+        }
+        fun releaseEndedNotes() {
+            val head = viewModel.playheadMs
+            if (sustainPedal.any { head >= it.startMs && head < it.endMs }) return
+            songSoundingPitches.retainAll { pitch ->
+                val stillSounding = noteEvents.any { it.pitch == pitch && head >= it.startMs && head < it.startMs + it.durationMs }
+                // A key the user holds (keyboard or on screen) shares the channel; cutting it would silence them
+                if (!stillSounding && pitch !in MidiInputManager.pressedKeys) PianoPlayer.noteOff(pitch)
+                stillSounding
+            }
+        }
+
         if (isSongSoundOn) {
             val resumed = noteEvents.filter { viewModel.playheadMs >= it.startMs && viewModel.playheadMs < (it.startMs + it.durationMs) }
-            resumed.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+            resumed.forEach(::songNoteOn)
         }
 
         lastTriggeredHeadMs = viewModel.playheadMs
@@ -308,6 +331,7 @@ private fun ModernPianoPlayerContent(
                         val currentTime = System.currentTimeMillis()
                         currentPresses.filterValues { it < currentTime - 1500L }.keys.forEach(MidiInputManager::simulateExternalNoteOff)
                         viewModel.playheadMs = upcoming
+                        releaseEndedNotes()
                         delay(10)
                         continue
                     } else {
@@ -319,7 +343,7 @@ private fun ModernPianoPlayerContent(
                         // the keyboard, or its sound through the app, already plays them
                         if (isSongSoundOn) {
                             noteEvents.filter { abs(it.startMs - upcoming) <= 30L && it.pitch !in required }
-                                .forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+                                .forEach(::songNoteOn)
                         }
                         lastCompletedWaitOnsetMs = upcoming
                         currentWaitOnsetMs = -1L
@@ -333,7 +357,7 @@ private fun ModernPianoPlayerContent(
             val next = targetNext
             if (isSongSoundOn && abs(next - lastTriggeredHeadMs) < 500L) {
                 val triggered = noteEvents.filter { it.startMs > lastTriggeredHeadMs && it.startMs <= next }
-                triggered.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+                triggered.forEach(::songNoteOn)
             }
             lastTriggeredHeadMs = next
 
@@ -344,8 +368,9 @@ private fun ModernPianoPlayerContent(
                 viewModel.playheadMs = viewModel.loopStartMs
                 lastTriggeredHeadMs = viewModel.loopStartMs
                 PianoPlayer.stopAllNotes()
+                songSoundingPitches.clear()
                 val loopNotes = noteEvents.filter { viewModel.loopStartMs >= it.startMs && viewModel.loopStartMs < (it.startMs + it.durationMs) }
-                if (isSongSoundOn) loopNotes.forEach { PianoPlayer.noteOn(it.pitch, it.velocity) }
+                if (isSongSoundOn) loopNotes.forEach(::songNoteOn)
             } else if (!isLooping && next >= songDurationMs) {
                 viewModel.playheadMs = songDurationMs
                 viewModel.isPlaying = false
@@ -354,6 +379,7 @@ private fun ModernPianoPlayerContent(
                     viewModel.playheadMs = next
                 }
             }
+            releaseEndedNotes()
             delay(10)
         }
     }
