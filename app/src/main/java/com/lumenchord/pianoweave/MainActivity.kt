@@ -58,7 +58,23 @@ class MainActivity : ComponentActivity() {
     // one made while the first is open, so the notification prompt never appeared on a fresh install
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> }
+    ) { _ -> viewModel.startupPermissionsAnswered = true }
+
+    /**
+     * Notifications for finished transcriptions and exports, and on Android 9 and below storage, which saving
+     * an export to Downloads needs there. The microphone isn't asked here: wait mode and recording ask for it
+     * when used, with their reason. Called once the welcome tutorial is closed, not on top of it.
+     */
+    private fun requestStartupPermissions() {
+        if (viewModel.startupPermissionsRequested) return
+        viewModel.startupPermissionsRequested = true
+        val wanted = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (wanted.isNotEmpty()) requestPermissionsLauncher.launch(wanted.toTypedArray())
+        else viewModel.startupPermissionsAnswered = true
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,14 +96,8 @@ class MainActivity : ComponentActivity() {
         // Initialize physical hardware MIDI listener framework at application launch
         MidiInputManager.initialize(applicationContext)
 
-        // Microphone for acoustic detection (wait mode), notifications for finished transcriptions and
-        // exports, and on Android 9 and below storage, which saving an export to Downloads needs there
-        val wanted = buildList {
-            add(Manifest.permission.RECORD_AUDIO)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
-            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-        if (wanted.isNotEmpty()) requestPermissionsLauncher.launch(wanted.toTypedArray())
+        // On first open the tutorial is up before the first frame, so the permission request waits for it
+        viewModel.showWelcomeTutorialIfFirstOpen(applicationContext)
 
         setContent {
             val currentTheme = AppThemeManager.getTheme(viewModel.selectedThemeId)
@@ -115,7 +125,8 @@ class MainActivity : ComponentActivity() {
                     } else {
                         PianoWeaveApp(
                             viewModel = viewModel,
-                            context = this@MainActivity
+                            context = this@MainActivity,
+                            requestStartupPermissions = ::requestStartupPermissions
                         )
                     }
                 }
@@ -138,7 +149,8 @@ private enum class AppTab {
 @Composable
 private fun PianoWeaveApp(
     viewModel: PianoWeaveViewModel,
-    context: Context
+    context: Context,
+    requestStartupPermissions: () -> Unit
 ) {
     // Tabs are pages, so Learn and Library can also be reached by swiping left or right
     val pagerState = rememberPagerState { AppTab.entries.size }
@@ -233,13 +245,21 @@ private fun PianoWeaveApp(
         VerseOfLightScreen(onClose = { showVerseOfLight = false })
     }
 
-    LaunchedEffect(Unit) { viewModel.showWelcomeTutorialIfFirstOpen(context) }
+    // First open shows one prompt at a time: the welcome tutorial, then the permission request, then the
+    // connection problem or sign-in offer the startup server check may have found meanwhile
+    val tutorialDone = !viewModel.showWelcomeTutorial
+    val startupPromptsDone = tutorialDone && viewModel.startupPermissionsAnswered
+    LaunchedEffect(tutorialDone) {
+        if (tutorialDone) requestStartupPermissions()
+    }
+    LaunchedEffect(startupPromptsDone, viewModel.pendingBilledServerSignInOffer) {
+        if (startupPromptsDone && viewModel.pendingBilledServerSignInOffer) viewModel.offerBilledServerSignIn(context)
+    }
 
-    // The welcome tutorial goes first; a connection problem found meanwhile is explained after it
     val connectionProblem = viewModel.startupConnectionProblem
     if (viewModel.showWelcomeTutorial) {
         WelcomeTutorialDialog(onDismiss = { viewModel.dismissWelcomeTutorial(context) })
-    } else if (connectionProblem != null) {
+    } else if (startupPromptsDone && connectionProblem != null) {
         ServerConnectionDialog(
             problem = connectionProblem,
             isCustomServer = !viewModel.isUsingDefaultServer,

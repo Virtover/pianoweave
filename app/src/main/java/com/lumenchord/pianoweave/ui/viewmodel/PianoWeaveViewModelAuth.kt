@@ -27,6 +27,18 @@ internal fun openAddGoogleAccountImpl(context: Context) {
     }
 }
 
+/**
+ * Offers sign-in once, on the first ever connection to a billed server. The server check only marks it
+ * pending; MainActivity calls this after the welcome tutorial and permission request so they don't overlap.
+ */
+internal fun PianoWeaveViewModel.offerBilledServerSignInImpl(context: Context) {
+    if (!pendingBilledServerSignInOffer) return
+    pendingBilledServerSignInOffer = false
+    if (isGoogleSignedIn) return
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_PROMPTED_BILLED_SERVER_SIGN_IN, true).apply()
+    signInWithGoogleImpl(context, isAutoSignIn = true, onResult = null)
+}
+
 internal fun PianoWeaveViewModel.signInWithGoogleImpl(context: Context, isAutoSignIn: Boolean, onResult: ((Boolean) -> Unit)?) {
     if (isLoading) {
         googleAuthError = "Cannot switch account during active transcription."

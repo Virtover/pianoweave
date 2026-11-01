@@ -206,6 +206,14 @@ class PianoWeaveViewModel : ViewModel() {
     var showServerSettingsDialog by mutableStateOf(false)
     var showWelcomeTutorial by mutableStateOf(false)
 
+    // First open shows one prompt at a time: welcome tutorial, then the permission request, then the sign-in offer
+    /** The startup permission request was launched; kept here so a recreated Activity doesn't launch it again. */
+    internal var startupPermissionsRequested = false
+    /** The startup permission request was answered (or nothing needed asking); later first-open prompts wait for it. */
+    var startupPermissionsAnswered by mutableStateOf(false)
+    /** Sign-in is to be offered on the first connection to a billed server, once the earlier prompts are done. */
+    var pendingBilledServerSignInOffer by mutableStateOf(false)
+
     // --- Cloud Storage & Sync State ---
     var isCloudSyncEnabled by mutableStateOf(false)
     var hasCloudSyncError by mutableStateOf(false)
@@ -281,6 +289,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun openAddGoogleAccount(context: Context) = openAddGoogleAccountImpl(context)
     fun signInWithGoogle(context: Context, isAutoSignIn: Boolean = false, onResult: ((Boolean) -> Unit)? = null) = signInWithGoogleImpl(context, isAutoSignIn, onResult)
     fun signOutGoogle(context: Context) = signOutGoogleImpl(context)
+    fun offerBilledServerSignIn(context: Context) = offerBilledServerSignInImpl(context)
     fun dismissBilledServerGoogleAccountDialog() { showBilledServerGoogleAccountDialog = false }
     fun markServerUnauthenticated(context: Context, url: String) {
         savedUnauthenticatedServerUrl = url

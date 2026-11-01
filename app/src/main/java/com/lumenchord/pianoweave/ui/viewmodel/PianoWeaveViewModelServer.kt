@@ -184,9 +184,8 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                         ) {
                             // First ever connection to a billed server: offer sign-in once. Needs an
                             // Activity for the account picker, so background reconnects wait for the next check.
-                            AppPrefs.get(context).edit()
-                                .putBoolean(AppPrefs.HAS_PROMPTED_BILLED_SERVER_SIGN_IN, true).apply()
-                            signInWithGoogleImpl(context, isAutoSignIn = true, onResult = null)
+                            // MainActivity shows it after the first-open tutorial and permission request.
+                            pendingBilledServerSignInOffer = true
                         } else {
                             refreshUserBalanceImpl(targetContext)
                         }
