@@ -91,7 +91,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   "no" undoes within 4 s. Debug builds show the first-run dialog on every enable and a chip with what a
   non-command utterance sounded like. `VoiceCommandInstrumentedTest` checks real (TTS) words, also at -30 dB;
   it downloads the model if missing.
-- **Piano roll tutorial**: 3-step dialog on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
+- **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a
   random verse from `bible_verses.json` with the matching Hebrew name of God, revealed by a shine sweep that copies

@@ -6,9 +6,10 @@ package com.lumenchord.pianoweave.audio
  * it, at most ~2.5 s of speech, a pause after. Talking, singing along or a TV runs on without such
  * pauses or too long, and is dropped here before the recognizer sees it (which keeps it idle).
  *
- * One threshold decides speech vs not: a chunk is speech at [SPEECH_PROB] or above. Anything below
- * counts as a pause, including the in-between values a quiet voice, room noise or a piano can hover
- * at, so those can't keep a pause from being seen (the mic is unprocessed, without automatic gain).
+ * Speech starts at [SPEECH_PROB]. Anything below counts as a pause before it, including the in-between
+ * values room noise or a piano can hover at, so those can't keep a pause from being seen. Once
+ * started, speech goes on down to [CONTINUE_PROB]: a quiet voice (the mic is unprocessed, without
+ * automatic gain) peaks only briefly over the start threshold, and would otherwise be cut too short.
  *
  * Pure and single-threaded (fed from the audio thread), so it is unit-tested on the JVM. [onRejected]
  * gets the reason a candidate was dropped, for logs.
@@ -20,10 +21,12 @@ internal class UtteranceSegmenter(
     companion object {
         /** Voice probability at or above which a chunk is speech. */
         const val SPEECH_PROB = 0.4f
+        /** Voice probability that keeps an utterance going once it started. */
+        const val CONTINUE_PROB = 0.25f
         /** Pause needed before and after an utterance (8 x 32 ms = 256 ms). */
         const val PAUSE_CHUNKS = 8
-        /** Speech length accepted: ~100 ms .. ~2.5 s (a few words in a row). */
-        const val MIN_SPEECH_CHUNKS = 3
+        /** Speech length accepted: ~64 ms .. ~2.5 s (a few words in a row); one chunk is a click. */
+        const val MIN_SPEECH_CHUNKS = 2
         const val MAX_SPEECH_CHUNKS = 78
         /** Audio kept from before speech starts, so the first consonant isn't cut. */
         const val PRE_ROLL_CHUNKS = 6
@@ -91,7 +94,7 @@ internal class UtteranceSegmenter(
             }
             State.SPEECH -> {
                 append(chunk)
-                if (speech) trailingPause = 0 else trailingPause++
+                if (probability >= CONTINUE_PROB) trailingPause = 0 else trailingPause++
                 speechChunks++
                 val spoken = speechChunks - trailingPause
                 if (spoken > MAX_SPEECH_CHUNKS) {

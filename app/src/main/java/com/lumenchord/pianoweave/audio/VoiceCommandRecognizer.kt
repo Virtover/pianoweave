@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.audio
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import com.google.gson.JsonParser
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,6 +34,12 @@ object VoiceCommandRecognizer {
     private const val MAX_GAIN = 24f
     // Fed to Vosk in blocks so an endpoint between words in a row only closes a part, not the rest
     private const val FEED_BLOCK = 1600
+    // After "Selah" alone, the next utterance in this window counts as if it began with Selah:
+    // people pause after the wake word, which splits "Selah ... play" into two utterances
+    private const val WAKE_WINDOW_MS = 4000L
+    // Utterances waiting for the decoder; more are dropped (newest first), so a stalled or slow
+    // decoder can never build up a backlog of stale commands
+    private const val MAX_PENDING_DECODES = 2
 
     enum class Status { OFF, LOADING, LISTENING, FAILED }
 
@@ -51,12 +58,19 @@ object VoiceCommandRecognizer {
     private val _unmatched = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val unmatched: SharedFlow<String> = _unmatched
 
+    /** "Selah" was heard alone: commands are awaited for a few seconds. */
+    private val _woke = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val woke: SharedFlow<Unit> = _woke
+
     // Model loading and decoding run here, never on the audio thread
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "VoiceCommandThread") }
 
     // Touched only on the worker
     private var model: Model? = null
     private var recognizer: Recognizer? = null
+    private var wakeUntil = 0L
+
+    private val pendingDecodes = java.util.concurrent.atomic.AtomicInteger(0)
 
     // Touched only on the audio thread (or before it is attached)
     private val segmenter = UtteranceSegmenter { reason -> Log.d(TAG, "Dropped speech: $reason") }
@@ -75,8 +89,19 @@ object VoiceCommandRecognizer {
         val utterance = segmenter.feed(chunk, probability)
         _isHearing.value = segmenter.state == UtteranceSegmenter.State.SPEECH
         if (utterance != null) {
-            val forSession = session
-            worker.execute { decode(utterance, forSession) }
+            if (pendingDecodes.incrementAndGet() > MAX_PENDING_DECODES) {
+                pendingDecodes.decrementAndGet()
+                Log.d(TAG, "Dropped utterance: decoder busy")
+            } else {
+                val forSession = session
+                worker.execute {
+                    try {
+                        decode(utterance, forSession)
+                    } finally {
+                        pendingDecodes.decrementAndGet()
+                    }
+                }
+            }
         }
     }
 
@@ -115,6 +140,7 @@ object VoiceCommandRecognizer {
         _isHearing.value = false
         _status.value = Status.OFF
         worker.execute {
+            wakeUntil = 0L
             recognizer?.close()
             recognizer = null
             model?.close()
@@ -151,10 +177,22 @@ object VoiceCommandRecognizer {
         if (forSession != session) return
         try {
             val words = recognizeWords(rec, utterance)
-            val commands = VoiceCommand.parse(words, requireWake = listeningMode == VoiceListeningMode.SELAH)
-            Log.d(TAG, "Heard ${describe(words)} -> $commands")
+            val now = SystemClock.elapsedRealtime()
+            val awake = now < wakeUntil
+            val commands = VoiceCommand.parse(words, requireWake = listeningMode == VoiceListeningMode.SELAH && !awake)
+            Log.d(TAG, "Heard ${describe(words)} -> $commands${if (awake) " (after Selah)" else ""}")
             if (forSession != session) return
-            if (commands.isNotEmpty()) _commands.tryEmit(commands) else _unmatched.tryEmit(describe(words))
+            when {
+                commands.isNotEmpty() -> {
+                    wakeUntil = 0L
+                    _commands.tryEmit(commands)
+                }
+                VoiceCommand.isWakeOnly(words) -> {
+                    wakeUntil = now + WAKE_WINDOW_MS
+                    _woke.tryEmit(Unit)
+                }
+                else -> _unmatched.tryEmit(describe(words))
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Voice command decoding failed", e)
             rec.reset()

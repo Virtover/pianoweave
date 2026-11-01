@@ -44,7 +44,16 @@ class VoiceCommandsTest {
         val seg = UtteranceSegmenter()
         seg.run(40, 0.35f)
         seg.run(12, 0.9f)
-        assertEquals(1, seg.run(pause, 0.35f).size)
+        assertEquals(1, seg.run(pause, 0.2f).size)
+    }
+
+    @Test
+    fun quietWordPeakingBrieflyIsKept() {
+        // Real profile of "loop" 30 dB down: ... 0.30 0.33 0.43 0.39 0.20 0.10 ...
+        val seg = UtteranceSegmenter()
+        seg.run(pause, 0.02f)
+        listOf(0.29f, 0.18f, 0.25f, 0.30f, 0.33f, 0.43f, 0.39f, 0.20f).forEach { seg.feed(chunk, it) }
+        assertEquals(1, seg.run(pause, 0.05f).size)
     }
 
     @Test
@@ -153,14 +162,18 @@ class VoiceCommandsTest {
     }
 
     @Test
-    fun selahAlonePauses() {
-        assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(words("selah"), requireWake = true))
-        assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(words("selah")))
+    fun selahAloneIsAWakeNotACommand() {
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("selah"), requireWake = true))
+        assertTrue(VoiceCommand.isWakeOnly(words("sella")))
+        // A clear "Selah" can come out at ~0.3, its confidence split between sound-alike spellings
+        assertTrue(VoiceCommand.isWakeOnly(words("sella", conf = 0.3f)))
+        assertEquals(false, VoiceCommand.isWakeOnly(words("selah", "play")))
+        assertEquals(false, VoiceCommand.isWakeOnly(emptyList()))
     }
 
     @Test
     fun doubtfulSelahIsNotAWake() {
-        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(listOf("selah" to 0.3f, "play" to 0.9f), requireWake = true))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(listOf("selah" to 0.1f, "play" to 0.9f), requireWake = true))
     }
 
     @Test

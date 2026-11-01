@@ -89,6 +89,11 @@ internal class VoiceCommandController(
         return jumped
     }
 
+    /** "Selah" alone was heard: the next words within a few seconds are taken as commands. */
+    fun showWoke() {
+        feedback = VoiceFeedback(VoiceCommand.UNDO, "Selah · listening…", canUndo = false)
+    }
+
     /** Shows what was heard when it wasn't a command (debug builds, to tune recognition). */
     fun showUnmatched(heard: String) {
         feedback = VoiceFeedback(VoiceCommand.UNDO, "Not a command: $heard", canUndo = false)

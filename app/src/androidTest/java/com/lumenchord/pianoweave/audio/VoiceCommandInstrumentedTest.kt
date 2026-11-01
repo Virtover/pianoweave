@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -118,7 +119,16 @@ class VoiceCommandInstrumentedTest {
     @Test fun backBack() = assertHeard("back_back", VoiceCommand.BACK, VoiceCommand.BACK)
     @Test fun loopStart() = assertHeard("loop_start", VoiceCommand.LOOP_START)
     @Test fun loopEnd() = assertHeard("loop_end", VoiceCommand.LOOP_END)
-    @Test fun selahAlone() = assertHeard("selah", VoiceCommand.PAUSE, selah = true)
+    @Test
+    fun selahAloneWakes() {
+        for (gain in listOf(1f, QUIET)) {
+            val audio = readWav("selah").also { a -> for (i in a.indices) a[i] *= gain }
+            val utterances = utterancesIn(audio)
+            assertEquals("selah x$gain utterances", 1, utterances.size)
+            val words = VoiceCommandRecognizer.createRecognizer(model).use { VoiceCommandRecognizer.recognizeWords(it, utterances[0]) }
+            assertTrue("selah x$gain heard as $words", VoiceCommand.isWakeOnly(words))
+        }
+    }
     @Test fun selahFullscreenWait() =
         assertHeard("selah_fullscreen_wait", VoiceCommand.FULLSCREEN, VoiceCommand.WAIT, selah = true)
     @Test fun selahPlay() = assertHeard("selah_play", VoiceCommand.PLAY, selah = true)

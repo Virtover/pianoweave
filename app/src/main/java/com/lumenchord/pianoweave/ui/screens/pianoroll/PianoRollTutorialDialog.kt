@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Piano
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
@@ -49,6 +51,16 @@ private val tutorialSteps = listOf(
             Icons.Default.Mic to "Works acoustically: it listens to your real piano through the microphone.",
             Icons.Default.Hearing to "Keep your phone near the piano, in a quiet room, for the best experience.",
             Icons.Default.Piano to "Have a USB MIDI keyboard? Plug it in and it's used instead, with the rest of the song playing along."
+        )
+    ),
+    TutorialStep(
+        icon = Icons.Default.RecordVoiceOver,
+        title = "Voice commands",
+        body = "Keep your hands on the keys: turn on the mic in the toolbar, then say what to do, like “pause”, “wait” or “loop”.",
+        highlights = listOf(
+            Icons.Default.Mic to "Say it on its own, with a short pause around it. A few in a row work too: “full screen, play”.",
+            Icons.AutoMirrored.Filled.Undo to "Misheard? Say “no” to take it back.",
+            Icons.Default.Tune to "Every command, and a “Selah” mode for noisy rooms, are in settings."
         )
     ),
     TutorialStep(

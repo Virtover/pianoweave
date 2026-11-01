@@ -35,12 +35,15 @@ enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
         const val UNKNOWN_WORD = "[unk]"
 
         /**
-         * "Selah", the Psalms' mark for a pause or rest, before the commands. It's optional unless the
-         * mode is [VoiceListeningMode.SELAH], and said alone it pauses. The other spellings are words of
-         * the speech model that sound the same, so each way of saying it is caught.
+         * "Selah" (the Psalms' mark for a pause) before the commands. It's optional unless the mode is
+         * [VoiceListeningMode.SELAH]; said alone it opens a short window for the commands that follow
+         * (see VoiceCommandRecognizer). The other spellings are words of the speech model that sound the
+         * same, so each way of saying it ("SEH-lah", "SEE-lah") is caught.
          */
         val WAKE_WORDS = listOf("selah", "sela", "sella", "cela")
-        private const val WAKE_MIN_CONFIDENCE = 0.55f
+        // Low on purpose: the sound-alike spellings split the recognizer's confidence between them, so
+        // a clear "Selah" can come out at 0.3 for each. The commands after it keep their own bars.
+        private const val WAKE_MIN_CONFIDENCE = 0.25f
 
         /** Most commands taken from one utterance; more is talking, not commanding. */
         const val MAX_PER_UTTERANCE = 4
@@ -68,7 +71,7 @@ enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
             while (i < words.size && words[i].first.lowercase() in WAKE_WORDS && words[i].second >= WAKE_MIN_CONFIDENCE) i++
             val woke = i > 0
             if (requireWake && !woke) return emptyList()
-            if (woke && i == words.size) return listOf(PAUSE)
+            if (woke && i == words.size) return emptyList()
 
             val result = mutableListOf<VoiceCommand>()
             while (i < words.size) {
@@ -83,5 +86,9 @@ enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
             }
             return if (result.size <= MAX_PER_UTTERANCE) result else emptyList()
         }
+
+        /** "Selah" said on its own (once or more), which arms the commands that follow. */
+        fun isWakeOnly(words: List<Pair<String, Float>>): Boolean =
+            words.isNotEmpty() && words.all { (w, conf) -> w.lowercase() in WAKE_WORDS && conf >= WAKE_MIN_CONFIDENCE }
     }
 }

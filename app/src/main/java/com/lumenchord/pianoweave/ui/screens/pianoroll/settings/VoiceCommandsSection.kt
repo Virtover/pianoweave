@@ -81,7 +81,7 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
                 selected = mode == VoiceListeningMode.SELAH,
                 title = "“Selah” first",
                 example = "“Selah, pause”",
-                description = "For noisy rooms or lessons: only what starts with Selah counts. “Selah” alone pauses.",
+                description = "For noisy rooms or lessons: only what starts with Selah (“SEH-lah”) counts. You can pause after it: “Selah … play”.",
                 accent = accent,
                 onSelect = { viewModel.setVoiceListeningMode(context, VoiceListeningMode.SELAH) }
             )

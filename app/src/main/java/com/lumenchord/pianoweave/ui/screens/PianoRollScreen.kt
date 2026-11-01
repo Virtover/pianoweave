@@ -440,6 +440,11 @@ private fun ModernPianoPlayerContent(
             if (voiceController.apply(context, commands, currentSongDurationMs)) afterVoiceJump()
         }
     }
+    LaunchedEffect(Unit) {
+        VoiceCommandRecognizer.woke.collect {
+            if (!showTutorial && !showSettingsDialog) voiceController.showWoke()
+        }
+    }
     // Debug builds show what a missed command sounded like, to tune recognition on real rooms
     if (isDebuggableBuild(context)) {
         LaunchedEffect(Unit) {
