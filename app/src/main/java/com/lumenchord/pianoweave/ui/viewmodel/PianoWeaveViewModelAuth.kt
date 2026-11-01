@@ -34,7 +34,8 @@ internal fun openAddGoogleAccountImpl(context: Context) {
 internal fun PianoWeaveViewModel.offerBilledServerSignInImpl(context: Context) {
     if (!pendingBilledServerSignInOffer) return
     pendingBilledServerSignInOffer = false
-    if (isGoogleSignedIn) return
+    // Signed in meanwhile, or switched to a free server: nothing to offer (and a later billed one still gets it)
+    if (isGoogleSignedIn || isGoogleAuthLoading || !isBilledServer) return
     AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_PROMPTED_BILLED_SERVER_SIGN_IN, true).apply()
     signInWithGoogleImpl(context, isAutoSignIn = true, onResult = null)
 }

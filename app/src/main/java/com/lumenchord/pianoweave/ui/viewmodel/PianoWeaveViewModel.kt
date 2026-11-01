@@ -205,6 +205,8 @@ class PianoWeaveViewModel : ViewModel() {
     var startupConnectionProblem by mutableStateOf<ServerConnectionProblem?>(null)
     var showServerSettingsDialog by mutableStateOf(false)
     var showWelcomeTutorial by mutableStateOf(false)
+    /** [loadPreferences] already ran for this ViewModel; MainActivity skips it when only the Activity was recreated. */
+    var preferencesLoaded = false
 
     // First open shows one prompt at a time: welcome tutorial, then the permission request, then the sign-in offer
     /** The startup permission request was launched; kept here so a recreated Activity doesn't launch it again. */

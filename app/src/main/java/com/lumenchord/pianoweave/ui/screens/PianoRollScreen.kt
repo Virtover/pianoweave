@@ -1,6 +1,9 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import android.Manifest
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +12,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
@@ -43,6 +47,7 @@ import com.lumenchord.pianoweave.midi.SimpleMidiReader
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.SustainPedalSpan
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
+import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import com.lumenchord.pianoweave.ui.components.RibbonLoader
 import com.lumenchord.pianoweave.ui.theme.DisplayFontFamily
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -168,25 +173,43 @@ private fun ModernPianoPlayerContent(
         if (showTutorial) viewModel.isPlaying = false
     }
 
+    // Wait mode turned on with a MIDI keyboard never asked for the microphone, so unplugging the keyboard
+    // (or the mic being revoked in settings) asks for it here instead of quietly turning wait mode off
+    var showMicPermissionDialog by remember { mutableStateOf(false) }
+    val micPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && AcousticNoteDetector.start(context)) viewModel.isWaitModeEnabled = true
+        else if (!granted) showMicPermissionDialog = true
+    }
+    if (showMicPermissionDialog) {
+        MicPermissionDialog(
+            reason = "Acoustic Wait Mode uses the microphone to listen to your piano and automatically pause the sheet music until you strike the correct notes.",
+            onDismiss = { showMicPermissionDialog = false },
+            icon = Icons.Default.Timer
+        )
+    }
+    val startMicWaitMode = {
+        if (viewModel.isWaitModeEnabled && !MidiInputManager.isMidiDeviceConnected() && !AcousticNoteDetector.start(context)) {
+            // Off until the request is answered; leaving it on would retry and ask again on every resume
+            viewModel.isWaitModeEnabled = false
+            if (!AcousticNoteDetector.hasMicrophonePermission(context)) {
+                viewModel.isPlaying = false
+                PianoPlayer.stopAllNotes()
+                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
     // Re-runs when a MIDI keyboard is plugged in or out, switching wait mode between keyboard and microphone
     DisposableEffect(lifecycleOwner, viewModel.isWaitModeEnabled, MidiInputManager.isConnected) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                if (viewModel.isWaitModeEnabled && !MidiInputManager.isMidiDeviceConnected()) {
-                    if (!AcousticNoteDetector.start(context)) {
-                        viewModel.isWaitModeEnabled = false
-                    }
-                }
+                startMicWaitMode()
             } else if (event == Lifecycle.Event.ON_PAUSE) {
                 AcousticNoteDetector.stop()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        if (viewModel.isWaitModeEnabled && !MidiInputManager.isMidiDeviceConnected()) {
-            if (!AcousticNoteDetector.start(context)) {
-                viewModel.isWaitModeEnabled = false
-            }
-        }
+        startMicWaitMode()
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             AcousticNoteDetector.targetPitches = emptySet()

@@ -84,8 +84,13 @@ class MainActivity : ComponentActivity() {
         thread(name = "AcousticInit") { AcousticNoteDetector.initialize(applicationContext) }
         enableEdgeToEdge()
 
-        // Load saved preferences (including theme & server settings) early
-        viewModel.loadPreferences(applicationContext)
+        // Load saved preferences (including theme & server settings) early. Once per ViewModel: a recreated
+        // Activity (rotation, resize) keeps them, and reloading would mark the next server check as the
+        // startup one again, bringing back a connection dialog the user already closed
+        if (!viewModel.preferencesLoaded) {
+            viewModel.preferencesLoaded = true
+            viewModel.loadPreferences(applicationContext)
+        }
 
         // Enable full immersive mode to hide navigation and status bars
         WindowInsetsControllerCompat(window, window.decorView).apply {
