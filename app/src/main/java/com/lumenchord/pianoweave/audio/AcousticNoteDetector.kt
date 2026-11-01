@@ -77,10 +77,17 @@ object AcousticNoteDetector {
     // thresholds (for tuning / comparing voice vs piano).
     private const val DEBUG_PROFILES = false
 
-    @Volatile private var isInitialized = false
+    @Volatile private var isEngineReady = false
     @Volatile private var isRunning = false
     private var thread: Thread? = null
-    private var interpreter: Interpreter? = null
+    @Volatile private var interpreter: Interpreter? = null
+
+    // The capture has two independent users: note detection (wait mode) and voice commands. It runs
+    // while either wants it, and the expensive note model only runs while note detection does.
+    @Volatile private var notesWanted = false
+    @Volatile private var voiceWanted = false
+    // Bumped on every note detection start, so the loop starts it from fresh audio (no stale speech)
+    @Volatile private var notesGeneration = 0
 
     // Dynamic output mapping
     private var noteIndex = -1
@@ -99,12 +106,23 @@ object AcousticNoteDetector {
     private val bestFrame = IntArray(128)
     private val onsetTracker = OnsetTracker()
 
+    /** One-time setup of the capture engine and voice gate, which voice commands need without the note model. */
+    @Synchronized
+    private fun initializeEngine(context: Context): Boolean {
+        if (isEngineReady) return true
+        // Optional voice gate; failure here never blocks note detection.
+        VoiceActivityGate.initialize(context)
+        isEngineReady = NativeAudioEngine.initialize()
+        if (!isEngineReady) Log.e(TAG, "Native audio engine failed to initialize")
+        return isEngineReady
+    }
+
     /**
      * One-time setup of the model and native engine.
      */
     @Synchronized
     fun initialize(context: Context) {
-        if (isInitialized) return
+        if (!initializeEngine(context) || interpreter != null) return
         try {
             Log.i(TAG, "Initializing model...")
             val modelBuffer = loadModelFile(context, MODEL_NAME)
@@ -150,15 +168,10 @@ object AcousticNoteDetector {
             if (noteIndex == -1 && shapeFallback.isNotEmpty()) noteIndex = shapeFallback.removeAt(0)
             if (onsetIndex == -1 && shapeFallback.isNotEmpty()) onsetIndex = shapeFallback.removeAt(0)
             Log.i(TAG, "Mapped Indices -> Frame/Note: $noteIndex, Onset: $onsetIndex")
-
-            // Optional voice gate; failure here never blocks note detection.
-            VoiceActivityGate.initialize(context)
-
-            if (NativeAudioEngine.initialize()) {
-                isInitialized = true
-                Log.i(TAG, "AcousticNoteDetector initialized successfully")
-            }
+            Log.i(TAG, "AcousticNoteDetector initialized successfully")
         } catch (e: Exception) {
+            interpreter?.close()
+            interpreter = null
             Log.e(TAG, "Critical: Onset & Frames setup failed", e)
         }
     }
@@ -193,10 +206,11 @@ object AcousticNoteDetector {
         }
     }
 
+    /** Starts note detection (wait mode through the microphone). False if it can't run. */
     @Synchronized
     fun start(context: Context): Boolean {
-        if (!isInitialized) initialize(context)
-        if (!isInitialized) return false
+        initialize(context)
+        if (!isEngineReady || interpreter == null) return false
 
         if (MidiInputManager.isMidiDeviceConnected()) return false
 
@@ -205,12 +219,42 @@ object AcousticNoteDetector {
             return false
         }
 
-        if (isRunning) {
-            stop()
+        notesGeneration++
+        notesWanted = true
+        if (!ensureCapture()) {
+            notesWanted = false
+            return false
         }
+        return true
+    }
+
+    /**
+     * Starts listening for voice commands only: the capture and voice gate run, the note model doesn't.
+     * Works with a MIDI keyboard connected too. False if the microphone can't be used.
+     */
+    @Synchronized
+    fun startVoice(context: Context): Boolean {
+        if (!hasMicrophonePermission(context) || !initializeEngine(context)) return false
+        voiceWanted = true
+        if (!ensureCapture()) {
+            voiceWanted = false
+            return false
+        }
+        return true
+    }
+
+    @Synchronized
+    fun stopVoice() {
+        voiceWanted = false
+        if (!notesWanted) shutdownCapture()
+    }
+
+    /** Starts the capture and its thread unless already running (for the other user). */
+    private fun ensureCapture(): Boolean {
+        if (isRunning) return true
 
         if (!NativeAudioEngine.startCapture()) {
-            Log.e(TAG, "Failed to start audio capture in start()")
+            Log.e(TAG, "Failed to start audio capture")
             return false
         }
 
@@ -233,18 +277,14 @@ object AcousticNoteDetector {
         return true
     }
 
-    private fun runInferenceLoop() {
-        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
-
-        val interp = interpreter ?: return
+    /** Note model buffers and its rolling 16 kHz input; built when note detection first runs. */
+    private class NotePass(val interp: Interpreter) {
         val inputSamples = interp.getInputTensor(0).shape().lastOrNull()?.takeIf { it > 0 } ?: INPUT_SAMPLES
-        val noteShape = noteIndex.takeIf { it >= 0 }?.let { interp.getOutputTensor(it).shape() } ?: intArrayOf()
+        private val noteShape = noteIndex.takeIf { it >= 0 }?.let { interp.getOutputTensor(it).shape() } ?: intArrayOf()
         val outputFrames = noteShape.getOrNull(noteShape.size - 2) ?: OUTPUT_FRAMES
         val midiKeys = noteShape.lastOrNull() ?: MIDI_KEYS
 
-        Log.i(TAG, "Config: input=$inputSamples, output=$outputFrames, keys=$midiKeys")
-
-        val input = ByteBuffer.allocateDirect(inputSamples * 4).order(ByteOrder.nativeOrder())
+        val input: ByteBuffer = ByteBuffer.allocateDirect(inputSamples * 4).order(ByteOrder.nativeOrder())
         val inputs = arrayOf<Any>(input)
         val notes = Array(1) { Array(outputFrames) { FloatArray(midiKeys) } }
         val onsets = Array(1) { Array(outputFrames) { FloatArray(midiKeys) } }
@@ -256,6 +296,40 @@ object AcousticNoteDetector {
         // Model samples (16 kHz) per output frame (560 = 35 ms for the 17920 / 32 model).
         val samplesPerFrame = inputSamples.toFloat() / outputFrames
         val maxWindow = min(MAX_ANALYSIS_FRAMES, outputFrames)
+        val inputFloats = input.asFloatBuffer()
+
+        // Level-controlled 16 kHz audio; the model input is always its last inputSamples samples.
+        val modelRing = FloatArray(inputSamples)
+        var ringPos = 0
+        var newModelSamples = 0
+        // All model samples received this session; places each output frame in absolute time
+        var totalModelSamples = 0L
+
+        init {
+            Log.i(TAG, "Config: input=$inputSamples, output=$outputFrames, keys=$midiKeys")
+        }
+
+        fun reset() {
+            modelRing.fill(0f)
+            ringPos = 0
+            newModelSamples = 0
+        }
+
+        fun push(samples: FloatArray, count: Int) {
+            var off = 0
+            while (off < count) {
+                val n = min(count - off, inputSamples - ringPos)
+                System.arraycopy(samples, off, modelRing, ringPos, n)
+                ringPos = (ringPos + n) % inputSamples
+                off += n
+            }
+            newModelSamples += count
+            totalModelSamples += count
+        }
+    }
+
+    private fun runInferenceLoop() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
 
         val captureRate = NativeAudioEngine.getSampleRate().takeIf { it > 0 } ?: CAPTURE_SAMPLE_RATE
         val resampler = StreamResampler(captureRate, MODEL_SAMPLE_RATE)
@@ -266,21 +340,29 @@ object AcousticNoteDetector {
         val captureFloats = capture.asFloatBuffer()
         val raw = FloatArray(READ_CHUNK_FRAMES)
         val resampled = FloatArray(resampler.maxOutputFor(READ_CHUNK_FRAMES))
-        val inputFloats = input.asFloatBuffer()
 
-        // Level-controlled 16 kHz audio; the model input is always its last inputSamples samples.
-        val modelRing = FloatArray(inputSamples)
-        var ringPos = 0
-        var newModelSamples = 0
-        // All model samples received this session; places each output frame in absolute time
-        var totalModelSamples = 0L
+        var pass: NotePass? = null
+        var seenGeneration = -1
 
         // Start from "now": older ring content may be stale audio from a previous capture session.
         var readIndex = NativeAudioEngine.getAvailableFrames()
 
         try {
             while (isRunning) {
-                if (MidiInputManager.isMidiDeviceConnected()) break
+                val midiConnected = MidiInputManager.isMidiDeviceConnected()
+                if (midiConnected && !voiceWanted) break
+                val notesOn = notesWanted && !midiConnected
+                if (notesOn) {
+                    val interp = interpreter ?: break
+                    if (pass?.interp !== interp) pass = NotePass(interp)
+                    if (seenGeneration != notesGeneration) {
+                        seenGeneration = notesGeneration
+                        pass!!.reset()
+                        levelControl.reset()
+                        onsetTracker.reset()
+                    }
+                }
+                val notePass = if (notesOn) pass else null
 
                 val writeIndex = NativeAudioEngine.getAvailableFrames()
                 if (writeIndex - readIndex > NATIVE_RING_FRAMES - READ_CHUNK_FRAMES) {
@@ -290,6 +372,7 @@ object AcousticNoteDetector {
                     resampler.reset()
                     levelControl.reset()
                     VoiceActivityGate.reset()
+                    VoiceCommandRecognizer.resetStream()
                     onsetTracker.reset()
                 }
 
@@ -302,43 +385,49 @@ object AcousticNoteDetector {
                     readIndex += count
 
                     val produced = resampler.process(raw, 0, count, resampled, 0)
-                    // The VAD gets the raw (pre-gain) 16 kHz stream. It only raises the hold
-                    // thresholds in processOutputs while voice is detected.
+                    // The VAD gets the raw (pre-gain) 16 kHz stream. It raises the hold thresholds
+                    // in processOutputs while voice is detected, and its chunks carry voice commands.
                     VoiceActivityGate.feed(resampled, 0, produced)
-                    levelControl.process(resampled, 0, produced)
-
-                    var off = 0
-                    while (off < produced) {
-                        val n = min(produced - off, inputSamples - ringPos)
-                        System.arraycopy(resampled, off, modelRing, ringPos, n)
-                        ringPos = (ringPos + n) % inputSamples
-                        off += n
+                    if (notePass != null) {
+                        levelControl.process(resampled, 0, produced)
+                        notePass.push(resampled, produced)
                     }
-                    newModelSamples += produced
-                    totalModelSamples += produced
                 }
 
-                if (newModelSamples <= 0) {
+                if (notePass == null) {
+                    // Voice only: the gate ran above, nothing else to do until more audio arrives
+                    Thread.sleep(INFERENCE_INTERVAL_MS)
+                    continue
+                }
+
+                if (notePass.newModelSamples <= 0) {
                     Thread.sleep(10)
                     continue
                 }
 
                 // Analysis window = audio received since the previous run (this includes the time
                 // spent in inference and sleep), converted to output frames (+1 frame of margin).
-                val windowFrames = (ceil(newModelSamples / samplesPerFrame).toInt() + 1)
-                    .coerceIn(min(MIN_ANALYSIS_FRAMES, maxWindow), maxWindow)
-                newModelSamples = 0
+                val windowFrames = (ceil(notePass.newModelSamples / notePass.samplesPerFrame).toInt() + 1)
+                    .coerceIn(min(MIN_ANALYSIS_FRAMES, notePass.maxWindow), notePass.maxWindow)
+                notePass.newModelSamples = 0
 
                 // Oldest sample first: ring from ringPos to the end, then from 0 to ringPos.
-                inputFloats.clear()
-                inputFloats.put(modelRing, ringPos, inputSamples - ringPos)
-                inputFloats.put(modelRing, 0, ringPos)
-                input.rewind()
+                val inputSamples = notePass.inputSamples
+                notePass.inputFloats.clear()
+                notePass.inputFloats.put(notePass.modelRing, notePass.ringPos, inputSamples - notePass.ringPos)
+                notePass.inputFloats.put(notePass.modelRing, 0, notePass.ringPos)
+                notePass.input.rewind()
 
-                interp.runForMultipleInputsOutputs(inputs, outputs)
+                notePass.interp.runForMultipleInputsOutputs(notePass.inputs, notePass.outputs)
                 // The input is the newest inputSamples samples, so output frame 0 starts here
-                val firstAbsFrame = floor((totalModelSamples - inputSamples) / samplesPerFrame.toDouble()).toLong()
-                processOutputs(notes[0], onsets[0], outputFrames, midiKeys, windowFrames, firstAbsFrame)
+                val firstAbsFrame = floor((notePass.totalModelSamples - inputSamples) / notePass.samplesPerFrame.toDouble()).toLong()
+                // Note detection may have been stopped during inference; its pitches were released then
+                if (notesWanted) {
+                    processOutputs(
+                        notePass.notes[0], notePass.onsets[0], notePass.outputFrames, notePass.midiKeys,
+                        windowFrames, firstAbsFrame
+                    )
+                }
                 Thread.sleep(INFERENCE_INTERVAL_MS)
             }
         } catch (ie: InterruptedException) {
@@ -488,7 +577,15 @@ object AcousticNoteDetector {
     }
 
     @Synchronized
+    /** Stops note detection; the capture keeps running while voice commands listen. */
     fun stop() {
+        notesWanted = false
+        if (!voiceWanted) shutdownCapture()
+        activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
+        activePitches.clear()
+    }
+
+    private fun shutdownCapture() {
         isRunning = false
         try {
             NativeAudioEngine.stopCapture()
@@ -502,17 +599,16 @@ object AcousticNoteDetector {
             } catch (_: InterruptedException) {}
         }
         thread = null
-        activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
-        activePitches.clear()
     }
 
     @Synchronized
     fun cleanup() {
+        voiceWanted = false
         stop()
         interpreter?.close()
         interpreter = null
         VoiceActivityGate.cleanup()
         NativeAudioEngine.cleanup()
-        isInitialized = false
+        isEngineReady = false
     }
 }

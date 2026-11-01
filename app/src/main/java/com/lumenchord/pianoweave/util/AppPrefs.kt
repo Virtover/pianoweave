@@ -52,6 +52,10 @@ object AppPrefs {
     const val IS_STRIKE_OVERLAY_ENABLED = "is_strike_overlay_enabled"
     /** Whether notes from a connected MIDI keyboard are played through the app's piano sound. */
     const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
+    /** Hands-free piano roll control by short spoken words (needs the downloaded voice model). */
+    const val IS_VOICE_COMMANDS_ENABLED = "is_voice_commands_enabled"
+    /** [com.lumenchord.pianoweave.audio.VoiceListeningMode] name: commands alone, or after "Selah". */
+    const val VOICE_LISTENING_MODE = "voice_listening_mode"
     const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
     /** The first-open walkthrough (copy a link, transcribe, open the piano roll) was finished or skipped. */
     const val HAS_SEEN_WELCOME_TUTORIAL = "has_seen_welcome_tutorial"

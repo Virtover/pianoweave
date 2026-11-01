@@ -259,6 +259,7 @@ internal fun ModernToolbar(
                     )
                 }
             }
+            VoiceCommandButton(viewModel = viewModel, onToggle = rememberVoiceCommandsToggle(viewModel))
             RollButton(
                 onClick = {
                     viewModel.isPlaying = false

@@ -27,7 +27,7 @@ android {
         minSdk = 26
         targetSdk = 37
 
-        versionCode = 28
+        versionCode = 29
         versionName = "1.0"
 
         testInstrumentationRunner =
@@ -113,6 +113,9 @@ dependencies {
 
     implementation(libs.litert)
     implementation(libs.litert.gpu)
+    implementation(libs.vosk.android)
+    // The Android build of JNA (with its native library); the plain jar would fail at runtime
+    implementation(libs.jna) { artifact { type = "aar" } }
 
 //    implementation("com.google.android.filament:filament-android:1.77.1")
 //    implementation("io.github.sceneview:sceneview:4.47.0")

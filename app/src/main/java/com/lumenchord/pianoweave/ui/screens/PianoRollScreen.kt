@@ -37,6 +37,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.PianoPlayer
+import com.lumenchord.pianoweave.audio.VoiceCommandRecognizer
+import com.lumenchord.pianoweave.audio.VoiceModelStore
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.midi.SimpleMidiReader
@@ -47,6 +49,7 @@ import com.lumenchord.pianoweave.ui.components.RibbonLoader
 import com.lumenchord.pianoweave.ui.theme.DisplayFontFamily
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.ui.viewmodel.VoiceModelState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -396,6 +399,56 @@ private fun ModernPianoPlayerContent(
         isUiHidden = false
     }
 
+    // Voice commands listen while the screen is in the foreground (the recognizer frees its model on pause)
+    val voiceController = remember {
+        VoiceCommandController(viewModel, isFullscreen = { isUiHidden }, setFullscreen = { isUiHidden = it })
+    }
+    val isVoiceActive = viewModel.isVoiceCommandsEnabled && viewModel.voiceModelState == VoiceModelState.READY
+    DisposableEffect(lifecycleOwner, isVoiceActive) {
+        if (!isVoiceActive) return@DisposableEffect onDispose { }
+        val modelDir = VoiceModelStore.modelDir(context)
+        // addObserver replays ON_RESUME when already resumed, which starts listening here
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) VoiceCommandRecognizer.start(context, modelDir)
+            else if (event == Lifecycle.Event.ON_PAUSE) VoiceCommandRecognizer.stop()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            VoiceCommandRecognizer.stop()
+        }
+    }
+
+    // A jump by voice resets the wait and sound state like the timeline's own seeks
+    fun afterVoiceJump() {
+        PianoPlayer.stopAllNotes()
+        lastTriggeredHeadMs = viewModel.playheadMs
+        currentWaitOnsetMs = -1L
+        lastCompletedWaitOnsetMs = -1L
+        chordHits.clear()
+    }
+
+    LaunchedEffect(viewModel.voiceListeningMode) {
+        VoiceCommandRecognizer.listeningMode = viewModel.voiceListeningMode
+    }
+
+    val currentSongDurationMs by rememberUpdatedState(songDurationMs)
+    LaunchedEffect(Unit) {
+        VoiceCommandRecognizer.commands.collect { commands ->
+            // Dialogs keep the song paused; a command there would start it behind them
+            if (showTutorial || showSettingsDialog) return@collect
+            if (voiceController.apply(context, commands, currentSongDurationMs)) afterVoiceJump()
+        }
+    }
+    // Debug builds show what a missed command sounded like, to tune recognition on real rooms
+    if (isDebuggableBuild(context)) {
+        LaunchedEffect(Unit) {
+            VoiceCommandRecognizer.unmatched.collect { heard ->
+                if (!showTutorial && !showSettingsDialog) voiceController.showUnmatched(heard)
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -496,6 +549,14 @@ private fun ModernPianoPlayerContent(
             }
 
             SeekIndicatorOverlay(seekInfo)
+
+            VoiceFeedbackChip(
+                feedback = voiceController.feedback,
+                onUndo = { if (voiceController.undoLast(context)) afterVoiceJump() },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (isUiHidden) 12.dp else 58.dp)
+            )
 
             SnackbarHost(
                 hostState = snackbarHostState,

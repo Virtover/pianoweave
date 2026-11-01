@@ -81,6 +81,16 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
 - **Wait mode** (piano roll): pauses at each note until it's played. Input is a connected MIDI keyboard if any
   (`MidiInputManager.isConnected`, observable), otherwise the microphone (`AcousticNoteDetector`). The screen
   switches between them live when a keyboard is plugged in or out.
+- **Voice commands** (piano roll, off by default): one-word commands with no wake word. The mic capture in
+  `AcousticNoteDetector` is shared: note detection (`start`/`stop`) and voice (`startVoice`/`stopVoice`) each
+  want it, and the note model only runs for note detection. `UtteranceSegmenter` keeps only short utterances
+  (≤ ~2.5 s) with pauses around them (from Silero VAD chunks), so Vosk (`VoiceCommandRecognizer`, grammar =
+  `VoiceCommand` phrases) decodes only those; several commands in a row are one action ("full screen wait").
+  Any non-command word rejects the whole utterance. Optional "Selah" first; Settings can require it
+  (`VoiceListeningMode.SELAH`, which also drops the pause-before rule). No "mark": the small model confused it with "back". The model downloads to `files/voice/` (`VoiceModelStore`);
+  "no" undoes within 4 s. Debug builds show the first-run dialog on every enable and a chip with what a
+  non-command utterance sounded like. `VoiceCommandInstrumentedTest` checks real (TTS) words, also at -30 dB;
+  it downloads the model if missing.
 - **Piano roll tutorial**: 3-step dialog on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a

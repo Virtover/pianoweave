@@ -26,3 +26,9 @@
 -keep class com.lumenchord.pianoweave.cloud.CloudMetadataEnvelope { <fields>; <init>(...); }
 -keep class com.lumenchord.pianoweave.cloud.CloudMidi { <fields>; <init>(...); }
 -keep class com.lumenchord.pianoweave.billing.PendingPurchase { <fields>; <init>(...); }
+
+# Vosk (voice commands) calls its native library through JNA, which finds classes and methods by name
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * extends com.sun.jna.** { public *; }
+-keep class org.vosk.** { *; }
+-dontwarn java.awt.**

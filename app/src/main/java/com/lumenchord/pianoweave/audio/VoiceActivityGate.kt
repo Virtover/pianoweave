@@ -17,7 +17,8 @@ import java.nio.channels.FileChannel
  * anti-aliased 16 kHz stream the note model gets, taken BEFORE the input level control, so the
  * VAD sees the raw level it was calibrated for. The result is a voice
  * probability per 32 ms, smoothed into a 0..1 [evidence] that AcousticNoteDetector uses to make
- * NON-target pitch detection stricter while someone is speaking or singing.
+ * NON-target pitch detection stricter while someone is speaking or singing. Each chunk and its raw
+ * probability also go to [chunkListener] (VoiceCommandRecognizer cuts its utterances on them).
  *
  * If the model asset is missing or its layout is not recognised, [evidence] stays 0 and detection
  * behaves as if the gate did not exist.
@@ -42,6 +43,18 @@ object VoiceActivityGate {
     // smoothed probability -> evidence: below LOW = 0, above HIGH = 1.
     private const val EVIDENCE_LOW = 0.25f
     private const val EVIDENCE_HIGH = 0.65f
+
+    /** Receives every 32 ms chunk with its raw (unsmoothed) voice probability, on the audio thread. */
+    fun interface ChunkListener {
+        fun onChunk(chunk: FloatArray, probability: Float)
+    }
+
+    @Volatile
+    var chunkListener: ChunkListener? = null
+
+    /** False if the model is missing or wasn't recognised: no evidence and no chunks then. */
+    val isAvailable: Boolean
+        get() = interpreter != null
 
     /** Smoothed voice evidence, 0 (none) .. 1 (clearly voice). */
     @Volatile
@@ -160,6 +173,7 @@ object VoiceActivityGate {
 
         val p = prob.getFloat(0)
         if (p.isNaN()) return
+        chunkListener?.onChunk(chunk, p)
         smoothed += (p - smoothed) * (if (p > smoothed) ATTACK else RELEASE)
         evidence = ((smoothed - EVIDENCE_LOW) / (EVIDENCE_HIGH - EVIDENCE_LOW)).coerceIn(0f, 1f)
 

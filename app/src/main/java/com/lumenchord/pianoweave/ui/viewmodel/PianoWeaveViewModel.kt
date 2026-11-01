@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import com.lumenchord.pianoweave.api.PianoApiFactory
+import com.lumenchord.pianoweave.audio.VoiceListeningMode
 import com.lumenchord.pianoweave.api.ServerOffer
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.cloud.CloudMidi
@@ -76,6 +77,17 @@ class PianoWeaveViewModel : ViewModel() {
     var loopStartMs by mutableLongStateOf(0L)
     var loopEndMs by mutableLongStateOf(0L)
     var transposeOffset by mutableIntStateOf(0)
+
+    // --- Voice Commands (piano roll) ---
+    var isVoiceCommandsEnabled by mutableStateOf(false)
+        internal set
+    var voiceModelState by mutableStateOf(VoiceModelState.MISSING)
+        internal set
+    var voiceModelProgress by mutableFloatStateOf(0f)
+        internal set
+    var voiceListeningMode by mutableStateOf(VoiceListeningMode.WORDS)
+        internal set
+    internal var voiceModelJob: Job? = null
 
     // --- Server Settings & Billing State ---
     var defaultServerUrl by mutableStateOf("")
@@ -325,6 +337,9 @@ class PianoWeaveViewModel : ViewModel() {
     fun selectPlaybackSpeed(context: Context, speed: Float) = selectPlaybackSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
     fun setKeyboardSoundEnabled(context: Context, enabled: Boolean) = setKeyboardSoundEnabledImpl(context, enabled)
+    fun setVoiceCommandsEnabled(context: Context, enabled: Boolean) = setVoiceCommandsEnabledImpl(context, enabled)
+    fun downloadVoiceModel(context: Context) = downloadVoiceModelImpl(context)
+    fun setVoiceListeningMode(context: Context, mode: VoiceListeningMode) = setVoiceListeningModeImpl(context, mode)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
     fun openShop(context: Context) = openShopImpl(context)
     fun dismissShop() { showShopDialog = false }

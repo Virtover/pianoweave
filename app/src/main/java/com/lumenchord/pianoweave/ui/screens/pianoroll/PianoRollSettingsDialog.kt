@@ -25,6 +25,7 @@ import com.lumenchord.pianoweave.ui.components.AppThemeDialog
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.LoopingSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.TranspositionSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.VisualizerSettingsSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.VoiceCommandsSection
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
@@ -109,6 +110,10 @@ internal fun SettingsDialog(
                             context = currentContext,
                             onOpenThemeDialog = { showThemeDialog = true }
                         )
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                        VoiceCommandsSection(viewModel = viewModel)
 
                         if (showThemeDialog) {
                             AppThemeDialog(
