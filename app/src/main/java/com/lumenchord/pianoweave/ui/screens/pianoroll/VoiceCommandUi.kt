@@ -13,6 +13,17 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.components.IconBadge
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,7 +47,6 @@ import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.VoiceCommandRecognizer
 import com.lumenchord.pianoweave.audio.VoiceModelStore
-import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -44,11 +54,6 @@ import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.VoiceModelState
 import kotlinx.coroutines.delay
-
-/** The spoken words, as shown to the user. */
-internal const val VOICE_COMMANDS_HELP =
-    "Say it on its own: play, pause, wait, loop, full screen, loop start, loop end, again, back, forward, slower, faster, normal. " +
-        "Several in a row work too (“full screen, play”). Say “undo” to take one back."
 
 /** Debug (developer) builds show voice tuning aids that release builds don't. */
 internal fun isDebuggableBuild(context: Context): Boolean =
@@ -68,6 +73,8 @@ internal fun rememberVoiceCommandsToggle(viewModel: PianoWeaveViewModel): (Boole
         if (viewModel.voiceModelState == VoiceModelState.READY) {
             viewModel.setVoiceCommandsEnabled(context, true)
         } else {
+            // The song shouldn't play on under the dialog (PianoRollScreen silences its notes on pause)
+            viewModel.isPlaying = false
             showIntro = true
         }
     }
@@ -222,100 +229,143 @@ internal fun VoiceFeedbackChip(
     }
 }
 
+/** Spoken examples on the intro, as chips. */
+private val INTRO_EXAMPLES = listOf("pause", "play", "loop", "slower", "full screen, play")
+
+/**
+ * What voice commands are, before they're turned on: a line on the idea, a few examples to say, and
+ * four short tips (how to say them, undo, Selah, privacy). One column; on a short (landscape) screen
+ * the content scrolls while the buttons stay pinned below it.
+ */
 @Composable
 private fun VoiceCommandsIntroDialog(needsDownload: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val appTheme = LocalAppTheme.current
-    val colorGold = appTheme.primaryColor
-    val colorSurface = MaterialTheme.colorScheme.surface
+    val accent = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
+    val compact = LocalConfiguration.current.screenHeightDp < 480
+    val tips = listOf(
+        Icons.Default.Mic to "Say it on its own, with a short pause around it. A few in a row work too.",
+        Icons.AutoMirrored.Filled.Undo to "Misheard? Say “undo” to take it back.",
+        Icons.Default.Tune to "Noisy room or a lesson? Choose “Selah” first in settings.",
+        Icons.Default.Lock to "Private: recognized on your phone, nothing is sent." +
+            if (needsDownload) " Needs a one-time ${VoiceModelStore.DOWNLOAD_SIZE_MB} MB download." else ""
+    )
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        // Full-window box that centers the card (the window is full width), and dismisses on a tap beside it
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 16.dp),
+                .clickable(interactionSource = null, indication = null, onClick = onDismiss)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             DialogSurface(
-                light = colorGold,
+                light = accent,
                 modifier = Modifier
-                    .fillMaxWidth(0.98f)
-                    .wrapContentHeight(),
+                    // Narrower on a landscape phone, where a wide, short box read like a banner. The cap goes
+                    // before fillMaxWidth: after it, the full width was already fixed and the cap did nothing.
+                    .widthIn(max = if (compact) 360.dp else 420.dp)
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                color = colorSurface,
+                color = ColorSurface,
                 border = BorderStroke(1.dp, colorSlate)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.padding(horizontal = if (compact) 18.dp else 20.dp, vertical = if (compact) 14.dp else 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 16.dp)
                 ) {
-                    DialogHeader(
-                        title = "Voice Commands",
-                        icon = Icons.Default.Mic,
-                        onClose = onDismiss,
-                        titleColor = colorGold
-                    )
-
-                    Text(
-                        text = "Keep your hands on the keys. $VOICE_COMMANDS_HELP\n\n" +
-                                "In a noisy room you can have it listen only after “Selah” (Settings → Voice Commands).\n\n" +
-                                "Speech is recognized on your device, nothing is sent anywhere." +
-                                if (needsDownload) " It needs a one-time ${VoiceModelStore.DOWNLOAD_SIZE_MB} MB download." else "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 22.sp
-                    )
+                    // Only the content scrolls; the buttons always stay in view
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(if (compact) 12.dp else 16.dp)
+                    ) {
+                        IntroHeader(accent, compact)
+                        IntroTips(tips, accent, compact)
+                    }
 
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .heightIn(min = 46.dp),
-                            shape = PillShape,
-                            border = BorderStroke(1.dp, colorSlate),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = "Not now",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
+                        TextButton(onClick = onDismiss) {
+                            Text("Not now", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         }
-
                         Button(
                             onClick = onConfirm,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .heightIn(min = 46.dp),
                             shape = PillShape,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = colorGold,
+                                containerColor = accent,
                                 contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
-                            Text(
-                                text = if (needsDownload) "Download & turn on" else "Turn on",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2
-                            )
+                            Text(if (needsDownload) "Download & turn on" else "Turn on", fontWeight = FontWeight.Black)
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IntroHeader(accent: Color, compact: Boolean, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(Icons.Default.RecordVoiceOver, tint = accent, size = if (compact) 32.dp else 40.dp)
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Voice Commands",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = accent
+            )
+        }
+        Text(
+            text = "Keep your hands on the keys and just say what to do. Try:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            lineHeight = 20.sp
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            INTRO_EXAMPLES.forEach { example ->
+                Text(
+                    text = "“$example”",
+                    color = accent,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .border(1.dp, accent.copy(alpha = 0.5f), PillShape)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IntroTips(tips: List<Pair<ImageVector, String>>, accent: Color, compact: Boolean, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(accent.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = if (compact) 8.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 10.dp)
+    ) {
+        tips.forEach { (icon, text) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 17.sp
+                )
             }
         }
     }
