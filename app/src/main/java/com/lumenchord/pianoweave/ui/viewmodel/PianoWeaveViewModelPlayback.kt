@@ -40,7 +40,7 @@ internal fun PianoWeaveViewModel.uploadInsteadOfLinkImpl() {
 }
 
 /** The playback speeds offered in the player. */
-val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
+val PLAYBACK_SPEEDS = listOf(0.25f, 0.5f, 0.66f, 0.8f, 1.0f, 1.25f, 1.5f, 2.0f)
 
 /** Plays at [speed]; only normal-or-faster speeds are remembered, slow practice starts over at 1x. */
 internal fun PianoWeaveViewModel.selectPlaybackSpeedImpl(context: Context, speed: Float) {
