@@ -154,10 +154,12 @@ object AcousticNoteDetector {
             // Optional voice gate; failure here never blocks note detection.
             VoiceActivityGate.initialize(context)
 
-            if (NativeAudioEngine.initialize()) {
-                isInitialized = true
-                Log.i(TAG, "AcousticNoteDetector initialized successfully")
-            }
+            // The mic stream opens here only if the app already has the microphone; the app no longer asks
+            // for it on launch, and a stream opened without it fails (or stays dead after it's granted).
+            // Otherwise start() opens it, after wait mode has asked for the permission.
+            if (hasMicrophonePermission(context)) NativeAudioEngine.initialize()
+            isInitialized = true
+            Log.i(TAG, "AcousticNoteDetector initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Critical: Onset & Frames setup failed", e)
         }
@@ -210,8 +212,14 @@ object AcousticNoteDetector {
         }
 
         if (!NativeAudioEngine.startCapture()) {
-            Log.e(TAG, "Failed to start audio capture in start()")
-            return false
+            // A stream left in a bad state (opened before the permission, or disconnected) won't start;
+            // close it so startCapture opens a fresh one
+            Log.w(TAG, "Audio capture didn't start; reopening the stream")
+            NativeAudioEngine.cleanup()
+            if (!NativeAudioEngine.startCapture()) {
+                Log.e(TAG, "Failed to start audio capture in start()")
+                return false
+            }
         }
 
         VoiceActivityGate.reset()
