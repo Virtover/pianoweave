@@ -32,7 +32,7 @@
 * **AI transcription:** Turns the piano part of a video link (e.g. YouTube), an audio/video file or a microphone recording into MIDI. Vocals and other instruments are left out, so you get the piano part, not a full arrangement. Piano covers give the best results.
 * **Interactive piano roll:** Falling notes with A/B looping, speed control and transposition.
 * **Wait mode:** Pauses at each note until you play it. It listens to your acoustic piano through the microphone, or to a MIDI keyboard, with the rest of the song playing along.
-* **Voice commands:** Practice hands-free. Say a command on its own (play, pause, wait, loop, full screen, loop start / loop end, again, back, forward, slower, faster, normal), or a few in a row ("full screen, play"), and "no" to undo. For noisy rooms it can listen only to what starts with "Selah" ("Selah, full screen wait"). Recognized on the device with Vosk; the 40 MB model downloads the first time it is turned on.
+* **Voice commands:** Practice hands-free. Say a command on its own (play, pause, wait, loop, full screen, loop start / loop end, again, back, forward, slower, faster, normal), or a few in a row ("full screen, play"), and "undo" to take one back. For noisy rooms it can listen only to what starts with "Selah" ("Selah, full screen wait"). Recognized on the device with Vosk; the 40 MB model downloads the first time it is turned on.
 * **MIDI keyboards:** USB and virtual MIDI keyboards connect automatically and play through the app's piano sound, which can be turned off for keyboards with their own speakers.
 * **Grand piano sound:** FluidSynth with a bundled SoundFont for a rich, realistic piano.
 * **Cloud sync:** Back up and sync your song library with Google Drive.

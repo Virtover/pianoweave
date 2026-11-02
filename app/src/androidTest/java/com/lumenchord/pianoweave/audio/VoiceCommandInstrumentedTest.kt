@@ -16,7 +16,7 @@ import java.nio.ByteOrder
 /**
  * Voice commands on real speech (synthesized words in the test assets, 16 kHz mono): the Silero voice
  * gate + [UtteranceSegmenter] must pass single words and drop a sentence, and Vosk with the command
- * grammar must recognize each word above its confidence threshold.
+ * grammar must recognize each word, and never take one command for another.
  *
  * Downloads the voice model (~40 MB) into the app's files the first time, like turning the feature on.
  */
@@ -26,6 +26,10 @@ class VoiceCommandInstrumentedTest {
     companion object {
         private lateinit var model: Model
         private const val QUIET = 0.03f
+        // (gain, noise rms): clean, far away, and with steady room noise ~20 and ~10 dB under the voice
+        private val CONDITIONS = listOf(1f to 0f, QUIET to 0f, 1f to 0.01f, 1f to 0.03f)
+        // Noise as loud as the voice: a word may be missed there, but never taken for another
+        private const val LOUD_NOISE = 0.1f
 
         @BeforeClass
         @JvmStatic
@@ -62,10 +66,17 @@ class VoiceCommandInstrumentedTest {
     // Voice probability per 32 ms chunk of the last run, for failure messages
     private val probabilities = mutableListOf<Float>()
 
-    /** Runs [audio] with 0.6 s of silence around it through the voice gate and segmenter. */
-    private fun utterancesIn(audio: FloatArray): List<FloatArray> {
+    /**
+     * Runs [audio] with 0.6 s of silence around it through the voice gate and segmenter, with steady
+     * white noise of [noiseRms] over all of it (a fan, room hiss).
+     */
+    private fun utterancesIn(audio: FloatArray, noiseRms: Float = 0f): List<FloatArray> {
         val pad = FloatArray(9600)
         val stream = pad + audio + pad + pad
+        if (noiseRms > 0f) {
+            val random = java.util.Random(7)
+            for (i in stream.indices) stream[i] += (random.nextGaussian() * noiseRms).toFloat()
+        }
         val segmenter = UtteranceSegmenter()
         val found = mutableListOf<FloatArray>()
         probabilities.clear()
@@ -83,14 +94,19 @@ class VoiceCommandInstrumentedTest {
     }
 
     /** All commands heard in [file] (an utterance each, or one per pause between words). */
-    private fun commandsIn(file: String, gain: Float = 1f, selah: Boolean = false): Pair<List<VoiceCommand>, String> {
+    private fun commandsIn(
+        file: String,
+        gain: Float = 1f,
+        selah: Boolean = false,
+        noiseRms: Float = 0f
+    ): Pair<List<VoiceCommand>, String> {
         val audio = readWav(file).also { a -> for (i in a.indices) a[i] *= gain }
-        val utterances = utterancesIn(audio)
+        val utterances = utterancesIn(audio, noiseRms)
         val profile = probabilities.joinToString(" ") { "%.2f".format(it) }
-        val commands = VoiceCommandRecognizer.createRecognizer(model).use { rec ->
-            utterances.flatMap { VoiceCommandRecognizer.recognize(rec, it, requireWake = selah) }
+        val commands = VoiceCommandDecoder(model).use { decoder ->
+            utterances.flatMap { decoder.commands(it, requireWake = selah) }
         }
-        return commands to "$file x$gain: ${utterances.size} utterances, voice per chunk: $profile"
+        return commands to "$file x$gain noise $noiseRms: ${utterances.size} utterances, voice per chunk: $profile"
     }
 
     private fun assertHeard(file: String, vararg expected: VoiceCommand, selah: Boolean = false) {
@@ -125,7 +141,7 @@ class VoiceCommandInstrumentedTest {
             val audio = readWav("selah").also { a -> for (i in a.indices) a[i] *= gain }
             val utterances = utterancesIn(audio)
             assertEquals("selah x$gain utterances", 1, utterances.size)
-            val words = VoiceCommandRecognizer.createRecognizer(model).use { VoiceCommandRecognizer.recognizeWords(it, utterances[0]) }
+            val words = VoiceCommandDecoder(model).use { VoiceCommand.trimEdgeNoise(it.hear(utterances[0]).words) }
             assertTrue("selah x$gain heard as $words", VoiceCommand.isWakeOnly(words))
         }
     }
@@ -140,8 +156,41 @@ class VoiceCommandInstrumentedTest {
         val (commands, info) = commandsIn("sentence")
         assertEquals(info, emptyList<VoiceCommand>(), commands)
         // Even given to the recognizer whole, it doesn't come out as commands
-        VoiceCommandRecognizer.createRecognizer(model).use { rec ->
-            assertEquals(emptyList<VoiceCommand>(), VoiceCommandRecognizer.recognize(rec, readWav("sentence")))
+        VoiceCommandDecoder(model).use { decoder ->
+            assertEquals(emptyList<VoiceCommand>(), decoder.commands(readWav("sentence")))
+        }
+    }
+
+    /**
+     * Every phrase, in every synthesized voice (voice/matrix/<phrase>__v<n>.wav), normal and quiet, must
+     * come out as exactly its own command: never missed, never taken for another. "no" must do nothing.
+     */
+    @Test
+    fun everyPhraseIsItsOwnCommand() {
+        val files = InstrumentationRegistry.getInstrumentation().context.assets.list("voice/matrix")!!.sorted()
+        assertTrue(files.isNotEmpty())
+        val failures = mutableListOf<String>()
+        for (file in files) {
+            val phrase = file.substringBefore("__").replace('_', ' ')
+            val expected = VoiceCommand.entries.filter { phrase in it.phrases }
+            val name = "matrix/" + file.removeSuffix(".wav")
+            for ((gain, noise) in CONDITIONS) {
+                val (commands, info) = commandsIn(name, gain, noiseRms = noise)
+                if (commands != expected) failures += "\"$phrase\" -> $commands (expected $expected); $info"
+            }
+            val (loud, loudInfo) = commandsIn(name, noiseRms = LOUD_NOISE)
+            if (loud.isNotEmpty() && loud != expected) failures += "\"$phrase\" -> $loud (expected $expected or nothing); $loudInfo"
+        }
+        assertTrue("${failures.size} of ${files.size * (CONDITIONS.size + 1)}:\n" + failures.joinToString("\n"), failures.isEmpty())
+    }
+
+    @Test
+    fun noiseAloneIsNothing() {
+        VoiceCommandDecoder(model).use { decoder ->
+            for (rms in listOf(0.003f, 0.01f, 0.05f)) {
+                val words = utterancesIn(FloatArray(48000), rms).flatMap { VoiceCommand.trimEdgeNoise(decoder.hear(it).words) }
+                assertTrue("noise $rms heard as $words", !VoiceCommand.hasKnownWord(words))
+            }
         }
     }
 }

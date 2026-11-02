@@ -48,7 +48,7 @@ import kotlinx.coroutines.delay
 /** The spoken words, as shown to the user. */
 internal const val VOICE_COMMANDS_HELP =
     "Say it on its own: play, pause, wait, loop, full screen, loop start, loop end, again, back, forward, slower, faster, normal. " +
-        "Several in a row work too (“full screen, play”). Say “no” to undo."
+        "Several in a row work too (“full screen, play”). Say “undo” to take one back."
 
 /** Debug (developer) builds show voice tuning aids that release builds don't. */
 internal fun isDebuggableBuild(context: Context): Boolean =
@@ -167,7 +167,7 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
     }
 }
 
-/** A short note of what a voice command did; tap it (or say "no") to take it back. */
+/** A short note of what a voice command did; tap it (or say "undo") to take it back. */
 @Composable
 internal fun VoiceFeedbackChip(
     feedback: VoiceFeedback?,

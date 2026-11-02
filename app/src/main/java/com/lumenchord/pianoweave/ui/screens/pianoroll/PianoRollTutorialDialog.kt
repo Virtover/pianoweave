@@ -63,7 +63,7 @@ private val tutorialSteps = listOf(
         body = "Keep your hands on the keys: turn on the mic in the toolbar, then say what to do, like “pause”, “wait” or “loop”.",
         highlights = listOf(
             Icons.Default.Mic to "Say it on its own, with a short pause around it. A few in a row work too: “full screen, play”.",
-            Icons.AutoMirrored.Filled.Undo to "Misheard? Say “no” to take it back.",
+            Icons.AutoMirrored.Filled.Undo to "Misheard? Say “undo” to take it back.",
             Icons.Default.Tune to "Every command, and a “Selah” mode for noisy rooms, are in settings."
         )
     ),

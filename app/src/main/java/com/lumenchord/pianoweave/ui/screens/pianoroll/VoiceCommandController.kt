@@ -21,7 +21,7 @@ internal data class VoiceFeedback(
 
 /**
  * Applies [VoiceCommand]s to the piano roll. Commands said in a row ("full screen wait") are one action:
- * saying "no" (or tapping its chip) within [UNDO_WINDOW_MS] takes all of it back, since without a wake
+ * saying "undo" (or tapping its chip) within [UNDO_WINDOW_MS] takes all of it back, since without a wake
  * word a misheard utterance must cost one word to fix. "loop start" ... "loop end" sets a loop between
  * the two moments, hands-free. Full screen (hidden bars) is the screen's own state, reached through
  * [isFullscreen] / [setFullscreen].
@@ -59,7 +59,7 @@ internal class VoiceCommandController(
 
     /**
      * Applies the [commands] of one utterance in order. True if the playhead jumped, so the caller
-     * resets wait and sound state. A leading "no" undoes the previous action first ("no, loop").
+     * resets wait and sound state. A leading "undo" takes back the previous action first ("undo, loop").
      */
     fun apply(context: Context, commands: List<VoiceCommand>, songDurationMs: Long): Boolean {
         var jumped = false
@@ -68,7 +68,7 @@ internal class VoiceCommandController(
             jumped = undoLast(context)
             rest = rest.drop(1)
         }
-        // "no" anywhere else isn't a correction of anything said in the same breath
+        // "undo" anywhere else isn't a correction of anything said in the same breath
         rest = rest.filter { it != VoiceCommand.UNDO }
         if (rest.isEmpty()) return jumped
 

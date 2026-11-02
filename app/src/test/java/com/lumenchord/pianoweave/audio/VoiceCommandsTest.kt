@@ -97,7 +97,7 @@ class VoiceCommandsTest {
     fun parsesSingleCommands() {
         assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(words("pause")))
         assertEquals(listOf(VoiceCommand.PLAY), VoiceCommand.parse(words("go")))
-        assertEquals(listOf(VoiceCommand.UNDO), VoiceCommand.parse(words("no")))
+        assertEquals(listOf(VoiceCommand.UNDO), VoiceCommand.parse(words("undo")))
         assertEquals(listOf(VoiceCommand.FULLSCREEN), VoiceCommand.parse(words("full", "screen")))
     }
 
@@ -127,8 +127,8 @@ class VoiceCommandsTest {
 
     @Test
     fun placeLosingCommandsNeedMoreConfidence() {
-        assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(words("pause", conf = 0.6f)))
-        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("again", conf = 0.6f)))
+        assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(words("pause", conf = 0.72f)))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("again", conf = 0.72f)))
         assertEquals(listOf(VoiceCommand.AGAIN), VoiceCommand.parse(words("again", conf = 0.8f)))
         // one doubtful word spoils the whole utterance
         assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(listOf("loop" to 0.9f, "again" to 0.6f)))
@@ -200,9 +200,77 @@ class VoiceCommandsTest {
     @Test
     fun seekWords() {
         assertEquals(listOf(VoiceCommand.BACK), VoiceCommand.parse(words("rewind")))
-        assertEquals(listOf(VoiceCommand.FORWARD), VoiceCommand.parse(words("skip")))
+        assertEquals(listOf(VoiceCommand.FORWARD), VoiceCommand.parse(words("go", "forward")))
         assertEquals(List(2) { VoiceCommand.BACK }, VoiceCommand.parse(words("back", "back")))
-        // "back" is harmless enough to take on a modest confidence
-        assertEquals(listOf(VoiceCommand.BACK), VoiceCommand.parse(words("back", conf = 0.55f)))
+        // Doubtful words are missed rather than taken for another command (seen in loud noise: 0.59-0.66)
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("wait", conf = 0.59f)))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("loop", conf = 0.66f)))
+    }
+
+    @Test
+    fun soundAlikesAreNotCommands() {
+        // "no" is in the grammar only to keep it from being heard as "go"
+        assertTrue("no" in VoiceCommand.DISTRACTOR_WORDS)
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("no")))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("no", "pause")))
+        // left out of the grammar entirely
+        listOf("mark", "skip").forEach { assertTrue(it, "\"$it\"" !in VoiceCommand.grammarJson) }
+    }
+
+    @Test
+    fun noPhraseBelongsToTwoCommands() {
+        val all = VoiceCommand.entries.flatMap { it.phrases }
+        assertEquals(all.size, all.toSet().size)
+    }
+
+    @Test
+    fun shortNoiseAtTheEdgesIsTrimmed() {
+        val unk = VoiceCommand.UNKNOWN_WORD
+        val heard = listOf(HeardWord(unk, 1f, 0.12f), HeardWord("pause", 0.9f, 0.4f), HeardWord(unk, 1f, 0.2f))
+        assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(VoiceCommand.trimEdgeNoise(heard)))
+    }
+
+    @Test
+    fun speechAroundACommandIsNotTrimmed() {
+        val unk = VoiceCommand.UNKNOWN_WORD
+        // "please pause" / "don't pause": a real word before the command
+        val before = listOf(HeardWord(unk, 1f, 0.4f), HeardWord("pause", 0.9f, 0.4f))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(VoiceCommand.trimEdgeNoise(before)))
+        // anything unknown between commands is talking
+        val middle = listOf(HeardWord("loop", 0.9f, 0.3f), HeardWord(unk, 1f, 0.1f), HeardWord("play", 0.9f, 0.3f))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(VoiceCommand.trimEdgeNoise(middle)))
+    }
+
+    @Test
+    fun noiseIsNoNearMiss() {
+        assertEquals(false, VoiceCommand.hasKnownWord(words(VoiceCommand.UNKNOWN_WORD)))
+        assertEquals(false, VoiceCommand.hasKnownWord(emptyList()))
+        assertTrue(VoiceCommand.hasKnownWord(words("loop", conf = 0.3f)))
+    }
+
+    @Test
+    fun unsureCommandCountsWhenNothingElseCouldBeMeant() {
+        // "pause" at 0.68 in a loud room; the other readings are only noise
+        val alternatives = listOf(words(VoiceCommand.UNKNOWN_WORD), emptyList())
+        assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.decide(words("pause", conf = 0.68f), alternatives))
+    }
+
+    @Test
+    fun unsureCommandWithACommandRivalIsDropped() {
+        // Seen in loud noise: "play" heard as "wait" 0.59, "loop end" as "loop" 0.66
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.decide(words("wait", conf = 0.59f), listOf(words("play"))))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.decide(words("loop", conf = 0.66f), listOf(words("loop", "end"))))
+        // A rival that is the same command doesn't count against it
+        assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.decide(words("pause", conf = 0.6f), listOf(words("stop"))))
+    }
+
+    @Test
+    fun confidentCommandIgnoresRivals() {
+        assertEquals(listOf(VoiceCommand.PLAY), VoiceCommand.decide(words("play", conf = 0.95f), listOf(words("wait"))))
+    }
+
+    @Test
+    fun tooUnsureIsDroppedEvenAlone() {
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.decide(words("pause", conf = 0.4f), emptyList()))
     }
 }

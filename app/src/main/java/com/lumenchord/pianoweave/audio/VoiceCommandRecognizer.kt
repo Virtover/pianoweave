@@ -3,7 +3,6 @@ package com.lumenchord.pianoweave.audio
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import com.google.gson.JsonParser
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -11,7 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import org.vosk.LibVosk
 import org.vosk.LogLevel
 import org.vosk.Model
-import org.vosk.Recognizer
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -25,15 +23,6 @@ import java.util.concurrent.Executors
  */
 object VoiceCommandRecognizer {
     private const val TAG = "VoiceCommandRecognizer"
-    private const val SAMPLE_RATE = 16000f
-    // Vosk takes float samples in the 16-bit range
-    private const val PCM_SCALE = 32768f
-    // The mic is unprocessed (no automatic gain), so a voice across the room arrives quiet: each
-    // utterance is brought to this peak, by at most MAX_GAIN, before decoding
-    private const val TARGET_PEAK = 0.7f
-    private const val MAX_GAIN = 24f
-    // Fed to Vosk in blocks so an endpoint between words in a row only closes a part, not the rest
-    private const val FEED_BLOCK = 1600
     // After "Selah" alone, the next utterance in this window counts as if it began with Selah:
     // people pause after the wake word, which splits "Selah ... play" into two utterances
     private const val WAKE_WINDOW_MS = 4000L
@@ -67,7 +56,7 @@ object VoiceCommandRecognizer {
 
     // Touched only on the worker
     private var model: Model? = null
-    private var recognizer: Recognizer? = null
+    private var decoder: VoiceCommandDecoder? = null
     private var wakeUntil = 0L
 
     private val pendingDecodes = java.util.concurrent.atomic.AtomicInteger(0)
@@ -141,8 +130,8 @@ object VoiceCommandRecognizer {
         _status.value = Status.OFF
         worker.execute {
             wakeUntil = 0L
-            recognizer?.close()
-            recognizer = null
+            decoder?.close()
+            decoder = null
             model?.close()
             model = null
         }
@@ -155,12 +144,12 @@ object VoiceCommandRecognizer {
     }
 
     private fun loadModel(modelDir: File): Boolean {
-        if (recognizer != null) return true
+        if (decoder != null) return true
         return try {
             LibVosk.setLogLevel(LogLevel.WARNINGS)
             val loaded = Model(modelDir.absolutePath)
             model = loaded
-            recognizer = createRecognizer(loaded)
+            decoder = VoiceCommandDecoder(loaded)
             Log.i(TAG, "Vosk model loaded from ${modelDir.name}")
             true
         } catch (e: Throwable) {
@@ -173,14 +162,21 @@ object VoiceCommandRecognizer {
     }
 
     private fun decode(utterance: FloatArray, forSession: Int) {
-        val rec = recognizer ?: return
+        val decoder = decoder ?: return
         if (forSession != session) return
         try {
-            val words = recognizeWords(rec, utterance)
+            val started = SystemClock.elapsedRealtime()
+            val heard = decoder.hear(utterance)
+            val words = VoiceCommand.trimEdgeNoise(heard.words)
             val now = SystemClock.elapsedRealtime()
             val awake = now < wakeUntil
-            val commands = VoiceCommand.parse(words, requireWake = listeningMode == VoiceListeningMode.SELAH && !awake)
-            Log.d(TAG, "Heard ${describe(words)} -> $commands${if (awake) " (after Selah)" else ""}")
+            val selahMode = listeningMode == VoiceListeningMode.SELAH
+            val commands = decoder.decide(heard, requireWake = selahMode && !awake)
+            Log.d(
+                TAG,
+                "Heard ${describe(heard.words)} (or ${heard.alternatives.joinToString(" / ") { alt -> alt.joinToString(" ") { it.word } }})" +
+                    " -> $commands${if (awake) " (after Selah)" else ""} in ${now - started} ms"
+            )
             if (forSession != session) return
             when {
                 commands.isNotEmpty() -> {
@@ -191,50 +187,17 @@ object VoiceCommandRecognizer {
                     wakeUntil = now + WAKE_WINDOW_MS
                     _woke.tryEmit(Unit)
                 }
-                else -> _unmatched.tryEmit(describe(words))
+                // Only near misses are worth showing: something the grammar knows was heard, and in
+                // Selah mode only when addressed. Noise and other talking stay silent.
+                VoiceCommand.hasKnownWord(words) &&
+                    (!selahMode || awake || words.first().first in VoiceCommand.WAKE_WORDS) ->
+                    _unmatched.tryEmit(describe(heard.words))
             }
         } catch (e: Exception) {
             Log.w(TAG, "Voice command decoding failed", e)
-            rec.reset()
         }
     }
 
-    /** Grammar recognizer for [VoiceCommand]s on [model]. */
-    internal fun createRecognizer(model: Model): Recognizer =
-        Recognizer(model, SAMPLE_RATE, VoiceCommand.grammarJson).apply { setWords(true) }
-
-    /** The (word, confidence) pairs heard in one utterance (16 kHz, -1..1; rescaled in place). */
-    internal fun recognizeWords(rec: Recognizer, utterance: FloatArray): List<Pair<String, Float>> {
-        var peak = 0f
-        for (s in utterance) peak = maxOf(peak, kotlin.math.abs(s))
-        val scale = PCM_SCALE * if (peak > 0f) minOf(TARGET_PEAK / peak, MAX_GAIN) else 1f
-        for (i in utterance.indices) utterance[i] *= scale
-
-        val words = mutableListOf<Pair<String, Float>>()
-        var off = 0
-        while (off < utterance.size) {
-            val n = minOf(FEED_BLOCK, utterance.size - off)
-            // An endpoint (a pause between words in a row) closes a part: keep its words, go on
-            if (rec.acceptWaveForm(utterance.copyOfRange(off, off + n), n)) words += parseWords(rec.result)
-            off += n
-        }
-        words += parseWords(rec.finalResult)
-        return words
-    }
-
-    /** The commands in one utterance, or empty (see [VoiceCommand.parse]). */
-    internal fun recognize(rec: Recognizer, utterance: FloatArray, requireWake: Boolean = false): List<VoiceCommand> =
-        VoiceCommand.parse(recognizeWords(rec, utterance), requireWake)
-
-    private fun describe(words: List<Pair<String, Float>>): String =
-        if (words.isEmpty()) "nothing" else words.joinToString(" ") { (w, c) -> "$w ${"%.2f".format(c)}" }
-
-    /** (word, confidence) pairs of a Vosk result with words enabled. */
-    private fun parseWords(json: String): List<Pair<String, Float>> {
-        val result = JsonParser.parseString(json).asJsonObject.getAsJsonArray("result") ?: return emptyList()
-        return result.map { element ->
-            val word = element.asJsonObject
-            word.get("word").asString to word.get("conf").asFloat
-        }
-    }
+    private fun describe(words: List<HeardWord>): String =
+        if (words.isEmpty()) "nothing" else words.joinToString(" ") { "${it.word} ${"%.2f".format(it.confidence)}" }
 }

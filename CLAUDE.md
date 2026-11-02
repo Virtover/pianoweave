@@ -88,8 +88,11 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   `VoiceCommand` phrases) decodes only those; several commands in a row are one action ("full screen wait").
   Any non-command word rejects the whole utterance. Optional "Selah" first; Settings can require it
   (`VoiceListeningMode.SELAH`, which also drops the pause-before rule). No "mark": the small model confused it with "back". The model downloads to `files/voice/` (`VoiceModelStore`);
-  "no" undoes within 4 s. Debug builds show the first-run dialog on every enable and a chip with what a
-  non-command utterance sounded like. `VoiceCommandInstrumentedTest` checks real (TTS) words, also at -30 dB;
+  `VoiceCommandDecoder` decodes twice (word confidences + next-best readings): a command counts at
+  confidence 0.7, or from 0.5 if no other reading is a different command. "undo" takes back within 4 s. Words that sound alike to the model are left out ("mark", "skip", "no" for
+  undo; "no" is a distractor word). Debug builds show a chip with what a near-miss utterance sounded like
+  (never for noise, or in Selah mode unless addressed). `VoiceCommandInstrumentedTest` checks TTS words (every phrase x 2 voices: clean,
+  -30 dB, room noise; in voice-loud noise a miss is allowed, a wrong command never);
   it downloads the model if missing.
 - **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the

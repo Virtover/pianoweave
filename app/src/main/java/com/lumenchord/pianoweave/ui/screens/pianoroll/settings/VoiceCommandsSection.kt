@@ -35,10 +35,10 @@ private val COMMAND_GUIDE = listOf(
     "loop start … loop end" to "Loop the part in between",
     "again" to "Start over (or from the loop start)",
     "back · rewind" to "Back 5 seconds",
-    "forward · skip" to "Forward 5 seconds",
+    "forward" to "Forward 5 seconds",
     "slower · faster" to "Change speed",
     "normal" to "Normal speed",
-    "no · undo" to "Take back the last command"
+    "undo" to "Take back the last command"
 )
 
 /**
@@ -81,7 +81,7 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
                 selected = mode == VoiceListeningMode.SELAH,
                 title = "“Selah” first",
                 example = "“Selah, pause”",
-                description = "For noisy rooms or lessons: only what starts with Selah (“SEH-lah”) counts. You can pause after it: “Selah … play”.",
+                description = "For noisy rooms or lessons: only what starts with Selah counts. You can pause after it: “Selah … play”.",
                 accent = accent,
                 onSelect = { viewModel.setVoiceListeningMode(context, VoiceListeningMode.SELAH) }
             )
@@ -113,7 +113,7 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
             val prefix = if (mode == VoiceListeningMode.SELAH) "Selah, " else ""
             Text(
                 text = "Chain them in one go: “${prefix}full screen, play” or “${prefix}back back” for 10 seconds. " +
-                        "Say “no” within 4 seconds to undo, or tap the note that shows what was done.",
+                        "Say “undo” within 4 seconds to take it back, or tap the note that shows what was done.",
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 12.sp,
                 lineHeight = 17.sp
