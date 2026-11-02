@@ -4,8 +4,10 @@ import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Hearing
@@ -19,7 +21,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,6 +82,10 @@ internal fun PianoRollTutorialDialog(onDismiss: () -> Unit) {
     var stepIndex by remember { mutableIntStateOf(0) }
     val step = tutorialSteps[stepIndex]
     val isLast = stepIndex == tutorialSteps.lastIndex
+    // A landscape phone is too short for the roomy layout (the buttons, its only way out, fell off the
+    // bottom), so there it's compact: icon beside the title, tighter spacing, step dots between the buttons
+    val compact = LocalConfiguration.current.screenHeightDp < 480
+    val spacing = if (compact) 8.dp else 14.dp
 
     Dialog(
         onDismissRequest = {},
@@ -93,97 +101,138 @@ internal fun PianoRollTutorialDialog(onDismiss: () -> Unit) {
             border = BorderStroke(1.dp, ColorSlate)
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(horizontal = if (compact) 16.dp else 20.dp, vertical = if (compact) 12.dp else 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(spacing)
             ) {
-                IconBadge(step.icon, tint = colorGold, size = 56.dp)
-
-                Text(
-                    text = step.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = colorGold,
-                    textAlign = TextAlign.Center
-                )
-
-                Text(
-                    text = step.body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 22.sp,
-                    textAlign = TextAlign.Center
-                )
-
-                if (step.highlights.isNotEmpty()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(colorGold.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        step.highlights.forEach { (icon, text) ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(icon, contentDescription = null, tint = colorGold, modifier = Modifier.size(20.dp))
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    text = text,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 18.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    tutorialSteps.indices.forEach { i ->
-                        Box(
-                            modifier = Modifier
-                                .size(if (i == stepIndex) 8.dp else 6.dp)
-                                .background(if (i == stepIndex) colorGold else ColorSlate, CircleShape)
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Last resort for unusually short screens: only the step's content scrolls, the buttons stay
+                // put. On ordinary phones, in either orientation, everything fits and nothing scrolls.
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(spacing)
                 ) {
-                    if (isLast) {
-                        Spacer(Modifier.width(1.dp))
+                    if (compact) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconBadge(step.icon, tint = colorGold, size = 32.dp)
+                            Spacer(Modifier.width(10.dp))
+                            StepTitle(step, colorGold)
+                        }
                     } else {
-                        TextButton(onClick = onDismiss) {
-                            Text(text = "Skip", fontWeight = FontWeight.Bold, color = ColorTextDim)
-                        }
+                        IconBadge(step.icon, tint = colorGold, size = 56.dp)
+                        StepTitle(step, colorGold)
                     }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (stepIndex > 0) {
-                            TextButton(onClick = { stepIndex-- }) {
-                                Text(text = "Back", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                        Button(
-                            onClick = { if (isLast) onDismiss() else stepIndex++ },
-                            shape = PillShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorGold,
-                                contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            Text(
-                                text = if (isLast) "Got it" else "Next",
-                                fontWeight = FontWeight.Black
-                            )
-                        }
+                    Text(
+                        text = step.body,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = if (compact) 19.sp else 22.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    if (step.highlights.isNotEmpty()) {
+                        StepHighlights(step, colorGold, compact)
                     }
                 }
+                if (!compact) StepDots(stepIndex, colorGold)
+                StepButtons(stepIndex, isLast, showDots = compact, onSkip = onDismiss, onBack = { stepIndex-- }) {
+                    if (isLast) onDismiss() else stepIndex++
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepTitle(step: TutorialStep, colorGold: Color) {
+    Text(
+        text = step.title,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.ExtraBold,
+        color = colorGold,
+        textAlign = TextAlign.Center
+    )
+}
+
+@Composable
+private fun StepHighlights(step: TutorialStep, colorGold: Color, compact: Boolean) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colorGold.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+            .padding(horizontal = if (compact) 12.dp else 14.dp, vertical = if (compact) 8.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)
+    ) {
+        step.highlights.forEach { (icon, text) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = colorGold, modifier = Modifier.size(if (compact) 18.dp else 20.dp))
+                Spacer(Modifier.width(if (compact) 10.dp else 12.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = if (compact) 16.sp else 18.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepDots(stepIndex: Int, colorGold: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        tutorialSteps.indices.forEach { i ->
+            Box(
+                modifier = Modifier
+                    .size(if (i == stepIndex) 8.dp else 6.dp)
+                    .background(if (i == stepIndex) colorGold else ColorSlate, CircleShape)
+            )
+        }
+    }
+}
+
+/** Skip on the left, Back and Next/Got it on the right; in the compact layout the step dots sit between them. */
+@Composable
+private fun StepButtons(
+    stepIndex: Int,
+    isLast: Boolean,
+    showDots: Boolean,
+    onSkip: () -> Unit,
+    onBack: () -> Unit,
+    onNext: () -> Unit
+) {
+    val appTheme = LocalAppTheme.current
+    val colorGold = appTheme.primaryColor
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        if (!isLast) {
+            TextButton(onClick = onSkip, modifier = Modifier.align(Alignment.CenterStart)) {
+                Text(text = "Skip", fontWeight = FontWeight.Bold, color = ColorTextDim)
+            }
+        }
+        if (showDots) StepDots(stepIndex, colorGold)
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (stepIndex > 0) {
+                TextButton(onClick = onBack) {
+                    Text(text = "Back", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            Button(
+                onClick = onNext,
+                shape = PillShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorGold,
+                    contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Text(
+                    text = if (isLast) "Got it" else "Next",
+                    fontWeight = FontWeight.Black
+                )
             }
         }
     }
