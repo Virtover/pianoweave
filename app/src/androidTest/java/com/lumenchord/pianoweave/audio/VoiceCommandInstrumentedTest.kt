@@ -26,8 +26,8 @@ class VoiceCommandInstrumentedTest {
     companion object {
         private lateinit var model: Model
         private const val QUIET = 0.03f
-        // (gain, noise rms): clean, far away, and with steady room noise ~20 and ~10 dB under the voice
-        private val CONDITIONS = listOf(1f to 0f, QUIET to 0f, 1f to 0.01f, 1f to 0.03f)
+        // (gain, noise rms): clean, far away (-30 and -40 dB), and with steady room noise ~20 and ~10 dB under the voice
+        private val CONDITIONS = listOf(1f to 0f, QUIET to 0f, 0.01f to 0f, 1f to 0.01f, 1f to 0.03f)
         // Noise as loud as the voice: a word may be missed there, but never taken for another
         private const val LOUD_NOISE = 0.1f
 
@@ -191,6 +191,86 @@ class VoiceCommandInstrumentedTest {
                 val words = utterancesIn(FloatArray(48000), rms).flatMap { VoiceCommand.trimEdgeNoise(decoder.hear(it).words) }
                 assertTrue("noise $rms heard as $words", !VoiceCommand.hasKnownWord(words))
             }
+        }
+    }
+
+    /**
+     * The song from the phone's own speaker, under a voice that isn't loud (the echo canceller and the
+     * ducking on the device take more of it away; this is what's left without them): still no command
+     * may be taken for another, and nearly all must be caught.
+     */
+    @Test
+    fun voiceOverPiano() {
+        val files = InstrumentationRegistry.getInstrumentation().context.assets.list("voice/matrix")!!.sorted()
+            .filter { !it.startsWith("no__") }
+        val missed = mutableListOf<String>()
+        val wrong = mutableListOf<String>()
+        VoiceCommandDecoder(model).use { decoder ->
+            for ((gain, pianoRms) in listOf(0.3f to 0.03f, 0.1f to 0.01f, 1f to 0.08f)) {
+                for (file in files) {
+                    val phrase = file.substringBefore("__").replace('_', ' ')
+                    val expected = VoiceCommand.entries.filter { phrase in it.phrases }
+                    val audio = readWav("matrix/" + file.removeSuffix(".wav")).also { a -> for (i in a.indices) a[i] *= gain }
+                    val pad = FloatArray(9600)
+                    val stream = pad + audio + pad + pad
+                    val piano = piano(stream.size, pianoRms)
+                    for (i in stream.indices) stream[i] += piano[i]
+                    val commands = utterancesOf(stream).flatMap { decoder.commands(it) }
+                    if (commands != expected) (if (commands.isEmpty()) missed else wrong) += "$file x$gain piano $pianoRms -> $commands"
+                }
+            }
+        }
+        assertTrue("taken for another command: $wrong", wrong.isEmpty())
+        assertTrue("missed ${missed.size} of ${files.size * 3}: $missed", missed.size <= files.size * 3 / 10)
+    }
+
+    /** Piano-like chords (decaying harmonics, three notes every 0.2-0.5 s) at [rms]. */
+    private fun piano(length: Int, rms: Float): FloatArray {
+        val out = FloatArray(length)
+        val random = java.util.Random(3)
+        val notes = intArrayOf(60, 62, 64, 65, 67, 69, 71, 72, 48, 52, 55)
+        var start = 0
+        while (start < length) {
+            repeat(3) {
+                val f = 440.0 * Math.pow(2.0, (notes[random.nextInt(notes.size)] - 69) / 12.0)
+                for (t in 0 until minOf(16000, length - start)) {
+                    val sec = t / 16000.0
+                    var v = 0.0
+                    for (k in 1..8) v += Math.sin(2 * Math.PI * f * k * sec) / k * Math.exp(-sec * (1.5 + k * 0.6))
+                    out[start + t] += (v * minOf(1.0, t / 80.0)).toFloat()
+                }
+            }
+            start += 3000 + random.nextInt(5000)
+        }
+        val current = Math.sqrt(out.map { it.toDouble() * it }.average()).toFloat()
+        for (i in out.indices) out[i] *= rms / current
+        return out
+    }
+
+    /** The utterances voice commands would cut from [stream] (the level-boosted voice gate). */
+    private fun utterancesOf(stream: FloatArray): List<FloatArray> {
+        val segmenter = UtteranceSegmenter()
+        val found = mutableListOf<FloatArray>()
+        VoiceActivityGate.reset()
+        VoiceActivityGate.chunkListener = VoiceActivityGate.ChunkListener { chunk, p -> segmenter.feed(chunk, p)?.let(found::add) }
+        try {
+            VoiceActivityGate.feed(stream, 0, stream.size)
+        } finally {
+            VoiceActivityGate.chunkListener = null
+        }
+        return found
+    }
+
+    @Test
+    fun voiceOnlyListeningUsesTheEchoCanceller() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(AcousticNoteDetector.startVoice(context))
+        try {
+            Thread.sleep(300)
+            val log = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-s", "audiobridge")).inputStream.bufferedReader().readText()
+            assertTrue("last opened: " + log.lines().lastOrNull { "opened" in it }, log.lines().last { "opened" in it }.contains("VOICE_COMMUNICATION"))
+        } finally {
+            AcousticNoteDetector.stopVoice()
         }
     }
 }

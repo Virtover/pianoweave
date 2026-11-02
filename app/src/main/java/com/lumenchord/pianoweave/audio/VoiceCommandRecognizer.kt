@@ -76,7 +76,9 @@ object VoiceCommandRecognizer {
 
     private val chunkListener = VoiceActivityGate.ChunkListener { chunk, probability ->
         val utterance = segmenter.feed(chunk, probability)
-        _isHearing.value = segmenter.state == UtteranceSegmenter.State.SPEECH
+        val hearing = segmenter.state == UtteranceSegmenter.State.SPEECH
+        if (hearing != _isHearing.value) PianoPlayer.duckForVoice(hearing)
+        _isHearing.value = hearing
         if (utterance != null) {
             if (pendingDecodes.incrementAndGet() > MAX_PENDING_DECODES) {
                 pendingDecodes.decrementAndGet()
@@ -127,6 +129,7 @@ object VoiceCommandRecognizer {
         VoiceActivityGate.chunkListener = null
         AcousticNoteDetector.stopVoice()
         _isHearing.value = false
+        PianoPlayer.duckForVoice(false)
         _status.value = Status.OFF
         worker.execute {
             wakeUntil = 0L
@@ -140,6 +143,7 @@ object VoiceCommandRecognizer {
     /** Audio was dropped: an utterance in progress can't be trusted. Called on the audio thread. */
     internal fun resetStream() {
         segmenter.reset()
+        if (_isHearing.value) PianoPlayer.duckForVoice(false)
         _isHearing.value = false
     }
 

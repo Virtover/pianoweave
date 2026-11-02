@@ -224,6 +224,7 @@ object AcousticNoteDetector {
 
         notesGeneration++
         notesWanted = true
+        applyCaptureMode()
         if (!ensureCapture()) {
             notesWanted = false
             return false
@@ -239,6 +240,7 @@ object AcousticNoteDetector {
     fun startVoice(context: Context): Boolean {
         if (!hasMicrophonePermission(context) || !initializeEngine(context)) return false
         voiceWanted = true
+        applyCaptureMode()
         if (!ensureCapture()) {
             voiceWanted = false
             return false
@@ -249,7 +251,20 @@ object AcousticNoteDetector {
     @Synchronized
     fun stopVoice() {
         voiceWanted = false
-        if (!notesWanted) shutdownCapture()
+        if (notesWanted) applyCaptureMode() else shutdownCapture()
+    }
+
+    /**
+     * Opens the mic the way its users need: with the device's echo canceller for voice commands alone
+     * (it takes the app's own song out of what the mic hears), unprocessed whenever note detection runs.
+     * Reopens a stream that is the other way; a short gap in the audio, only when wait mode changes.
+     */
+    private fun applyCaptureMode() {
+        if (!NativeAudioEngine.setVoiceMode(voiceWanted && !notesWanted)) return
+        val wasRunning = isRunning
+        if (wasRunning) shutdownCapture()
+        NativeAudioEngine.cleanup()
+        if (wasRunning) ensureCapture()
     }
 
     /** Starts the capture and its thread unless already running (for the other user). */
@@ -589,7 +604,7 @@ object AcousticNoteDetector {
     /** Stops note detection; the capture keeps running while voice commands listen. */
     fun stop() {
         notesWanted = false
-        if (!voiceWanted) shutdownCapture()
+        if (voiceWanted) applyCaptureMode() else shutdownCapture()
         activePitches.forEach { MidiInputManager.simulateExternalNoteOff(it) }
         activePitches.clear()
     }

@@ -52,7 +52,7 @@
 <main>
 
     <h1>Piano Weave – Privacy Policy</h1>
-    <p class="meta">Effective date: October 28, 2026</p>
+    <p class="meta">Effective date: November 4, 2026</p>
 
     <p>
         This Privacy Policy explains what information the Piano Weave Android app
@@ -62,8 +62,8 @@
     </p>
 
     <div class="card">
-        <strong>In short:</strong> in Wait Mode the microphone is used only to detect the notes you play, and that
-        audio is processed on your device. A microphone recording leaves your device only when you record it yourself
+        <strong>In short:</strong> in Wait Mode and for voice commands the microphone is used only to detect the notes you
+        play and the commands you say, and that audio is processed on your device. A microphone recording leaves your device only when you record it yourself
         and tap Transcribe. Your MIDI library stays on your device unless you turn on cloud sync. If you transcribe a video,
         a file or a recording, or sign in with Google, the information listed below is sent to the Server.
         The Server keeps a short record of each transcription, including the video link if you used one, for up to 30 days to fix problems.
@@ -180,12 +180,19 @@
 
     <h2 id="microphone">3. Microphone</h2>
     <p>
-        The App uses the microphone for two features, and only while you are using them:
+        The App uses the microphone for three features, and only while you are using them:
     </p>
     <ul>
         <li>
             <strong>Wait Mode</strong> listens to your piano and pauses the sheet music until you play the correct notes.
             Audio is analyzed in real time on your device by a model that runs locally. It is not saved and is not sent to the Server or to anyone else.
+        </li>
+        <li>
+            <strong>Voice commands</strong> (off by default) let you control practice by saying short commands such as "pause" or "loop".
+            While they are on, the App listens only while a song is open in the piano roll and the App is on screen, and stops when you
+            leave it or turn them off. Short spoken phrases are recognized in real time on your device by a speech model that runs locally;
+            other sound is ignored. Audio and recognized words are not saved and are not sent to the Server or to anyone else.
+            The speech model is downloaded once when you first turn voice commands on (see <a href="#sharing">Sharing and third parties</a>).
         </li>
         <li>
             <strong>Record</strong> (in AI Transcription) records audio only after you tap to start, shows that it is recording, and stops when you tap Stop,
@@ -216,6 +223,12 @@
         </li>
         <li>
             <strong>Video and audio platforms.</strong> When transcribing a link, the Server requests the audio directly from the platform hosting it (such as YouTube). That platform receives a request originating from the Server's IP address, not your device, and processes it under its own terms.
+        </li>
+        <li>
+            <strong>Speech model download (Vosk).</strong> When you first turn on voice commands, the App downloads the open-source
+            Vosk speech model (about 40 MB) from <code>alphacephei.com</code>, the Vosk project's website. Like any website, it receives your
+            IP address and standard request information for that download. Nothing else is sent: no audio, account or usage data. After the
+            download, voice commands work offline.
         </li>
         <li>
             <strong>Legal reasons.</strong> Information may be disclosed if required by law or to protect rights, safety, and system security.

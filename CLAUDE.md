@@ -88,6 +88,10 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   `VoiceCommand` phrases) decodes only those; several commands in a row are one action ("full screen wait").
   Any non-command word rejects the whole utterance. Optional "Selah" first; Settings can require it
   (`VoiceListeningMode.SELAH`, which also drops the pause-before rule). No "mark": the small model confused it with "back". The model downloads to `files/voice/` (`VoiceModelStore`);
+  Voice-only capture opens with the VOICE_COMMUNICATION preset (device echo canceller removes the app's own
+  song, ~25 dB measured); note detection forces UNPROCESSED, so the stream reopens when wait mode toggles.
+  The voice gate runs a second Silero stream on level-boosted audio (+30 dB max) for commands; the song is
+  ducked 9 dB while a command may be spoken (`PianoPlayer.duckForVoice`).
   `VoiceCommandDecoder` decodes twice (word confidences + next-best readings): a command counts at
   confidence 0.7, or from 0.5 if no other reading is a different command. "undo" takes back within 4 s. Words that sound alike to the model are left out ("mark", "skip", "no" for
   undo; "no" is a distractor word). Debug builds show a chip with what a near-miss utterance sounded like

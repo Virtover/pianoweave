@@ -1,20 +1,35 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
@@ -32,7 +47,7 @@ private val COMMAND_GUIDE = listOf(
     "wait" to "Wait mode on / off",
     "loop" to "Loop on / off",
     "full screen" to "Hide / show the bars",
-    "loop start … loop end" to "Loop the part in between",
+    "loop start, loop end" to "Loop the part in between",
     "again" to "Start over (or from the loop start)",
     "back · rewind" to "Back 5 seconds",
     "forward" to "Forward 5 seconds",
@@ -42,9 +57,9 @@ private val COMMAND_GUIDE = listOf(
 )
 
 /**
- * Voice commands in practice settings. Off, one line on what it is; on, everything a first-time user
- * needs: whether it's ready, the two ways of speaking to it (with an example each), and what every
- * word does.
+ * Voice commands in practice settings, kept compact: the switch says what it is (and, once on, that it
+ * listens), the download shows only while it matters, the way of speaking is a two-way choice with a
+ * one-line example, and the full list of words folds out on request.
  */
 @Composable
 fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
@@ -54,10 +69,14 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
     val enabled = viewModel.isVoiceCommandsEnabled
     val mode = viewModel.voiceListeningMode
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingToggleRow(
             title = "Voice Commands",
-            subtitle = "Control practice by speaking, so your hands stay on the keys. Speech is recognized on your device, offline.",
+            subtitle = if (enabled && viewModel.voiceModelState == VoiceModelState.READY) {
+                "Listening in the piano roll. The mic in the toolbar brightens when it hears you."
+            } else {
+                "Control practice by speaking, so your hands stay on the keys. Works offline."
+            },
             checked = enabled,
             onCheckedChange = toggle,
             accent = accent
@@ -65,66 +84,32 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
 
         if (!enabled) return@Column
 
-        VoiceStatus(viewModel, accent)
+        VoiceDownloadStatus(viewModel, accent)
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("How to speak")
-            ListeningModeOption(
-                selected = mode == VoiceListeningMode.WORDS,
-                title = "Just the command",
-                example = "“pause”",
-                description = "Quickest. Say it on its own, with a short pause before and after.",
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            ListeningModeSwitch(
+                mode = mode,
                 accent = accent,
-                onSelect = { viewModel.setVoiceListeningMode(context, VoiceListeningMode.WORDS) }
+                onSelect = { viewModel.setVoiceListeningMode(context, it) }
             )
-            ListeningModeOption(
-                selected = mode == VoiceListeningMode.SELAH,
-                title = "“Selah” first",
-                example = "“Selah, pause”",
-                description = "For noisy rooms or lessons: only what starts with Selah counts. You can pause after it: “Selah … play”.",
-                accent = accent,
-                onSelect = { viewModel.setVoiceListeningMode(context, VoiceListeningMode.SELAH) }
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionLabel("What to say")
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                COMMAND_GUIDE.forEach { (words, action) ->
-                    Row(verticalAlignment = Alignment.Top) {
-                        Text(
-                            text = words,
-                            color = accent,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            modifier = Modifier.width(118.dp)
-                        )
-                        Text(action, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-            val prefix = if (mode == VoiceListeningMode.SELAH) "Selah, " else ""
             Text(
-                text = "Chain them in one go: “${prefix}full screen, play” or “${prefix}back back” for 10 seconds. " +
-                        "Say “undo” within 4 seconds to take it back, or tap the note that shows what was done.",
+                text = when (mode) {
+                    VoiceListeningMode.WORDS -> "Say a command on its own, like “pause”."
+                    VoiceListeningMode.SELAH -> "Start with Selah, like “Selah, pause”. Other talking is ignored, for noisy rooms or lessons."
+                },
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 12.sp,
                 lineHeight = 17.sp
             )
         }
+
+        CommandGuide(mode, accent)
     }
 }
 
-/** Ready, downloading or failed, so a first-time user knows whether to start talking. */
+/** Only while the model downloads or after it failed; once ready, the switch's subtitle says so. */
 @Composable
-private fun VoiceStatus(viewModel: PianoWeaveViewModel, accent: Color) {
+private fun VoiceDownloadStatus(viewModel: PianoWeaveViewModel, accent: Color) {
     val context = LocalContext.current
     when (viewModel.voiceModelState) {
         VoiceModelState.DOWNLOADING -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -152,7 +137,7 @@ private fun VoiceStatus(viewModel: PianoWeaveViewModel, accent: Color) {
                 Text("Retry", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
-        else -> StatusText("Ready. The mic in the toolbar brightens when it hears you.")
+        else -> Unit
     }
 }
 
@@ -161,43 +146,105 @@ private fun StatusText(text: String, modifier: Modifier = Modifier) {
     Text(text, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, lineHeight = 17.sp, modifier = modifier)
 }
 
+/** "Just the word" or "Selah first", as one pill split in two (labels fit a narrow portrait screen). */
 @Composable
-private fun SectionLabel(text: String) {
-    Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-}
-
-@Composable
-private fun ListeningModeOption(
-    selected: Boolean,
-    title: String,
-    example: String,
-    description: String,
-    accent: Color,
-    onSelect: () -> Unit
-) {
-    val shape = RoundedCornerShape(12.dp)
+private fun ListeningModeSwitch(mode: VoiceListeningMode, accent: Color, onSelect: (VoiceListeningMode) -> Unit) {
+    val options = listOf(VoiceListeningMode.WORDS to "Just the word", VoiceListeningMode.SELAH to "“Selah” first")
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .border(1.dp, if (selected) accent.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.12f), shape)
-            .background(if (selected) accent.copy(alpha = 0.10f) else Color.Transparent)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
-            .padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.Top
+            .height(IntrinsicSize.Min)
+            .clip(PillShape)
+            .border(1.dp, Color.White.copy(alpha = 0.14f), PillShape)
+            .padding(3.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = null,
-            colors = RadioButtonDefaults.colors(selectedColor = accent),
-            modifier = Modifier.padding(12.dp)
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(example, color = accent, fontSize = 13.sp)
+        options.forEach { (option, label) ->
+            val selected = option == mode
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(PillShape)
+                    .background(if (selected) accent.copy(alpha = 0.22f) else Color.Transparent)
+                    .then(if (selected) Modifier.border(1.dp, accent.copy(alpha = 0.8f), PillShape) else Modifier)
+                    .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(option) })
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) Color.White else Color.White.copy(alpha = 0.65f),
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Text(description, color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 17.sp)
+        }
+    }
+}
+
+/** "What can I say?": one line until opened, then every command and how to combine them. */
+@Composable
+private fun CommandGuide(mode: VoiceListeningMode, accent: Color) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val arrow by animateFloatAsState(if (open) 180f else 0f, label = "voiceGuideArrow")
+    val shape = RoundedCornerShape(12.dp)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White.copy(alpha = 0.05f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClickLabel = if (open) "Hide commands" else "Show commands") { open = !open }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(Icons.Outlined.Info, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            Text("What can I say?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Icon(
+                Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(arrow)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = open,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                COMMAND_GUIDE.forEach { (words, action) ->
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(words, color = accent, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, modifier = Modifier.weight(0.45f))
+                        Text(action, color = Color.White.copy(alpha = 0.8f), fontSize = 12.5.sp, modifier = Modifier.weight(0.55f))
+                    }
+                }
+                val prefix = if (mode == VoiceListeningMode.SELAH) "Selah, " else ""
+                Text(
+                    text = "Several in one go: “${prefix}full screen, play”, “${prefix}back back” (10 s). " +
+                            "Said by mistake? “undo” within 4 s, or tap the note that appears.",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
         }
     }
 }

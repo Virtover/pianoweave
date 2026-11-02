@@ -25,8 +25,11 @@ internal class UtteranceSegmenter(
         const val CONTINUE_PROB = 0.25f
         /** Pause needed before and after an utterance (8 x 32 ms = 256 ms). */
         const val PAUSE_CHUNKS = 8
-        /** Speech length accepted: ~64 ms .. ~2.5 s (a few words in a row); one chunk is a click. */
-        const val MIN_SPEECH_CHUNKS = 2
+        /**
+         * Speech length accepted: ~100 ms .. ~2.5 s (a few words in a row). Shorter is a click, or the
+         * attack of a piano note, which the level-boosted voice gate rates as voice for ~2 chunks.
+         */
+        const val MIN_SPEECH_CHUNKS = 3
         const val MAX_SPEECH_CHUNKS = 78
         /** Audio kept from before speech starts, so the first consonant isn't cut. */
         const val PRE_ROLL_CHUNKS = 6

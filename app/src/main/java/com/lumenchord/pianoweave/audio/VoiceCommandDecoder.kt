@@ -21,7 +21,7 @@ internal class VoiceCommandDecoder(model: Model) : AutoCloseable {
         // The mic is unprocessed (no automatic gain), so a voice across the room arrives quiet: each
         // utterance is brought to this peak, by at most MAX_GAIN, before decoding
         private const val TARGET_PEAK = 0.7f
-        private const val MAX_GAIN = 24f
+        private const val MAX_GAIN = 64f
         // Fed in blocks so an endpoint between words in a row only closes a part, not the rest
         private const val FEED_BLOCK = 1600
         private const val ALTERNATIVES = 4

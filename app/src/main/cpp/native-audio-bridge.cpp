@@ -26,7 +26,13 @@ namespace {
     // UNPROCESSED (API 29+) disables OEM noise suppression / AGC that is tuned for speech and
     // attenuates sustained piano tones. If the device rejects it, the default preset is used.
     constexpr int32_t INPUT_PRESET_UNPROCESSED = 9;
+    // VOICE_COMMUNICATION (API 28+) runs the device's echo canceller, which removes the app's own song
+    // from the mic (~25 dB measured), for voice commands while note detection is off. Notes need
+    // UNPROCESSED: the call processing treats a sustained piano tone as noise.
+    constexpr int32_t INPUT_PRESET_VOICE_COMMUNICATION = 7;
     constexpr int32_t INPUT_PRESET_DEFAULT = -1;  // do not call setInputPreset
+    std::atomic<bool> voicePreferred{false};
+    int32_t openedPreset = INPUT_PRESET_DEFAULT;  // guarded by streamMutex
     float ringBuffer[RING_BUFFER_SIZE];
     std::atomic<int64_t> writeIndex{0};
     AAudioStream *audioStream = nullptr;
@@ -99,13 +105,27 @@ namespace {
         AAudioStream *stream = nullptr;
         result = AAudioStreamBuilder_openStream(builder, &stream);
         AAudioStreamBuilder_delete(builder);
-        if (result == AAUDIO_OK) audioStream = stream;
+        if (result == AAUDIO_OK) {
+            audioStream = stream;
+            openedPreset = preset;
+        }
         return result;
     }
 
-    // Caller must hold streamMutex. Tries UNPROCESSED first, then the default preset.
+    // Caller must hold streamMutex. In voice mode tries VOICE_COMMUNICATION first; then UNPROCESSED,
+    // then the default preset.
     aaudio_result_t openStream() {
-        aaudio_result_t result = openStreamWithPreset(INPUT_PRESET_UNPROCESSED);
+        aaudio_result_t result;
+        if (voicePreferred.load()) {
+            result = openStreamWithPreset(INPUT_PRESET_VOICE_COMMUNICATION);
+            if (result == AAUDIO_OK) {
+                LOGI("AAudio input opened: preset=VOICE_COMMUNICATION, rate=%d, perfMode=%d",
+                     AAudioStream_getSampleRate(audioStream), AAudioStream_getPerformanceMode(audioStream));
+                return result;
+            }
+            LOGI("VOICE_COMMUNICATION preset unavailable (%s)", AAudio_convertResultToText(result));
+        }
+        result = openStreamWithPreset(INPUT_PRESET_UNPROCESSED);
         if (result == AAUDIO_OK) {
             LOGI("AAudio input opened: preset=UNPROCESSED, rate=%d, perfMode=%d",
                  AAudioStream_getSampleRate(audioStream), AAudioStream_getPerformanceMode(audioStream));
@@ -218,6 +238,17 @@ Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_copyLatest(JNIEnv *env, j
     }
 
     return framesToCopy;
+}
+
+// Chooses the preset for streams opened from now on. True if the open stream has the other one and
+// must be reopened (cleanup, then startCapture) to change.
+JNIEXPORT jboolean JNICALL
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_setVoiceMode(JNIEnv *env, jclass clazz, jboolean voice) {
+    std::lock_guard<std::mutex> lock(streamMutex);
+    voicePreferred.store(voice == JNI_TRUE);
+    if (audioStream == nullptr) return JNI_FALSE;
+    bool isVoice = openedPreset == INPUT_PRESET_VOICE_COMMUNICATION;
+    return (isVoice != (voice == JNI_TRUE)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

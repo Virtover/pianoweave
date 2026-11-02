@@ -48,11 +48,30 @@ class VoiceCommandsTest {
     }
 
     @Test
-    fun quietWordPeakingBrieflyIsKept() {
-        // Real profile of "loop" 30 dB down: ... 0.30 0.33 0.43 0.39 0.20 0.10 ...
+    fun quietWordStaysTogether() {
+        // A quiet word dips under the start level inside: 0.45 0.32 0.41 0.28 ...
         val seg = UtteranceSegmenter()
         seg.run(pause, 0.02f)
-        listOf(0.29f, 0.18f, 0.25f, 0.30f, 0.33f, 0.43f, 0.39f, 0.20f).forEach { seg.feed(chunk, it) }
+        listOf(0.45f, 0.32f, 0.41f, 0.28f, 0.5f).forEach { seg.feed(chunk, it) }
+        assertEquals(1, seg.run(pause, 0.05f).size)
+    }
+
+    @Test
+    fun pianoAttackIsNoUtterance() {
+        // The boosted gate rates a piano note's attack as voice for ~2 chunks
+        val seg = UtteranceSegmenter()
+        seg.run(pause, 0.02f)
+        seg.run(2, 0.8f)
+        assertTrue(seg.run(pause, 0.05f).isEmpty())
+    }
+
+    @Test
+    fun wordRightAfterAPianoAttackIsHeard() {
+        val seg = UtteranceSegmenter()
+        seg.run(pause, 0.02f)
+        seg.run(2, 0.8f)    // a note's attack
+        seg.run(3, 0.05f)   // ~100 ms later
+        seg.run(10, 0.95f)  // "pause"
         assertEquals(1, seg.run(pause, 0.05f).size)
     }
 

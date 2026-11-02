@@ -188,4 +188,5 @@ to the official app distributed by its author or to third-party software.
 
 * **[FluidSynth](https://github.com/FluidSynth/fluidsynth)** is licensed under LGPL-2.1 and is dynamically linked.
 * **[fluidsynth-kmp](https://github.com/kotlinds/fluidsynth-kmp)** (Kotlin wrapper) is licensed under Apache-2.0. The modified build in `local-maven/` is built from [this fork](https://github.com/Virtover/fluidsynth-kmp/tree/fix-16kb-alignment), and the changes are limited to linker flags and the NDK version.
+* **[Vosk speech recognition model](https://alphacephei.com/vosk/models)** (`vosk-model-small-en-us-0.15`) is licensed under Apache-2.0 and downloaded at runtime.
 * The bundled SoundFont and ML model have their own licenses. See the files in `app/src/main/assets/`.

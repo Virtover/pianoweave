@@ -9,6 +9,9 @@ import dev.kotlinds.fluidsynthkmp.AudioConfig
 import dev.kotlinds.fluidsynthkmp.FluidSynthPlayer
 import dev.kotlinds.fluidsynthkmp.Interpolation
 import java.io.File
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -24,6 +27,19 @@ object PianoPlayer : AutoCloseable {
 
     // Master gain configured to 0.82f to give headroom for polyphonic chords without digital clipping
     private const val MASTER_GAIN = 0.82f
+
+    // While a voice command may be being said, the song is 9 dB quieter: the phone's speaker is next to
+    // its mic, and at full level it buried words that weren't spoken loudly. Ramped (no click), and
+    // restored shortly after the words end so the decoder has them complete.
+    private const val VOICE_DUCK_GAIN = MASTER_GAIN * 0.35f
+    private const val DUCK_RAMP_STEPS = 4
+    private const val DUCK_RAMP_STEP_MS = 8L
+    private const val DUCK_RESTORE_DELAY_MS = 400L
+
+    private val gainExecutor = Executors.newSingleThreadScheduledExecutor { Thread(it, "PianoGain").apply { isDaemon = true } }
+    private var pendingRestore: ScheduledFuture<*>? = null
+    @Volatile private var currentGain = MASTER_GAIN
+    @Volatile private var targetGain = MASTER_GAIN
 
     private var player: FluidSynthPlayer? = null
     private val isInitialized = AtomicBoolean(false)
@@ -69,7 +85,8 @@ object PianoPlayer : AutoCloseable {
                 }
 
                 programChange(CHANNEL, GRAND_PIANO)
-                setGain(MASTER_GAIN)
+                setGain(targetGain)
+                currentGain = targetGain
 
                 // Concert-hall depth, pulled back so fast passages/pedal don't turn to mud
                 setReverb(
@@ -133,6 +150,40 @@ object PianoPlayer : AutoCloseable {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error abandoning audio focus", e)
+        }
+    }
+
+    /**
+     * Turns the song down while [on] (a possible voice command is being heard), and back up a moment
+     * after it ends. Safe to call from any thread; never blocks.
+     */
+    fun duckForVoice(on: Boolean) {
+        synchronized(gainExecutor) {
+            pendingRestore?.cancel(false)
+            pendingRestore = null
+            if (on) {
+                rampTo(VOICE_DUCK_GAIN)
+            } else if (targetGain != MASTER_GAIN) {
+                pendingRestore = gainExecutor.schedule({ rampTo(MASTER_GAIN) }, DUCK_RESTORE_DELAY_MS, TimeUnit.MILLISECONDS)
+            }
+        }
+    }
+
+    private fun rampTo(gain: Float) {
+        if (targetGain == gain) return
+        targetGain = gain
+        gainExecutor.execute {
+            val from = currentGain
+            for (step in 1..DUCK_RAMP_STEPS) {
+                // A newer ramp took over
+                if (targetGain != gain) return@execute
+                val g = from + (gain - from) * step / DUCK_RAMP_STEPS
+                try {
+                    player?.setGain(g)
+                } catch (_: Exception) {}
+                currentGain = g
+                Thread.sleep(DUCK_RAMP_STEP_MS)
+            }
         }
     }
 

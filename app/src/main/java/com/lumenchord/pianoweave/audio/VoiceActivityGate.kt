@@ -17,8 +17,13 @@ import java.nio.channels.FileChannel
  * anti-aliased 16 kHz stream the note model gets, taken BEFORE the input level control, so the
  * VAD sees the raw level it was calibrated for. The result is a voice
  * probability per 32 ms, smoothed into a 0..1 [evidence] that AcousticNoteDetector uses to make
- * NON-target pitch detection stricter while someone is speaking or singing. Each chunk and its raw
- * probability also go to [chunkListener] (VoiceCommandRecognizer cuts its utterances on them).
+ * NON-target pitch detection stricter while someone is speaking or singing.
+ *
+ * While a [chunkListener] is set (voice commands listen), each chunk also goes through a second
+ * stream of the same model, with its own state, on level-boosted audio: the mic is unprocessed, and
+ * the model's voice probability falls with level (a word 30 dB down peaks at ~0.4 instead of ~1), so a
+ * voice that isn't loud was never seen. The listener gets the raw chunk with that probability
+ * (VoiceCommandRecognizer cuts its utterances on them). The note gate above keeps the raw level.
  *
  * If the model asset is missing or its layout is not recognised, [evidence] stays 0 and detection
  * behaves as if the gate did not exist.
@@ -44,6 +49,14 @@ object VoiceActivityGate {
     private const val EVIDENCE_LOW = 0.25f
     private const val EVIDENCE_HIGH = 0.65f
 
+    // Voice stream gain: brings the recent peak level (fast attack, ~1 s release per -4 dB) to
+    // VOICE_TARGET_PEAK, by at most MAX_VOICE_GAIN (+30 dB). The level floor keeps silence from
+    // asking for more than that.
+    private const val VOICE_TARGET_PEAK = 0.3f
+    private const val MAX_VOICE_GAIN = 32f
+    private const val VOICE_LEVEL_DECAY = 0.985f
+    private const val VOICE_LEVEL_FLOOR = 0.002f
+
     /** Receives every 32 ms chunk with its raw (unsmoothed) voice probability, on the audio thread. */
     fun interface ChunkListener {
         fun onChunk(chunk: FloatArray, probability: Float)
@@ -66,17 +79,34 @@ object VoiceActivityGate {
     private var stateIn = -1
     private var probOut = -1
     private var stateOut = -1
-    private var audioBuf: ByteBuffer? = null
-    private var stateInBuf: ByteBuffer? = null
-    private var probBuf: ByteBuffer? = null
-    private var stateOutBuf: ByteBuffer? = null
     private var failed = false
 
+    /** One continuous run of the model: its LSTM state and audio context, carried chunk to chunk. */
+    private class Stream {
+        private val order = ByteOrder.nativeOrder()
+        val audio: ByteBuffer = ByteBuffer.allocateDirect((CONTEXT + CHUNK) * 4).order(order)
+        val stateIn: ByteBuffer = ByteBuffer.allocateDirect(STATE_SIZE * 4).order(order)
+        val prob: ByteBuffer = ByteBuffer.allocateDirect(4).order(order)
+        val stateOut: ByteBuffer = ByteBuffer.allocateDirect(STATE_SIZE * 4).order(order)
+        val context = FloatArray(CONTEXT)
+
+        fun reset() {
+            context.fill(0f)
+            stateIn.rewind()
+            for (i in 0 until STATE_SIZE) stateIn.putFloat(0f)
+            stateIn.rewind()
+        }
+    }
+
+    private var gateStream: Stream? = null
+    private var voiceStream: Stream? = null
+
     // Stream state
-    private val context = FloatArray(CONTEXT)
     private val chunk = FloatArray(CHUNK)
+    private val boosted = FloatArray(CHUNK)
     private var chunkFill = 0
     private var smoothed = 0f
+    private var voiceLevel = VOICE_LEVEL_FLOOR
     private var debugCounter = 0
 
     @Synchronized
@@ -107,11 +137,8 @@ object VoiceActivityGate {
                 return
             }
 
-            val order = ByteOrder.nativeOrder()
-            audioBuf = ByteBuffer.allocateDirect((CONTEXT + CHUNK) * 4).order(order)
-            stateInBuf = ByteBuffer.allocateDirect(STATE_SIZE * 4).order(order)
-            probBuf = ByteBuffer.allocateDirect(4).order(order)
-            stateOutBuf = ByteBuffer.allocateDirect(STATE_SIZE * 4).order(order)
+            gateStream = Stream()
+            voiceStream = Stream()
             interpreter = interp
             resetStream()
             Log.i(TAG, "Silero VAD ready (in: audio=$audioIn state=$stateIn, out: prob=$probOut state=$stateOut)")
@@ -143,56 +170,62 @@ object VoiceActivityGate {
     }
 
     private fun runChunk(interp: Interpreter) {
-        val audio = audioBuf ?: return
-        val stateIn = stateInBuf ?: return
-        val prob = probBuf ?: return
-        val stateOut = stateOutBuf ?: return
-
-        audio.rewind()
-        for (c in context) audio.putFloat(c)
-        for (s in chunk) audio.putFloat(s)
-        audio.rewind()
-        stateIn.rewind()
-        prob.rewind()
-        stateOut.rewind()
-
-        val inputs = arrayOfNulls<Any>(interp.inputTensorCount)
-        inputs[audioIn] = audio
-        inputs[this.stateIn] = stateIn
-        interp.runForMultipleInputsOutputs(
-            inputs,
-            mapOf(probOut to prob, this.stateOut to stateOut)
-        )
-
-        // carry LSTM state and the last 64 samples into the next chunk
-        stateOut.rewind()
-        stateIn.rewind()
-        stateIn.put(stateOut)
-        stateIn.rewind()
-        System.arraycopy(chunk, CHUNK - CONTEXT, context, 0, CONTEXT)
-
-        val p = prob.getFloat(0)
+        val gate = gateStream ?: return
+        val p = run(interp, gate, chunk)
         if (p.isNaN()) return
-        chunkListener?.onChunk(chunk, p)
         smoothed += (p - smoothed) * (if (p > smoothed) ATTACK else RELEASE)
         evidence = ((smoothed - EVIDENCE_LOW) / (EVIDENCE_HIGH - EVIDENCE_LOW)).coerceIn(0f, 1f)
+
+        val listener = chunkListener
+        val voice = voiceStream
+        if (listener != null && voice != null) {
+            var peak = 0f
+            for (s in chunk) peak = maxOf(peak, kotlin.math.abs(s))
+            voiceLevel = maxOf(peak, voiceLevel * VOICE_LEVEL_DECAY, VOICE_LEVEL_FLOOR)
+            val gain = (VOICE_TARGET_PEAK / voiceLevel).coerceIn(1f, MAX_VOICE_GAIN)
+            for (i in 0 until CHUNK) boosted[i] = (chunk[i] * gain).coerceIn(-1f, 1f)
+            val voiceP = run(interp, voice, boosted)
+            if (!voiceP.isNaN()) listener.onChunk(chunk, voiceP)
+        }
 
         if (++debugCounter % 16 == 0) {
             Log.d(TAG, "Silero: p=$p smoothed=$smoothed evidence=$evidence")
         }
     }
 
+    /** One chunk through [stream]: its voice probability, with the stream's state carried on. */
+    private fun run(interp: Interpreter, stream: Stream, samples: FloatArray): Float {
+        val audio = stream.audio
+        audio.rewind()
+        for (c in stream.context) audio.putFloat(c)
+        for (s in samples) audio.putFloat(s)
+        audio.rewind()
+        stream.stateIn.rewind()
+        stream.prob.rewind()
+        stream.stateOut.rewind()
+
+        val inputs = arrayOfNulls<Any>(interp.inputTensorCount)
+        inputs[audioIn] = audio
+        inputs[stateIn] = stream.stateIn
+        interp.runForMultipleInputsOutputs(inputs, mapOf(probOut to stream.prob, stateOut to stream.stateOut))
+
+        // carry LSTM state and the last 64 samples into the next chunk
+        stream.stateOut.rewind()
+        stream.stateIn.rewind()
+        stream.stateIn.put(stream.stateOut)
+        stream.stateIn.rewind()
+        System.arraycopy(samples, CHUNK - CONTEXT, stream.context, 0, CONTEXT)
+        return stream.prob.getFloat(0)
+    }
+
     /** Clears LSTM state, context and smoothing. */
     private fun resetStream() {
-        context.fill(0f)
         chunkFill = 0
         smoothed = 0f
         evidence = 0f
-        stateInBuf?.let { buf ->
-            buf.rewind()
-            for (i in 0 until STATE_SIZE) buf.putFloat(0f)
-            buf.rewind()
-        }
+        voiceLevel = VOICE_LEVEL_FLOOR
+        gateStream?.reset()
+        voiceStream?.reset()
     }
 
     @Synchronized
@@ -202,10 +235,8 @@ object VoiceActivityGate {
     fun cleanup() {
         interpreter?.close()
         interpreter = null
-        audioBuf = null
-        stateInBuf = null
-        probBuf = null
-        stateOutBuf = null
+        gateStream = null
+        voiceStream = null
         audioIn = -1
         stateIn = -1
         probOut = -1
