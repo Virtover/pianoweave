@@ -208,7 +208,8 @@ internal fun ShopDialog(
 
                                 val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
                                 val fm = viewModel.freeMinutes
-                                if (grantSec != null && viewModel.userCredits <= fm && fm > 0) {
+                                val currentCredits = viewModel.userCredits
+                                if (grantSec != null && currentCredits != null && currentCredits <= fm && fm > 0) {
                                     HorizontalDivider(color = ColorSlate.copy(alpha = 0.4f))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -408,7 +409,7 @@ internal fun ShopDialog(
 }
 
 @Composable
-private fun BalanceLine(credits: Int) {
+private fun BalanceLine(credits: Int?) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
 

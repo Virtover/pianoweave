@@ -125,7 +125,8 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
 
     // Client-side pre-check only; the server enforces the balance.
     val cost = estimatedCostCredits
-    if (isBilledServer && cost != null && userCredits < cost) {
+    val credits = userCredits
+    if (isBilledServer && cost != null && credits != null && credits < cost) {
         showNotEnoughCreditsDialog = true
         return
     }

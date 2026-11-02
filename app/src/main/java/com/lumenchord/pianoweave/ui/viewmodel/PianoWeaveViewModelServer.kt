@@ -380,7 +380,7 @@ internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useC
     customGoogleClientId = customClientId.trim()
 
     showShopDialog = false
-    userCredits = 0
+    userCredits = null
     serverOffers = emptyList()
     billingProvider = "none"
 

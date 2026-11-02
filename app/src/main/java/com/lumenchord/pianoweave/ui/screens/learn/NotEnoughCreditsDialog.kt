@@ -26,7 +26,7 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 internal fun NotEnoughCreditsDialog(
     /** Null when the cost isn't known yet (the server measures an upload after receiving it). */
     requiredCredits: Int?,
-    availableCredits: Int,
+    availableCredits: Int?,
     onBuyCredits: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -124,13 +124,15 @@ internal fun NotEnoughCreditsDialog(
 }
 
 /** What the transcription needs against what the user has, which can be minutes owed after a refund. */
-internal fun notEnoughCreditsText(required: Int?, available: Int): String {
+internal fun notEnoughCreditsText(required: Int?, available: Int?): String {
     val needs = if (required != null) "This transcription requires $required ${credits(required)} (1 credit = 1 minute)"
     else "A transcription needs at least $MIN_BALANCE_TO_TRANSCRIBE credit (1 credit = 1 minute)"
     val owed = owedMinutes(available)
     val has = if (owed > 0) {
         "but your balance is $owed ${credits(owed)} below zero: a refunded purchase had already been used. " +
             "New credits cover that first."
+    } else if (available == null) {
+        "but your balance is not available."
     } else {
         "but you only have $available ${credits(available)} remaining."
     }

@@ -114,7 +114,7 @@ class PianoWeaveViewModel : ViewModel() {
     val isBilledServer: Boolean
         get() = isUsingDefaultServer && billingProvider.equals("google_play", ignoreCase = true)
 
-    var userCredits by mutableIntStateOf(0)
+    var userCredits by mutableStateOf<Int?>(null)
         internal set
 
     var freeMinutes by mutableIntStateOf(0)

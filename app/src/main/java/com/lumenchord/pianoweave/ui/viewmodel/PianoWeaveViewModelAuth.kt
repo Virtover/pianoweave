@@ -135,7 +135,7 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     isCloudSyncEnabled = false
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false).apply()
     if (isBilledServer) {
-        userCredits = 0
+        userCredits = null
         costJob?.cancel()
         estimatedCostCredits = null
         isCalculatingCost = false

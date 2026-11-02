@@ -13,6 +13,7 @@ class CreditBalanceTest {
         assertEquals(4, owedMinutes(-4))
         assertEquals(0, owedMinutes(0))
         assertEquals(0, owedMinutes(12))
+        assertEquals(0, owedMinutes(null))
     }
 
     @Test
@@ -20,6 +21,7 @@ class CreditBalanceTest {
         assertFalse(canAfford(-3, 2))
         assertFalse(canAfford(-3, null))
         assertFalse(canAfford(-1, 0))
+        assertFalse(canAfford(null, 2))
     }
 
     @Test
@@ -43,6 +45,7 @@ class CreditBalanceTest {
         assertEquals("0 Credits", creditsLabel(0))
         assertEquals("Owes 3 Credits", creditsLabel(-3))
         assertEquals("Owes 1 Credit", creditsLabel(-1))
+        assertEquals("? Credits", creditsLabel(null))
     }
 
     @Test
