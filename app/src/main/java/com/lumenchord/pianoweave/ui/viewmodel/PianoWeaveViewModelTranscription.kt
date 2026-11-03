@@ -149,6 +149,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             if (storedFile != null) {
                 progress = 1f
                 status = "Loaded from local library cache!"
+                dismissWelcomeTutorial(context)
                 selectLocalSong(context, storedFile)
                 isLoading = false
                 return@launch
@@ -159,6 +160,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             if (cloudSong != null) {
                 progress = 1f
                 status = "Loaded from cloud library!"
+                dismissWelcomeTutorial(context)
                 selectLocalSong(context, cloudSong.file)
                 isLoading = false
                 return@launch
@@ -167,6 +169,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             status = "Submitting request to server..."
             val submitted = submitTranscription(context, stableUrl)
             val jobId = submitted.job_id
+            dismissWelcomeTutorial(context)
             submitted.minutes?.let { userCredits = it }
             currentJobId = jobId
             ActiveJobStore.save(context, jobId, stableUrl)

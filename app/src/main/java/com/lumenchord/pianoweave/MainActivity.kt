@@ -44,7 +44,6 @@ import com.lumenchord.pianoweave.ui.viewmodel.*
 import com.lumenchord.pianoweave.ui.screens.StorageScreen
 import com.lumenchord.pianoweave.ui.screens.VerseOfLightScreen
 import com.lumenchord.pianoweave.ui.screens.learn.ServerSettingsDialog
-import com.lumenchord.pianoweave.ui.screens.learn.WelcomeTutorialDialog
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -250,21 +249,17 @@ private fun PianoWeaveApp(
         VerseOfLightScreen(onClose = { showVerseOfLight = false })
     }
 
-    // First open shows one prompt at a time: the welcome tutorial, then the permission request, then the
-    // connection problem or sign-in offer the startup server check may have found meanwhile
-    val tutorialDone = !viewModel.showWelcomeTutorial
-    val startupPromptsDone = tutorialDone && viewModel.startupPermissionsAnswered
-    LaunchedEffect(tutorialDone) {
-        if (tutorialDone) requestStartupPermissions()
+    // Startup permissions and server status notifications
+    val startupPromptsDone = viewModel.startupPermissionsAnswered
+    LaunchedEffect(Unit) {
+        requestStartupPermissions()
     }
     LaunchedEffect(startupPromptsDone, viewModel.pendingBilledServerSignInOffer) {
         if (startupPromptsDone && viewModel.pendingBilledServerSignInOffer) viewModel.offerBilledServerSignIn(context)
     }
 
     val connectionProblem = viewModel.startupConnectionProblem
-    if (viewModel.showWelcomeTutorial) {
-        WelcomeTutorialDialog(onDismiss = { viewModel.dismissWelcomeTutorial(context) })
-    } else if (startupPromptsDone && connectionProblem != null) {
+    if (startupPromptsDone && connectionProblem != null) {
         ServerConnectionDialog(
             problem = connectionProblem,
             isCustomServer = !viewModel.isUsingDefaultServer,
