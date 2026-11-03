@@ -187,7 +187,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                             // MainActivity shows it after the first-open tutorial and permission request.
                             pendingBilledServerSignInOffer = true
                         } else {
-                            refreshUserBalanceImpl(targetContext)
+                            userCredits = null
                         }
                     }
                 } catch (e: Exception) {
@@ -285,13 +285,19 @@ internal fun PianoWeaveViewModel.startBalanceTicker(context: Context) {
 }
 
 internal fun PianoWeaveViewModel.refreshUserBalanceImpl(context: Context) {
-    if (!isBilledServer) return
+    if (!isBilledServer || !isGoogleSignedIn) {
+        userCredits = null
+        return
+    }
     viewModelScope.launch { loadUserBalance(context) }
 }
 
 /** Asks the server for the balance and shows it; returns it, or null if the server couldn't be asked. */
 internal suspend fun PianoWeaveViewModel.loadUserBalance(context: Context): Int? {
-    if (!isBilledServer) return null
+    if (!isBilledServer || !isGoogleSignedIn) {
+        userCredits = null
+        return null
+    }
     val url = activeServerUrl
     val uId = getOrCreateUserIdImpl(context)
     return try {

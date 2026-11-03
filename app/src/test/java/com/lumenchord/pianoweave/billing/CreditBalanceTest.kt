@@ -45,7 +45,7 @@ class CreditBalanceTest {
         assertEquals("0 Credits", creditsLabel(0))
         assertEquals("Owes 3 Credits", creditsLabel(-3))
         assertEquals("Owes 1 Credit", creditsLabel(-1))
-        assertEquals("? Credits", creditsLabel(null))
+        assertEquals("— Credits", creditsLabel(null))
     }
 
     @Test

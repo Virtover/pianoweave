@@ -15,9 +15,9 @@ const val MIN_BALANCE_TO_TRANSCRIBE = 1
 fun canAfford(balance: Int?, cost: Int?): Boolean =
     balance != null && balance >= maxOf(cost ?: 0, MIN_BALANCE_TO_TRANSCRIBE)
 
-/** "12 Credits", "? Credits" when not downloaded yet, or "Owes 3 Credits" for a negative balance. */
-fun creditsLabel(balance: Int?): String {
-    if (balance == null) return "? Credits"
+/** "12 Credits", "— Credits" when unknown (not downloaded yet or not signed in), or "Owes 3 Credits" for a negative balance. */
+fun creditsLabel(balance: Int?, symbol: String = "—"): String {
+    if (balance == null) return "$symbol Credits"
     val owed = owedMinutes(balance)
     return if (owed > 0) "Owes $owed ${credits(owed)}" else "$balance ${credits(balance)}"
 }
