@@ -27,6 +27,8 @@ object VoiceCommandRecognizer {
     // After "Selah" alone, the next utterance in this window counts as if it began with Selah:
     // people pause after the wake word, which splits "Selah ... play" into two utterances
     private const val WAKE_WINDOW_MS = 4000L
+    // How long past its end a near miss waits for the stream (1 s; the stream gives a phrase ~0.6 s after)
+    private const val HOLD_MISS_SAMPLES = 16000L
     // Audio chunks (32 ms) waiting for the worker; past this (a stalled worker) they're dropped and the
     // phrase in progress forgotten, so commands never come out seconds late
     private const val MAX_PENDING_CHUNKS = 30
@@ -61,6 +63,10 @@ object VoiceCommandRecognizer {
     private var wakeUntil = 0L
 
     private val pending = java.util.concurrent.atomic.AtomicInteger(0)
+
+    // A near miss from an utterance, shown only once the stream has had its turn on the same audio
+    // (worker): it often reads it as a command a moment later, and "not a command" then flashed first
+    private var heldMiss: Pair<String, LongRange>? = null
 
     // Set on the audio thread when audio was dropped or lost, read on the worker
     @Volatile private var dropped = false
@@ -140,6 +146,7 @@ object VoiceCommandRecognizer {
         _status.value = Status.OFF
         worker.execute {
             wakeUntil = 0L
+            heldMiss = null
             listener?.close()
             listener = null
             model?.close()
@@ -185,6 +192,14 @@ object VoiceCommandRecognizer {
             }
             listener.chunk(chunk)?.let { decide(listener, it, at) }
             if (utterance != null) listener.utterance(utterance)?.let { decide(listener, it, at) }
+            heldMiss?.let { (text, span) ->
+                if (listener.isTaken(span)) {
+                    heldMiss = null
+                } else if (listener.fed > span.last + HOLD_MISS_SAMPLES) {
+                    heldMiss = null
+                    _unmatched.tryEmit(text)
+                }
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Voice command decoding failed", e)
         }
@@ -218,7 +233,7 @@ object VoiceCommandRecognizer {
                 // Selah mode only when addressed. Noise and other talking stay silent.
                 phrase.fromUtterance && VoiceCommand.hasKnownWord(words) &&
                     (!selahMode || awake || words.first().first in VoiceCommand.WAKE_WORDS) ->
-                    _unmatched.tryEmit(describe(heard.words))
+                    heldMiss = describe(heard.words) to phrase.span
             }
         } catch (e: Exception) {
             Log.w(TAG, "Voice command decoding failed", e)

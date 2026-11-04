@@ -30,7 +30,9 @@ internal class CommandListener(model: Model) : AutoCloseable {
 
     private val decoder = VoiceCommandDecoder(model)
     private val stream = CommandStream(model)
-    private var fed = 0L
+    /** Samples fed so far (the timeline's now). */
+    var fed = 0L
+        private set
     private val taken = ArrayDeque<LongRange>()
 
     /** A raw chunk of the stream; the stream's phrase that just ended, unless already taken. */
@@ -51,11 +53,13 @@ internal class CommandListener(model: Model) : AutoCloseable {
         while (taken.isNotEmpty() && taken.first().last < fed - MEMORY_SAMPLES) taken.removeFirst()
     }
 
+    /** Whether commands were already taken from audio overlapping [span]. */
+    fun isTaken(span: LongRange): Boolean = taken.any { it.first <= span.last && span.first <= it.last }
+
     /** Audio was lost: the phrase in progress is forgotten. */
     fun reset() = stream.reset()
 
-    private fun candidate(phrase: Phrase): Phrase? =
-        if (taken.any { it.first <= phrase.span.last && phrase.span.first <= it.last }) null else phrase
+    private fun candidate(phrase: Phrase): Phrase? = if (isTaken(phrase.span)) null else phrase
 
     override fun close() {
         stream.close()
