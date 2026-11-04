@@ -1,6 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -29,37 +32,44 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.billing.owedMinutes
+import com.lumenchord.pianoweave.ui.components.cardWash
 import com.lumenchord.pianoweave.ui.theme.Moods
 
 /** The Support heart's rose, softened so it sits with the page: "God loves a cheerful giver" (2 Corinthians 9:7). */
 private val SupportRose = Color(0xFFE57373)
 
 /**
- * The outlined, see-through pill both corner actions share. Fixed height and even side padding keep
- * the two the same size, so swapping one for the other doesn't shift the screen.
+ * The pill both corner actions share, made of the same stuff as the screen's cards: their surface,
+ * their hairline outline and their wash of [accent] from the top, so it reads as a small card of the
+ * set rather than a badge laid on the page. Fixed height keeps the two the same size, so swapping one
+ * for the other doesn't shift the screen; landscape tightens it as the cards tighten.
  */
 @Composable
 private fun HeaderPill(
     onClick: () -> Unit,
     description: String,
-    borderColor: Color,
+    accent: Color,
     modifier: Modifier = Modifier,
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
     content: @Composable RowScope.() -> Unit
 ) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Surface(
         onClick = onClick,
         modifier = modifier
-            .height(28.dp)
+            .height(if (isLandscape) 26.dp else 28.dp)
             .semantics {
                 contentDescription = description
                 role = Role.Button
             },
         shape = RoundedCornerShape(percent = 50),
-        color = Color.Transparent,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
         border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
             modifier = Modifier
+                .fillMaxHeight()
+                .cardWash(accent)
                 .padding(start = 8.dp, end = 10.dp)
                 .clearAndSetSemantics { },
             verticalAlignment = Alignment.CenterVertically,
@@ -91,14 +101,15 @@ fun CreditsBalancePill(
     HeaderPill(
         onClick = onClick,
         description = (if (owed > 0) "Owes $owed $unit" else "$credits $unit") + ". Add credits",
+        accent = if (owed > 0) Moods.Watch.core else accent,
         borderColor = if (owed > 0) Moods.Watch.core.copy(alpha = 0.35f)
-        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
         modifier = modifier
     ) {
         Icon(
             imageVector = Icons.Rounded.MonetizationOn,
             contentDescription = null,
-            tint = if (owed > 0) Moods.Watch.core else accent.copy(alpha = 0.9f),
+            tint = if (owed > 0) Moods.Watch.core else accent,
             modifier = Modifier.size(16.dp)
         )
         Spacer(Modifier.width(6.dp))
@@ -136,7 +147,7 @@ fun SupportPill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    HeaderPill(onClick = onClick, description = "Support Piano Weave", borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), modifier = modifier) {
+    HeaderPill(onClick = onClick, description = "Support Piano Weave", accent = SupportRose, modifier = modifier) {
         Icon(
             imageVector = Icons.Rounded.Favorite,
             contentDescription = null,
