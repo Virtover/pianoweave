@@ -81,11 +81,11 @@ private fun HeaderPill(
 /**
  * The credits balance with a "+" to open the shop. The number carries the weight and the word stays
  * quiet, so the balance reads at a glance. An owed balance (after a refund of used minutes) turns
- * lamp-oil amber ([Moods.Watch]), never alarm.
+ * lamp-oil amber ([Moods.Watch]), never alarm. A balance not known yet (loading, signed out) shows "—".
  */
 @Composable
 fun CreditsBalancePill(
-    credits: Int,
+    credits: Int?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -100,7 +100,7 @@ fun CreditsBalancePill(
 
     HeaderPill(
         onClick = onClick,
-        description = (if (owed > 0) "Owes $owed $unit" else "$credits $unit") + ". Add credits",
+        description = (if (owed > 0) "Owes $owed $unit" else "${shown ?: "Unknown"} $unit") + ". Add credits",
         accent = if (owed > 0) Moods.Watch.core else accent,
         borderColor = if (owed > 0) Moods.Watch.core.copy(alpha = 0.35f)
         else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
@@ -117,7 +117,7 @@ fun CreditsBalancePill(
             Text("Owes ", style = style.copy(fontWeight = FontWeight.Medium), color = wordColor, maxLines = 1)
         }
         Text(
-            text = shown.toString(),
+            text = shown?.toString() ?: "—",
             // Equal-width digits, so the pill keeps its width as the balance changes by a digit
             style = style.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"),
             color = numberColor,
