@@ -418,6 +418,21 @@ private fun ModernPianoPlayerContent(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
+    // A voice model download that fails while practicing says so (the toolbar mic alone is easy to miss)
+    var lastVoiceModelState by remember { mutableStateOf(viewModel.voiceModelState) }
+    LaunchedEffect(viewModel.voiceModelState) {
+        val failedNow = lastVoiceModelState == VoiceModelState.DOWNLOADING && viewModel.voiceModelState == VoiceModelState.FAILED
+        lastVoiceModelState = viewModel.voiceModelState
+        if (!failedNow || !viewModel.isVoiceCommandsEnabled) return@LaunchedEffect
+        snackbarHostState.currentSnackbarData?.dismiss()
+        val result = snackbarHostState.showSnackbar(
+            message = voiceModelProblemText(VoiceModelState.FAILED, viewModel.voiceModelError),
+            actionLabel = "Retry",
+            duration = SnackbarDuration.Long
+        )
+        if (result == SnackbarResult.ActionPerformed) viewModel.downloadVoiceModel(context)
+    }
+
     BackHandler(enabled = isUiHidden) {
         isUiHidden = false
     }

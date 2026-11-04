@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.screens.pianoroll.rememberVoiceCommandsToggle
+import com.lumenchord.pianoweave.ui.screens.pianoroll.voiceModelProblemText
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -42,7 +43,7 @@ import com.lumenchord.pianoweave.ui.viewmodel.VoiceModelState
 
 /** What to say and what it does, for the reference list. */
 private val COMMAND_GUIDE = listOf(
-    "play · go" to "Play",
+    "play · continue" to "Play",
     "pause · stop" to "Pause",
     "wait" to "Wait mode on / off",
     "loop" to "Loop on / off",
@@ -50,7 +51,7 @@ private val COMMAND_GUIDE = listOf(
     "loop start, loop end" to "Loop the part in between",
     "again" to "Start over (or from the loop start)",
     "back · rewind" to "Back 5 seconds",
-    "forward" to "Forward 5 seconds",
+    "forward · ahead" to "Forward 5 seconds",
     "slower · faster" to "Change speed",
     "normal" to "Normal speed",
     "undo" to "Take back the last command"
@@ -107,11 +108,15 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
     }
 }
 
-/** Only while the model downloads or after it failed; once ready, the switch's subtitle says so. */
+/**
+ * Only while the model downloads, after it failed, or when it's missing (an interrupted download);
+ * once ready, the switch's subtitle says so.
+ */
 @Composable
 private fun VoiceDownloadStatus(viewModel: PianoWeaveViewModel, accent: Color) {
     val context = LocalContext.current
-    when (viewModel.voiceModelState) {
+    val state = viewModel.voiceModelState
+    when (state) {
         VoiceModelState.DOWNLOADING -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             StatusText("Getting the voice model ready… ${(viewModel.voiceModelProgress * 100).toInt()}%")
             LinearProgressIndicator(
@@ -123,21 +128,24 @@ private fun VoiceDownloadStatus(viewModel: PianoWeaveViewModel, accent: Color) {
                 trackColor = Color.White.copy(alpha = 0.1f)
             )
         }
-        VoiceModelState.FAILED -> Row(
+        VoiceModelState.FAILED, VoiceModelState.MISSING -> Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            StatusText("The voice model couldn't be downloaded. Check your connection.", Modifier.weight(1f))
+            StatusText(voiceModelProblemText(state, viewModel.voiceModelError), Modifier.weight(1f))
             OutlinedButton(
                 onClick = { viewModel.downloadVoiceModel(context) },
                 border = BorderStroke(1.dp, accent),
                 shape = PillShape,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("Retry", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(
+                    if (state == VoiceModelState.FAILED) "Retry" else "Download",
+                    color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp
+                )
             }
         }
-        else -> Unit
+        VoiceModelState.READY -> Unit
     }
 }
 

@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
+import com.lumenchord.pianoweave.audio.VoiceModelError
 import com.lumenchord.pianoweave.api.ServerOffer
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.cloud.CloudMidi
@@ -84,6 +85,9 @@ class PianoWeaveViewModel : ViewModel() {
     var voiceModelState by mutableStateOf(VoiceModelState.MISSING)
         internal set
     var voiceModelProgress by mutableFloatStateOf(0f)
+        internal set
+    /** Why the last model download failed (set while [voiceModelState] is FAILED). */
+    var voiceModelError by mutableStateOf<VoiceModelError?>(null)
         internal set
     var voiceListeningMode by mutableStateOf(VoiceListeningMode.WORDS)
         internal set

@@ -4,12 +4,18 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
+import com.lumenchord.pianoweave.audio.VoiceModelDownloadException
+import com.lumenchord.pianoweave.audio.VoiceModelError
 import com.lumenchord.pianoweave.audio.VoiceModelStore
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** Whether the voice commands' speech model is on the device. */
+/**
+ * Whether the voice commands' speech model is on the device. MISSING with voice commands on happens
+ * after an interrupted download (app closed, phone offline): the UI then offers the download again.
+ */
 enum class VoiceModelState { MISSING, DOWNLOADING, READY, FAILED }
 
 internal fun PianoWeaveViewModel.loadVoicePreferences(context: Context) {
@@ -18,9 +24,16 @@ internal fun PianoWeaveViewModel.loadVoicePreferences(context: Context) {
     voiceListeningMode = VoiceListeningMode.entries.firstOrNull {
         it.name == prefs.getString(AppPrefs.VOICE_LISTENING_MODE, null)
     } ?: VoiceListeningMode.WORDS
-    if (voiceModelState != VoiceModelState.DOWNLOADING) {
-        voiceModelState = if (VoiceModelStore.isInstalled(context)) VoiceModelState.READY else VoiceModelState.MISSING
+    if (voiceModelState == VoiceModelState.DOWNLOADING) return
+    // A failure stays shown (with its reason) until it's retried, rather than turning back into MISSING
+    if (VoiceModelStore.isInstalled(context)) {
+        voiceModelState = VoiceModelState.READY
+    } else if (voiceModelState != VoiceModelState.FAILED) {
+        voiceModelState = VoiceModelState.MISSING
     }
+    // Models left by an earlier app version would otherwise keep their ~70 MB forever
+    val appContext = context.applicationContext
+    viewModelScope.launch(Dispatchers.IO) { VoiceModelStore.deleteOldModels(appContext) }
 }
 
 /** Turning voice commands on also fetches the model if it isn't there yet. */
@@ -43,6 +56,7 @@ internal fun PianoWeaveViewModel.downloadVoiceModelImpl(context: Context) {
         return
     }
     voiceModelState = VoiceModelState.DOWNLOADING
+    voiceModelError = null
     voiceModelProgress = 0f
     voiceModelJob = viewModelScope.launch {
         voiceModelState = try {
@@ -54,6 +68,7 @@ internal fun PianoWeaveViewModel.downloadVoiceModelImpl(context: Context) {
             throw e
         } catch (e: Exception) {
             Log.w("VoiceCommands", "Voice model download failed", e)
+            voiceModelError = (e as? VoiceModelDownloadException)?.reason ?: VoiceModelError.SERVER
             VoiceModelState.FAILED
         }
     }

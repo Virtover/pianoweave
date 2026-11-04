@@ -175,7 +175,8 @@ internal class VoiceCommandController(
                 "Speed ${formatSpeed(PLAYBACK_SPEEDS[next])}"
             }
             VoiceCommand.NORMAL -> {
-                if (viewModel.speedMultiplier == 1.0f) return null
+                // Shown even when nothing changes, so the word is seen to have been heard
+                if (viewModel.speedMultiplier == 1.0f) return Step("Already normal speed", changed = false)
                 viewModel.selectPlaybackSpeed(context, 1.0f)
                 "Normal speed"
             }

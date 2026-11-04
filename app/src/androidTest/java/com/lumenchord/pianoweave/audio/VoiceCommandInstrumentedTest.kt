@@ -93,7 +93,7 @@ class VoiceCommandInstrumentedTest {
         return found
     }
 
-    /** All commands heard in [file] (an utterance each, or one per pause between words). */
+    /** All commands heard in [file], with 0.6 s of silence around it and steady noise of [noiseRms]. */
     private fun commandsIn(
         file: String,
         gain: Float = 1f,
@@ -101,12 +101,15 @@ class VoiceCommandInstrumentedTest {
         noiseRms: Float = 0f
     ): Pair<List<VoiceCommand>, String> {
         val audio = readWav(file).also { a -> for (i in a.indices) a[i] *= gain }
-        val utterances = utterancesIn(audio, noiseRms)
-        val profile = probabilities.joinToString(" ") { "%.2f".format(it) }
-        val commands = VoiceCommandDecoder(model).use { decoder ->
-            utterances.flatMap { decoder.commands(it, requireWake = selah) }
+        val pad = FloatArray(9600)
+        val stream = pad + audio + pad + pad
+        if (noiseRms > 0f) {
+            val random = java.util.Random(7)
+            for (i in stream.indices) stream[i] += (random.nextGaussian() * noiseRms).toFloat()
         }
-        return commands to "$file x$gain noise $noiseRms: ${utterances.size} utterances, voice per chunk: $profile"
+        val heard = mutableListOf<String>()
+        val commands = commandsHeardIn(model, stream, selah, heard)
+        return commands to "$file x$gain noise $noiseRms: heard $heard"
     }
 
     private fun assertHeard(file: String, vararg expected: VoiceCommand, selah: Boolean = false) {
@@ -155,9 +158,10 @@ class VoiceCommandInstrumentedTest {
     fun sentenceIsNotACommand() {
         val (commands, info) = commandsIn("sentence")
         assertEquals(info, emptyList<VoiceCommand>(), commands)
-        // Even given to the recognizer whole, it doesn't come out as commands
+        // Nor through the old path, the voice gate's utterances
+        val utterances = utterancesIn(readWav("sentence"))
         VoiceCommandDecoder(model).use { decoder ->
-            assertEquals(emptyList<VoiceCommand>(), decoder.commands(readWav("sentence")))
+            assertEquals(emptyList<VoiceCommand>(), utterances.flatMap { decoder.commands(it) })
         }
     }
 
@@ -215,7 +219,7 @@ class VoiceCommandInstrumentedTest {
                     val stream = pad + audio + pad + pad
                     val piano = piano(stream.size, pianoRms)
                     for (i in stream.indices) stream[i] += piano[i]
-                    val commands = utterancesOf(stream).flatMap { decoder.commands(it) }
+                    val commands = commandsHeardIn(model, stream)
                     if (commands != expected) (if (commands.isEmpty()) missed else wrong) += "$file x$gain piano $pianoRms -> $commands"
                 }
             }

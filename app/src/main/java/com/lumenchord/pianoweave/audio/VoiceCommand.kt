@@ -22,22 +22,24 @@ data class HeardWord(val word: String, val confidence: Float, val duration: Floa
  * the utterance is a different command (see [decide]).
  *
  * The words are chosen not to sound alike to the small speech model, so one is never taken for
- * another. Left out on purpose: "mark" (heard as "back"), "skip" (as "stop"), and "no" for undo (as
- * "go", and too common in normal talk). Commands that still share sounds ("faster" / "forward")
- * need more confidence.
+ * another. Left out on purpose: "mark" (heard as "back"), "skip" (as "stop", and "slower" as "skip"), "no" for undo (as "go", and too common in
+ * normal talk), and "go" alone for play: "go back" / "go forward" whose second word is drowned out by
+ * the piano came out as "go" and started playback. Commands that still share sounds ("faster" /
+ * "forward") need more confidence.
  */
 enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
-    PLAY(listOf("play", "go", "continue"), 0.7f),
+    PLAY(listOf("play", "continue"), 0.7f),
     PAUSE(listOf("pause", "stop"), 0.7f),
     WAIT(listOf("wait"), 0.7f),
     // "loop start" / "loop end" with the second word drowned out come out as "loop"
     LOOP(listOf("loop"), 0.75f),
-    FULLSCREEN(listOf("full screen"), 0.7f),
+    // "full" is soft and often lost (seen on a phone: "screen" alone, three times in a row)
+    FULLSCREEN(listOf("full screen", "screen"), 0.7f),
     LOOP_START(listOf("loop start"), 0.7f),
     LOOP_END(listOf("loop end"), 0.7f),
     AGAIN(listOf("again"), 0.75f),
     BACK(listOf("back", "rewind", "go back"), 0.7f),
-    FORWARD(listOf("forward", "go forward"), 0.75f),
+    FORWARD(listOf("forward", "go forward", "ahead"), 0.75f),
     SLOWER(listOf("slower"), 0.7f),
     FASTER(listOf("faster"), 0.75f),
     NORMAL(listOf("normal"), 0.7f),
@@ -71,12 +73,33 @@ enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
         /** Confidence an unsure command still counts from, when nothing else could have been meant. */
         const val RELAXED_CONFIDENCE = 0.5f
 
+        /** Below this, a word another reading has differently is doubted, even past its command's bar. */
+        const val SURE_CONFIDENCE = 0.9f
+
         /** Most commands taken from one utterance; more is talking, not commanding. */
         const val MAX_PER_UTTERANCE = 4
 
         private val byPhrase: Map<List<String>, VoiceCommand> =
             entries.flatMap { c -> c.phrases.map { it.split(' ') to c } }.toMap()
         private val longestPhrase = byPhrase.keys.maxOf { it.size }
+
+        /**
+         * Commands whose phrase begins a longer one ("loop" in "loop start"): heard alone, the longer
+         * phrase may have been said with its last word drowned out (by the piano).
+         */
+        // The commands each word is part of
+        private val commandsOfWord: Map<String, Set<VoiceCommand>> = entries
+            .flatMap { c -> c.phrases.flatMap { it.split(' ') }.map { it to c } }
+            .groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+
+        /** Two readings of a word that mean the same: "stop" / "pause", or spellings of "Selah". */
+        private fun sameMeaning(a: String, b: String): Boolean =
+            a == b || (a in WAKE_WORDS && b in WAKE_WORDS) ||
+                commandsOfWord[a].orEmpty().intersect(commandsOfWord[b].orEmpty()).isNotEmpty()
+
+        private val longerPhrases: Map<VoiceCommand, Set<VoiceCommand>> = byPhrase.entries.associate { (words, command) ->
+            command to byPhrase.filterKeys { it.size > words.size && it.subList(0, words.size) == words }.values.toSet()
+        }.filterValues { it.isNotEmpty() }
 
         /**
          * Vosk grammar: the [WAKE_WORDS], every phrase, the [DISTRACTOR_WORDS] and [UNKNOWN_WORD]. The full list is always active (not only what
@@ -124,17 +147,33 @@ enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
          * readings ([alternatives], words only). Confident commands are taken as [parse] gives them.
          * Unsure ones (from [RELAXED_CONFIDENCE]) only when no other reading is a different command:
          * "wait" at 0.6 with "play" as a rival is a confusion and is dropped, while "pause" at 0.6 whose
-         * rivals are only noise is just a voice in a loud room.
+         * rivals are only noise is just a voice in a loud room. A command that begins a longer phrase
+         * ("loop" of "loop end") is dropped, however sure, when another reading has the longer one. And
+         * any phrase is dropped where a word under [SURE_CONFIDENCE] is another known word in another
+         * reading.
          */
         fun decide(
             words: List<Pair<String, Float>>,
             alternatives: List<List<Pair<String, Float>>>,
             requireWake: Boolean = false
         ): List<VoiceCommand> {
-            parse(words, requireWake).let { if (it.isNotEmpty()) return it }
+            val rivals by lazy { alternatives.map { alt -> parse(alt.map { it.first to 1f }) } }
+            // "stop 0.75 faster", also read "start faster": the doubtful first word was something else
+            // (the phrase was "faster" alone). Unknown sound read in a word's place doesn't count.
+            val contested = alternatives.any { alt ->
+                alt.size == words.size && words.indices.any { i ->
+                    words[i].second < SURE_CONFIDENCE && alt[i].first != UNKNOWN_WORD && !sameMeaning(alt[i].first, words[i].first)
+                }
+            }
+            if (contested) return emptyList()
+            parse(words, requireWake).let { sure ->
+                if (sure.isEmpty()) return@let
+                val longer = sure.flatMap { longerPhrases[it].orEmpty() }.toSet()
+                if (longer.isEmpty()) return sure
+                return if (rivals.any { r -> r.any { it in longer } }) emptyList() else sure
+            }
             val unsure = parse(words, requireWake, RELAXED_CONFIDENCE)
             if (unsure.isEmpty()) return unsure
-            val rivals = alternatives.map { alt -> parse(alt.map { it.first to 1f }) }
             return if (rivals.any { it.isNotEmpty() && it != unsure }) emptyList() else unsure
         }
 

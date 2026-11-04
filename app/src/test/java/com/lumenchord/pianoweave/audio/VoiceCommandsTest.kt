@@ -19,7 +19,7 @@ class VoiceCommandsTest {
     @Test
     fun shortIsolatedWordIsAnUtterance() {
         val seg = UtteranceSegmenter()
-        assertTrue(seg.run(pause, 0.05f).isEmpty())
+        assertTrue(seg.run(20, 0.05f).isEmpty())
         assertTrue(seg.run(15, 0.9f).isEmpty())
         val done = seg.run(pause, 0.05f)
         assertEquals(1, done.size)
@@ -40,11 +40,12 @@ class VoiceCommandsTest {
 
     @Test
     fun steadyMurmurBelowSpeechCountsAsAPause() {
-        // Room noise or a piano hovering under the speech threshold must not block commands
+        // A room that the voice gate rates as a little voice-like all the time must not block commands:
+        // the start level rises over it within a few seconds
         val seg = UtteranceSegmenter()
-        seg.run(40, 0.35f)
+        seg.run(200, 0.35f)
         seg.run(12, 0.9f)
-        assertEquals(1, seg.run(pause, 0.2f).size)
+        assertEquals(1, seg.run(pause, 0.35f).size)
     }
 
     @Test
@@ -84,6 +85,27 @@ class VoiceCommandsTest {
     }
 
     @Test
+    fun voiceOverPianoIsSpeech() {
+        // The voice gate is trained to ignore music: a word said while the piano plays rates ~0.1-0.4,
+        // dipping between syllables, while the piano alone stays near 0
+        val seg = UtteranceSegmenter()
+        seg.run(60, 0.02f)
+        listOf(0.17f, 0.32f, 0.12f, 0.23f, 0.09f, 0.11f, 0.2f).forEach { seg.feed(chunk, it) }
+        assertEquals(1, seg.run(pause, 0.02f).size)
+    }
+
+    @Test
+    fun clearWordEndsWhereItFallsOff() {
+        // Noise after a clear word that the gate rates ~0.1 isn't kept as part of the word
+        val seg = UtteranceSegmenter()
+        seg.run(20, 0.02f)
+        seg.run(10, 0.99f)
+        val done = seg.run(pause, 0.1f)
+        assertEquals(1, done.size)
+        assertEquals((UtteranceSegmenter.PRE_ROLL_CHUNKS + 10 + UtteranceSegmenter.TAIL_CHUNKS) * 512, done[0].size)
+    }
+
+    @Test
     fun longSpeechIsDropped() {
         val seg = UtteranceSegmenter()
         seg.run(pause, 0.05f)
@@ -115,9 +137,12 @@ class VoiceCommandsTest {
     @Test
     fun parsesSingleCommands() {
         assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(words("pause")))
-        assertEquals(listOf(VoiceCommand.PLAY), VoiceCommand.parse(words("go")))
+        assertEquals(listOf(VoiceCommand.PLAY), VoiceCommand.parse(words("continue")))
+        assertEquals(listOf(VoiceCommand.FORWARD), VoiceCommand.parse(words("ahead")))
+        assertEquals(listOf(VoiceCommand.NORMAL), VoiceCommand.parse(words("normal")))
         assertEquals(listOf(VoiceCommand.UNDO), VoiceCommand.parse(words("undo")))
         assertEquals(listOf(VoiceCommand.FULLSCREEN), VoiceCommand.parse(words("full", "screen")))
+        assertEquals(listOf(VoiceCommand.FULLSCREEN), VoiceCommand.parse(words("screen")))
     }
 
     @Test
@@ -210,10 +235,36 @@ class VoiceCommandsTest {
     fun twoWordPhrasesWinOverTheirFirstWord() {
         assertEquals(listOf(VoiceCommand.BACK), VoiceCommand.parse(words("go", "back")))
         assertEquals(listOf(VoiceCommand.FORWARD), VoiceCommand.parse(words("go", "forward")))
-        assertEquals(listOf(VoiceCommand.PLAY), VoiceCommand.parse(words("go")))
+        // "go" alone is half a phrase: "go forward" with "forward" drowned out must not start playback
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("go")))
         assertEquals(listOf(VoiceCommand.LOOP_START), VoiceCommand.parse(words("loop", "start")))
         assertEquals(listOf(VoiceCommand.LOOP_END), VoiceCommand.parse(words("loop", "end")))
         assertEquals(listOf(VoiceCommand.LOOP), VoiceCommand.parse(words("loop")))
+    }
+
+    @Test
+    fun doubtedWordReadOtherwiseDropsThePhrase() {
+        // Seen on a phone: "faster" heard as "stop 0.75 faster", or "start faster"
+        assertEquals(
+            emptyList<VoiceCommand>(),
+            VoiceCommand.decide(listOf("stop" to 0.75f, "faster" to 1f), listOf(words("start", "faster")))
+        )
+        // A sure word read otherwise elsewhere still counts
+        assertEquals(
+            listOf(VoiceCommand.PAUSE, VoiceCommand.FASTER),
+            VoiceCommand.decide(listOf("stop" to 1f, "faster" to 1f), listOf(words("start", "faster")))
+        )
+    }
+
+    @Test
+    fun loopIsDroppedWhenItMayHaveBeenLoopEnd() {
+        // "loop end" with "end" drowned out by the piano: "loop" alone, sure, but another reading has "loop end"
+        assertEquals(
+            emptyList<VoiceCommand>(),
+            VoiceCommand.decide(listOf("loop" to 1f), listOf(words("loop", "end")))
+        )
+        assertEquals(listOf(VoiceCommand.LOOP), VoiceCommand.decide(listOf("loop" to 1f), listOf(words("loop", "loop"))))
+        assertEquals(listOf(VoiceCommand.LOOP), VoiceCommand.decide(listOf("loop" to 1f), emptyList()))
     }
 
     @Test

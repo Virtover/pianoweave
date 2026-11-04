@@ -46,7 +46,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.VoiceCommandRecognizer
+import com.lumenchord.pianoweave.audio.VoiceModelError
 import com.lumenchord.pianoweave.audio.VoiceModelStore
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.CloudDownload
+import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -114,9 +118,22 @@ internal fun rememberVoiceCommandsToggle(viewModel: PianoWeaveViewModel): (Boole
     }
 }
 
+/** What's wrong with the voice model, and what to do about it, for [state] FAILED or MISSING. */
+internal fun voiceModelProblemText(state: VoiceModelState, error: VoiceModelError?): String = when {
+    state == VoiceModelState.MISSING ->
+        "The voice model isn't downloaded yet, so voice commands can't listen. It's a one-time ${VoiceModelStore.DOWNLOAD_SIZE_MB} MB download."
+    error == VoiceModelError.NO_SPACE ->
+        "Not enough free space on your phone. The voice model needs about ${VoiceModelStore.REQUIRED_FREE_MB} MB; free some up and try again."
+    error == VoiceModelError.NO_CONNECTION ->
+        "The voice model couldn't be downloaded. Check your internet connection and try again."
+    else -> "The voice model download didn't come through. Please try again in a little while."
+}
+
 /**
  * Toolbar mic: off, downloading the model (progress ring), or listening. While listening it brightens
  * as soon as an utterance that could be a command starts, so you see it was heard before it's applied.
+ * On but without a model (failed or interrupted download), it's crossed out with a dot, and a tap
+ * explains why and offers the download (or turning voice commands off).
  */
 @Composable
 internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boolean) -> Unit) {
@@ -126,23 +143,54 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
     val status by VoiceCommandRecognizer.status.collectAsState()
     val isHearing by VoiceCommandRecognizer.isHearing.collectAsState()
     val isListening = enabled && modelState == VoiceModelState.READY && status == VoiceCommandRecognizer.Status.LISTENING
+    val needsModel = enabled && (modelState == VoiceModelState.FAILED || modelState == VoiceModelState.MISSING)
+    var showProblem by remember { mutableStateOf(false) }
 
     val hearingAlpha by animateFloatAsState(if (isHearing) 1f else 0f, tween(120), label = "voiceHearing")
+
+    if (showProblem && needsModel) {
+        VoiceModelProblemDialog(
+            state = modelState,
+            error = viewModel.voiceModelError,
+            onDownload = {
+                showProblem = false
+                viewModel.downloadVoiceModel(context)
+            },
+            onTurnOff = {
+                showProblem = false
+                onToggle(false)
+            },
+            onDismiss = { showProblem = false }
+        )
+    }
 
     RollButton(
         isOn = isListening,
         role = Role.Switch,
         onClickLabel = when {
-            enabled && modelState == VoiceModelState.FAILED -> "Retry voice model download"
+            needsModel -> "Voice model needed"
             enabled -> "Turn off voice commands"
             else -> "Turn on voice commands"
         },
         onClick = {
-            if (enabled && modelState == VoiceModelState.FAILED) viewModel.downloadVoiceModel(context)
-            else onToggle(!enabled)
+            if (needsModel) {
+                viewModel.isPlaying = false
+                showProblem = true
+            } else {
+                onToggle(!enabled)
+            }
         }
     ) {
         Box(contentAlignment = Alignment.Center) {
+            if (needsModel) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 3.dp, y = (-3).dp)
+                        .size(7.dp)
+                        .background(LocalAppTheme.current.primaryColor, CircleShape)
+                )
+            }
             if (enabled && modelState == VoiceModelState.DOWNLOADING) {
                 CircularProgressIndicator(
                     progress = { viewModel.voiceModelProgress },
@@ -153,11 +201,12 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
                 )
             }
             Icon(
-                imageVector = if (enabled && modelState != VoiceModelState.FAILED) Icons.Default.Mic else Icons.Default.MicOff,
+                imageVector = if (enabled && !needsModel) Icons.Default.Mic else Icons.Default.MicOff,
                 contentDescription = when {
                     !enabled -> "Voice commands off"
                     modelState == VoiceModelState.DOWNLOADING -> "Downloading voice model"
                     modelState == VoiceModelState.FAILED -> "Voice model download failed"
+                    modelState == VoiceModelState.MISSING -> "Voice model not downloaded"
                     else -> "Voice commands on"
                 },
                 modifier = Modifier
@@ -366,6 +415,72 @@ private fun IntroTips(tips: List<Pair<ImageVector, String>>, accent: Color, comp
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 17.sp
                 )
+            }
+        }
+    }
+}
+
+/** Voice commands are on but have no model: why (from [voiceModelProblemText]), then download or turn off. */
+@Composable
+private fun VoiceModelProblemDialog(
+    state: VoiceModelState,
+    error: VoiceModelError?,
+    onDownload: () -> Unit,
+    onTurnOff: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val appTheme = LocalAppTheme.current
+    val accent = appTheme.primaryColor
+    val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
+
+    Dialog(onDismissRequest = onDismiss) {
+        DialogSurface(
+            light = accent,
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            color = ColorSurface,
+            border = BorderStroke(1.dp, colorSlate)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                DialogHeader(
+                    title = if (state == VoiceModelState.FAILED) "Download Failed" else "Voice Model Needed",
+                    icon = Icons.Default.CloudDownload,
+                    onClose = onDismiss,
+                    titleColor = accent
+                )
+                Text(
+                    text = voiceModelProblemText(state, error),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 22.sp
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onTurnOff) {
+                        Text("Turn off", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Button(
+                        onClick = onDownload,
+                        shape = PillShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = accent,
+                            contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text(
+                            if (state == VoiceModelState.FAILED) "Try again" else "Download",
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
             }
         }
     }

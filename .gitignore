@@ -20,3 +20,4 @@ keystore.properties
 *.keystore
 /app/release/*
 /.kotlin/sessions/kotlin-compiler-6320530128222317466.salive
+/.wrangler/cache/wrangler-account.json

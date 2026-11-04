@@ -25,6 +25,12 @@ internal class VoiceCommandDecoder(model: Model) : AutoCloseable {
         // Fed in blocks so an endpoint between words in a row only closes a part, not the rest
         private const val FEED_BLOCK = 1600
         private const val ALTERNATIVES = 4
+
+        fun decide(heard: Heard, requireWake: Boolean): List<VoiceCommand> = VoiceCommand.decide(
+            words = VoiceCommand.trimEdgeNoise(heard.words),
+            alternatives = heard.alternatives.map { VoiceCommand.trimEdgeNoise(it) },
+            requireWake = requireWake
+        )
     }
 
     /** What one utterance sounded like: the best reading's words, and the other readings. */
@@ -69,11 +75,7 @@ internal class VoiceCommandDecoder(model: Model) : AutoCloseable {
     fun commands(utterance: FloatArray, requireWake: Boolean = false): List<VoiceCommand> =
         decide(hear(utterance), requireWake)
 
-    fun decide(heard: Heard, requireWake: Boolean): List<VoiceCommand> = VoiceCommand.decide(
-        words = VoiceCommand.trimEdgeNoise(heard.words),
-        alternatives = heard.alternatives.map { VoiceCommand.trimEdgeNoise(it) },
-        requireWake = requireWake
-    )
+    fun decide(heard: Heard, requireWake: Boolean): List<VoiceCommand> = Companion.decide(heard, requireWake)
 
     override fun close() {
         scored.close()

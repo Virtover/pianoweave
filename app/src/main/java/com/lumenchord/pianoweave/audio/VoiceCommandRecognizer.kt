@@ -17,18 +17,19 @@ import java.util.concurrent.Executors
  * Hands-free piano roll control: listens on the shared microphone capture (AcousticNoteDetector) for
  * short [VoiceCommand] words.
  *
- * Cheap by design: the voice gate (Silero VAD, already running for note detection) decides what is
- * speech, [UtteranceSegmenter] keeps only short isolated utterances, and only those reach Vosk, which
- * decodes against a ~16 word grammar on its own thread. While you just play, Vosk does nothing.
+ * Vosk decodes the whole stream against the small command grammar on its own thread ([CommandStream]),
+ * and a phrase counts only if it is nothing but commands. The voice gate (Silero) can't pick out the
+ * speech for it: it ignores a voice over music. Its [UtteranceSegmenter] only drives [isHearing]
+ * (the mic's glow, and the song ducking) where it does see a voice.
  */
 object VoiceCommandRecognizer {
     private const val TAG = "VoiceCommandRecognizer"
     // After "Selah" alone, the next utterance in this window counts as if it began with Selah:
     // people pause after the wake word, which splits "Selah ... play" into two utterances
     private const val WAKE_WINDOW_MS = 4000L
-    // Utterances waiting for the decoder; more are dropped (newest first), so a stalled or slow
-    // decoder can never build up a backlog of stale commands
-    private const val MAX_PENDING_DECODES = 2
+    // Audio chunks (32 ms) waiting for the recognizer; past this (a stalled worker) they're dropped and
+    // the phrase in progress forgotten, so commands never come out seconds late
+    private const val MAX_PENDING_CHUNKS = 30
 
     enum class Status { OFF, LOADING, LISTENING, FAILED }
 
@@ -56,13 +57,17 @@ object VoiceCommandRecognizer {
 
     // Touched only on the worker
     private var model: Model? = null
-    private var decoder: VoiceCommandDecoder? = null
+    private var stream: CommandStream? = null
     private var wakeUntil = 0L
 
-    private val pendingDecodes = java.util.concurrent.atomic.AtomicInteger(0)
+    private val pendingChunks = java.util.concurrent.atomic.AtomicInteger(0)
+
+    // Set on the audio thread when chunks were dropped, read on the worker
+    @Volatile private var dropped = false
 
     // Touched only on the audio thread (or before it is attached)
-    private val segmenter = UtteranceSegmenter { reason -> Log.d(TAG, "Dropped speech: $reason") }
+    // Only for isHearing; what is a command is decided by the recognizer
+    private val segmenter = UtteranceSegmenter()
 
     @Volatile private var session = 0
 
@@ -75,22 +80,23 @@ object VoiceCommandRecognizer {
         }
 
     private val chunkListener = VoiceActivityGate.ChunkListener { chunk, probability ->
-        val utterance = segmenter.feed(chunk, probability)
+        VoiceDebugRecorder.write(chunk, probability)
+        segmenter.feed(chunk, probability)
         val hearing = segmenter.state == UtteranceSegmenter.State.SPEECH
         if (hearing != _isHearing.value) PianoPlayer.duckForVoice(hearing)
         _isHearing.value = hearing
-        if (utterance != null) {
-            if (pendingDecodes.incrementAndGet() > MAX_PENDING_DECODES) {
-                pendingDecodes.decrementAndGet()
-                Log.d(TAG, "Dropped utterance: decoder busy")
-            } else {
-                val forSession = session
-                worker.execute {
-                    try {
-                        decode(utterance, forSession)
-                    } finally {
-                        pendingDecodes.decrementAndGet()
-                    }
+        if (pendingChunks.incrementAndGet() > MAX_PENDING_CHUNKS) {
+            pendingChunks.decrementAndGet()
+            dropped = true
+        } else {
+            val copy = chunk.copyOf()
+            val forSession = session
+            val at = VoiceDebugRecorder.chunks
+            worker.execute {
+                try {
+                    listen(copy, forSession, at)
+                } finally {
+                    pendingChunks.decrementAndGet()
                 }
             }
         }
@@ -114,6 +120,7 @@ object VoiceCommandRecognizer {
             segmenter.reset()
             VoiceActivityGate.chunkListener = chunkListener
             if (AcousticNoteDetector.startVoice(appContext) && VoiceActivityGate.isAvailable) {
+                VoiceDebugRecorder.start(appContext)
                 _status.value = Status.LISTENING
             } else {
                 VoiceActivityGate.chunkListener = null
@@ -123,18 +130,38 @@ object VoiceCommandRecognizer {
         }
     }
 
+    /** One chunk into the recognizer (worker); a finished phrase is decided on. [at]: debug-recording chunk. */
+    private fun listen(chunk: FloatArray, forSession: Int, at: Int) {
+        val stream = stream ?: return
+        if (forSession != session) return
+        if (dropped) {
+            dropped = false
+            stream.reset()
+            Log.d(TAG, "Recognizer fell behind; phrase in progress dropped")
+        }
+        val heard = try {
+            stream.feed(chunk)
+        } catch (e: Exception) {
+            Log.w(TAG, "Voice command decoding failed", e)
+            null
+        } ?: return
+        Log.d(TAG, "Phrase ending at chunk $at")
+        decide(heard, forSession)
+    }
+
     /** Stops listening and frees the model (~tens of MB) until the next [start]. */
     fun stop() {
         session++
         VoiceActivityGate.chunkListener = null
+        VoiceDebugRecorder.stop()
         AcousticNoteDetector.stopVoice()
         _isHearing.value = false
         PianoPlayer.duckForVoice(false)
         _status.value = Status.OFF
         worker.execute {
             wakeUntil = 0L
-            decoder?.close()
-            decoder = null
+            stream?.close()
+            stream = null
             model?.close()
             model = null
         }
@@ -142,18 +169,20 @@ object VoiceCommandRecognizer {
 
     /** Audio was dropped: an utterance in progress can't be trusted. Called on the audio thread. */
     internal fun resetStream() {
+        Log.d(TAG, "Stream reset at chunk ${VoiceDebugRecorder.chunks}")
+        dropped = true
         segmenter.reset()
         if (_isHearing.value) PianoPlayer.duckForVoice(false)
         _isHearing.value = false
     }
 
     private fun loadModel(modelDir: File): Boolean {
-        if (decoder != null) return true
+        if (stream != null) return true
         return try {
             LibVosk.setLogLevel(LogLevel.WARNINGS)
             val loaded = Model(modelDir.absolutePath)
             model = loaded
-            decoder = VoiceCommandDecoder(loaded)
+            stream = CommandStream(loaded)
             Log.i(TAG, "Vosk model loaded from ${modelDir.name}")
             true
         } catch (e: Throwable) {
@@ -165,21 +194,17 @@ object VoiceCommandRecognizer {
         }
     }
 
-    private fun decode(utterance: FloatArray, forSession: Int) {
-        val decoder = decoder ?: return
-        if (forSession != session) return
+    private fun decide(heard: VoiceCommandDecoder.Heard, forSession: Int) {
         try {
-            val started = SystemClock.elapsedRealtime()
-            val heard = decoder.hear(utterance)
             val words = VoiceCommand.trimEdgeNoise(heard.words)
             val now = SystemClock.elapsedRealtime()
             val awake = now < wakeUntil
             val selahMode = listeningMode == VoiceListeningMode.SELAH
-            val commands = decoder.decide(heard, requireWake = selahMode && !awake)
+            val commands = VoiceCommandDecoder.decide(heard, requireWake = selahMode && !awake)
             Log.d(
                 TAG,
                 "Heard ${describe(heard.words)} (or ${heard.alternatives.joinToString(" / ") { alt -> alt.joinToString(" ") { it.word } }})" +
-                    " -> $commands${if (awake) " (after Selah)" else ""} in ${now - started} ms"
+                    " -> $commands${if (awake) " (after Selah)" else ""}"
             )
             if (forSession != session) return
             when {
