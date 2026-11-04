@@ -30,7 +30,11 @@ class ReplayVoiceSessionTest {
         assumeTrue("no recording", file.exists() && VoiceModelStore.isInstalled(context))
         val bytes = ByteBuffer.wrap(file.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
         val audio = FloatArray(bytes.capacity() / 2) { bytes.getShort(it * 2) / 32768f }
-        Model(VoiceModelStore.modelDir(context).absolutePath).use { model ->
+        // -e model <folder in files/voice-test> replays with another speech model, to compare
+        val modelDir = InstrumentationRegistry.getArguments().getString("model")
+            ?.let { File(context.filesDir, "voice-test/$it") } ?: VoiceModelStore.modelDir(context)
+        Log.i(tag, "MODEL ${modelDir.name}")
+        Model(modelDir.absolutePath).use { model ->
             // What was said
             Recognizer(model, 16000f).use { rec ->
                 rec.setWords(true)
