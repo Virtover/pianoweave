@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LegalConsent.onAppStart(this)
         PianoApiFactory.initialize(application, applicationContext)
         PianoPlayer.initialize(applicationContext)
         // Loads a large model; off the main thread so it never holds up the first frame
@@ -297,14 +298,19 @@ private fun PianoWeaveApp(
         WelcomeTutorialDialog(onDismiss = { finished -> viewModel.dismissWelcomeTutorial(context, finished) })
     }
 
-    // Advance notice of new Terms, once, after startup prompts and the walkthrough are out of the way
-    var showTermsChangeNotice by remember { mutableStateOf(LegalConsent.shouldShowTermsChangeNotice(context)) }
-    if (showTermsChangeNotice && startupPromptsDone && connectionProblem == null && !viewModel.showWelcomeTutorial) {
+    // Advance notice of new Terms, once, after startup prompts and the walkthrough are out of the way.
+    // The published version list may announce a change this build doesn't know about yet.
+    var termsChange by remember { mutableStateOf(LegalConsent.termsChangeToAnnounce(context)) }
+    LaunchedEffect(Unit) {
+        if (LegalConsent.refreshVersions(context)) termsChange = LegalConsent.termsChangeToAnnounce(context)
+    }
+    val announcedVersion = termsChange
+    if (announcedVersion != null && startupPromptsDone && connectionProblem == null && !viewModel.showWelcomeTutorial) {
         TermsChangeDialog(
-            effectiveDate = LegalConsent.UPCOMING_TERMS_VERSION.orEmpty(),
+            version = announcedVersion,
             onDismiss = {
-                LegalConsent.markTermsChangeNoticeSeen(context)
-                showTermsChangeNotice = false
+                LegalConsent.markTermsChangeNoticeSeen(context, announcedVersion)
+                termsChange = null
             }
         )
     }

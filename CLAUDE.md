@@ -116,6 +116,13 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   Debug builds record what voice commands hear (`VoiceDebugRecorder`, `files/voice-debug/<time>-<mic mode>.pcm`, raw 16 kHz PCM);
   copy a session to `voice-debug/replay.pcm` on the emulator and run `ReplayVoiceSessionTest` (logs `ReplayVoice`)
   to see what was said (full-vocabulary Vosk) next to what voice commands made of it.
+- **Terms of Service versions**: each version is `docs/terms/<effective date>.html` + `_pl.html`, listed in
+  `docs/terms_versions.json`. `docs/terms.js` picks by today's UTC date: the fixed URLs
+  (`terms_of_service[_upcoming][_pl].html`, which the app links) redirect, and version pages show an upcoming /
+  archived box. The app (`LegalConsent`) fetches the same list: from a version's date the transcription consent asks
+  again; before it, people who already had the app see `TermsChangeDialog` once (fresh installs don't). To change the
+  Terms: add both pages, the date (also in `LegalConsent.BUNDLED_VERSIONS`) and links in the fixed pages' fallback
+  lists, at least 14 days ahead (the Terms promise that notice). The Privacy Policy isn't versioned.
 - **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a

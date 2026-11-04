@@ -45,8 +45,10 @@ object AppPrefs {
     // Legal
     /** The [LegalConsent.TERMS_VERSION] the user last agreed to before transcribing. */
     const val ACCEPTED_TERMS_VERSION = "accepted_terms_version"
-    /** The [LegalConsent.UPCOMING_TERMS_VERSION] whose advance notice the user has already been shown. */
+    /** The newest announced Terms version the user has been told about ("" if none; absent before first launch). */
     const val SEEN_TERMS_CHANGE_NOTICE = "seen_terms_change_notice"
+    /** Last fetched Terms versions (effective dates, comma-separated), from docs/terms_versions.json. */
+    const val TERMS_VERSIONS = "terms_versions"
 
     // UI & playback
     const val SELECTED_THEME_ID = "selected_theme_id"

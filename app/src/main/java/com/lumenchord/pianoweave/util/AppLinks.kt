@@ -11,11 +11,14 @@ object AppLinks {
 
     const val PRIVACY_POLICY = "${DOCS_BASE_URL}privacy_policy.html"
     const val TERMS_OF_SERVICE = "${DOCS_BASE_URL}terms_of_service.html"
-    const val UPCOMING_TERMS_OF_SERVICE = "${DOCS_BASE_URL}terms_of_service_upcoming.html"
-    const val UPCOMING_TERMS_OF_SERVICE_PL = "${DOCS_BASE_URL}terms_of_service_upcoming_pl.html"
+    const val TERMS_VERSIONS = "${DOCS_BASE_URL}terms_versions.json"
     const val ACCOUNT_DELETION = "${DOCS_BASE_URL}delete_account.html"
     const val SUGGESTIONS_AND_BUG_REPORTS = "https://pianoweave.com/tickets#bug"
     const val CUSTOM_SERVER_SETUP = "https://github.com/Virtover/piano-transcription-server"
+
+    /** One version of the Terms (its effective date), in Polish or English. */
+    fun termsVersion(version: String, polish: Boolean): String =
+        "${DOCS_BASE_URL}terms/$version${if (polish) "_pl" else ""}.html"
 }
 
 /** Opens [url] in the browser; returns false if no app can handle it. */

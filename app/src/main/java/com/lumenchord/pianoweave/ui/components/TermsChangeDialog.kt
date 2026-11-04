@@ -27,12 +27,13 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Advance notice that new Terms take effect on [effectiveDate] (ISO date). The Terms promise this notice in the
- * App at least 14 days ahead, so it is shown once per upcoming version; any way of closing it counts as seen.
+ * Advance notice that the Terms [version] (its effective date, ISO) is coming. The Terms promise this notice in
+ * the App at least 14 days ahead, so it is shown once per version; any way of closing it counts as seen. The text
+ * stays general because a change can be announced without an app release; the Terms page lists what changes.
  */
 @Composable
 fun TermsChangeDialog(
-    effectiveDate: String,
+    version: String,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -41,14 +42,10 @@ fun TermsChangeDialog(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
     val dateText = runCatching {
-        LocalDate.parse(effectiveDate).format(DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH))
-    }.getOrDefault(effectiveDate)
+        LocalDate.parse(version).format(DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH))
+    }.getOrDefault(version)
     // The Terms page has both languages; open the user's one first
-    val termsUrl = if (Locale.getDefault().language == "pl") {
-        AppLinks.UPCOMING_TERMS_OF_SERVICE_PL
-    } else {
-        AppLinks.UPCOMING_TERMS_OF_SERVICE
-    }
+    val termsUrl = AppLinks.termsVersion(version, polish = Locale.getDefault().language == "pl")
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -81,11 +78,9 @@ fun TermsChangeDialog(
                     )
 
                     Text(
-                        text = "New Terms of Service take effect on $dateText. They add voice commands to what the " +
-                            "microphone is used for, and let me tell you about future changes by email as well as in " +
-                            "the App. Changes only in your favor, purely editorial, or required by law may then apply " +
-                            "right away.\n\nIf you don't agree, you can stop using the App and delete your account " +
-                            "before $dateText. Until then, the current Terms apply.",
+                        text = "New Terms of Service take effect on $dateText. What changes is listed at the top " +
+                            "of the new Terms.\n\nUntil then, the current Terms apply. If you don't agree, you can " +
+                            "stop using the App and delete your account before $dateText.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         lineHeight = 22.sp
