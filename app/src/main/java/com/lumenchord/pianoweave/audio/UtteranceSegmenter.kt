@@ -1,10 +1,10 @@
 package com.lumenchord.pianoweave.audio
 
 /**
- * Cuts short, isolated utterances out of the voice gate's 32 ms chunks: no speech just before, at most
- * ~2.5 s of speech, a pause after. Voice commands use it only to show that a voice is heard (the mic's
- * glow, the song ducking); the recognizer listens to everything ([CommandStream]), since the voice gate
- * misses a voice over music altogether.
+ * Cuts short, isolated utterances out of the voice gate's 32 ms chunks, so voice commands need no wake
+ * word. A command (or a few in a row, "full screen wait") is said on its own: no speech just before
+ * it, at most ~2.5 s of speech, a pause after. Talking, singing along or a TV runs on without such
+ * pauses or too long, and is dropped here before the recognizer sees it (which keeps it idle).
  *
  * Speech starts at [SPEECH_PROB], which is low: the voice gate (Silero) is trained to ignore music, so
  * a voice over a piano being played rates only ~0.1-0.4, while the piano alone stays near 0. Where

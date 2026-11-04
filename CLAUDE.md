@@ -83,18 +83,21 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   switches between them live when a keyboard is plugged in or out.
 - **Voice commands** (piano roll, off by default): one-word commands with no wake word. The mic capture in
   `AcousticNoteDetector` is shared: note detection (`start`/`stop`) and voice (`startVoice`/`stopVoice`) each
-  want it, and the note model only runs for note detection. Vosk decodes the whole mic stream against the
-  command grammar (`CommandStream`, ~3% of a core) and cuts phrases at its own pauses; several commands in a
-  row are one action ("full screen wait"). It used to decode only what Silero VAD cut out (`UtteranceSegmenter`),
-  but Silero is trained to ignore music: over a piano it rated clearly spoken commands 0.00 for minutes (phone
-  recording), so now the segmenter only drives the mic glow and ducking.
-  Any non-command word rejects the whole phrase. Optional "Selah" first; Settings can require it
-  (`VoiceListeningMode.SELAH`). No "mark": the small model confused it with "back". The model downloads to `files/voice/` (`VoiceModelStore`);
+  want it, and the note model only runs for note detection. `UtteranceSegmenter` keeps only short utterances
+  (≤ ~2.5 s) with pauses around them, from Silero VAD chunks; Vosk (`VoiceCommandRecognizer`, grammar =
+  `VoiceCommand` phrases) decodes only those; several commands in a row are one action ("full screen wait").
+  Silero is trained to ignore music and rated commands over a piano 0.00 for minutes (phone recording), so
+  the voice stream is first cleaned by DTLN (`SpeechEnhancer`, assets `dtln_*.tflite`, ~4 MB, MIT): Silero
+  rates the cleaned audio, but Vosk decodes the raw audio (cleaned audio lost short words like "play").
+  On two phone recordings this caught 52 and 52 commands where the raw path caught 21 and 42. Speech
+  starts at 0.15, raised over a steady background. A continuous Vosk stream (no VAD) was tried and dropped.
+  Any non-command word rejects the whole utterance. Optional "Selah" first; Settings can require it
+  (`VoiceListeningMode.SELAH`, which also drops the pause-before rule). No "mark": the small model confused it with "back". The model downloads to `files/voice/` (`VoiceModelStore`);
   Voice-only capture opens with the VOICE_COMMUNICATION preset (device echo canceller removes the app's own
   song, ~25 dB measured); note detection forces UNPROCESSED, so the stream reopens when wait mode toggles.
-  The voice gate runs a second Silero stream on level-boosted audio (+30 dB max) for the glow; the song is
-  ducked 9 dB while it hears a voice (`PianoPlayer.duckForVoice`).
-  A phrase's audio is decoded again by `VoiceCommandDecoder` for the next-best readings: a command counts at
+  The voice gate runs a second Silero stream on level-boosted, cleaned audio (+30 dB max) for commands; the
+  song is ducked 9 dB while a command may be spoken (`PianoPlayer.duckForVoice`).
+  `VoiceCommandDecoder` decodes twice (word confidences + next-best readings): a command counts at
   confidence 0.7, or from 0.5 if no other reading is a different command; a word under 0.9 that another
   reading has as a different known word drops the phrase ("stop 0.75 faster" / "start faster"). "undo" takes back within 4 s. Words that sound alike to the model are left out ("mark", "skip" (heard for "slower"), "no" for
   undo; "no" is a distractor word). "go" alone isn't play: "go forward" with its last word drowned out by the

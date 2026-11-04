@@ -24,6 +24,8 @@ import java.nio.channels.FileChannel
  * the model's voice probability falls with level (a word 30 dB down peaks at ~0.4 instead of ~1), so a
  * voice that isn't loud was never seen. The listener gets the raw chunk with that probability
  * (VoiceCommandRecognizer cuts its utterances on them). The note gate above keeps the raw level.
+ * That voice stream (and the chunks the listener gets) is first cleaned by [SpeechEnhancer], which
+ * takes the piano out: Silero ignores a voice over music, and the recognizer hears it better too.
  *
  * If the model asset is missing or its layout is not recognised, [evidence] stays 0 and detection
  * behaves as if the gate did not exist.
@@ -56,6 +58,16 @@ object VoiceActivityGate {
     private const val MAX_VOICE_GAIN = 32f
     private const val VOICE_LEVEL_DECAY = 0.985f
     private const val VOICE_LEVEL_FLOOR = 0.002f
+
+    /**
+     * Whether the voice stream is cleaned by [SpeechEnhancer] first (takes the piano out of it); off
+     * only to compare, in tests. [enhanceForRecognizer]: the listener gets the cleaned chunks too,
+     * else the raw ones (the voice probability comes from the cleaned audio either way).
+     */
+    @Volatile
+    var enhanceVoice = true
+    @Volatile
+    var enhanceForRecognizer = false
 
     /** Receives every 32 ms chunk with its raw (unsmoothed) voice probability, on the audio thread. */
     fun interface ChunkListener {
@@ -100,6 +112,8 @@ object VoiceActivityGate {
 
     private var gateStream: Stream? = null
     private var voiceStream: Stream? = null
+    private var enhancer: SpeechEnhancer? = null
+    private val voiceChunk = FloatArray(CHUNK)
 
     // Stream state
     private val chunk = FloatArray(CHUNK)
@@ -139,6 +153,7 @@ object VoiceActivityGate {
 
             gateStream = Stream()
             voiceStream = Stream()
+            enhancer = SpeechEnhancer.create(context)
             interpreter = interp
             resetStream()
             Log.i(TAG, "Silero VAD ready (in: audio=$audioIn state=$stateIn, out: prob=$probOut state=$stateOut)")
@@ -179,13 +194,17 @@ object VoiceActivityGate {
         val listener = chunkListener
         val voice = voiceStream
         if (listener != null && voice != null) {
+            System.arraycopy(chunk, 0, voiceChunk, 0, CHUNK)
+            if (enhanceVoice) enhancer?.process(voiceChunk)
             var peak = 0f
-            for (s in chunk) peak = maxOf(peak, kotlin.math.abs(s))
+            for (s in voiceChunk) peak = maxOf(peak, kotlin.math.abs(s))
             voiceLevel = maxOf(peak, voiceLevel * VOICE_LEVEL_DECAY, VOICE_LEVEL_FLOOR)
             val gain = (VOICE_TARGET_PEAK / voiceLevel).coerceIn(1f, MAX_VOICE_GAIN)
-            for (i in 0 until CHUNK) boosted[i] = (chunk[i] * gain).coerceIn(-1f, 1f)
+            for (i in 0 until CHUNK) boosted[i] = (voiceChunk[i] * gain).coerceIn(-1f, 1f)
             val voiceP = run(interp, voice, boosted)
-            if (!voiceP.isNaN()) listener.onChunk(chunk, voiceP)
+            // The raw chunk: a recording is replayed through the whole voice path, enhancer included
+            VoiceDebugRecorder.write(chunk, voiceP)
+            if (!voiceP.isNaN()) listener.onChunk(if (enhanceForRecognizer) voiceChunk else chunk, voiceP)
         }
 
         if (++debugCounter % 16 == 0) {
@@ -226,6 +245,7 @@ object VoiceActivityGate {
         voiceLevel = VOICE_LEVEL_FLOOR
         gateStream?.reset()
         voiceStream?.reset()
+        enhancer?.reset()
     }
 
     @Synchronized
@@ -235,6 +255,8 @@ object VoiceActivityGate {
     fun cleanup() {
         interpreter?.close()
         interpreter = null
+        enhancer?.close()
+        enhancer = null
         gateStream = null
         voiceStream = null
         audioIn = -1

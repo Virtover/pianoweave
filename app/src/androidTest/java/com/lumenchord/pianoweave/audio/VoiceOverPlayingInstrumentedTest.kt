@@ -170,6 +170,8 @@ class VoiceOverPlayingInstrumentedTest {
 
     @Test
     fun commandsOverPracticePlaying() {
+        InstrumentationRegistry.getArguments().getString("enhance")?.let { VoiceActivityGate.enhanceVoice = it.toBoolean() }
+        InstrumentationRegistry.getArguments().getString("enhanceRec")?.let { VoiceActivityGate.enhanceForRecognizer = it.toBoolean() }
         val files = InstrumentationRegistry.getInstrumentation().context.assets.list("voice/matrix")!!.sorted()
             .filter { !it.startsWith("no__") }
         val snrs = MAX_MISSED.keys.toList()
