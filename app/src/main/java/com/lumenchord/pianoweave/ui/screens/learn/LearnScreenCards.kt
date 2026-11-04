@@ -4,19 +4,11 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.lumenchord.pianoweave.midi.StoredMidi
-import com.lumenchord.pianoweave.ui.screens.learn.cards.QuickStartCard as ExternalQuickStartCard
 import com.lumenchord.pianoweave.ui.screens.learn.cards.TranscriptionErrorCard as ExternalErrorCard
 import com.lumenchord.pianoweave.ui.screens.learn.cards.TranscriptionInputCard as ExternalInputCard
 import com.lumenchord.pianoweave.ui.screens.learn.cards.TranscriptionProgressCard as ExternalProgressCard
 import com.lumenchord.pianoweave.ui.screens.learn.cards.TranscriptionSuccessCard as ExternalSuccessCard
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
-
-@Composable
-internal fun QuickStartCard(
-    onClick: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) = ExternalQuickStartCard(onClick, onDismiss, modifier)
 
 @Composable
 internal fun TranscriptionSuccessCard(

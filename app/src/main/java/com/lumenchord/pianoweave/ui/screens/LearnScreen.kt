@@ -3,6 +3,9 @@ package com.lumenchord.pianoweave.ui.screens
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,15 +20,18 @@ import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.hasEditableDetails
+import com.lumenchord.pianoweave.ui.components.AppSnackbar
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.components.ServerMaintenanceBanner
 import com.lumenchord.pianoweave.ui.screens.learn.*
+import com.lumenchord.pianoweave.ui.screens.learn.cards.HowItWorksPath
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.platform.LocalDensity
@@ -43,6 +49,8 @@ fun LearnScreen(
 ) {
     var showCancelConfirmDialog by remember { mutableStateOf(false) }
     var songBeingEdited by remember { mutableStateOf<StoredMidi?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
 
     val scrollState = rememberScrollState()
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -274,7 +282,34 @@ fun LearnScreen(
                             )
                         }
 
-                        // 5. RECENT SONGS - quick way back into practicing
+                        // 5. HOW IT WORKS - for new users, right under the input it explains; stays until finished or hidden.
+                        // Hidden while transcribing so the progress card has the screen to itself.
+                        AnimatedVisibility(
+                            visible = viewModel.showHowItWorksHint && !viewModel.isLoading,
+                            enter = fadeIn(tween(400)),
+                            exit = fadeOut(tween(300))
+                        ) {
+                            HowItWorksPath(
+                                onClick = { viewModel.openWelcomeTutorial() },
+                                onHide = {
+                                    viewModel.setHowItWorksHintShown(context, false)
+                                    snackbarScope.launch {
+                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "You can find it in Settings › About",
+                                            actionLabel = "Undo",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            viewModel.setHowItWorksHintShown(context, true)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.padding(top = if (isLandscape) 4.dp else 20.dp)
+                            )
+                        }
+
+                        // 6. RECENT SONGS - quick way back into practicing
                         val recentSongs = remember(viewModel.songs, viewModel.readySong) {
                             viewModel.songs.filter { it.file != viewModel.readySong?.file }.take(3)
                         }
@@ -287,6 +322,15 @@ fun LearnScreen(
 
             // Room to scroll the Transcribe button above the keyboard, which covers the screen rather than shrinking it.
             Spacer(Modifier.height(with(density) { keyboardOverlapPx.toDp() }))
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) { data ->
+            AppSnackbar(data)
         }
     }
 }

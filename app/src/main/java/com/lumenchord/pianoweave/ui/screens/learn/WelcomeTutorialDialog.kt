@@ -87,15 +87,16 @@ private val welcomeSteps = listOf(
 private const val MIN_PICTURE_SCALE = 0.6f
 
 /**
- * First-open walkthrough for people new to apps like this: copy a link, transcribe it, open the piano roll.
- * Skip (or Back) closes it for good, as does finishing it.
+ * Walkthrough for people new to apps like this: copy a link, transcribe it, open the piano roll. Opened from
+ * the Learn tab's "How it works" path or from Settings. [onDismiss] says whether it was finished; Skip or
+ * Back closes it early, which may well be a slip, so only finishing retires the path.
  *
  * Meant to fit the screen without scrolling: text above the picture in portrait, beside it in landscape,
  * and the picture shrinks into the space left. Only when it would get too small does the picture scroll,
  * with the step's buttons staying in place.
  */
 @Composable
-internal fun WelcomeTutorialDialog(onDismiss: () -> Unit) {
+internal fun WelcomeTutorialDialog(onDismiss: (finished: Boolean) -> Unit) {
     val appTheme = LocalAppTheme.current
     val colorGold = appTheme.primaryColor
     var stepIndex by remember { mutableIntStateOf(0) }
@@ -104,7 +105,7 @@ internal fun WelcomeTutorialDialog(onDismiss: () -> Unit) {
     // Back skips like the Skip button; a stray tap outside shouldn't lose the walkthrough.
     // The platform's default width is too narrow for the side-by-side landscape layout.
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { onDismiss(false) },
         properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false)
     ) {
         BoxWithConstraints(
@@ -129,9 +130,9 @@ internal fun WelcomeTutorialDialog(onDismiss: () -> Unit) {
                 val controls = @Composable {
                     StepControls(
                         stepIndex = stepIndex,
-                        onSkip = onDismiss,
+                        onSkip = { onDismiss(false) },
                         onBack = { stepIndex-- },
-                        onNext = { if (stepIndex == welcomeSteps.lastIndex) onDismiss() else stepIndex++ }
+                        onNext = { if (stepIndex == welcomeSteps.lastIndex) onDismiss(true) else stepIndex++ }
                     )
                 }
                 if (isWide) {

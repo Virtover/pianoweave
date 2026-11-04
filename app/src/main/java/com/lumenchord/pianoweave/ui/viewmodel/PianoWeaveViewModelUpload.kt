@@ -221,7 +221,6 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
                 submitUpload(context, file, body, idempotencyKey)
             }
             val jobId = submitted.job_id
-            dismissWelcomeTutorial(context)
             // The server measures the decoded audio, so this, not the estimate, is what was charged
             submitted.minutes?.let { userCredits = it }
             currentJobId = jobId

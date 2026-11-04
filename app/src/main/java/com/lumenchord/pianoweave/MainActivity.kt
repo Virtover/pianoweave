@@ -44,6 +44,7 @@ import com.lumenchord.pianoweave.ui.viewmodel.*
 import com.lumenchord.pianoweave.ui.screens.StorageScreen
 import com.lumenchord.pianoweave.ui.screens.VerseOfLightScreen
 import com.lumenchord.pianoweave.ui.screens.learn.ServerSettingsDialog
+import com.lumenchord.pianoweave.ui.screens.learn.WelcomeTutorialDialog
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -62,7 +63,7 @@ class MainActivity : ComponentActivity() {
     /**
      * Notifications for finished transcriptions and exports, and on Android 9 and below storage, which saving
      * an export to Downloads needs there. The microphone isn't asked here: wait mode and recording ask for it
-     * when used, with their reason. Called once the welcome tutorial is closed, not on top of it.
+     * when used, with their reason.
      */
     private fun requestStartupPermissions() {
         if (viewModel.startupPermissionsRequested) return
@@ -100,8 +101,7 @@ class MainActivity : ComponentActivity() {
         // Initialize physical hardware MIDI listener framework at application launch
         MidiInputManager.initialize(applicationContext)
 
-        // On first open the tutorial is up before the first frame, so the permission request waits for it
-        viewModel.showWelcomeTutorialIfFirstOpen(applicationContext)
+        viewModel.loadHowItWorksHint(applicationContext)
 
         setContent {
             val currentTheme = AppThemeManager.getTheme(viewModel.selectedThemeId)
@@ -282,8 +282,17 @@ private fun PianoWeaveApp(
         AppSettingsDialog(
             viewModel = viewModel,
             context = context,
-            onDismiss = { showSettingsDialog = false }
+            onDismiss = { showSettingsDialog = false },
+            onOpenWalkthrough = {
+                showSettingsDialog = false
+                viewModel.openWelcomeTutorial()
+            }
         )
+    }
+
+    // App-level, as Settings opens it from either tab
+    if (viewModel.showWelcomeTutorial) {
+        WelcomeTutorialDialog(onDismiss = { finished -> viewModel.dismissWelcomeTutorial(context, finished) })
     }
 
     if (viewModel.showNoGoogleAccountDialog) {

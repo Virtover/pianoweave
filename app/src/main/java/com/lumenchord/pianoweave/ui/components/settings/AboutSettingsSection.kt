@@ -5,7 +5,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Gavel
@@ -27,7 +29,8 @@ fun AboutSettingsSection(
     context: Context,
     previewTheme: AppTheme,
     discordLink: String?,
-    isSignedIn: Boolean
+    isSignedIn: Boolean,
+    onOpenWalkthrough: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -38,6 +41,16 @@ fun AboutSettingsSection(
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // In-app, so it leads with an arrow rather than the open-in-browser mark
+        LinkRow(
+            icon = Icons.Default.AutoStories,
+            title = "How it works",
+            subtitle = "From a link to playing along, in three steps",
+            previewTheme = previewTheme,
+            onClick = onOpenWalkthrough,
+            trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
         )
 
         if (!discordLink.isNullOrBlank()) {
@@ -99,7 +112,8 @@ private fun LinkRow(
     title: String,
     subtitle: String,
     previewTheme: AppTheme,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    trailingIcon: ImageVector = Icons.AutoMirrored.Filled.OpenInNew
 ) {
     Surface(
         onClick = onClick,
@@ -136,7 +150,7 @@ private fun LinkRow(
                 )
             }
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                imageVector = trailingIcon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp)

@@ -57,7 +57,7 @@ object AppPrefs {
     /** [com.lumenchord.pianoweave.audio.VoiceListeningMode] name: commands alone, or after "Selah". */
     const val VOICE_LISTENING_MODE = "voice_listening_mode"
     const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
-    /** The first-open walkthrough (copy a link, transcribe, open the piano roll) was finished or skipped. */
+    /** The walkthrough (copy a link, transcribe, open the piano roll) was finished; the Learn tab's "How it works" path is retired. */
     const val HAS_SEEN_WELCOME_TUTORIAL = "has_seen_welcome_tutorial"
     /** Legacy flag: the hidden verse screen was opened at least once (superseded by the count below). */
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"
