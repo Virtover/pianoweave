@@ -4,28 +4,17 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lumenchord.pianoweave.api.ServerMaintenance
-import com.lumenchord.pianoweave.billing.creditsLabel
-import com.lumenchord.pianoweave.billing.owedMinutes
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
@@ -33,7 +22,6 @@ import com.lumenchord.pianoweave.ui.components.ServerMaintenanceBanner
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
-import com.lumenchord.pianoweave.ui.theme.Moods
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -214,70 +202,19 @@ fun LearnScreen(
                 ) {
                     // Support follows the official server's billing, so it also shows while a custom server is selected.
                     if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer) {
-                        Surface(
-                            onClick = { viewModel.openShop(context) },
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.MonetizationOn,
-                                    contentDescription = "Credits",
-                                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                // Owed minutes ask for attention in the Watch amber, never alarm
-                                Text(
-                                    text = creditsLabel(viewModel.userCredits),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                    color = if (owedMinutes(viewModel.userCredits) > 0) Moods.Watch.light
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Add Credits",
-                                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            }
-                        }
+                        CreditsBalancePill(
+                            credits = viewModel.userCredits,
+                            onClick = { viewModel.openShop(context) }
+                        )
                     } else if (viewModel.canShowSupport) {
-                        Surface(
-                            onClick = { viewModel.openSupport() },
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.Transparent,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Favorite,
-                                    contentDescription = "Support",
-                                    tint = Color(0xFFE57373).copy(alpha = 0.75f),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = "Support",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
-                                )
-                            }
-                        }
+                        SupportPill(onClick = { viewModel.openSupport() })
                     }
                 }
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = if (isLandscape) 0.dp else 4.dp, bottom = 12.dp),
+                        .padding(top = if (isLandscape) 10.dp else 4.dp, bottom = 12.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
                     Column(
