@@ -28,7 +28,8 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 fun AppSettingsDialog(
     viewModel: PianoWeaveViewModel,
     context: Context,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onOpenWalkthrough: () -> Unit
 ) {
     var selectedThemeId by remember { mutableStateOf(viewModel.selectedThemeId) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
@@ -120,7 +121,8 @@ fun AppSettingsDialog(
                             context = context,
                             previewTheme = previewTheme,
                             discordLink = viewModel.discordLink,
-                            isSignedIn = viewModel.isGoogleSignedIn
+                            isSignedIn = viewModel.isGoogleSignedIn,
+                            onOpenWalkthrough = onOpenWalkthrough
                         )
                     }
 

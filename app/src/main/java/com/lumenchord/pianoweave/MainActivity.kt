@@ -44,6 +44,7 @@ import com.lumenchord.pianoweave.ui.viewmodel.*
 import com.lumenchord.pianoweave.ui.screens.StorageScreen
 import com.lumenchord.pianoweave.ui.screens.VerseOfLightScreen
 import com.lumenchord.pianoweave.ui.screens.learn.ServerSettingsDialog
+import com.lumenchord.pianoweave.ui.screens.learn.WelcomeTutorialDialog
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -281,8 +282,17 @@ private fun PianoWeaveApp(
         AppSettingsDialog(
             viewModel = viewModel,
             context = context,
-            onDismiss = { showSettingsDialog = false }
+            onDismiss = { showSettingsDialog = false },
+            onOpenWalkthrough = {
+                showSettingsDialog = false
+                viewModel.openWelcomeTutorial()
+            }
         )
+    }
+
+    // App-level, as Settings opens it from either tab
+    if (viewModel.showWelcomeTutorial) {
+        WelcomeTutorialDialog(onDismiss = { finished -> viewModel.dismissWelcomeTutorial(context, finished) })
     }
 
     if (viewModel.showNoGoogleAccountDialog) {

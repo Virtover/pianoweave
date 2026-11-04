@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -12,8 +13,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Piano
 import androidx.compose.material3.Icon
@@ -39,6 +44,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -66,11 +72,13 @@ private var pathLightPlayed = false
  * The app in three glances for new users, under the Convert card where the empty library leaves room:
  * three quiet steps joined by a dotted thread, and a gold link into the full walkthrough. Shortly after
  * the screen opens a light runs along the thread once, waking each step in turn, then everything settles
- * back to muted. The whole thing is one tap target; it stays until the walkthrough has been opened.
+ * back to muted. The whole thing is one tap target; it stays until the walkthrough has been finished, or
+ * until [onHide] from the small close mark in its corner.
  */
 @Composable
 internal fun HowItWorksPath(
     onClick: () -> Unit,
+    onHide: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val gold = LocalAppTheme.current.primaryColor
@@ -86,26 +94,17 @@ internal fun HowItWorksPath(
     val at = -0.6f + light.value * 3.2f
     fun glowAt(position: Float) = (1f - abs(at - position) / 0.7f).coerceIn(0f, 1f)
 
-    Column(
-        modifier = modifier
-            .widthIn(max = 340.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .semantics(mergeDescendants = true) {
-                contentDescription = "How it works: paste a link, AI transcribes, play along. Opens a short walkthrough"
-                role = Role.Button
-            }
-            .padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clearAndSetSemantics { },
-            verticalAlignment = Alignment.Top
-        ) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val tappable = Modifier
+        .clip(RoundedCornerShape(16.dp))
+        .clickable(onClick = onClick)
+        .semantics(mergeDescendants = true) {
+            contentDescription = "How it works: paste a link, AI transcribes, play along. Opens a short walkthrough"
+            role = Role.Button
+        }
+
+    val steps = @Composable { stepsModifier: Modifier ->
+        Row(modifier = stepsModifier.clearAndSetSemantics { }, verticalAlignment = Alignment.Top) {
             pathSteps.forEachIndexed { i, step ->
                 if (i > 0) {
                     Thread(
@@ -118,14 +117,83 @@ internal fun HowItWorksPath(
                 Step(step, glow = glowAt(i.toFloat()), gold = gold, muted = muted, modifier = Modifier.weight(1f))
             }
         }
+    }
+    val link = @Composable { linkModifier: Modifier ->
         Text(
             text = "See how it works ›",
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
             color = gold.copy(alpha = 0.9f),
-            modifier = Modifier.clearAndSetSemantics { }
+            maxLines = 1,
+            softWrap = false,
+            modifier = linkModifier.clearAndSetSemantics { }
         )
     }
+
+    // The close mark is its own small target, so hiding never opens the walkthrough by mistake. It hangs
+    // a little past the corner, clear of the steps, so they keep their full width for the captions.
+    val close = @Composable { closeModifier: Modifier ->
+        Box(
+            modifier = closeModifier
+                .size(CloseTarget)
+                .clip(CircleShape)
+                .clickable(onClick = onHide, onClickLabel = "Hide")
+                .semantics { contentDescription = "Hide How it works" },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = null,
+                tint = muted.copy(alpha = 0.5f),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+
+    if (isLandscape) {
+        // The Convert card fills most of a landscape screen, so the link sits beside the steps instead of
+        // below them: whenever the steps peek over the bottom edge, the way into the walkthrough does too.
+        // The close mark takes the top-left corner, away from the link.
+        Box(
+            modifier = modifier
+                .widthIn(max = 560.dp)
+                .fillMaxWidth()
+        ) {
+            Row(
+                modifier = tappable
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                steps(Modifier.weight(1f))
+                Spacer(Modifier.width(20.dp))
+                // Level with the circles' centres
+                link(Modifier.height(StepCircle).wrapContentHeight(Alignment.CenterVertically))
+            }
+            close(Modifier.align(Alignment.TopStart).offset(x = -CloseOverhang, y = -CloseOverhang))
+        }
+    } else {
+        Box(
+            modifier = modifier
+                .widthIn(max = 340.dp)
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = tappable
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                steps(Modifier.fillMaxWidth())
+                link(Modifier)
+            }
+            close(Modifier.align(Alignment.TopEnd).offset(x = CloseOverhang, y = -CloseOverhang))
+        }
+    }
 }
+
+private val CloseTarget = 36.dp
+private val CloseOverhang = 8.dp
 
 private val StepCircle = 34.dp
 

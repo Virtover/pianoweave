@@ -205,7 +205,7 @@ class PianoWeaveViewModel : ViewModel() {
     var startupConnectionProblem by mutableStateOf<ServerConnectionProblem?>(null)
     var showServerSettingsDialog by mutableStateOf(false)
     var showWelcomeTutorial by mutableStateOf(false)
-    /** The "How it works" pill on the Learn tab; stays until the walkthrough has been opened once. */
+    /** The "How it works" path on the Learn tab; stays until the walkthrough has been finished once. */
     var showHowItWorksHint by mutableStateOf(false)
     /** [loadPreferences] already ran for this ViewModel; MainActivity skips it when only the Activity was recreated. */
     var preferencesLoaded = false
@@ -385,7 +385,7 @@ class PianoWeaveViewModel : ViewModel() {
     }
 
     /**
-     * Offers the walkthrough with the "How it works" pill until it has been opened once. It isn't shown on
+     * Offers the walkthrough with the "How it works" path until it has been finished once. It isn't shown on
      * its own at start: most people want to transcribe first, and would only click through it.
      */
     fun loadHowItWorksHint(context: Context) {
@@ -396,11 +396,19 @@ class PianoWeaveViewModel : ViewModel() {
         showWelcomeTutorial = true
     }
 
-    /** Closing the walkthrough, finished or skipped, retires the pill: the user has seen where it is. */
-    fun dismissWelcomeTutorial(context: Context) {
+    /**
+     * Only a finished walkthrough retires the Learn tab's path. Skipping early may be a slip after an
+     * accidental tap, so the path stays; Settings keeps the walkthrough reachable either way.
+     */
+    fun dismissWelcomeTutorial(context: Context, finished: Boolean) {
         showWelcomeTutorial = false
-        showHowItWorksHint = false
-        AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SEEN_WELCOME_TUTORIAL, true).apply()
+        if (finished) setHowItWorksHintShown(context, false)
+    }
+
+    /** Hides or (on Undo) brings back the Learn tab's "How it works" path without going through the walkthrough. */
+    fun setHowItWorksHintShown(context: Context, shown: Boolean) {
+        showHowItWorksHint = shown
+        AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SEEN_WELCOME_TUTORIAL, !shown).apply()
     }
 
     override fun onCleared() {
