@@ -528,6 +528,8 @@ fun TranscriptionInputCard(
                     interactionSource = interaction,
                     modifier = Modifier
                         .fillMaxWidth()
+                        // The card's 8dp landscape gap felt cramped under the field; the button gets a little more air
+                        .padding(top = if (isLandscape) 6.dp else 0.dp)
                         .height(if (isLandscape) 44.dp else 50.dp)
                         .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
                         .graphicsLayer {

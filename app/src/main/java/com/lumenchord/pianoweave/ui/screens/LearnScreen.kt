@@ -214,7 +214,7 @@ fun LearnScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = if (isLandscape) 6.dp else 4.dp, bottom = 12.dp),
+                        .padding(top = if (isLandscape) 10.dp else 4.dp, bottom = 12.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
                     Column(
