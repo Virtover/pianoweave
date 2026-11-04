@@ -53,7 +53,7 @@ object AppPrefs {
     /** Whether notes from a connected MIDI keyboard are played through the app's piano sound. */
     const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
     const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
-    /** The first-open walkthrough (copy a link, transcribe, open the piano roll) was finished or skipped. */
+    /** The walkthrough (copy a link, transcribe, open the piano roll) was opened from the "How it works" pill and closed. */
     const val HAS_SEEN_WELCOME_TUTORIAL = "has_seen_welcome_tutorial"
     /** Legacy flag: the hidden verse screen was opened at least once (superseded by the count below). */
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"

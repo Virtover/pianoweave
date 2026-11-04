@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
     /**
      * Notifications for finished transcriptions and exports, and on Android 9 and below storage, which saving
      * an export to Downloads needs there. The microphone isn't asked here: wait mode and recording ask for it
-     * when used, with their reason. Called once the welcome tutorial is closed, not on top of it.
+     * when used, with their reason.
      */
     private fun requestStartupPermissions() {
         if (viewModel.startupPermissionsRequested) return
@@ -100,8 +100,7 @@ class MainActivity : ComponentActivity() {
         // Initialize physical hardware MIDI listener framework at application launch
         MidiInputManager.initialize(applicationContext)
 
-        // On first open the tutorial is up before the first frame, so the permission request waits for it
-        viewModel.showWelcomeTutorialIfFirstOpen(applicationContext)
+        viewModel.loadHowItWorksHint(applicationContext)
 
         setContent {
             val currentTheme = AppThemeManager.getTheme(viewModel.selectedThemeId)

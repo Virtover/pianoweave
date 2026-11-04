@@ -3,6 +3,9 @@ package com.lumenchord.pianoweave.ui.screens
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +23,7 @@ import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.components.ServerMaintenanceBanner
 import com.lumenchord.pianoweave.ui.screens.learn.*
+import com.lumenchord.pianoweave.ui.screens.learn.cards.HowItWorksPath
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.ServerStatus
@@ -130,6 +134,10 @@ fun LearnScreen(
             },
             onDismiss = { showCancelConfirmDialog = false }
         )
+    }
+
+    if (viewModel.showWelcomeTutorial) {
+        WelcomeTutorialDialog(onDismiss = { viewModel.dismissWelcomeTutorial(context) })
     }
 
     if (viewModel.showShopDialog) {
@@ -280,6 +288,19 @@ fun LearnScreen(
                         }
                         if (recentSongs.isNotEmpty()) {
                             RecentSongsSection(songs = recentSongs, onSongSelect = onSongSelect)
+                        }
+
+                        // 6. HOW IT WORKS - for new users, in the room the empty library leaves; stays until opened.
+                        // Hidden while transcribing so the progress card has the screen to itself.
+                        AnimatedVisibility(
+                            visible = viewModel.showHowItWorksHint && !viewModel.isLoading,
+                            enter = fadeIn(tween(400)),
+                            exit = fadeOut(tween(300))
+                        ) {
+                            HowItWorksPath(
+                                onClick = { viewModel.openWelcomeTutorial() },
+                                modifier = Modifier.padding(top = if (isLandscape) 4.dp else 20.dp)
+                            )
                         }
                     }
                 }

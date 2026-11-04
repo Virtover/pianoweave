@@ -29,7 +29,7 @@ internal fun openAddGoogleAccountImpl(context: Context) {
 
 /**
  * Offers sign-in once, on the first ever connection to a billed server. The server check only marks it
- * pending; MainActivity calls this after the welcome tutorial and permission request so they don't overlap.
+ * pending; MainActivity calls this after the permission request so the two don't overlap.
  */
 internal fun PianoWeaveViewModel.offerBilledServerSignInImpl(context: Context) {
     if (!pendingBilledServerSignInOffer) return
