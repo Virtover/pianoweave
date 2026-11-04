@@ -11,6 +11,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -170,6 +175,7 @@ private fun PianoWeaveApp(
         mutableIntStateOf(prefs.getInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, legacyOpened))
     }
     val snackbarHost = remember { SnackbarHostState() }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
     LaunchedEffect(pagerState.settledPage) {
@@ -221,25 +227,28 @@ private fun PianoWeaveApp(
                 }
     
                 AppTab.Storage -> {
-                    StorageScreen(
-                        viewModel = viewModel,
-                        songs = viewModel.songs,
-                        onSongsChange = { /* Handled reactively by viewModel state updates */ },
-                        context = context,
-                        onSongSelect = { clickedSong ->
-                            viewModel.openPracticeSession(context, clickedSong)
-                        },
-                        onDeleteClick = { songToDelete ->
-                            viewModel.deleteSong(context, songToDelete)
-                        },
-                        onImportMidi = { uri ->
-                            viewModel.importMidiFile(context, uri)
-                        },
-                        importError = viewModel.importError,
-                        onClearImportError = {
-                            viewModel.clearImportError()
-                        }
-                    )
+                    // The navigation shell leaves top spacing to each tab (the Learn tab starts flush for its ribbon)
+                    Box(Modifier.padding(top = if (isLandscape) 16.dp else 8.dp)) {
+                        StorageScreen(
+                            viewModel = viewModel,
+                            songs = viewModel.songs,
+                            onSongsChange = { /* Handled reactively by viewModel state updates */ },
+                            context = context,
+                            onSongSelect = { clickedSong ->
+                                viewModel.openPracticeSession(context, clickedSong)
+                            },
+                            onDeleteClick = { songToDelete ->
+                                viewModel.deleteSong(context, songToDelete)
+                            },
+                            onImportMidi = { uri ->
+                                viewModel.importMidiFile(context, uri)
+                            },
+                            importError = viewModel.importError,
+                            onClearImportError = {
+                                viewModel.clearImportError()
+                            }
+                        )
+                    }
                 }
             }
         }

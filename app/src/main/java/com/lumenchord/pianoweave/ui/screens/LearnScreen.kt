@@ -200,11 +200,11 @@ fun LearnScreen(
                     .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Right Action Button (Far top right edge, moves out on scroll)
+                // Top right: the balance or Support ribbon, hanging from the top edge; scrolls away with the content
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = if (isLandscape) 2.dp else 8.dp),
+                        .padding(start = 16.dp, end = 28.dp, bottom = if (isLandscape) 2.dp else 4.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {

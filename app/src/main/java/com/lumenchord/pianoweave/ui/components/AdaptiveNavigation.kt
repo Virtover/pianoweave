@@ -138,7 +138,8 @@ fun AdaptiveNavigation(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(start = 12.dp, end = 24.dp, top = 16.dp, bottom = 16.dp)
+                    // No top padding: each tab sets its own, so the Learn tab's ribbon can hang from the top edge
+                    .padding(start = 12.dp, end = 24.dp, bottom = 16.dp)
             ) {
                 content()
             }
@@ -218,7 +219,8 @@ fun AdaptiveNavigation(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    // No top padding: each tab sets its own, so the Learn tab's ribbon can hang from the bar's line
+                    .padding(start = 24.dp, end = 24.dp, bottom = 8.dp)
             ) {
                 content()
             }
