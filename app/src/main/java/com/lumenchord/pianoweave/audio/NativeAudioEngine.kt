@@ -37,6 +37,10 @@ object NativeAudioEngine {
     @JvmStatic
     external fun setVoiceMode(voice: Boolean): Boolean
 
+    /** The AAudio input preset voice mode opens with. True if the open stream must be reopened to change. */
+    @JvmStatic
+    external fun setVoicePreset(preset: Int): Boolean
+
     @JvmStatic
     external fun cleanup()
 }

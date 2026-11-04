@@ -56,6 +56,8 @@ object AppPrefs {
     const val IS_VOICE_COMMANDS_ENABLED = "is_voice_commands_enabled"
     /** [com.lumenchord.pianoweave.audio.VoiceListeningMode] name: commands alone, or after "Selah". */
     const val VOICE_LISTENING_MODE = "voice_listening_mode"
+    /** [com.lumenchord.pianoweave.audio.VoiceMicMode] name: the mic processing for voice commands (debug builds). */
+    const val VOICE_MIC_MODE = "voice_mic_mode"
     const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
     /** The walkthrough (copy a link, transcribe, open the piano roll) was finished; the Learn tab's "How it works" path is retired. */
     const val HAS_SEEN_WELCOME_TUTORIAL = "has_seen_welcome_tutorial"

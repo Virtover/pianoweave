@@ -90,7 +90,8 @@ internal fun SettingHeader(
 /**
  * Picks one of [stepCount] evenly spaced stops, with − / + buttons for exact single steps. The fill runs from
  * [originIndex] (the setting's normal value) to the current stop, so it shows how far the setting is from
- * normal in either direction. Stops in [labels] are marked on the track and named underneath.
+ * normal in either direction. Stops in [labels] are marked on the track and named underneath, as many as
+ * fit without touching (the current stop always).
  */
 @Composable
 internal fun StepSlider(
@@ -256,7 +257,10 @@ private fun SliderTrack(
             drawCircle(accent, radius = r, center = Offset(thumb, cy))
         }
 
-        // Labels centered under their stops, kept inside the track's width at the ends
+        // Labels centered under their stops, kept inside the track's width at the ends. Where they don't
+        // all fit (many stops, a narrow screen), the current stop, the normal one and the ends are named
+        // first, and a label that would touch one already placed is left out.
+        val gap = with(density) { LabelGap.roundToPx() }
         Layout(
             content = {
                 labels.forEach { (i, text) ->
@@ -275,11 +279,20 @@ private fun SliderTrack(
             val width = constraints.maxWidth
             val height = placeables.maxOfOrNull { it.height } ?: 0
             val usable = width - 2 * inset
+            val stops = labels.keys.toList()
+            val lefts = stops.zip(placeables).map { (i, p) ->
+                val center = inset + usable * i / (stepCount - 1)
+                (center - p.width / 2f).roundToInt().coerceIn(0, (width - p.width).coerceAtLeast(0))
+            }
+            val priority = listOf(index, originIndex, 0, stepCount - 1)
+            val order = stops.indices.sortedBy { k -> priority.indexOf(stops[k]).let { if (it < 0) priority.size else it } }
+            val shown = mutableListOf<IntRange>()
             layout(width, height) {
-                labels.keys.zip(placeables).forEach { (i, p) ->
-                    val center = inset + usable * i / (stepCount - 1)
-                    val left = (center - p.width / 2f).roundToInt().coerceIn(0, (width - p.width).coerceAtLeast(0))
-                    p.place(left, 0)
+                for (k in order) {
+                    val span = lefts[k]..(lefts[k] + placeables[k].width)
+                    if (shown.any { span.first < it.last + gap && it.first < span.last + gap }) continue
+                    shown += span
+                    placeables[k].place(lefts[k], 0)
                 }
             }
         }
@@ -290,3 +303,5 @@ private val TrackHeight: Dp = 36.dp
 private val StepButtonSize: Dp = 30.dp
 /** Room at each end so the thumb at the first and last stop stays inside the track. */
 private val ThumbInset: Dp = 13.dp
+/** Least space between two stop labels. */
+private val LabelGap: Dp = 6.dp

@@ -33,6 +33,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
+import com.lumenchord.pianoweave.audio.VoiceMicMode
+import com.lumenchord.pianoweave.ui.screens.pianoroll.isDebuggableBuild
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.screens.pianoroll.rememberVoiceCommandsToggle
 import com.lumenchord.pianoweave.ui.screens.pianoroll.voiceModelProblemText
@@ -105,6 +107,19 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
         }
 
         CommandGuide(mode, accent)
+
+        // Debug builds: compare how the phone processes the mic (see VoiceMicMode)
+        if (isDebuggableBuild(context)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusText("Mic processing (debug)")
+                PillChoice(
+                    options = listOf(VoiceMicMode.CALL to "Call", VoiceMicMode.SPEECH to "Speech", VoiceMicMode.RAW to "Raw"),
+                    selected = viewModel.voiceMicMode,
+                    accent = accent,
+                    onSelect = { viewModel.setVoiceMicMode(context, it) }
+                )
+            }
+        }
     }
 }
 
@@ -156,8 +171,18 @@ private fun StatusText(text: String, modifier: Modifier = Modifier) {
 
 /** "Just the word" or "Selah first", as one pill split in two (labels fit a narrow portrait screen). */
 @Composable
-private fun ListeningModeSwitch(mode: VoiceListeningMode, accent: Color, onSelect: (VoiceListeningMode) -> Unit) {
-    val options = listOf(VoiceListeningMode.WORDS to "Just the word", VoiceListeningMode.SELAH to "“Selah” first")
+private fun ListeningModeSwitch(mode: VoiceListeningMode, accent: Color, onSelect: (VoiceListeningMode) -> Unit) =
+    PillChoice(
+        options = listOf(VoiceListeningMode.WORDS to "Just the word", VoiceListeningMode.SELAH to "“Selah” first"),
+        selected = mode,
+        accent = accent,
+        onSelect = onSelect
+    )
+
+/** One pill split into equal options, the selected one lit in the accent. */
+@Composable
+private fun <T> PillChoice(options: List<Pair<T, String>>, selected: T, accent: Color, onSelect: (T) -> Unit) {
+    val mode = selected
     Row(
         modifier = Modifier
             .fillMaxWidth()

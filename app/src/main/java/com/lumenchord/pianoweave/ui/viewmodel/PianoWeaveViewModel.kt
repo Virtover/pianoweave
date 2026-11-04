@@ -90,6 +90,8 @@ class PianoWeaveViewModel : ViewModel() {
     var voiceModelError by mutableStateOf<VoiceModelError?>(null)
         internal set
     var voiceListeningMode by mutableStateOf(VoiceListeningMode.WORDS)
+    /** Mic processing for voice commands (a debug setting, to compare). */
+    var voiceMicMode by mutableStateOf(com.lumenchord.pianoweave.audio.VoiceMicMode.CALL)
         internal set
     internal var voiceModelJob: Job? = null
 
@@ -357,6 +359,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setVoiceCommandsEnabled(context: Context, enabled: Boolean) = setVoiceCommandsEnabledImpl(context, enabled)
     fun downloadVoiceModel(context: Context) = downloadVoiceModelImpl(context)
     fun setVoiceListeningMode(context: Context, mode: VoiceListeningMode) = setVoiceListeningModeImpl(context, mode)
+    fun setVoiceMicMode(context: Context, mode: com.lumenchord.pianoweave.audio.VoiceMicMode) = setVoiceMicModeImpl(context, mode)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
     fun openShop(context: Context) = openShopImpl(context)
     fun dismissShop() { showShopDialog = false }

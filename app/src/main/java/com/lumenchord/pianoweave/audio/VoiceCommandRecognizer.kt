@@ -17,18 +17,19 @@ import java.util.concurrent.Executors
  * Hands-free piano roll control: listens on the shared microphone capture (AcousticNoteDetector) for
  * short [VoiceCommand] words.
  *
- * Cheap by design: the voice gate (Silero VAD, already running for note detection) decides what is
- * speech, [UtteranceSegmenter] keeps only short isolated utterances, and only those reach Vosk, which
- * decodes against a ~16 word grammar on its own thread. While you just play, Vosk does nothing.
+ * Two ways at once ([CommandListener]), on one worker thread: the voice gate (Silero VAD on audio
+ * cleaned by [SpeechEnhancer]) and [UtteranceSegmenter] cut short isolated utterances, which Vosk
+ * reads against the ~16 word grammar; and Vosk also hears the whole stream ([CommandStream]), which
+ * catches a voice from across the room that the gate misses while the piano plays.
  */
 object VoiceCommandRecognizer {
     private const val TAG = "VoiceCommandRecognizer"
     // After "Selah" alone, the next utterance in this window counts as if it began with Selah:
     // people pause after the wake word, which splits "Selah ... play" into two utterances
     private const val WAKE_WINDOW_MS = 4000L
-    // Utterances waiting for the decoder; more are dropped (newest first), so a stalled or slow
-    // decoder can never build up a backlog of stale commands
-    private const val MAX_PENDING_DECODES = 2
+    // Audio chunks (32 ms) waiting for the worker; past this (a stalled worker) they're dropped and the
+    // phrase in progress forgotten, so commands never come out seconds late
+    private const val MAX_PENDING_CHUNKS = 30
 
     enum class Status { OFF, LOADING, LISTENING, FAILED }
 
@@ -56,13 +57,16 @@ object VoiceCommandRecognizer {
 
     // Touched only on the worker
     private var model: Model? = null
-    private var decoder: VoiceCommandDecoder? = null
+    private var listener: CommandListener? = null
     private var wakeUntil = 0L
 
-    private val pendingDecodes = java.util.concurrent.atomic.AtomicInteger(0)
+    private val pending = java.util.concurrent.atomic.AtomicInteger(0)
+
+    // Set on the audio thread when audio was dropped or lost, read on the worker
+    @Volatile private var dropped = false
 
     // Touched only on the audio thread (or before it is attached)
-    private val segmenter = UtteranceSegmenter { reason -> Log.d(TAG, "Dropped speech: $reason") }
+    private val segmenter = UtteranceSegmenter()
 
     @Volatile private var session = 0
 
@@ -79,21 +83,20 @@ object VoiceCommandRecognizer {
         val hearing = segmenter.state == UtteranceSegmenter.State.SPEECH
         if (hearing != _isHearing.value) PianoPlayer.duckForVoice(hearing)
         _isHearing.value = hearing
-        if (utterance != null) {
-            // Where it ended in the debug recording, to find it there
-            Log.d(TAG, "Utterance of ${utterance.size / 16} ms ending at chunk ${VoiceDebugRecorder.chunks}")
-            if (pendingDecodes.incrementAndGet() > MAX_PENDING_DECODES) {
-                pendingDecodes.decrementAndGet()
-                Log.d(TAG, "Dropped utterance: decoder busy")
-            } else {
-                val forSession = session
-                worker.execute {
-                    try {
-                        decode(utterance, forSession)
-                    } finally {
-                        pendingDecodes.decrementAndGet()
-                    }
-                }
+        if (pending.incrementAndGet() > MAX_PENDING_CHUNKS) {
+            pending.decrementAndGet()
+            dropped = true
+            return@ChunkListener
+        }
+        // Every chunk goes to the worker (the stream), and an utterance right after its last chunk
+        val copy = chunk.copyOf()
+        val forSession = session
+        val at = VoiceDebugRecorder.chunks
+        worker.execute {
+            try {
+                listen(copy, utterance, forSession, at)
+            } finally {
+                pending.decrementAndGet()
             }
         }
     }
@@ -137,8 +140,8 @@ object VoiceCommandRecognizer {
         _status.value = Status.OFF
         worker.execute {
             wakeUntil = 0L
-            decoder?.close()
-            decoder = null
+            listener?.close()
+            listener = null
             model?.close()
             model = null
         }
@@ -147,18 +150,19 @@ object VoiceCommandRecognizer {
     /** Audio was dropped: an utterance in progress can't be trusted. Called on the audio thread. */
     internal fun resetStream() {
         Log.d(TAG, "Stream reset at chunk ${VoiceDebugRecorder.chunks}")
+        dropped = true
         segmenter.reset()
         if (_isHearing.value) PianoPlayer.duckForVoice(false)
         _isHearing.value = false
     }
 
     private fun loadModel(modelDir: File): Boolean {
-        if (decoder != null) return true
+        if (listener != null) return true
         return try {
             LibVosk.setLogLevel(LogLevel.WARNINGS)
             val loaded = Model(modelDir.absolutePath)
             model = loaded
-            decoder = VoiceCommandDecoder(loaded)
+            listener = CommandListener(loaded)
             Log.i(TAG, "Vosk model loaded from ${modelDir.name}")
             true
         } catch (e: Throwable) {
@@ -170,25 +174,39 @@ object VoiceCommandRecognizer {
         }
     }
 
-    private fun decode(utterance: FloatArray, forSession: Int) {
-        val decoder = decoder ?: return
+    /** One chunk, and the utterance it ended if any, through both ways of hearing (worker). */
+    private fun listen(chunk: FloatArray, utterance: FloatArray?, forSession: Int, at: Int) {
+        val listener = listener ?: return
         if (forSession != session) return
         try {
-            val started = SystemClock.elapsedRealtime()
-            val heard = decoder.hear(utterance)
+            if (dropped) {
+                dropped = false
+                listener.reset()
+            }
+            listener.chunk(chunk)?.let { decide(listener, it, at) }
+            if (utterance != null) listener.utterance(utterance)?.let { decide(listener, it, at) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Voice command decoding failed", e)
+        }
+    }
+
+    private fun decide(listener: CommandListener, phrase: CommandListener.Phrase, at: Int) {
+        val heard = phrase.heard
+        try {
             val words = VoiceCommand.trimEdgeNoise(heard.words)
             val now = SystemClock.elapsedRealtime()
             val awake = now < wakeUntil
             val selahMode = listeningMode == VoiceListeningMode.SELAH
-            val commands = decoder.decide(heard, requireWake = selahMode && !awake)
+            val commands = VoiceCommandDecoder.decide(heard, requireWake = selahMode && !awake)
             Log.d(
                 TAG,
-                "Heard ${describe(heard.words)} (or ${heard.alternatives.joinToString(" / ") { alt -> alt.joinToString(" ") { it.word } }})" +
-                    " -> $commands${if (awake) " (after Selah)" else ""} in ${now - started} ms"
+                "${if (phrase.fromUtterance) "Utterance" else "Stream"} at chunk $at: heard ${describe(heard.words)}" +
+                    " (or ${heard.alternatives.joinToString(" / ") { alt -> alt.joinToString(" ") { it.word } }})" +
+                    " -> $commands${if (awake) " (after Selah)" else ""}"
             )
-            if (forSession != session) return
             when {
                 commands.isNotEmpty() -> {
+                    listener.take(phrase)
                     wakeUntil = 0L
                     _commands.tryEmit(commands)
                 }
@@ -198,7 +216,7 @@ object VoiceCommandRecognizer {
                 }
                 // Only near misses are worth showing: something the grammar knows was heard, and in
                 // Selah mode only when addressed. Noise and other talking stay silent.
-                VoiceCommand.hasKnownWord(words) &&
+                phrase.fromUtterance && VoiceCommand.hasKnownWord(words) &&
                     (!selahMode || awake || words.first().first in VoiceCommand.WAKE_WORDS) ->
                     _unmatched.tryEmit(describe(heard.words))
             }

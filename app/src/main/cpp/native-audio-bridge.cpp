@@ -32,7 +32,25 @@ namespace {
     constexpr int32_t INPUT_PRESET_VOICE_COMMUNICATION = 7;
     constexpr int32_t INPUT_PRESET_DEFAULT = -1;  // do not call setInputPreset
     std::atomic<bool> voicePreferred{false};
+    // The preset voice commands alone use: VOICE_COMMUNICATION by default; VOICE_RECOGNITION (6, lighter
+    // processing on many devices) or UNPROCESSED to compare (set from a debug setting)
+    std::atomic<int32_t> voicePreset{INPUT_PRESET_VOICE_COMMUNICATION};
     int32_t openedPreset = INPUT_PRESET_DEFAULT;  // guarded by streamMutex
+    // The preset asked for when the stream was opened (it may have fallen back); guarded by streamMutex
+    int32_t requestedPreset = INPUT_PRESET_DEFAULT;
+
+    const char *presetName(int32_t preset) {
+        switch (preset) {
+            case 6: return "VOICE_RECOGNITION";
+            case INPUT_PRESET_VOICE_COMMUNICATION: return "VOICE_COMMUNICATION";
+            case INPUT_PRESET_UNPROCESSED: return "UNPROCESSED";
+            default: return "default";
+        }
+    }
+
+    int32_t wantedPreset() {
+        return voicePreferred.load() ? voicePreset.load() : INPUT_PRESET_UNPROCESSED;
+    }
     float ringBuffer[RING_BUFFER_SIZE];
     std::atomic<int64_t> writeIndex{0};
     AAudioStream *audioStream = nullptr;
@@ -112,18 +130,20 @@ namespace {
         return result;
     }
 
-    // Caller must hold streamMutex. In voice mode tries VOICE_COMMUNICATION first; then UNPROCESSED,
+    // Caller must hold streamMutex. In voice mode tries the voice preset first; then UNPROCESSED,
     // then the default preset.
     aaudio_result_t openStream() {
         aaudio_result_t result;
-        if (voicePreferred.load()) {
-            result = openStreamWithPreset(INPUT_PRESET_VOICE_COMMUNICATION);
+        int32_t wanted = wantedPreset();
+        requestedPreset = wanted;
+        if (wanted != INPUT_PRESET_UNPROCESSED) {
+            result = openStreamWithPreset(wanted);
             if (result == AAUDIO_OK) {
-                LOGI("AAudio input opened: preset=VOICE_COMMUNICATION, rate=%d, perfMode=%d",
+                LOGI("AAudio input opened: preset=%s, rate=%d, perfMode=%d", presetName(wanted),
                      AAudioStream_getSampleRate(audioStream), AAudioStream_getPerformanceMode(audioStream));
                 return result;
             }
-            LOGI("VOICE_COMMUNICATION preset unavailable (%s)", AAudio_convertResultToText(result));
+            LOGI("%s preset unavailable (%s)", presetName(wanted), AAudio_convertResultToText(result));
         }
         result = openStreamWithPreset(INPUT_PRESET_UNPROCESSED);
         if (result == AAUDIO_OK) {
@@ -247,8 +267,16 @@ Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_setVoiceMode(JNIEnv *env,
     std::lock_guard<std::mutex> lock(streamMutex);
     voicePreferred.store(voice == JNI_TRUE);
     if (audioStream == nullptr) return JNI_FALSE;
-    bool isVoice = openedPreset == INPUT_PRESET_VOICE_COMMUNICATION;
-    return (isVoice != (voice == JNI_TRUE)) ? JNI_TRUE : JNI_FALSE;
+    return requestedPreset != wantedPreset() ? JNI_TRUE : JNI_FALSE;
+}
+
+// Chooses the AAudio input preset voice commands alone use. True if the open stream must be reopened.
+JNIEXPORT jboolean JNICALL
+Java_com_lumenchord_pianoweave_audio_NativeAudioEngine_setVoicePreset(JNIEnv *env, jclass clazz, jint preset) {
+    std::lock_guard<std::mutex> lock(streamMutex);
+    voicePreset.store(preset);
+    if (audioStream == nullptr) return JNI_FALSE;
+    return requestedPreset != wantedPreset() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

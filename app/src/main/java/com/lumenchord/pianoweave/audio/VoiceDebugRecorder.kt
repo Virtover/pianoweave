@@ -24,7 +24,7 @@ import java.util.concurrent.Executors
 internal object VoiceDebugRecorder {
     private const val TAG = "VoiceDebugRecorder"
     private const val MAX_MINUTES = 30
-    private const val KEEP_SESSIONS = 3
+    private const val KEEP_SESSIONS = 6
     private const val CHUNK = 512
     private const val MAX_CHUNKS = MAX_MINUTES * 60 * 16000 / CHUNK
 
@@ -55,7 +55,9 @@ internal object VoiceDebugRecorder {
                     it.delete()
                     File(dir, it.name.removeSuffix(".pcm") + ".prob").delete()
                 }
-                val name = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                // The mic processing in the name, to compare sessions recorded each way
+                val name = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) +
+                    "-" + AcousticNoteDetector.voiceMicMode.name.lowercase()
                 pcm = BufferedOutputStream(FileOutputStream(File(dir, "$name.pcm")), 1 shl 16)
                 prob = BufferedOutputStream(FileOutputStream(File(dir, "$name.prob")), 1 shl 12)
                 Log.i(TAG, "Recording voice session $name")

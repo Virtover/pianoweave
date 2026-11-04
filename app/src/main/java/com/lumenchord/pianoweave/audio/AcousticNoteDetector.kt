@@ -248,6 +248,22 @@ object AcousticNoteDetector {
         return true
     }
 
+    /** The last [setVoiceMicMode]. */
+    @Volatile
+    var voiceMicMode = VoiceMicMode.CALL
+        private set
+
+    /** How the mic is processed for voice commands alone (see [VoiceMicMode]); reopens it if needed. */
+    @Synchronized
+    fun setVoiceMicMode(mode: VoiceMicMode) {
+        voiceMicMode = mode
+        if (!NativeAudioEngine.setVoicePreset(mode.preset)) return
+        val wasRunning = isRunning
+        if (wasRunning) shutdownCapture()
+        NativeAudioEngine.cleanup()
+        if (wasRunning) ensureCapture()
+    }
+
     @Synchronized
     fun stopVoice() {
         voiceWanted = false

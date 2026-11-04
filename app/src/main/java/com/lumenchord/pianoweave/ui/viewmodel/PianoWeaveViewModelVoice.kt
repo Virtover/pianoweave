@@ -3,7 +3,9 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
+import com.lumenchord.pianoweave.audio.VoiceMicMode
 import com.lumenchord.pianoweave.audio.VoiceModelDownloadException
 import com.lumenchord.pianoweave.audio.VoiceModelError
 import com.lumenchord.pianoweave.audio.VoiceModelStore
@@ -24,6 +26,10 @@ internal fun PianoWeaveViewModel.loadVoicePreferences(context: Context) {
     voiceListeningMode = VoiceListeningMode.entries.firstOrNull {
         it.name == prefs.getString(AppPrefs.VOICE_LISTENING_MODE, null)
     } ?: VoiceListeningMode.WORDS
+    voiceMicMode = VoiceMicMode.entries.firstOrNull {
+        it.name == prefs.getString(AppPrefs.VOICE_MIC_MODE, null)
+    } ?: VoiceMicMode.CALL
+    AcousticNoteDetector.setVoiceMicMode(voiceMicMode)
     if (voiceModelState == VoiceModelState.DOWNLOADING) return
     // A failure stays shown (with its reason) until it's retried, rather than turning back into MISSING
     if (VoiceModelStore.isInstalled(context)) {
@@ -46,6 +52,12 @@ internal fun PianoWeaveViewModel.setVoiceCommandsEnabledImpl(context: Context, e
 internal fun PianoWeaveViewModel.setVoiceListeningModeImpl(context: Context, mode: VoiceListeningMode) {
     voiceListeningMode = mode
     AppPrefs.get(context).edit().putString(AppPrefs.VOICE_LISTENING_MODE, mode.name).apply()
+}
+
+internal fun PianoWeaveViewModel.setVoiceMicModeImpl(context: Context, mode: VoiceMicMode) {
+    voiceMicMode = mode
+    AppPrefs.get(context).edit().putString(AppPrefs.VOICE_MIC_MODE, mode.name).apply()
+    AcousticNoteDetector.setVoiceMicMode(mode)
 }
 
 internal fun PianoWeaveViewModel.downloadVoiceModelImpl(context: Context) {

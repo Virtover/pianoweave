@@ -60,14 +60,12 @@ object VoiceActivityGate {
     private const val VOICE_LEVEL_FLOOR = 0.002f
 
     /**
-     * Whether the voice stream is cleaned by [SpeechEnhancer] first (takes the piano out of it); off
-     * only to compare, in tests. [enhanceForRecognizer]: the listener gets the cleaned chunks too,
-     * else the raw ones (the voice probability comes from the cleaned audio either way).
+     * Whether the voice probability comes from audio cleaned by [SpeechEnhancer] (the piano taken out);
+     * off only to compare, in tests. The listener always gets the raw chunks: the recognizer lost short
+     * words like "play" in cleaned audio.
      */
     @Volatile
     var enhanceVoice = true
-    @Volatile
-    var enhanceForRecognizer = false
 
     /** Receives every 32 ms chunk with its raw (unsmoothed) voice probability, on the audio thread. */
     fun interface ChunkListener {
@@ -204,7 +202,7 @@ object VoiceActivityGate {
             val voiceP = run(interp, voice, boosted)
             // The raw chunk: a recording is replayed through the whole voice path, enhancer included
             VoiceDebugRecorder.write(chunk, voiceP)
-            if (!voiceP.isNaN()) listener.onChunk(if (enhanceForRecognizer) voiceChunk else chunk, voiceP)
+            if (!voiceP.isNaN()) listener.onChunk(chunk, voiceP)
         }
 
         if (++debugCounter % 16 == 0) {

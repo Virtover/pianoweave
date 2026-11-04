@@ -76,7 +76,6 @@ class ReplayVoiceSessionTest {
             // What voice commands now make of it
             VoiceActivityGate.initialize(context)
             InstrumentationRegistry.getArguments().getString("enhance")?.let { VoiceActivityGate.enhanceVoice = it.toBoolean() }
-        InstrumentationRegistry.getArguments().getString("enhanceRec")?.let { VoiceActivityGate.enhanceForRecognizer = it.toBoolean() }
             val heard = mutableListOf<String>()
             val started = System.nanoTime()
             Log.i(tag, "NOW " + commandsHeardIn(model, audio, heard = heard))
