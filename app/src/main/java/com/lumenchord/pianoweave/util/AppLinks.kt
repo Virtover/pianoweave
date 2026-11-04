@@ -11,6 +11,8 @@ object AppLinks {
 
     const val PRIVACY_POLICY = "${DOCS_BASE_URL}privacy_policy.html"
     const val TERMS_OF_SERVICE = "${DOCS_BASE_URL}terms_of_service.html"
+    const val UPCOMING_TERMS_OF_SERVICE = "${DOCS_BASE_URL}terms_of_service_upcoming.html"
+    const val UPCOMING_TERMS_OF_SERVICE_PL = "${DOCS_BASE_URL}terms_of_service_upcoming_pl.html"
     const val ACCOUNT_DELETION = "${DOCS_BASE_URL}delete_account.html"
     const val SUGGESTIONS_AND_BUG_REPORTS = "https://pianoweave.com/tickets#bug"
     const val CUSTOM_SERVER_SETUP = "https://github.com/Virtover/piano-transcription-server"

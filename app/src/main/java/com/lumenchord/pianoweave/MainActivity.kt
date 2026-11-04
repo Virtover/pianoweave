@@ -38,6 +38,7 @@ import com.lumenchord.pianoweave.ui.components.AppSettingsDialog
 import com.lumenchord.pianoweave.ui.components.BilledServerGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.NoGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.ServerConnectionDialog
+import com.lumenchord.pianoweave.ui.components.TermsChangeDialog
 import com.lumenchord.pianoweave.ui.screens.LearnScreen
 import com.lumenchord.pianoweave.ui.screens.PianoRollScreen
 import com.lumenchord.pianoweave.ui.viewmodel.*
@@ -49,6 +50,7 @@ import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.LegalConsent
 
 class MainActivity : ComponentActivity() {
 
@@ -293,6 +295,18 @@ private fun PianoWeaveApp(
     // App-level, as Settings opens it from either tab
     if (viewModel.showWelcomeTutorial) {
         WelcomeTutorialDialog(onDismiss = { finished -> viewModel.dismissWelcomeTutorial(context, finished) })
+    }
+
+    // Advance notice of new Terms, once, after startup prompts and the walkthrough are out of the way
+    var showTermsChangeNotice by remember { mutableStateOf(LegalConsent.shouldShowTermsChangeNotice(context)) }
+    if (showTermsChangeNotice && startupPromptsDone && connectionProblem == null && !viewModel.showWelcomeTutorial) {
+        TermsChangeDialog(
+            effectiveDate = LegalConsent.UPCOMING_TERMS_VERSION.orEmpty(),
+            onDismiss = {
+                LegalConsent.markTermsChangeNoticeSeen(context)
+                showTermsChangeNotice = false
+            }
+        )
     }
 
     if (viewModel.showNoGoogleAccountDialog) {

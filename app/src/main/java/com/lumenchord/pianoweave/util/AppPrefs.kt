@@ -45,6 +45,8 @@ object AppPrefs {
     // Legal
     /** The [LegalConsent.TERMS_VERSION] the user last agreed to before transcribing. */
     const val ACCEPTED_TERMS_VERSION = "accepted_terms_version"
+    /** The [LegalConsent.UPCOMING_TERMS_VERSION] whose advance notice the user has already been shown. */
+    const val SEEN_TERMS_CHANGE_NOTICE = "seen_terms_change_notice"
 
     // UI & playback
     const val SELECTED_THEME_ID = "selected_theme_id"

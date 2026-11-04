@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Piano Weave – Nowy Regulamin</title>
+    <style>
+        :root {
+          --bg: #ffffff;
+          --fg: #1d2125;
+          --muted: #5b6770;
+          --accent: #8a5a00;
+          --line: #e2e6ea;
+          --card: #f6f8fa;
+          --todo: #fff3bf;
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #14181c;
+            --fg: #e6e9ec;
+            --muted: #9aa5ae;
+            --accent: #e0b04a;
+            --line: #2a3138;
+            --card: #1b2127;
+            --todo: #4a3d10;
+          }
+        }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          background: var(--bg);
+          color: var(--fg);
+          font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+        main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+        h1 { font-size: 2rem; margin: 0 0 4px; }
+        h2 { font-size: 1.25rem; margin: 40px 0 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+        p, li { color: var(--fg); }
+        .meta { color: var(--muted); margin: 0 0 24px; }
+        a { color: var(--accent); }
+        ul, ol { padding-left: 22px; }
+        li { margin: 4px 0; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
+        .card ul { margin: 6px 0 0; }
+        mark { background: var(--todo); color: inherit; padding: 0 3px; border-radius: 3px; }
+        .lang { float: right; margin-top: 10px; font-size: 0.95rem; color: var(--muted); }
+        nav ul { list-style: none; padding: 0; columns: 2; column-gap: 24px; }
+        nav li { margin: 3px 0; }
+        @media (max-width: 520px) { nav ul { columns: 1; } }
+    </style>
+</head>
+<body>
+<main>
+
+    <p class="lang"><a href="terms_of_service_upcoming.html" hreflang="en" lang="en">English</a> · <strong>Polski</strong></p>
+    <h1>Piano Weave – Regulamin</h1>
+    <p class="meta">Obowiązuje od: 20 listopada 2026 r.</p>
+
+    <div class="card">
+        <strong>Nowa wersja.</strong> Ten Regulamin wchodzi w życie 20 listopada 2026 r. Do tego dnia obowiązuje
+        <a href="terms_of_service_pl.html">obecny Regulamin</a>. Co się zmienia:
+        <ul>
+            <li>Punkt 3 wymienia też polecenia głosowe wśród zastosowań mikrofonu oraz jednorazowe pobranie modelu mowy.</li>
+            <li>Punkt 12: o zmianach mogę Cię też informować e-mailem, a zmiany wyłącznie korzystne dla Ciebie, redakcyjne lub wymagane przez prawo w krótszym terminie mogą obowiązywać od razu.</li>
+        </ul>
+    </div>
+
+    <p>
+        Ten Regulamin to umowa między Tobą a mną, twórcą Piano Weave, dotycząca korzystania z aplikacji Piano Weave na Androida
+        („Aplikacja”) i serwera transkrypcji Piano Weave („Serwer”). Korzystając z Aplikacji, akceptujesz Regulamin.
+        To, jak przetwarzam Twoje dane, opisuje osobno <a href="privacy_policy.html" hreflang="en">Polityka prywatności</a>.
+        Regulamin jest dostępny po angielsku i po polsku, a obie wersje mają tę samą treść.
+    </p>
+
+    <div class="card">
+        <strong>W skrócie:</strong>
+        <ul>
+            <li>Transkrybuj tylko muzykę, z której masz prawo korzystać. Ćwiczenia na własny użytek mogą być dozwolone przez prawo autorskie, ale nie dają prawa do udostępniania ani sprzedaży transkrypcji bez zgody.</li>
+            <li>Transkrypcje tworzy AI i mogą zawierać błędy.</li>
+            <li>Transkrypcja na oficjalnym Serwerze może być bezpłatna albo zużywać kredyty, i może się to zmieniać. Aplikacja pokazuje koszt przed rozpoczęciem. 1 kredyt = 1 minuta nagrania. Kupione kredyty nie wygasają.</li>
+            <li>Zakupy i wnioski o zwrot są obsługiwane przez Google Play Billing. Prawo do odstąpienia od umowy oraz uprawnienia ustawowe podlegają warunkom zakupu i bezwzględnie obowiązującym przepisom.</li>
+            <li>W każdej chwili możesz przestać korzystać z Aplikacji i usunąć konto.</li>
+            <li>Pytania i reklamacje: <a href="mailto:contact.lumenchord@gmail.com">contact.lumenchord@gmail.com</a>. Odpowiadam w ciągu 14 dni.</li>
+        </ul>
+    </div>
+
+    <nav aria-label="Spis treści">
+        <ul>
+            <li><a href="#who">1. Kto udostępnia Aplikację</a></li>
+            <li><a href="#what">2. Co robi Aplikacja</a></li>
+            <li><a href="#requirements">3. Czego potrzebujesz</a></li>
+            <li><a href="#content">4. Twoja muzyka i pliki MIDI</a></li>
+            <li><a href="#rules">5. Zasady</a></li>
+            <li><a href="#credits">6. Kredyty i zakupy</a></li>
+            <li><a href="#availability">7. Dostępność i zmiany</a></li>
+            <li><a href="#ending">8. Zakończenie umowy</a></li>
+            <li><a href="#liability">9. Odpowiedzialność</a></li>
+            <li><a href="#complaints">10. Reklamacje</a></li>
+            <li><a href="#law">11. Prawo i spory</a></li>
+            <li><a href="#changes">12. Zmiany Regulaminu</a></li>
+        </ul>
+    </nav>
+
+    <h2 id="who">1. Kto udostępnia Aplikację</h2>
+    <p>
+        Krzysztof Olszak, ul. Brzozowa 4, 05-402 Otwock, Polska<br>
+        E-mail: <a href="mailto:contact.lumenchord@gmail.com">contact.lumenchord@gmail.com</a>
+    </p>
+
+    <h2 id="what">2. Co robi Aplikacja</h2>
+    <ul>
+        <li><strong>Nauka gry:</strong> pokazuje utwory MIDI jako spadające nuty, odtwarza je, a w trybie oczekiwania (Wait Mode) czeka, aż zagrasz właściwe dźwięki.</li>
+        <li><strong>Transkrypcja:</strong> Serwer zamienia link do filmu, plik audio lub wideo albo nagranie zrobione w Aplikacji na plik MIDI.</li>
+        <li><strong>Moc obliczeniowa:</strong> gdy Serwer jest obciążony, mogę uruchomić transkrypcję na mocy GPU zewnętrznego dostawcy. Nie zmienia to ceny, liczby zużytych kredytów ani wyniku. Jakie dane są wysyłane, opisuje <a href="privacy_policy.html#sharing" hreflang="en">Polityka prywatności</a>.</li>
+        <li><strong>Biblioteka i synchronizacja:</strong> przechowuje Twoje utwory na urządzeniu, a jeśli to włączysz, tworzy ich kopię na Twoim własnym Dysku Google.</li>
+        <li><strong>Inne serwery:</strong> możesz połączyć Aplikację z serwerem transkrypcji prowadzonym przez kogoś innego. Za taki serwer odpowiada jego operator, nie ja.</li>
+    </ul>
+    <p>
+        Sama Aplikacja jest bezpłatna. Transkrypcja na oficjalnym Serwerze może być bezpłatna albo płatna kredytami z darmowymi minutami
+        co miesiąc, i może się to z czasem zmieniać. Przed rozpoczęciem Aplikacja pokazuje, czy transkrypcja zużyje kredyty i ile
+        (zob. <a href="#credits">Kredyty i zakupy</a>).
+    </p>
+
+    <h2 id="requirements">3. Czego potrzebujesz</h2>
+    <ul>
+        <li>Urządzenia z Androidem 8.0 lub nowszym.</li>
+        <li>Połączenia z internetem do transkrypcji i synchronizacji. Ćwiczyć możesz offline.</li>
+        <li>Konta Google, aby kupować lub używać kredytów na oficjalnym Serwerze oraz do synchronizacji.</li>
+        <li>Mikrofonu do trybu oczekiwania, poleceń głosowych i do nagrywania oraz jednorazowo połączenia z internetem, aby pobrać model mowy do poleceń głosowych.</li>
+        <li>Piano Weave jest aplikacją ogólnego przeznaczenia do nauki muzyki. Jeśli jesteś osobą małoletnią lub nie osiągnąłeś(-aś) wieku, w którym obowiązujące prawo wymaga zgody rodziców na korzystanie z usług internetowych lub przetwarzanie danych osobowych, powinieneś(-aś) korzystać z Aplikacji za zgodą lub pod nadzorem rodzica lub opiekuna prawnego.</li>
+    </ul>
+
+    <h2 id="content">4. Twoja muzyka i pliki MIDI</h2>
+    <ul>
+        <li>Piano Weave służy do osobistej nauki muzyki i ćwiczeń.</li>
+        <li>
+            <strong>Przesyłanie treści:</strong> Przesyłaj wyłącznie linki, pliki i nagrania, z których masz prawo korzystać — takie jak własna muzyka, utwory, na które posiadasz zgodę, lub treści w zakresie dozwolonym przez prawo obowiązujące w Twojej jurysdykcji.
+        </li>
+        <li>
+            <strong>Użytek osobisty a prawo autorskie:</strong> W wielu krajach prawo autorskie przewiduje wyjątki lub ograniczenia (np. dozwolony użytek prywatny lub osobisty), które mogą zezwalać na kopiowanie lub korzystanie z muzyki do prywatnych, niekomercyjnych celów, osobistej nauki lub podobnych działań, pod zastrzeżonymi warunkami. Wykonanie transkrypcji na potrzeby własnej nauki gry na pianinie może być zatem dozwolone w zależności od obowiązującego prawa, źródła i okoliczności. Nie oznacza to jednak automatycznie prawa do publikowania, udostępniania, sprzedaży ani innej dystrybucji transkrypcji. Sama publiczna dostępność nagrania w internetowych serwisach nie stanowi zezwolenia na jego pobieranie lub kopiowanie, a przepisy różnią się w zależności od kraju.
+        </li>
+        <li>
+            <strong>Warunki platform i ograniczenia dostępu:</strong> Ustawowe wyjątki w prawie autorskim nie uchylają ani nie zmieniają regulaminów zewnętrznych platform internetowych ani stosowanych przez nie technicznych zabezpieczeń lub ograniczeń dostępu. Korzystanie z Piano Weave lub Serwera nie nadaje uprawnień wynikających z umów z zewnętrznymi platformami ani nie rozstrzyga odrębnych kwestii dostępu do tych platform.
+        </li>
+        <li>
+            <strong>Udostępnianie i rozpowszechnianie:</strong> Transkrypcja utworu chronionego prawem autorskim nadal podlega prawom do utworu bazowego. Nie wolno publikować, udostępniać, sprzedawać ani rozpowszechniać transkrypcji, chyba że posiadasz odpowiednie prawa, utwór należy do domeny publicznej lub rozpowszechnianie jest wyraźnie dozwolone przez prawo. Nie przesyłaj pirackich plików ani nagrań osób trzecich zrobionych bez ich zgody.
+        </li>
+        <li>Zachowujesz wszystkie prawa do przesyłanych treści. Udzielasz Serwerowi, a w razie potrzeby także zewnętrznym dostawcom przetwarzającym dane na moje zlecenie, zezwolenia na przetworzenie zgłoszenia wyłącznie w celu wykonania transkrypcji. Pliki i nagrania są usuwane wkrótce po przetworzeniu; krótki zapis transkrypcji, w tym ewentualny link do filmu, jest przechowywany przez ograniczony czas w celach operacyjnych i diagnostycznych (zob. <a href="privacy_policy.html#retention" hreflang="en">Polityka prywatności</a>).</li>
+        <li>Transkrypcje tworzą modele AI. Są one przybliżeniem muzyki, a nie dokładnym wydaniem nutowym, i mogą zawierać błędne lub brakujące dźwięki.</li>
+    </ul>
+
+    <h2 id="rules">5. Zasady</h2>
+    <p>Proszę, nie:</p>
+    <ul>
+        <li>przesyłaj treści niezgodnych z prawem;</li>
+        <li>przeciążaj, nie atakuj i nie próbuj włamać się na Serwer ani obchodzić jego limitów lub rozliczeń;</li>
+        <li>używaj narzędzi automatycznych do masowego zlecania transkrypcji i nie odsprzedawaj dostępu do Serwera;</li>
+        <li>wykorzystuj kodu Aplikacji w sposób niedozwolony przez jego <a href="https://github.com/Virtover/pianoweave/blob/main/LICENSE" rel="noopener">licencję</a> (PolyForm Noncommercial 1.0.0).</li>
+    </ul>
+    <p>
+        Jeśli ktoś łamie te zasady, mogę odmówić wykonania jego transkrypcji lub zablokować mu dostęp do Serwera. Jeśli uważasz,
+        że spotkało to Ciebie przez pomyłkę, napisz do mnie: wyjaśnię powód i rozpatrzę Twoją odpowiedź.
+    </p>
+
+    <h2 id="credits">6. Kredyty i zakupy</h2>
+    <ul>
+        <li><strong>Czym są kredyty:</strong> gdy transkrypcja na oficjalnym Serwerze jest płatna, 1 kredyt płaci za 1 minutę nagrania. Aplikacja pokazuje koszt przed rozpoczęciem.</li>
+        <li><strong>Kredyty zakupione a promocyjne:</strong> Twoje saldo może składać się z zakupionych kredytów transkrypcyjnych (nabytych przez Google Play) oraz darmowych kredytów promocyjnych (np. miesięcznych darmowych minut lub premii).</li>
+        <li><strong>Zakup:</strong> kredyty są sprzedawane przez Google Play, które obsługuje płatność. Ceny widzisz w Google Play przed zapłatą.</li>
+        <li>
+            <strong>Zakupy i prawo odstąpienia:</strong> zakupy są realizowane przez Google Play Billing. Płatności, prawo do odstąpienia od umowy oraz wnioski o zwrot płatności są obsługiwane za pośrednictwem Google Play zgodnie z jego procedurami, warunkami przedstawionymi podczas zakupu oraz bezwzględnie obowiązującymi przepisami prawa. Przypisanie kredytów do konta nie pozbawia konsumenta ustawowych uprawnień wynikających z bezwzględnie obowiązujących przepisów.
+        </li>
+        <li>
+            <strong>Zwroty i uprawnienia ustawowe:</strong> wnioski o zwrot płatności należy składać za pośrednictwem Google Play. Skorzystanie z procedury zwrotów Google Play nie wyłącza żadnych ustawowych obowiązków dostawcy usługi ani uprawnień przyznanych konsumentom przez obowiązujące prawo.
+        </li>
+        <li><strong>Zużycie kredytów:</strong> kredyty są pobierane, gdy Serwer przyjmie transkrypcję. Jeśli ją anulujesz, kredyty za już przetworzoną część nie wracają. Jeśli transkrypcja nie powiedzie się z innego powodu, kredyty są w pełni zwracane.</li>
+        <li><strong>Ograniczenia:</strong> kredyty nie wygasają, nie można ich wymienić na pieniądze ani przenieść na inne konto.</li>
+        <li>
+            <strong>Usuwanie konta:</strong> usunięcie konta powoduje skasowanie danych konta oraz salda kredytów. Darmowe kredyty promocyjne przepadają z chwilą usunięcia konta. Usunięcie konta nie powoduje automatycznego zwrotu wpłaty za niewykorzystane zakupione kredyty, lecz nie wpływa na bezwzględnie obowiązujące ustawowe prawa do zwrotu lub innych rekompensat.
+        </li>
+        <li>
+            <strong>Zamknięcie usługi:</strong> w przypadku trwałego zamknięcia usługi informacja zostanie podana w Aplikacji z co najmniej 30-dniowym wyprzedzeniem, aby umożliwić wykorzystanie kredytów. W przypadkach wymaganych przez obowiązujące prawo posiadaczom niewykorzystanych zakupionych kredytów zostaną zapewnione odpowiednie rekompensaty lub zwroty. Darmowe kredyty promocyjne wygasają z chwilą zamknięcia usługi bez prawa do ekwiwalentu, z zastrzeżeniem bezwzględnie obowiązujących przepisów.
+        </li>
+    </ul>
+
+    <h2 id="availability">7. Dostępność i zmiany</h2>
+    <p>
+        Dbam o to, żeby Serwer działał, ale czasem może być niedostępny, np. podczas prac technicznych lub awarii.
+        Mogę ulepszać i zmieniać funkcje, w tym to, czy transkrypcja na oficjalnym Serwerze jest bezpłatna, czy zużywa kredyty.
+        Zmiany nie odbiorą Ci kredytów, które już masz.
+        Szybkość i dostępność transkrypcji mogą się różnić w zależności od obciążenia oraz od tego, czy zadanie działa na moim sprzęcie, czy u zewnętrznego dostawcy. Nie odpowiadam za awarie dostawców zewnętrznych w zakresie wykraczającym poza to, co wynika z Regulaminu i prawa konsumenckiego.
+    </p>
+
+    <h2 id="ending">8. Zakończenie umowy</h2>
+    <ul>
+        <li>Możesz w każdej chwili przestać korzystać z Aplikacji. Aby usunąć też konto i dane, użyj <a href="delete_account.html" hreflang="en">strony usuwania konta</a>.</li>
+        <li>Ja mogę zakończyć umowę z 30-dniowym wyprzedzeniem, informując Cię e-mailem lub w Aplikacji, albo od razu, jeśli poważnie naruszysz Regulamin.</li>
+    </ul>
+
+    <h2 id="liability">9. Odpowiedzialność</h2>
+    <p>
+        Odpowiadam za udostępnianie Aplikacji i Serwera zgodnie z tym Regulaminem. Nie odpowiadam za szkody, których nie dało się przewidzieć,
+        gdy zaczynałeś(-aś) korzystać z Aplikacji, za problemy spowodowane przez inne serwery, inne aplikacje lub usługi Google ani za to, jak
+        wykorzystujesz swoje transkrypcje. Nic w tym Regulaminie nie ogranicza Twoich praw konsumenta ani mojej odpowiedzialności tam, gdzie prawo nie pozwala jej ograniczyć.
+    </p>
+
+    <h2 id="complaints">10. Reklamacje</h2>
+    <ul>
+        <li>Napisz na <a href="mailto:contact.lumenchord@gmail.com">contact.lumenchord@gmail.com</a>. Opisz, co poszło nie tak, a jeśli chodzi o transkrypcję lub zakup, podaj utwór lub datę.</li>
+        <li>Odpowiem w ciągu 14 dni.</li>
+        <li>
+            Jeśli nie dojdziemy do porozumienia, konsumenci w Polsce mogą uzyskać bezpłatną pomoc u miejskiego lub powiatowego rzecznika konsumentów
+            albo w Inspekcji Handlowej. Konsumenci z innych krajów UE mogą zwrócić się do
+            <a href="https://commission.europa.eu/live-work-travel-eu/consumer-rights-and-complaints/resolve-your-consumer-complaint/european-consumer-centres-network-ecc-net_pl" rel="noopener">Sieci Europejskich Centrów Konsumenckich</a>.
+        </li>
+    </ul>
+
+    <h2 id="law">11. Prawo i spory</h2>
+    <p>
+        Regulamin podlega prawu polskiemu. Jeśli jesteś konsumentem, chronią Cię też bezwzględnie obowiązujące przepisy konsumenckie kraju,
+        w którym mieszkasz, i możesz dochodzić swoich praw przed tamtejszymi sądami.
+    </p>
+
+    <h2 id="changes">12. Zmiany Regulaminu</h2>
+    <p>
+        Mogę zmieniać Regulamin z ważnych przyczyn, np. gdy zmienia się Aplikacja, jej funkcje lub przepisy prawa. O zmianach poinformuję Cię
+        e-mailem na adres powiązany z kontem lub w Aplikacji, co najmniej 14 dni przed ich wejściem w życie. Jeśli się nie zgadzasz, możesz
+        przed tą datą przestać korzystać z Aplikacji i usunąć konto. Zmiany wyłącznie korzystne dla Ciebie, redakcyjne lub wymagane przez
+        prawo w krótszym terminie mogą obowiązywać od razu (lub w terminie wymaganym przez prawo).
+    </p>
+
+</main>
+</body>
+</html>
