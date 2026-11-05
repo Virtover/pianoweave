@@ -33,24 +33,30 @@ copy from `config.example.txt`), `licenses/` (OFL texts for bundled fonts).
 
 ## Build & test
 
+Use the `scripts/` wrappers (Git Bash): they print only errors, failures and a one-line result instead of Gradle's
+full output, and always target `emulator-5554`.
+
 ```bash
-./gradlew :app:compileDebugKotlin          # fast compile check
-./gradlew :app:testDebugUnitTest           # JVM unit tests (app/src/test)
-ANDROID_SERIAL=emulator-5554 ./gradlew :app:installDebug
+scripts/check.sh [-w]                      # compile check (-w also lists warnings)
+scripts/test.sh ['*VoiceCommandsTest']     # JVM unit tests (app/src/test), optional filter
+scripts/itest.sh <TestClass> [am args]     # install app + test APK on the emulator, run one class
+scripts/logcat.sh <Tag>... [-n 150]        # emulator logcat for given tags only (-c clears)
+scripts/ui.sh                              # on-screen texts + tap coordinates (cheap, text only)
+scripts/shot.sh [out.png]                  # screenshot downscaled to 720 px (default build/shot.png)
+ANDROID_SERIAL=emulator-5554 ./gradlew :app:installDebug -q
 ```
+
+**Keeping agent context small:** check UI with `scripts/ui.sh` first, `scripts/shot.sh` only when looks matter;
+never dump full logcat or raw Gradle/`am instrument` output; read large files by line range; don't read
+assets/binaries. Simple "where is X" lookups can go to the `finder` agent (Haiku).
 
 **Devices:** the owner's physical phone is often attached alongside the emulator
 (`emulator-5554`). Plain `installDebug` installs on *every* connected device, so always set
 `ANDROID_SERIAL=emulator-5554` and use `adb -s emulator-5554`. Never install to, clear, or change the phone without asking.
 
 **Instrumented tests:** don't use `connectedDebugAndroidTest` (it uninstalls the app afterwards, wiping its data).
-Install both APKs to the emulator and run with `am instrument`:
-
-```bash
-ANDROID_SERIAL=emulator-5554 ./gradlew :app:installDebug :app:installDebugAndroidTest
-adb -s emulator-5554 shell am instrument -w -e class com.lumenchord.pianoweave.midi.MidiKeyboardInstrumentedTest \
-  com.lumenchord.pianoweave.test/androidx.test.runner.AndroidJUnitRunner
-```
+`scripts/itest.sh` installs both APKs to the emulator and runs `am instrument` (e.g.
+`scripts/itest.sh MidiKeyboardInstrumentedTest`).
 
 `MidiKeyboardInstrumentedTest` uses a test-only virtual MIDI keyboard (`LoopbackMidiService`, in the test APK).
 While the test APK is installed that keyboard exists system-wide and the app treats it as a real MIDI keyboard
@@ -59,7 +65,7 @@ Test-APK services run in the test APK's own process, which has no Kotlin runtime
 
 `ExampleInstrumentedTest` is stale (expects package `com.example.ytpiano`) and fails on its own.
 
-**Checking UI on the emulator:** `adb exec-out screencap -p` and read the PNG. Animations are faster than
+**Checking UI on the emulator:** `scripts/ui.sh` for text, `scripts/shot.sh` and read the PNG for looks. Animations are faster than
 screencap; to catch frames, temporarily `adb shell settings put global animator_duration_scale 10` (Compose
 follows it), capture, then **set it back to 1**. In Git Bash, prefix adb commands that take device paths
 (`/sdcard/...`) with `MSYS_NO_PATHCONV=1`. A fresh install shows notification/mic permission prompts; grant with
@@ -81,41 +87,11 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
 - **Wait mode** (piano roll): pauses at each note until it's played. Input is a connected MIDI keyboard if any
   (`MidiInputManager.isConnected`, observable), otherwise the microphone (`AcousticNoteDetector`). The screen
   switches between them live when a keyboard is plugged in or out.
-- **Voice commands** (piano roll, off by default): one-word commands with no wake word. The mic capture in
-  `AcousticNoteDetector` is shared: note detection (`start`/`stop`) and voice (`startVoice`/`stopVoice`) each
-  want it, and the note model only runs for note detection. `UtteranceSegmenter` keeps only short utterances
-  (≤ ~2.5 s) with pauses around them, from Silero VAD chunks; Vosk (`VoiceCommandRecognizer`, grammar =
-  `VoiceCommand` phrases) decodes only those; several commands in a row are one action ("full screen wait").
-  Silero is trained to ignore music and rated commands over a piano 0.00 for minutes (phone recording), so
-  the voice stream is first cleaned by DTLN (`SpeechEnhancer`, assets `dtln_*.tflite`, ~4 MB, MIT): Silero
-  rates the cleaned audio, but Vosk decodes the raw audio (cleaned audio lost short words like "play").
-  On two phone recordings this caught 52 and 52 commands where the raw path caught 21 and 42. Speech
-  starts at 0.15, raised over a steady background. Even cleaned, Silero rated a voice from across the room
-  over the piano 0.00, so Vosk also hears the whole raw stream (`CommandStream`); `CommandListener` runs both
-  on one timeline and counts each stretch once (whichever gives commands first). The stream alone needs every
-  word at 0.9 (it has no pause rule, and its unsure readings over the piano were mostly wrong). The stream
-  alone (no VAD path) felt worse to the owner: slower (~0.6 s vs ~0.3 s) and noisier.
-  Any non-command word rejects the whole utterance. Optional "Selah" first; Settings can require it
-  (`VoiceListeningMode.SELAH`, which also drops the pause-before rule). No "mark": the small model confused it with "back". The model downloads to `files/voice/` (`VoiceModelStore`);
-  Voice-only capture opens with the VOICE_COMMUNICATION preset (device echo canceller removes the app's own
-  song, ~25 dB measured); note detection forces UNPROCESSED, so the stream reopens when wait mode toggles.
-  Debug builds can switch that preset in the voice settings (`VoiceMicMode`: Call / Speech = VOICE_RECOGNITION
-  / Raw). On the owner's phone Call pulls piano and voice ~25 dB down and the VAD path still works; with
-  Speech or Raw the piano stays loud and mostly the stream catches commands. No clear winner; Call stays default.
-  The voice gate runs a second Silero stream on level-boosted, cleaned audio (+30 dB max) for commands; the
-  song is ducked 9 dB while a command may be spoken (`PianoPlayer.duckForVoice`).
-  `VoiceCommandDecoder` decodes twice (word confidences + next-best readings): a command counts at
-  confidence 0.7, or from 0.5 if no other reading is a different command; a word under 0.9 that another
-  reading has as a different known word drops the phrase ("stop 0.75 faster" / "start faster"). "undo" takes back within 4 s. Words that sound alike to the model are left out ("mark", "skip" (heard for "slower"), "no" for
-  undo; "no" is a distractor word). "go" alone isn't play: "go forward" with its last word drowned out by the
-  piano came out as "go". Likewise a sure "loop" is dropped when another reading is "loop start"/"loop end". Debug builds show a chip with what a near-miss utterance sounded like
-  (never for noise, or in Selah mode unless addressed). `VoiceCommandInstrumentedTest` checks TTS words (every phrase x 2 voices: clean,
-  -30 dB, room noise; in voice-loud noise a miss is allowed, a wrong command never);
-  it downloads the model if missing. `VoiceOverPlayingInstrumentedTest` speaks every phrase over practice
-  playing rendered with the app's SoundFont (acoustic piano the app can't duck), +10 to -5 dB.
-  Debug builds record what voice commands hear (`VoiceDebugRecorder`, `files/voice-debug/<time>-<mic mode>.pcm`, raw 16 kHz PCM);
-  copy a session to `voice-debug/replay.pcm` on the emulator and run `ReplayVoiceSessionTest` (logs `ReplayVoice`)
-  to see what was said (full-vocabulary Vosk) next to what voice commands made of it.
+- **Voice commands** (piano roll, off by default): one-word commands, no wake word. The mic is shared with
+  wait-mode note detection (`AcousticNoteDetector`); speech is found by Silero VAD on DTLN-cleaned audio plus a
+  raw Vosk stream, decoded by Vosk with a command grammar. Design notes, thresholds, measurements and test/replay
+  tools are in `app/src/main/java/com/lumenchord/pianoweave/audio/CLAUDE.md` (read it before changing voice code,
+  including the UI side in `pianoroll/VoiceCommand*.kt`).
 - **Terms of Service versions**: each version is `docs/terms/<effective date>.html` + `_pl.html`, listed in
   `docs/terms_versions.json`. `docs/terms.js` picks by today's UTC date: the fixed URLs
   (`terms_of_service[_upcoming][_pl].html`, which the app links) redirect, and version pages show an upcoming /

@@ -7,7 +7,9 @@
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-.claude/
+/.claude/*
+!/.claude/settings.json
+!/.claude/agents/
 .DS_Store
 /build
 /captures
