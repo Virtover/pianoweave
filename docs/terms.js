@@ -6,6 +6,8 @@
 // - Fixed pages (terms_of_service*.html) carry data-terms-pick="current" or "upcoming" and redirect to that version
 //   ("upcoming" falls back to the current one when no change is announced).
 // - Version pages fill their #terms-status box: upcoming, current with a change announced, or archived.
+// - A version page's #terms-changes box (what changes from the previous version) shows only while that version is
+//   upcoming. It is hidden here rather than in the HTML, so readers without JavaScript still see the announcement.
 (function () {
     var base = new URL('.', document.currentScript.src);
 
@@ -60,6 +62,9 @@
             : '<strong>Archived version</strong>, replaced on ' + formatDate(next, lang) + '. ' +
               link(pageUrl(s.current, lang), 'Read the current Terms') + '.';
     }
+
+    var changes = document.getElementById('terms-changes');
+    if (changes && changes.getAttribute('data-version') <= today()) changes.hidden = true;
 
     fetch(new URL('terms_versions.json', base), { cache: 'no-cache' })
         .then(function (response) { return response.json(); })
