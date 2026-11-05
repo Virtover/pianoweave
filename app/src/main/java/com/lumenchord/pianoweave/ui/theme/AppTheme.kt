@@ -139,7 +139,7 @@ object AppThemeManager {
         tint = 0.8f
     )
 
-    val defaultTheme = classicGoldTheme
+    val defaultTheme = lamplightTheme
 
     /**
      * Names come from the Bible's imagery of creation, worship and joy. Ids stay as they were, so
