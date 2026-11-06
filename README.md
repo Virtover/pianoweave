@@ -43,7 +43,8 @@
 <table>
   <tr>
     <td width="50%" align="center">
-      <img src="screenshots/landscape_01_hero.png" width="100%" alt="Piano Weave" />
+      <img src="screenshots/landscape_01_hero.png" width="100%" alt="Piano Weave" /><br>
+      <sub><b>&nbsp;</b></sub>
     </td>
     <td width="50%" align="center">
       <img src="screenshots/landscape_03_wait_mode.png" width="100%" alt="Wait mode" /><br>
