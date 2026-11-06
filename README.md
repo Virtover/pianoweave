@@ -43,22 +43,31 @@
 <table>
   <tr>
     <td width="50%" align="center">
-      <img src="screenshots/landscape_02_wait_mode.png" width="100%" alt="Wait mode" /><br>
-      <sub><b>Wait mode</b></sub>
+      <img src="screenshots/landscape_01_hero.png" width="100%" alt="Piano Weave" />
     </td>
     <td width="50%" align="center">
-      <img src="screenshots/landscape_03_transcribe.png" width="100%" alt="AI transcription" /><br>
-      <sub><b>AI transcription</b></sub>
+      <img src="screenshots/landscape_03_wait_mode.png" width="100%" alt="Wait mode" /><br>
+      <sub><b>Wait mode</b></sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
+      <img src="screenshots/landscape_02_transcribe.png" width="100%" alt="AI transcription" /><br>
+      <sub><b>AI transcription</b></sub>
+    </td>
+    <td width="50%" align="center">
       <img src="screenshots/landscape_04_practice.png" width="100%" alt="Practice" /><br>
       <sub><b>Practice</b></sub>
     </td>
+  </tr>
+  <tr>
     <td width="50%" align="center">
       <img src="screenshots/landscape_05_library.png" width="100%" alt="MIDI library" /><br>
       <sub><b>MIDI library</b></sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/landscape_07_voice.png" width="100%" alt="Voice commands" /><br>
+      <sub><b>Voice commands</b></sub>
     </td>
   </tr>
 </table>
