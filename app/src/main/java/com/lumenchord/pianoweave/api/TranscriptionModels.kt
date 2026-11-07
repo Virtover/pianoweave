@@ -4,8 +4,11 @@ import com.google.gson.annotations.SerializedName
 
 data class CreateTranscriptionRequest(
     @SerializedName("source_url") val source_url: String,
-    /** [TranscriptionMode.apiValue]; older servers ignore it. */
-    @SerializedName("mode") val mode: String = TranscriptionMode.Transcription.apiValue,
+    /**
+     * [TranscriptionMode.apiValue] of an arrangement; null (left out) for a transcription, the server's
+     * default, so a transcription is the request servers without arrangements know.
+     */
+    @SerializedName("mode") val mode: String? = null,
     /** Only sent with an arrangement; the server refuses a style on a transcription. */
     @SerializedName("style") val style: String? = null
 )

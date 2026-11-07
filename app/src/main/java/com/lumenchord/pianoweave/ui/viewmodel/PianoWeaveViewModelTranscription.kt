@@ -321,7 +321,11 @@ private suspend fun PianoWeaveViewModel.submitTranscription(
                     throw IllegalAccessException("Google authentication required.")
                 }
                 PianoApiFactory.getApi(serverUrl).createTranscription(
-                    request = CreateTranscriptionRequest(source_url = stableUrl, mode = mode.apiValue, style = mode.style),
+                    request = CreateTranscriptionRequest(
+                        source_url = stableUrl,
+                        mode = mode.apiValue.takeIf { mode != TranscriptionMode.Transcription },
+                        style = mode.style
+                    ),
                     authHeader = authHeader,
                     userId = if (!isBilledServer) uId else null,
                     idempotencyKey = key

@@ -60,12 +60,11 @@ class TranscriptionModeTest {
     }
 
     @Test
-    fun aTranscriptionRequestSendsNoStyle() {
-        val mode = TranscriptionMode.Transcription
-        val json = JsonParser.parseString(Gson().toJson(CreateTranscriptionRequest(link, mode.apiValue, mode.style))).asJsonObject
-        assertEquals("transcription", json["mode"].asString)
-        // The server refuses a style on a transcription (422)
-        assertFalse(json.has("style"))
+    fun aTranscriptionRequestIsTheOneServersWithoutArrangementsKnow() {
+        val json = JsonParser.parseString(Gson().toJson(CreateTranscriptionRequest(link))).asJsonObject
+        assertEquals(setOf("source_url"), json.keySet())
+        // Also: the server refuses a style on a transcription (422)
+        assertEquals(null, TranscriptionMode.Transcription.style)
     }
 
     @Test

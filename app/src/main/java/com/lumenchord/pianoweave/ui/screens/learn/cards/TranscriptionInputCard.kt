@@ -330,7 +330,14 @@ fun TranscriptionInputCard(
                     .fillMaxWidth()
                     .onFocusChanged { linkInputAnchors.isLinkFieldFocused = it.isFocused }
                     .onGloballyPositioned { linkInputAnchors.linkFieldTopInRoot = it.positionInRoot().y },
-                placeholder = { Text(if (isLandscape) "Paste a video link" else "Video link", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                // Without arrangements piano covers are what the server does best; with them, any video will do
+                placeholder = {
+                    val hint = when {
+                        viewModel.supportsArrangement -> if (isLandscape) "Paste a video link" else "Video link"
+                        else -> if (isLandscape) "Paste a piano cover link" else "Piano cover link"
+                    }
+                    Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
                 singleLine = true,
                 enabled = !viewModel.isLoading,
                 shape = RoundedCornerShape(14.dp),

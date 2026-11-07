@@ -191,6 +191,9 @@ class PianoWeaveViewModel : ViewModel() {
     var supportsArrangement by mutableStateOf(false)
         internal set
 
+    /** The server [supportsArrangement] was read from. */
+    internal var arrangementInfoServerUrl = ""
+
     /**
      * The Transcribe flow's open dialogs: the mode choice, and the Terms with the mode waiting on them. Kept
      * here rather than in the card, which portrait and landscape build in different places, so a rotation

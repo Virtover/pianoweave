@@ -143,6 +143,9 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
     }
 
     val url = activeServerUrl
+    // Another server's arrangements say nothing about this one; rechecks of the same server keep them,
+    // so its texts don't flicker while it reconnects
+    if (url != arrangementInfoServerUrl) supportsArrangement = false
     ServerMaintenance.watch(url)
     startMaintenanceWatch()
     // Only the newest check counts: typing a server URL checks on every key, and an older check
@@ -168,6 +171,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     resultRetentionSeconds = info.resultRetentionSeconds
                     maxUploadSizeMb = info.maxUploadSizeMb
                     supportsArrangement = info.arrangement == true
+                    arrangementInfoServerUrl = url
                     maxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0
                     if (PianoApiFactory.isOfficialServer(url)) isOfficialServerBilled = isBilledServer

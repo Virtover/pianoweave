@@ -57,36 +57,50 @@ private data class WelcomeStep(
     val picture: @Composable () -> Unit
 )
 
-private val welcomeSteps = listOf(
+/**
+ * The walkthrough's steps. [withArrangements] (the server makes arrangements) adds the step that chooses
+ * between a transcription and an arrangement, and speaks of any song; without them it is about piano videos.
+ */
+private fun welcomeSteps(withArrangements: Boolean): List<WelcomeStep> = listOfNotNull(
     WelcomeStep(
         icon = Icons.Default.Piano,
         title = "Welcome to Piano Weave",
-        body = "Turn a song into notes that fall onto the keys, so you can play along. It takes four simple steps.",
+        body = if (withArrangements) {
+            "Turn a song into notes that fall onto the keys, so you can play along. It takes four simple steps."
+        } else {
+            "Turn a piano video into notes that fall onto the keys, so you can play along. It takes three simple steps."
+        },
         picture = { PianoRollPicture() }
     ),
     WelcomeStep(
         icon = Icons.Default.Link,
         title = "1. Copy a video's link",
-        body = "Find a song you like, for example on YouTube. Tap Share under the video, then tap Copy link.",
-        picture = { CopyLinkPicture() }
+        body = "Find a ${if (withArrangements) "song" else "piano video"} you like, for example on YouTube. Tap Share under the video, then tap Copy link.",
+        picture = { CopyLinkPicture(withArrangements) }
     ),
     WelcomeStep(
         icon = Icons.Default.AutoAwesome,
         title = "2. Paste it & tap Transcribe",
-        body = "Come back to Piano Weave. Tap the paste button in the link box, then tap Transcribe.",
-        picture = { TranscribePicture() }
+        body = if (withArrangements) {
+            "Come back to Piano Weave. Tap the paste button in the link box, then tap Transcribe."
+        } else {
+            "Come back to Piano Weave. Tap the paste button in the link box, then tap Transcribe. In a few minutes, the music turns into notes."
+        },
+        picture = { TranscribePicture(withArrangements) }
     ),
-    WelcomeStep(
-        icon = Icons.AutoMirrored.Filled.QueueMusic,
-        title = "3. Transcribe or arrange",
-        body = "Piano transcription for piano videos, Piano arrangement for any other song. In a few minutes, the music turns into notes.",
-        picture = { ChooseModePicture() }
-    ),
+    if (withArrangements) {
+        WelcomeStep(
+            icon = Icons.AutoMirrored.Filled.QueueMusic,
+            title = "3. Transcribe or arrange",
+            body = "Piano transcription for piano videos, Piano arrangement for any other song. In a few minutes, the music turns into notes.",
+            picture = { ChooseModePicture() }
+        )
+    } else null,
     WelcomeStep(
         icon = Icons.Default.PlayArrow,
-        title = "4. Play along",
+        title = if (withArrangements) "4. Play along" else "3. Play along",
         body = "When it's ready, tap Start practicing and play the falling notes on your piano. Your songs are kept in the Library tab.",
-        picture = { PlayAlongPicture() }
+        picture = { PlayAlongPicture(withArrangements) }
     )
 )
 
@@ -103,9 +117,11 @@ private const val MIN_PICTURE_SCALE = 0.6f
  * with the step's buttons staying in place.
  */
 @Composable
-internal fun WelcomeTutorialDialog(onDismiss: (finished: Boolean) -> Unit) {
+internal fun WelcomeTutorialDialog(withArrangements: Boolean, onDismiss: (finished: Boolean) -> Unit) {
     val appTheme = LocalAppTheme.current
     val colorGold = appTheme.primaryColor
+    // Fixed for as long as it is open: server info arriving midway must not add or drop a step
+    val welcomeSteps = remember { welcomeSteps(withArrangements) }
     var stepIndex by remember { mutableIntStateOf(0) }
     val step = welcomeSteps[stepIndex]
 
@@ -137,6 +153,7 @@ internal fun WelcomeTutorialDialog(onDismiss: (finished: Boolean) -> Unit) {
                 val controls = @Composable {
                     StepControls(
                         stepIndex = stepIndex,
+                        stepCount = welcomeSteps.size,
                         onSkip = { onDismiss(false) },
                         onBack = { stepIndex-- },
                         onNext = { if (stepIndex == welcomeSteps.lastIndex) onDismiss(true) else stepIndex++ }
@@ -300,13 +317,13 @@ private fun MoreBelowHint() {
 }
 
 @Composable
-private fun StepControls(stepIndex: Int, onSkip: () -> Unit, onBack: () -> Unit, onNext: () -> Unit) {
+private fun StepControls(stepIndex: Int, stepCount: Int, onSkip: () -> Unit, onBack: () -> Unit, onNext: () -> Unit) {
     val appTheme = LocalAppTheme.current
     val colorGold = appTheme.primaryColor
-    val isLast = stepIndex == welcomeSteps.lastIndex
+    val isLast = stepIndex == stepCount - 1
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            welcomeSteps.indices.forEach { i ->
+            repeat(stepCount) { i ->
                 Box(
                     modifier = Modifier
                         .size(if (i == stepIndex) 8.dp else 6.dp)

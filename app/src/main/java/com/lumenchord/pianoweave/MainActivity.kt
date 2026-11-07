@@ -309,7 +309,10 @@ private fun PianoWeaveApp(
 
     // App-level, as Settings opens it from either tab
     if (viewModel.showWelcomeTutorial) {
-        WelcomeTutorialDialog(onDismiss = { finished -> viewModel.dismissWelcomeTutorial(context, finished) })
+        WelcomeTutorialDialog(
+            withArrangements = viewModel.supportsArrangement,
+            onDismiss = { finished -> viewModel.dismissWelcomeTutorial(context, finished) }
+        )
     }
 
     // Advance notice of new Terms, once, after startup prompts and the walkthrough are out of the way.

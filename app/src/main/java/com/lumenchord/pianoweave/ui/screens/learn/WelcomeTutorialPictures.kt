@@ -69,7 +69,7 @@ internal fun PianoRollPicture() {
 
 /** Step 1: a video app's page with its Share button, then the share sheet with Copy link. */
 @Composable
-internal fun CopyLinkPicture() {
+internal fun CopyLinkPicture(withArrangements: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ScreenFrame {
             // Piano covers are often falling-notes videos themselves; this one is playing
@@ -94,13 +94,13 @@ internal fun CopyLinkPicture() {
             }
             Column {
                 Text(
-                    "Beautiful song",
+                    sampleVideoTitle(withArrangements),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
-                Text("Music channel · 120K views", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Text("${if (withArrangements) "Music" else "Piano"} channel · 120K views", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 VideoAction(Icons.Default.ThumbUp, "1.2K")
@@ -126,7 +126,7 @@ internal fun CopyLinkPicture() {
 
 /** Step 2: the Transcribe card as it looks on the Learn tab, paste button and Transcribe ringed. */
 @Composable
-internal fun TranscribePicture() {
+internal fun TranscribePicture(withArrangements: Boolean) {
     val accent = MaterialTheme.colorScheme.secondary
     val outline = MaterialTheme.colorScheme.outlineVariant
     ScreenFrame {
@@ -192,7 +192,7 @@ internal fun TranscribePicture() {
             Icon(Icons.Default.Link, null, tint = accent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                "Video link",
+                if (withArrangements) "Video link" else "Piano cover link",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 maxLines = 1,
@@ -289,7 +289,7 @@ private fun ModeOptionMini(icon: ImageVector, title: String, bestFor: String, is
 
 /** Step 4: the "Transcription ready" card, then the piano roll that Start practicing opens. */
 @Composable
-internal fun PlayAlongPicture() {
+internal fun PlayAlongPicture(withArrangements: Boolean) {
     val accent = MaterialTheme.colorScheme.secondary
     val glory = Moods.Glory.core
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -306,7 +306,7 @@ internal fun PlayAlongPicture() {
             }
             Text("Transcription ready", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = glory)
             Text(
-                "Beautiful song",
+                sampleVideoTitle(withArrangements),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
@@ -335,6 +335,9 @@ internal fun PlayAlongPicture() {
         }
     }
 }
+
+/** The made-up video the pictures follow: any song where arrangements are offered, else a piano cover. */
+private fun sampleVideoTitle(withArrangements: Boolean) = if (withArrangements) "Beautiful song" else "Beautiful piano cover"
 
 /** A rounded patch of screen that a tutorial picture is drawn on. */
 @Composable
