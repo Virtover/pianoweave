@@ -1,5 +1,9 @@
 package com.lumenchord.pianoweave
 
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -173,6 +177,16 @@ private fun PianoWeaveApp(
         mutableIntStateOf(prefs.getInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, legacyOpened))
     }
     val snackbarHost = remember { SnackbarHostState() }
+
+    // Songs whose Drive backup failed when they were saved are uploaded at the next return to the app
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.catchUpCloudBackup(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Automatically refresh local song lists whenever the user navigates to the Storage/Library tab
     LaunchedEffect(pagerState.settledPage) {

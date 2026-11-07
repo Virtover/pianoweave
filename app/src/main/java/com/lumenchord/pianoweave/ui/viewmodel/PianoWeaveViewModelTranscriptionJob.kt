@@ -14,7 +14,10 @@ import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.api.failureMessage
+import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.api.isUploadSourceKey
+import com.lumenchord.pianoweave.api.libraryKeyMode
+import com.lumenchord.pianoweave.api.sourceOfLibraryKey
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.midi.CompletedTranscriptions
 import com.lumenchord.pianoweave.midi.MidiStorage
@@ -67,7 +70,9 @@ internal fun PianoWeaveViewModel.resumeActiveJobIfAnyImpl(context: Context) {
         return
     }
 
-    if (savedUrl.isUploadSourceKey) transcriptionSource = TranscriptionSource.File else videoUrl = savedUrl
+    transcriptionMode = savedUrl.libraryKeyMode
+    val source = savedUrl.sourceOfLibraryKey
+    if (source.isUploadSourceKey) transcriptionSource = TranscriptionSource.File else videoUrl = source
     currentJobId = savedJobId
     isLoading = true
     status = "Resuming transcription job..."
@@ -128,7 +133,8 @@ private suspend fun PianoWeaveViewModel.fetchJobStatusOrNull(context: Context, j
 /** The job or its MIDI expired on the server (or was removed): waiting longer would never end. */
 private fun PianoWeaveViewModel.failGoneJob(context: Context) {
     showTranscriptionError(
-        "This transcription is no longer on the server; it may have expired. Tap Transcribe to start it again.",
+        "This ${if (transcriptionMode == TranscriptionMode.Arrangement) "arrangement" else "transcription"} is no longer " +
+            "on the server; it may have expired. Tap Transcribe to start it again.",
         offerUpload = false
     )
     finishActiveJob(context)
@@ -139,12 +145,15 @@ private fun PianoWeaveViewModel.applyJobStatus(job: TranscriptionStatusResponse)
     progress = job.progress
     job.minutes?.let { userCredits = it }
 
+    val isArrangement = transcriptionMode == TranscriptionMode.Arrangement
     status = when (job.status) {
         "queued" -> "Queued in server pipeline..."
-        "running", "processing" ->
-            if (job.metadata != null) "Transcribing \"${job.metadata.title}\"..."
-            else "AI model transcribing notes..."
-        "completed" -> "Transcription completed."
+        "running", "processing" -> when {
+            job.metadata != null -> "${if (isArrangement) "Arranging" else "Transcribing"} \"${job.metadata.title}\"..."
+            isArrangement -> "AI model arranging notes..."
+            else -> "AI model transcribing notes..."
+        }
+        "completed" -> if (isArrangement) "Arrangement completed." else "Transcription completed."
         "failed" -> {
             val errMsg = job.failureMessage
             transcriptionError = errMsg

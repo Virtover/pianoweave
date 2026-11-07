@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -59,7 +60,7 @@ fun TranscriptionProgressCard(
                 IconBadge(Icons.Default.GraphicEq, tint = accent, size = if (isLandscape) 26.dp else 30.dp)
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = "Transcribing",
+                    text = if (viewModel.transcriptionMode == TranscriptionMode.Arrangement) "Arranging" else "Transcribing",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp),
                     color = accent,
                     maxLines = 1,

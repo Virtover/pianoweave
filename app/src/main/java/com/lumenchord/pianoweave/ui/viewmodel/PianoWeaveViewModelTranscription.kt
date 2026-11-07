@@ -10,6 +10,9 @@ import com.lumenchord.pianoweave.api.MaintenanceTexts
 import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerErrors
+import com.lumenchord.pianoweave.api.TranscriptionMode
+import com.lumenchord.pianoweave.api.libraryKey
+import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.api.retryWhenBusy
 import com.google.gson.Gson
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
@@ -92,7 +95,13 @@ internal fun PianoWeaveViewModel.updateUrlImpl(url: String) {
 }
 // --- Start ---
 
-internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
+/** The mode chosen last time, if this server still offers it; the choice dialog starts on it. */
+internal fun PianoWeaveViewModel.lastChosenModeImpl(context: Context): TranscriptionMode {
+    if (!supportsArrangement) return TranscriptionMode.Transcription
+    return TranscriptionMode.fromApiValue(AppPrefs.get(context).getString(AppPrefs.LAST_TRANSCRIPTION_MODE, null))
+}
+
+internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context, mode: TranscriptionMode) {
     if (isLoading) return
     if (isRecording) return
     val isFileSource = transcriptionSource != TranscriptionSource.Link
@@ -102,6 +111,11 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
 
     if (file == null) videoUrl = stableUrl
     transcriptionError = null
+    // A server that dropped arrangements since the dialog opened gets a transcription it can make
+    transcriptionMode = if (supportsArrangement) mode else TranscriptionMode.Transcription
+    if (supportsArrangement) {
+        AppPrefs.get(context).edit().putString(AppPrefs.LAST_TRANSCRIPTION_MODE, mode.apiValue).apply()
+    }
 
     // Client-side pre-check only; the server enforces the balance.
     val cost = estimatedCostCredits
@@ -116,6 +130,9 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context) {
 internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
     val stableUrl = normalizeUrlImpl(videoUrl)
     if (stableUrl.isBlank() || isLoading) return
+    val mode = transcriptionMode
+    // The song's key in the library: an arrangement of a link is kept apart from its transcription
+    val songKey = libraryKey(stableUrl, mode)
 
     transcriptionJob = viewModelScope.launch {
         isLoading = true
@@ -125,7 +142,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
 
         try {
             // Songs already in the local or cloud library never reach the (billed) server.
-            val storedFile = MidiStorage.find(context, stableUrl)
+            val storedFile = MidiStorage.find(context, songKey)
             if (storedFile != null) {
                 progress = 1f
                 status = "Loaded from local library cache!"
@@ -135,7 +152,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             }
 
             status = "Checking cloud cache..."
-            val cloudSong = findInCloudLibrary(context, stableUrl)
+            val cloudSong = findInCloudLibrary(context, songKey)
             if (cloudSong != null) {
                 progress = 1f
                 status = "Loaded from cloud library!"
@@ -145,15 +162,15 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             }
 
             status = "Submitting request to server..."
-            val submitted = submitTranscription(context, stableUrl)
+            val submitted = submitTranscription(context, stableUrl, mode)
             val jobId = submitted.job_id
             submitted.minutes?.let { userCredits = it }
             currentJobId = jobId
-            ActiveJobStore.save(context, jobId, stableUrl)
-            enqueueTranscriptionWorker(context, jobId, stableUrl)
+            ActiveJobStore.save(context, jobId, songKey)
+            enqueueTranscriptionWorker(context, jobId, songKey)
             status = "Job successfully queued..."
 
-            pollTranscriptionJob(context, jobId, stableUrl)
+            pollTranscriptionJob(context, jobId, songKey)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             failTranscriptionStart(context, e)
@@ -167,6 +184,15 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
     val errorCode = ServerErrors.errorCode(e)
     val errMsg = when {
         errorCode == ServerErrors.SOURCE_TEMPORARILY_UNAVAILABLE -> linksOffMessage(e)
+        errorCode == ServerErrors.ARRANGEMENT_UNAVAILABLE -> {
+            // 409: off on this server, so the choice goes away; 503: only no room for one right now
+            if ((e as? HttpException)?.code() == 409) {
+                supportsArrangement = false
+                "This server no longer makes piano arrangements."
+            } else {
+                "No room for a piano arrangement right now. Try again later."
+            }
+        }
         e is InsufficientBalanceException || ServerErrors.isPaymentRequired(e) -> {
             // Offer to buy more, with the balance as the server now has it (it may be owed minutes)
             if (isBilledServer) {
@@ -262,10 +288,10 @@ internal fun formatClockTime(context: Context, epochSec: Long): String =
  * to that cloud copy. Only with sync on and signed in: otherwise the list may be another account's, and
  * getting a token could interrupt the transcription with a sign-in prompt.
  */
-private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, stableUrl: String): StoredMidi? {
+private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, songKey: String): StoredMidi? {
     if (!isCloudSyncEnabled || !isGoogleSignedIn) return null
     val cloudList = cloudSongs.ifEmpty { withContext(Dispatchers.IO) { CloudAccountCache.loadCloudSongs(context) } }
-    val match = cloudList.firstOrNull { it.videoUrl == stableUrl } ?: return null
+    val match = cloudList.firstOrNull { it.videoUrl == songKey } ?: return null
 
     val token = ensureGoogleAuthToken(context)
     if (token.isNullOrBlank()) return null
@@ -278,11 +304,16 @@ private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, sta
  * Creates the server job; the response has its id and the balance after the charge. Billed servers require
  * a signed-in user. A server busy checking other videos is asked again after the delay it gives.
  */
-private suspend fun PianoWeaveViewModel.submitTranscription(context: Context, stableUrl: String): CreateTranscriptionResponse {
+private suspend fun PianoWeaveViewModel.submitTranscription(
+    context: Context,
+    stableUrl: String,
+    mode: TranscriptionMode
+): CreateTranscriptionResponse {
     val uId = getOrCreateUserId(context)
     val serverUrl = activeServerUrl
-    // One key per submission: every retry below, and a tap after a lost answer, finds the same job
-    val key = PendingSubmissionStore.keyFor(context, "link|$serverUrl|$stableUrl")
+    // One key per submission: every retry below, and a tap after a lost answer, finds the same job. The
+    // mode is part of it, or arranging a link just transcribed would be answered with that transcription.
+    val key = PendingSubmissionStore.keyFor(context, "link|$serverUrl|$stableUrl${submissionModeTag(mode)}")
     return settlingSubmission(context, key) {
         retryWhenBusy(attempts = ServerErrors.SUBMIT_ATTEMPTS, retryDelayMs = ServerErrors::submitRetryDelayMs) {
             executeServerCallImpl(context) { authHeader ->
@@ -290,7 +321,7 @@ private suspend fun PianoWeaveViewModel.submitTranscription(context: Context, st
                     throw IllegalAccessException("Google authentication required.")
                 }
                 PianoApiFactory.getApi(serverUrl).createTranscription(
-                    request = CreateTranscriptionRequest(source_url = stableUrl),
+                    request = CreateTranscriptionRequest(source_url = stableUrl, mode = mode.apiValue, style = mode.style),
                     authHeader = authHeader,
                     userId = if (!isBilledServer) uId else null,
                     idempotencyKey = key
@@ -299,6 +330,10 @@ private suspend fun PianoWeaveViewModel.submitTranscription(context: Context, st
         }
     }
 }
+/** Added to a submission's source for [PendingSubmissionStore]; empty for a transcription, as before modes. */
+internal fun submissionModeTag(mode: TranscriptionMode): String =
+    if (mode == TranscriptionMode.Transcription) "" else "|${mode.apiValue}"
+
 /**
  * Runs a submission sent with [key] and drops the key once the server has answered it for good: with the
  * job, or with a refusal. After anything else the job may exist, so the key stays for the next try.

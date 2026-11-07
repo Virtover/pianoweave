@@ -26,6 +26,8 @@ object AppPrefs {
     // Transcription
     const val ACTIVE_JOB_ID = "active_job_id"
     const val ACTIVE_JOB_URL = "active_job_url"
+    /** The mode last chosen in the Transcribe choice dialog (TranscriptionMode.apiValue), offered first next time. */
+    const val LAST_TRANSCRIPTION_MODE = "last_transcription_mode"
     /** Idempotency-Key of a submission sent without a final answer yet, and what it submitted (PendingSubmissionStore). */
     const val PENDING_SUBMISSION_KEY = "pending_submission_key"
     const val PENDING_SUBMISSION_SOURCE = "pending_submission_source"

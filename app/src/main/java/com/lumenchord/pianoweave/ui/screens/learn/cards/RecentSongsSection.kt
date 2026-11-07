@@ -24,6 +24,12 @@ import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.components.SectionHeader
 import com.lumenchord.pianoweave.ui.components.SongThumbnail
 import com.lumenchord.pianoweave.ui.components.songDetails
+import com.lumenchord.pianoweave.ui.components.SongModeTag
+import com.lumenchord.pianoweave.ui.components.madeAs
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalConfiguration
 
 /** The newest songs in the library, so the Transcribe screen is a way back into practicing too. */
 @Composable
@@ -37,6 +43,7 @@ fun RecentSongsSection(
             .padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         SectionHeader("Recently added")
         songs.forEach { song ->
             Row(
@@ -57,14 +64,24 @@ fun RecentSongsSection(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    songDetails(song.metadata)?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    val mode = song.madeAs
+                    val details = songDetails(song.metadata)
+                    if (mode != null || details != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            mode?.let {
+                                SongModeTag(it, compact = !isLandscape)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            details?.let {
+                                Text(
+                                    text = it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 }
                 Icon(

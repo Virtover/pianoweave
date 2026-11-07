@@ -25,6 +25,7 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 internal fun CancelTranscriptionDialog(
     progressPercent: Int,
     isBilledServer: Boolean = false,
+    isArrangement: Boolean = false,
     onConfirmCancel: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -57,16 +58,17 @@ internal fun CancelTranscriptionDialog(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     DialogHeader(
-                        title = "Cancel Transcription?",
+                        title = if (isArrangement) "Cancel Arrangement?" else "Cancel Transcription?",
                         icon = Icons.Default.StopCircle,
                         onClose = onDismiss,
                         titleColor = colorGold
                     )
 
+                    val job = if (isArrangement) "arrangement" else "transcription"
                     val bodyText = if (isBilledServer) {
-                        "Are you sure you want to cancel this transcription job? Progress ($progressPercent%) will be lost and part of your credits will be consumed for the work already processed."
+                        "Are you sure you want to cancel this $job job? Progress ($progressPercent%) will be lost and part of your credits will be consumed for the work already processed."
                     } else {
-                        "Are you sure you want to cancel this transcription job? Progress ($progressPercent%) will be lost."
+                        "Are you sure you want to cancel this $job job? Progress ($progressPercent%) will be lost."
                     }
 
                     Text(
@@ -95,7 +97,7 @@ internal fun CancelTranscriptionDialog(
                             )
                         ) {
                             Text(
-                                text = "Keep Transcribing",
+                                text = if (isArrangement) "Keep Arranging" else "Keep Transcribing",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 12.sp,
                                 maxLines = 1,

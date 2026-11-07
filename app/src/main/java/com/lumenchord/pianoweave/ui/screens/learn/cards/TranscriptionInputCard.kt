@@ -59,7 +59,9 @@ import com.lumenchord.pianoweave.ui.components.cardWash
 import com.lumenchord.pianoweave.ui.components.quietFieldColors
 import androidx.compose.material.icons.outlined.Info
 import com.lumenchord.pianoweave.ui.screens.learn.LinkInputAnchors
+import com.lumenchord.pianoweave.ui.screens.learn.TranscriptionModeDialog
 import com.lumenchord.pianoweave.ui.screens.learn.TranscriptionTermsDialog
+import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.util.AppLinks
 import com.lumenchord.pianoweave.util.LegalConsent
 import androidx.compose.ui.focus.onFocusChanged
@@ -134,24 +136,47 @@ fun TranscriptionInputCard(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    var showTermsDialog by remember { mutableStateOf(false) }
+    // Transcribe: the choice of what to make (when the server arranges), the Terms once, then the job.
+    // The mode waiting for the Terms is kept, so agreeing starts what was chosen.
     var hasAcceptedTerms by remember { mutableStateOf(LegalConsent.hasAcceptedTerms(context)) }
-    val transcribe = {
-        if (viewModel.isBilledServer && !viewModel.isGoogleSignedIn) {
+    val needsSignIn = viewModel.isBilledServer && !viewModel.isGoogleSignedIn
+    val transcribe = { mode: TranscriptionMode ->
+        if (needsSignIn) {
             viewModel.signInWithGoogle(context)
         } else {
-            viewModel.startTranscription(context)
+            viewModel.startTranscription(context, mode)
         }
     }
-    if (showTermsDialog) {
+    val startOrAskTerms = { mode: TranscriptionMode ->
+        if (hasAcceptedTerms) transcribe(mode) else viewModel.termsPendingMode = mode
+    }
+    val onTranscribeClick = {
+        // Signing in comes first: a choice made before it would be lost to the account picker
+        if (viewModel.supportsArrangement && !needsSignIn) viewModel.modeChoice = viewModel.lastChosenMode(context)
+        else startOrAskTerms(TranscriptionMode.Transcription)
+    }
+    viewModel.modeChoice?.let { choice ->
+        TranscriptionModeDialog(
+            selected = choice,
+            onSelect = { viewModel.modeChoice = it },
+            cost = viewModel.estimatedCostCredits.takeIf { viewModel.isBilledServer },
+            onConfirm = { mode ->
+                viewModel.modeChoice = null
+                startOrAskTerms(mode)
+            },
+            onDismiss = { viewModel.modeChoice = null }
+        )
+    }
+    viewModel.termsPendingMode?.let { mode ->
         TranscriptionTermsDialog(
+            explainPianoOnly = !viewModel.supportsArrangement,
             onAgree = {
-                showTermsDialog = false
+                viewModel.termsPendingMode = null
                 LegalConsent.acceptTerms(context)
                 hasAcceptedTerms = true
-                transcribe()
+                transcribe(mode)
             },
-            onDismiss = { showTermsDialog = false }
+            onDismiss = { viewModel.termsPendingMode = null }
         )
     }
 
@@ -305,7 +330,7 @@ fun TranscriptionInputCard(
                     .fillMaxWidth()
                     .onFocusChanged { linkInputAnchors.isLinkFieldFocused = it.isFocused }
                     .onGloballyPositioned { linkInputAnchors.linkFieldTopInRoot = it.positionInRoot().y },
-                placeholder = { Text(if (isLandscape) "Paste a piano cover link" else "Piano cover link", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                placeholder = { Text(if (isLandscape) "Paste a video link" else "Video link", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
                 enabled = !viewModel.isLoading,
                 shape = RoundedCornerShape(14.dp),
@@ -356,9 +381,7 @@ fun TranscriptionInputCard(
                 val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "transcribePress")
 
                 Button(
-                    onClick = {
-                        if (hasAcceptedTerms) transcribe() else showTermsDialog = true
-                    },
+                    onClick = onTranscribeClick,
                     enabled = canTranscribe,
                     interactionSource = interaction,
                     modifier = Modifier

@@ -53,6 +53,32 @@ internal fun PianoWeaveViewModel.enableCloudSyncImpl(context: Context) {
     refreshCloudSyncImpl(context, showModalProgress = true, uploadPreviousAccountSongs = true)
 }
 
+/**
+ * A song's Drive backup runs once, when it is saved, and a failure (offline, an expired sign-in) is left to
+ * the next sync. Full syncs only run when the user asks or signs in, so such a song could stay on this
+ * device alone. Called whenever the app comes to the front: if anything is still waiting for Drive (a song
+ * without a cloud copy, a deletion, edited details), a quiet sync catches up. Tried at most once per
+ * [CLOUD_CATCH_UP_INTERVAL_MS], so a device that stays offline doesn't retry on every return to the app.
+ * Signed-in only: getting a token must never bring up a sign-in prompt here.
+ */
+internal fun PianoWeaveViewModel.catchUpCloudBackupImpl(context: Context) {
+    if (!isCloudSyncEnabled || !isGoogleSignedIn || isRefreshingCloud || isCloudSyncing) return
+    val now = android.os.SystemClock.elapsedRealtime()
+    if (lastCloudCatchUpAt != 0L && now - lastCloudCatchUpAt < CLOUD_CATCH_UP_INTERVAL_MS) return
+    viewModelScope.launch {
+        val isBehind = withContext(Dispatchers.IO) {
+            MidiStorage.listAll(context).any { song ->
+                song.isDeleted || song.cloudFileId.isBlank() || PendingDetailEdits.contains(context, song)
+            }
+        }
+        if (!isBehind) return@launch
+        lastCloudCatchUpAt = now
+        refreshCloudSyncImpl(context, showModalProgress = false)
+    }
+}
+
+private const val CLOUD_CATCH_UP_INTERVAL_MS = 2 * 60 * 1000L
+
 internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
     context: Context,
     showModalProgress: Boolean = false,

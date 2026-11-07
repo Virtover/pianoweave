@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import com.lumenchord.pianoweave.api.TranscriptionMode
 import android.content.Context
 import android.media.MediaRecorder
 import android.net.Uri
@@ -186,6 +187,22 @@ class PianoWeaveViewModel : ViewModel() {
     val supportsFileUpload: Boolean
         get() = maxUploadSizeMb != null
 
+    /** From server-info: the server can make piano arrangements, so Transcribe offers the choice. */
+    var supportsArrangement by mutableStateOf(false)
+        internal set
+
+    /**
+     * The Transcribe flow's open dialogs: the mode choice, and the Terms with the mode waiting on them. Kept
+     * here rather than in the card, which portrait and landscape build in different places, so a rotation
+     * doesn't close them. [modeChoice] is the option selected in the open choice, null while it is closed.
+     */
+    var modeChoice by mutableStateOf<TranscriptionMode?>(null)
+    var termsPendingMode by mutableStateOf<TranscriptionMode?>(null)
+
+    /** What the current (or last) job makes; set when it starts or is resumed. */
+    var transcriptionMode by mutableStateOf(TranscriptionMode.Transcription)
+        internal set
+
     var supportMeLink by mutableStateOf<String?>(null)
         internal set
 
@@ -329,7 +346,9 @@ class PianoWeaveViewModel : ViewModel() {
     fun updateUrl(url: String) = updateUrlImpl(url)
     fun resumeActiveJobIfAny(context: Context) = resumeActiveJobIfAnyImpl(context)
     fun cancelTranscription(context: Context) = cancelTranscriptionImpl(context)
-    fun startTranscription(context: Context) = startTranscriptionImpl(context)
+    fun startTranscription(context: Context, mode: TranscriptionMode = TranscriptionMode.Transcription) =
+        startTranscriptionImpl(context, mode)
+    fun lastChosenMode(context: Context): TranscriptionMode = lastChosenModeImpl(context)
     fun selectMediaFile(context: Context, uri: Uri) = selectMediaFileImpl(context, uri)
     fun clearSelectedMediaFile() = clearSelectedMediaFileImpl()
     fun selectTranscriptionSource(source: TranscriptionSource) = selectTranscriptionSourceImpl(source)
@@ -377,6 +396,10 @@ class PianoWeaveViewModel : ViewModel() {
     fun enableCloudSync(context: Context) = enableCloudSyncImpl(context)
     fun disableCloudSync(context: Context) = disableCloudSyncImpl(context)
     fun refreshCloudSync(context: Context) = refreshCloudSyncImpl(context)
+    fun catchUpCloudBackup(context: Context) = catchUpCloudBackupImpl(context)
+
+    /** When [catchUpCloudBackup] last started a sync (elapsedRealtime), 0 if never. */
+    internal var lastCloudCatchUpAt = 0L
     fun requestTurnOnCloudSync(context: Context) {
         if (!isGoogleSignedIn) {
             signInWithGoogle(context) { success ->

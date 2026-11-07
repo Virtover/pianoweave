@@ -1,6 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
-import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogHeroHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -25,9 +25,13 @@ import com.lumenchord.pianoweave.ui.components.appendLink
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.util.AppLinks
 
-/** Shown before the first transcription, and again whenever the Terms change. */
+/**
+ * Shown before the first transcription, and again whenever the Terms change. [explainPianoOnly] adds what a
+ * transcription leaves out, for servers without arrangements, where no choice dialog has said it already.
+ */
 @Composable
 internal fun TranscriptionTermsDialog(
+    explainPianoOnly: Boolean,
     onAgree: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -60,7 +64,8 @@ internal fun TranscriptionTermsDialog(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    DialogHeader(
+                    // Stacked: beside the badge and close button the title wrapped onto two lines on phones
+                    DialogHeroHeader(
                         title = "Before You Transcribe",
                         icon = Icons.Default.Gavel,
                         onClose = onDismiss,
@@ -69,10 +74,12 @@ internal fun TranscriptionTermsDialog(
 
                     Text(
                         text = buildAnnotatedString {
-                            append("The AI turns only the piano part into MIDI. ")
-                            append("Vocals and other instruments are left out, so it isn't a full arrangement. ")
-                            append("Solo piano works best.\n\n")
-                            append("Only transcribe music you have the right to copy and modify. ")
+                            if (explainPianoOnly) {
+                                append("The AI transcription turns only the piano part into MIDI. ")
+                                append("Vocals and other instruments are left out, so it isn't a full arrangement. ")
+                                append("Solo piano works best.\n\n")
+                            }
+                            append("Only transcribe or arrange music you have the right to copy and modify. ")
                             append("By tapping Agree & Continue, you agree to the ")
                             appendLink("Terms of Service", AppLinks.TERMS_OF_SERVICE, colorGold)
                         },

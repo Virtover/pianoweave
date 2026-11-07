@@ -15,6 +15,12 @@ object ServerErrors {
     /** A restart or a stopped worker interrupted the job; its minutes were given back. */
     const val TRANSCRIPTION_INTERRUPTED = "transcription_interrupted"
 
+    /**
+     * Piano arrangements are off on the server (409), or none of its workers has room for them right now
+     * (503); a transcription still works.
+     */
+    const val ARRANGEMENT_UNAVAILABLE = "arrangement_unavailable"
+
     /** Codes about the link itself, for which uploading the file instead may work. */
     private val UPLOAD_MAY_WORK = setOf(
         SOURCE_TEMPORARILY_UNAVAILABLE, "source_video_unavailable", "source_unsupported", "source_failed"
@@ -97,19 +103,25 @@ object ServerErrors {
         return seconds.coerceIn(1, MAX_BUSY_WAIT_SEC) * 1000
     }
 
-    /** 409 without Retry-After: this key's job was transcribed and has since expired on the server. */
+    /**
+     * 409 without Retry-After: this key's job was transcribed and has since expired on the server. Not the
+     * 409 that says arrangements are off, which has its own code.
+     */
     fun isAlreadyProcessed(e: Throwable): Boolean {
         val http = e as? HttpException ?: return false
-        return http.code() == 409 && retryAfterSeconds(http.response()?.headers()) == null
+        return http.code() == 409 && retryAfterSeconds(http.response()?.headers()) == null &&
+            errorCode(e) != ARRANGEMENT_UNAVAILABLE
     }
 
     /**
      * True if the server gave a submission its final answer, so its key is done with: a refusal it reached
      * a decision on. Not after a lost connection, a timeout, a 409 still in progress or a 5xx, after which
-     * the job may exist and the same key finds it.
+     * the job may exist and the same key finds it. Arrangements being unavailable is decided before any job
+     * is made, also on a 503.
      */
     fun isSubmissionSettled(e: Throwable): Boolean {
         val code = (e as? HttpException)?.code() ?: return false
+        if (errorCode(e) == ARRANGEMENT_UNAVAILABLE) return true
         return code in 400..499 && code != 408 && (code != 409 || isAlreadyProcessed(e))
     }
 

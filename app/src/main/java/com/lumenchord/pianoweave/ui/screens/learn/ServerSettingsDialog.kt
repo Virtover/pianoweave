@@ -146,7 +146,7 @@ internal fun ServerSettingsDialog(
                         )
 
                         Text(
-                            text = "Select the backend server used for transcribing piano audio/video links into MIDI.",
+                            text = "Select the backend server used for turning songs into MIDI.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.7f),
                             lineHeight = 18.sp

@@ -57,13 +57,16 @@ interface PianoApi {
     ): CreateTranscriptionResponse
 
     /**
-     * Transcribes an audio or video file sent as the raw body; [filename] becomes the song's title. A retry
+     * Transcribes or arranges an audio or video file sent as the raw body; [filename] becomes the song's title. A retry
      * with the same [idempotencyKey] is answered before the server reads the file.
      */
     @POST("api/transcriptions/upload")
     suspend fun uploadTranscription(
         @Query("filename") filename: String,
         @Body file: RequestBody,
+        /** [TranscriptionMode.apiValue]; null (a transcription) keeps the request what older servers know. */
+        @Query("mode") mode: String? = null,
+        @Query("style") style: String? = null,
         @Header("Authorization") authHeader: String? = null,
         @Header("X-User-Id") userId: String? = null,
         @Header("Idempotency-Key") idempotencyKey: String? = null

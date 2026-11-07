@@ -3,8 +3,55 @@ package com.lumenchord.pianoweave.api
 import com.google.gson.annotations.SerializedName
 
 data class CreateTranscriptionRequest(
-    @SerializedName("source_url") val source_url: String
+    @SerializedName("source_url") val source_url: String,
+    /** [TranscriptionMode.apiValue]; older servers ignore it. */
+    @SerializedName("mode") val mode: String = TranscriptionMode.Transcription.apiValue,
+    /** Only sent with an arrangement; the server refuses a style on a transcription. */
+    @SerializedName("style") val style: String? = null
 )
+
+/**
+ * What the server makes of a song: a [Transcription] of the piano that is played in it, or an
+ * [Arrangement], a piano cover of the whole song (vocals and band included) written by AI.
+ */
+enum class TranscriptionMode(val apiValue: String) {
+    Transcription("transcription"),
+    Arrangement("arrangement");
+
+    /** The server's arrangement style for this mode; the app offers a single one. */
+    val style: String?
+        get() = if (this == Arrangement) ARRANGEMENT_STYLE else null
+
+    companion object {
+        fun fromApiValue(value: String?): TranscriptionMode =
+            entries.firstOrNull { it.apiValue == value } ?: Transcription
+    }
+}
+
+/** The middle of the server's three styles (level1 sparse .. level3 dense): full, yet still playable. */
+private const val ARRANGEMENT_STYLE = "level2"
+
+/**
+ * Marks an arrangement's library key. Songs are keyed by their source (a link, or upload://<job>), and an
+ * arrangement of a link is a different song from its transcription, so its key gets this fragment. As a
+ * URL fragment it keeps the key a working link that opens the same video.
+ */
+private const val ARRANGEMENT_KEY_SUFFIX = "#piano-arrangement"
+
+/** The library key of [sourceKey]'s song in [mode]. */
+fun libraryKey(sourceKey: String, mode: TranscriptionMode): String =
+    if (mode == TranscriptionMode.Arrangement && !sourceKey.isArrangementKey) sourceKey + ARRANGEMENT_KEY_SUFFIX else sourceKey
+
+/** True for a library key of an arrangement (see [libraryKey]). */
+val String.isArrangementKey: Boolean
+    get() = endsWith(ARRANGEMENT_KEY_SUFFIX)
+
+/** The source a library key was made from: the link or upload key, without the arrangement mark. */
+val String.sourceOfLibraryKey: String
+    get() = removeSuffix(ARRANGEMENT_KEY_SUFFIX)
+
+val String.libraryKeyMode: TranscriptionMode
+    get() = if (isArrangementKey) TranscriptionMode.Arrangement else TranscriptionMode.Transcription
 
 data class CreateTranscriptionResponse(
     @SerializedName("job_id") val job_id: String,
@@ -26,13 +73,18 @@ data class TranscriptionStatusResponse(
     @SerializedName("metadata") val metadata: VideoMetadata? = null,
     @SerializedName("minutes") val minutes: Int? = null,
     @SerializedName("title") val title: String? = null,
+    /** [TranscriptionMode.apiValue]; absent on servers without arrangements. */
+    @SerializedName("mode") val mode: String? = null,
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null
 )
 
 /** Why a failed job failed. The server writes its "error" for users, so it is shown as it is. */
 val TranscriptionStatusResponse.failureMessage: String
     get() {
-        val message = error?.trim()?.takeIf { it.isNotEmpty() } ?: "The server could not transcribe this."
+        val fallback = if (TranscriptionMode.fromApiValue(mode) == TranscriptionMode.Arrangement) {
+            "The server could not arrange this."
+        } else "The server could not transcribe this."
+        val message = error?.trim()?.takeIf { it.isNotEmpty() } ?: fallback
         // Nothing was wrong with the song: it can simply be sent again, at no loss
         return if (errorCode == ServerErrors.TRANSCRIPTION_INTERRUPTED) {
             "${message.trimEnd('.')}. Its minutes were given back; tap Transcribe to try again."
@@ -121,6 +173,8 @@ data class ServerInfoResponse(
     @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Float? = null,
     /** Absent on servers that cannot transcribe uploaded files. */
     @SerializedName("max_upload_size_mb") val maxUploadSizeMb: Float? = null,
+    /** Whether the server makes piano arrangements; absent (false) on servers that can't. */
+    @SerializedName("arrangement") val arrangement: Boolean? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
     @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
     @SerializedName("google_oauth_client_ids", alternate = ["google_client_ids", "oauth_client_ids", "client_ids", "google_oauth_clients"]) val googleClientIds: List<String>? = null,

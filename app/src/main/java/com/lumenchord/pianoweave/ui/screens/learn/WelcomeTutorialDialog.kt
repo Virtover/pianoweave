@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Link
@@ -60,24 +61,30 @@ private val welcomeSteps = listOf(
     WelcomeStep(
         icon = Icons.Default.Piano,
         title = "Welcome to Piano Weave",
-        body = "Turn a piano video into notes that fall onto the keys, so you can play along. It takes three simple steps.",
+        body = "Turn a song into notes that fall onto the keys, so you can play along. It takes four simple steps.",
         picture = { PianoRollPicture() }
     ),
     WelcomeStep(
         icon = Icons.Default.Link,
         title = "1. Copy a video's link",
-        body = "Find a piano video you like, for example on YouTube. Tap Share under the video, then tap Copy link.",
+        body = "Find a song you like, for example on YouTube. Tap Share under the video, then tap Copy link.",
         picture = { CopyLinkPicture() }
     ),
     WelcomeStep(
         icon = Icons.Default.AutoAwesome,
         title = "2. Paste it & tap Transcribe",
-        body = "Come back to Piano Weave. Tap the paste button in the link box, then tap Transcribe. In a few minutes, the music turns into notes.",
+        body = "Come back to Piano Weave. Tap the paste button in the link box, then tap Transcribe.",
         picture = { TranscribePicture() }
     ),
     WelcomeStep(
+        icon = Icons.AutoMirrored.Filled.QueueMusic,
+        title = "3. Transcribe or arrange",
+        body = "Piano transcription for piano videos, Piano arrangement for any other song. In a few minutes, the music turns into notes.",
+        picture = { ChooseModePicture() }
+    ),
+    WelcomeStep(
         icon = Icons.Default.PlayArrow,
-        title = "3. Play along",
+        title = "4. Play along",
         body = "When it's ready, tap Start practicing and play the falling notes on your piano. Your songs are kept in the Library tab.",
         picture = { PlayAlongPicture() }
     )

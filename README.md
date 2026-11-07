@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Learn piano from the songs you love.</b><br>
-  Piano Weave turns the piano in online videos into MIDI and lets you practice it on an interactive falling-notes piano roll.
+  Piano Weave turns songs from online videos into MIDI and lets you practice them on an interactive falling-notes piano roll.
 </p>
 
 <p align="center">
@@ -30,6 +30,7 @@
 ## Features
 
 * **AI transcription:** Turns the piano part of a video link (e.g. YouTube), an audio/video file or a microphone recording into MIDI. Vocals and other instruments are left out, so you get the piano part, not a full arrangement. Piano covers give the best results.
+* **AI piano arrangements:** Any song, arranged for piano by AI: an approximation of how it might sound on piano.
 * **Interactive piano roll:** Falling notes with A/B looping, speed control and transposition.
 * **Wait mode:** Pauses at each note until you play it. It listens to your acoustic piano through the microphone, or to a MIDI keyboard, with the rest of the song playing along.
 * **Voice commands:** Practice hands-free. Say a command on its own (play, pause, wait, loop, full screen, loop start / loop end, again, back, forward, slower, faster, normal), or a few in a row ("full screen, play"), and "undo" to take one back. For noisy rooms it can listen only to what starts with "Selah" ("Selah, full screen wait"). Recognized on the device with Vosk; the 40 MB model downloads the first time it is turned on.

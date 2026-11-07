@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.api.isArrangementKey
 import androidx.compose.animation.core.Animatable
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -116,7 +117,7 @@ fun TranscriptionSuccessCard(
                 Spacer(Modifier.height(if (isLandscape) 6.dp else 10.dp))
             }
             Text(
-                text = "Transcription ready",
+                text = if (song.videoUrl.isArrangementKey) "Arrangement ready" else "Transcription ready",
                 style = (if (isLandscape) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
                     .copy(fontWeight = FontWeight.Bold),
                 color = glory.core

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import com.lumenchord.pianoweave.api.isArrangementKey
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
@@ -223,7 +224,9 @@ internal fun PianoWeaveViewModel.updateSongDetailsImpl(context: Context, song: S
 
 internal fun PianoWeaveViewModel.exportLocalSongImpl(context: Context, song: StoredMidi) {
     launchExport(context, song.file.absolutePath, song.metadata.title) {
-        MidiExporter.exportToDownloads(context, song.metadata.title) { song.file.inputStream() }
+        // An arrangement shares its title with the transcription of the same link; the file name tells them apart
+        val fileTitle = if (song.videoUrl.isArrangementKey) "${song.metadata.title} (piano arrangement)" else song.metadata.title
+        MidiExporter.exportToDownloads(context, fileTitle) { song.file.inputStream() }
     }
 }
 

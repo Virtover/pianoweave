@@ -12,6 +12,8 @@ import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.retryWhenBusy
 import com.lumenchord.pianoweave.api.UploadFormats
 import com.lumenchord.pianoweave.api.uploadSourceKey
+import com.lumenchord.pianoweave.api.TranscriptionMode
+import com.lumenchord.pianoweave.api.libraryKey
 import com.lumenchord.pianoweave.billing.canAfford
 import com.lumenchord.pianoweave.worker.ActiveJobStore
 import com.lumenchord.pianoweave.worker.PendingSubmissionStore
@@ -212,13 +214,17 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
             status = "Uploading \"${file.name}\"... ${(fraction * 100).toInt()}%"
         }
         activeUpload = body
-        val idempotencyKey = PendingSubmissionStore.keyFor(context, "upload|$activeServerUrl|${file.uri}|${file.sizeBytes}")
+        val mode = transcriptionMode
+        val idempotencyKey = PendingSubmissionStore.keyFor(
+            context,
+            "upload|$activeServerUrl|${file.uri}|${file.sizeBytes}${submissionModeTag(mode)}"
+        )
 
         try {
             // Once the whole file is sent the server queues and bills the job, so its id must not be
             // lost to a cancellation: cancelling stops the body instead (see cancelTranscriptionImpl).
             val submitted = withContext(NonCancellable) {
-                submitUpload(context, file, body, idempotencyKey)
+                submitUpload(context, file, body, idempotencyKey, mode)
             }
             val jobId = submitted.job_id
             // The server measures the decoded audio, so this, not the estimate, is what was charged
@@ -227,7 +233,7 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
             isUploading = false
             if (body.isCancelled) return@launch // the cancel flow deletes the job
 
-            val key = uploadSourceKey(jobId)
+            val key = libraryKey(uploadSourceKey(jobId), mode)
             ActiveJobStore.save(context, jobId, key)
             enqueueTranscriptionWorker(context, jobId, key)
             status = "Job successfully queued..."
@@ -287,7 +293,8 @@ private suspend fun PianoWeaveViewModel.submitUpload(
     context: Context,
     file: SelectedMediaFile,
     body: MediaUploadBody,
-    key: String
+    key: String,
+    mode: TranscriptionMode
 ): CreateTranscriptionResponse {
     val uId = getOrCreateUserId(context)
     val serverUrl = activeServerUrl
@@ -301,6 +308,9 @@ private suspend fun PianoWeaveViewModel.submitUpload(
                 PianoApiFactory.getApi(serverUrl).uploadTranscription(
                     filename = file.name,
                     file = body,
+                    // A transcription sends no mode, so older servers get the request they know
+                    mode = mode.apiValue.takeIf { mode != TranscriptionMode.Transcription },
+                    style = mode.style,
                     authHeader = authHeader,
                     userId = if (!isBilledServer) uId else null,
                     idempotencyKey = key

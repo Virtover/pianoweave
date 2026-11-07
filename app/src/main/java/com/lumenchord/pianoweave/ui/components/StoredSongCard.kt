@@ -21,6 +21,15 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.foundation.layout.width
+import com.lumenchord.pianoweave.api.TranscriptionMode
+import com.lumenchord.pianoweave.api.isUploadSourceKey
+import com.lumenchord.pianoweave.api.libraryKeyMode
+import com.lumenchord.pianoweave.api.sourceOfLibraryKey
+import androidx.compose.material.icons.filled.Piano
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -111,14 +120,23 @@ fun StoredSongCard(
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Text(
-                        text = details ?: "MIDI file",
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(top = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // A transcription and an arrangement of one link share a title; the tag tells them apart
+                        song.madeAs?.let { mode ->
+                            SongModeTag(mode, compact = !isLandscape)
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = details ?: "MIDI file",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 ExportStatusIcon(exportState)
@@ -131,6 +149,53 @@ fun StoredSongCard(
                     onEditDetails = onEditDetails
                 )
             }
+        }
+    }
+}
+
+/**
+ * What the server made of the song, for songs it made: links, uploads and recordings. Null for imported
+ * MIDI files and cloud copies whose source is unknown, which are neither.
+ */
+internal val StoredMidi.madeAs: TranscriptionMode?
+    get() {
+        val source = videoUrl.sourceOfLibraryKey
+        val fromServer = source.startsWith("http://") || source.startsWith("https://") || source.isUploadSourceKey
+        return if (fromServer) videoUrl.libraryKeyMode else null
+    }
+
+/**
+ * Marks a song as a transcription or an arrangement. [compact] (portrait, where the details line is
+ * short) shows the icon only; the name is still read out by screen readers.
+ */
+@Composable
+internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean) {
+    val accent = MaterialTheme.colorScheme.secondary
+    val isArrangement = mode == TranscriptionMode.Arrangement
+    val label = if (isArrangement) "Arrangement" else "Transcription"
+    Row(
+        modifier = Modifier
+            .clip(PillShape)
+            .background(accent.copy(alpha = 0.16f))
+            .padding(horizontal = if (compact) 4.dp else 6.dp, vertical = if (compact) 2.dp else 1.dp)
+            .clearAndSetSemantics { contentDescription = label },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            if (isArrangement) Icons.AutoMirrored.Filled.QueueMusic else Icons.Default.Piano,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(11.dp)
+        )
+        if (!compact) {
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = label,
+                color = accent,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
         }
     }
 }

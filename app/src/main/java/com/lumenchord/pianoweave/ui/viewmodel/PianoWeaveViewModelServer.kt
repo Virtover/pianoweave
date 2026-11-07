@@ -167,6 +167,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     serverOffers = info.offers ?: emptyList()
                     resultRetentionSeconds = info.resultRetentionSeconds
                     maxUploadSizeMb = info.maxUploadSizeMb
+                    supportsArrangement = info.arrangement == true
                     maxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0
                     if (PianoApiFactory.isOfficialServer(url)) isOfficialServerBilled = isBilledServer
@@ -194,6 +195,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     if (e is CancellationException) throw e
                     billingProvider = "none"
                     maxUploadSizeMb = null
+                    supportsArrangement = false
                     if (PianoApiFactory.isServerPasswordRequired(e)) serverStatus = ServerStatus.PASSWORD_REQUIRED
                 }
             }

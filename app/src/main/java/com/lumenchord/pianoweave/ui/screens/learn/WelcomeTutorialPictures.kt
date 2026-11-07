@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ContentCopy
@@ -92,13 +94,13 @@ internal fun CopyLinkPicture() {
             }
             Column {
                 Text(
-                    "Beautiful piano cover",
+                    "Beautiful song",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
-                Text("Piano channel · 120K views", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Text("Music channel · 120K views", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 VideoAction(Icons.Default.ThumbUp, "1.2K")
@@ -190,7 +192,7 @@ internal fun TranscribePicture() {
             Icon(Icons.Default.Link, null, tint = accent, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                "Piano cover link",
+                "Video link",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 maxLines = 1,
@@ -220,7 +222,72 @@ internal fun TranscribePicture() {
     }
 }
 
-/** Step 3: the "Transcription ready" card, then the piano roll that Start practicing opens. */
+/** Step 3: the Transcribe or Arrange choice, an option and then the button ringed. */
+@Composable
+internal fun ChooseModePicture() {
+    val gold = LocalAppTheme.current.primaryColor
+    val onGold = if (LocalAppTheme.current.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
+    ScreenFrame(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Transcribe or Arrange?", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = gold, maxLines = 1)
+        TapHint(shape = RoundedCornerShape(12.dp), number = 1, fillWidth = true) {
+            ModeOptionMini(Icons.Default.Piano, "Piano transcription", "Piano videos", isSelected = true)
+        }
+        ModeOptionMini(Icons.AutoMirrored.Filled.QueueMusic, "Piano arrangement", "Any song", isSelected = false)
+        TapHint(shape = PillShape, number = 2, fillWidth = true) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+                    .background(gold, PillShape),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.AutoAwesome, null, tint = onGold, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Transcribe", color = onGold, fontSize = 13.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+/** A small copy of an option card of the choice dialog. */
+@Composable
+private fun ModeOptionMini(icon: ImageVector, title: String, bestFor: String, isSelected: Boolean) {
+    val gold = LocalAppTheme.current.primaryColor
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(if (isSelected) gold.copy(alpha = 0.12f) else Color.Transparent)
+            .border(1.dp, if (isSelected) gold.copy(alpha = 0.8f) else MaterialTheme.colorScheme.outlineVariant, shape)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconBadge(icon, tint = if (isSelected) gold else onSurface.copy(alpha = 0.75f), size = 26.dp)
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (isSelected) gold else onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(bestFor, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .background(if (isSelected) gold else Color.Transparent, CircleShape)
+                .border(1.5.dp, if (isSelected) gold else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), CircleShape)
+        )
+    }
+}
+
+/** Step 4: the "Transcription ready" card, then the piano roll that Start practicing opens. */
 @Composable
 internal fun PlayAlongPicture() {
     val accent = MaterialTheme.colorScheme.secondary
@@ -239,7 +306,7 @@ internal fun PlayAlongPicture() {
             }
             Text("Transcription ready", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = glory)
             Text(
-                "Beautiful piano cover",
+                "Beautiful song",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
