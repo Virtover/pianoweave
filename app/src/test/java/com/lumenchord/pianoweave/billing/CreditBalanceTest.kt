@@ -62,4 +62,19 @@ class CreditBalanceTest {
         assertTrue(text, "at least 1 credit" in text)
         assertTrue(text, "only have 0 credits" in text)
     }
+
+    @Test
+    fun freeCreditsPeriodReadsAsWords() {
+        assertEquals("every 30 days", freeCreditsPeriodText("30d"))
+        assertEquals("every week", freeCreditsPeriodText("7d"))
+        assertEquals("every week", freeCreditsPeriodText("1w"))
+        assertEquals("every 2 weeks", freeCreditsPeriodText("14d"))
+        assertEquals("every day", freeCreditsPeriodText("24h"))
+        assertEquals("every 12 hours", freeCreditsPeriodText("12H"))
+        assertEquals("every 90 minutes", freeCreditsPeriodText("1.5h"))
+        assertEquals(null, freeCreditsPeriodText("30"))
+        assertEquals(null, freeCreditsPeriodText("0d"))
+        assertEquals(null, freeCreditsPeriodText(null))
+        assertEquals(null, freeCreditsPeriodText("monthly"))
+    }
 }

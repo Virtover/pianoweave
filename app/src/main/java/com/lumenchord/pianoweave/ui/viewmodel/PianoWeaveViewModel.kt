@@ -121,10 +121,42 @@ class PianoWeaveViewModel : ViewModel() {
     val isBilledServer: Boolean
         get() = isUsingDefaultServer && billingProvider.equals("google_play", ignoreCase = true)
 
-    var userCredits by mutableStateOf<Int?>(null)
+    private var userCreditsState by mutableStateOf<Int?>(null)
+
+    /**
+     * The whole balance (free + purchased), as shown in the credits pill. Many server answers carry only
+     * this total, so a drop is taken from the free [freeCredits] first, the way the server spends them; the next
+     * balance download then sets the exact split.
+     */
+    var userCredits: Int?
+        get() = userCreditsState
+        internal set(value) {
+            val old = userCreditsState
+            val free = freeCredits
+            if (value == null) {
+                freeCredits = null
+            } else if (old != null && free != null && value < old) {
+                freeCredits = (free - (old - value)).coerceAtLeast(0)
+            }
+            userCreditsState = value
+        }
+
+    /** Free credits (renewed each period, spent first) left of [userCredits]; null when unknown or the server has none. */
+    var freeCredits by mutableStateOf<Int?>(null)
         internal set
 
+    /** Purchased credits, which never expire: the rest of [userCredits]. Negative while a refund is owed. */
+    val paidCredits: Int?
+        get() {
+            val total = userCredits ?: return null
+            return total - (freeCredits ?: return null)
+        }
+
     var freeMinutes by mutableIntStateOf(0)
+        internal set
+
+    /** How often free credits are renewed, as the server's setting says it ("30d"); null if it doesn't say. */
+    var freeMinutesPeriod by mutableStateOf<String?>(null)
         internal set
 
     var freeMinutesSecondsUntilNextGrant by mutableStateOf<Long?>(null)

@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import com.lumenchord.pianoweave.billing.creditsLabel
+import com.lumenchord.pianoweave.billing.freeCreditsPeriodText
 import com.lumenchord.pianoweave.billing.owedMinutes
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.theme.Moods
@@ -9,6 +10,9 @@ import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,6 +103,9 @@ internal fun ShopDialog(
         onDispose { billingManager.destroy() }
     }
 
+    // Job and purchase answers carry only the total, so the free/purchased split may be an estimate
+    LaunchedEffect(Unit) { viewModel.refreshUserBalance(context) }
+
     LaunchedEffect(isBillingConnected, viewModel.serverOffers) {
         if (!isBillingConnected) return@LaunchedEffect
         val productIds = viewModel.serverOffers.map { it.productId }
@@ -175,6 +182,10 @@ internal fun ShopDialog(
                                 modifier = Modifier.padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
+                                val fm = viewModel.freeMinutes
+                                val free = viewModel.freeCredits.takeIf { fm > 0 }
+                                val paid = viewModel.paidCredits
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -197,6 +208,16 @@ internal fun ShopDialog(
                                         )
                                         Spacer(Modifier.height(2.dp))
                                         BalanceLine(viewModel.userCredits)
+                                        if (free != null && paid != null) {
+                                            val renewal = when {
+                                                // The server waits with the renewal until a refund is paid back
+                                                paid < 0 -> "They reset once nothing is owed."
+                                                grantSec == null -> ""
+                                                grantSec <= 0 -> "They're resetting now."
+                                                else -> "They reset in ${formatRenewalTime(grantSec)}."
+                                            }
+                                            BalanceSplit(free, paid, fm, freeCreditsPeriodText(viewModel.freeMinutesPeriod), renewal)
+                                        }
                                     }
                                 }
 
@@ -206,10 +227,9 @@ internal fun ShopDialog(
                                     OwedNote(owed)
                                 }
 
-                                val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
-                                val fm = viewModel.freeMinutes
                                 val currentCredits = viewModel.userCredits
-                                if (grantSec != null && currentCredits != null && currentCredits <= fm && fm > 0) {
+                                if (free == null && grantSec != null && currentCredits != null && currentCredits <= fm && fm > 0) {
+                                    // Servers from before monthly minutes top one balance up to fm
                                     HorizontalDivider(color = ColorSlate.copy(alpha = 0.4f))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -404,6 +424,55 @@ internal fun ShopDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * "10 free · 64 purchased" under the total, kept quiet on purpose; tapping it explains the two kinds
+ * in a tooltip, so the shop stays as simple as with a single balance. The period comes from the server, never
+ * a fixed "monthly", so it can be changed there.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BalanceSplit(free: Int, paid: Int, freeMinutes: Int, every: String?, renewal: String) {
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+    val dim = MaterialTheme.colorScheme.tertiary
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+        tooltip = {
+            RichTooltip(title = { Text("Two kinds of credits") }) {
+                Text(
+                    text = "Free: $freeMinutes credits ${every ?: "renewed regularly"}, used first. Unused ones don't carry over. " +
+                        "$renewal\n\nPurchased: yours to keep, they never expire.",
+                    lineHeight = 18.sp
+                )
+            }
+        },
+        state = tooltipState
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .clip(PillShape)
+                .clickable(onClickLabel = "Explain credits") { scope.launch { tooltipState.show() } }
+                .padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "$free free · $paid purchased",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (paid < 0) Moods.Watch.light else dim
+            )
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = null,
+                tint = dim,
+                modifier = Modifier.size(14.dp)
+            )
         }
     }
 }

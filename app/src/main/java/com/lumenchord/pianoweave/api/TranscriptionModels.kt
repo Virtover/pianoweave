@@ -189,6 +189,13 @@ data class UserBalanceResponse(
     @SerializedName("user_id") val userId: String,
     /** Can be negative: a refunded purchase whose minutes were already used (see [com.lumenchord.pianoweave.billing.owedMinutes]). */
     @SerializedName("minutes") val minutes: Int,
+    /**
+     * Part of [minutes] renewed every free-minute period and spent first; unused ones expire at renewal.
+     * Null on servers from before monthly minutes, where [minutes] is a single balance.
+     */
+    @SerializedName("monthly_minutes") val monthlyMinutes: Int? = null,
+    /** Bought or given by hand, never expire; negative after a refund of used minutes. Null on older servers. */
+    @SerializedName("paid_minutes") val paidMinutes: Int? = null,
     @SerializedName("free_minutes_seconds_until_next_grant") val freeMinutesSecondsUntilNextGrant: Long? = null,
     @SerializedName("free_minutes_next_grant_at") val freeMinutesNextGrantAt: Long? = null
 )

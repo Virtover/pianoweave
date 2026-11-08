@@ -174,6 +174,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     arrangementInfoServerUrl = url
                     maxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0
+                    freeMinutesPeriod = info.freeMinutesPeriod
                     if (PianoApiFactory.isOfficialServer(url)) isOfficialServerBilled = isBilledServer
 
 
@@ -315,6 +316,8 @@ internal suspend fun PianoWeaveViewModel.loadUserBalance(context: Context): Int?
             )
         }
         userCredits = balance.minutes
+        // After the total, whose setter would otherwise take a drop out of this exact value
+        freeCredits = balance.monthlyMinutes?.takeIf { balance.paidMinutes != null }
         freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
         freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
         startBalanceTicker(context)
