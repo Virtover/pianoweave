@@ -27,6 +27,7 @@ import com.lumenchord.pianoweave.ui.components.AppThemeDialog
 import com.lumenchord.pianoweave.ui.components.settings.LinkRow
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.LoopingSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.MetronomeSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SettingsGroup
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.TranspositionSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SpeedSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.ThemeSection
@@ -93,43 +94,47 @@ internal fun SettingsDialog(
                             titleColor = colorGold
                         )
 
-                        // Ordered by how often they're changed while practicing
-                        SpeedSection(viewModel = viewModel, context = currentContext)
+                        // Groups ordered by how often they're changed while practicing; lines only between groups
+                        val groupDivider = colorSlate.copy(alpha = 0.6f)
 
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        SettingsGroup("Tempo") {
+                            SpeedSection(viewModel = viewModel, context = currentContext)
+                            MetronomeSection(viewModel = viewModel, hasBeats = hasBeats)
+                        }
 
-                        MetronomeSection(viewModel = viewModel, hasBeats = hasBeats)
+                        HorizontalDivider(color = groupDivider)
 
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        SettingsGroup("Practice") {
+                            LoopingSection(
+                                viewModel = viewModel,
+                                songDurationMs = songDurationMs,
+                                isLooping = isLooping,
+                                onLoopingChange = { isLooping = it },
+                                startText = startText,
+                                onStartTextChange = { startText = it },
+                                endText = endText,
+                                onEndTextChange = { endText = it }
+                            )
+                            TranspositionSection(viewModel = viewModel)
+                        }
 
-                        LoopingSection(
-                            viewModel = viewModel,
-                            songDurationMs = songDurationMs,
-                            isLooping = isLooping,
-                            onLoopingChange = { isLooping = it },
-                            startText = startText,
-                            onStartTextChange = { startText = it },
-                            endText = endText,
-                            onEndTextChange = { endText = it }
-                        )
+                        HorizontalDivider(color = groupDivider)
 
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        SettingsGroup("Wait mode") {
+                            WaitModeSection(viewModel = viewModel, context = currentContext)
+                        }
 
-                        TranspositionSection(viewModel = viewModel)
+                        HorizontalDivider(color = groupDivider)
 
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        SettingsGroup("Hands-free") {
+                            VoiceCommandsSection(viewModel = viewModel)
+                        }
 
-                        WaitModeSection(viewModel = viewModel, context = currentContext)
+                        HorizontalDivider(color = groupDivider)
 
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
-
-                        VoiceCommandsSection(viewModel = viewModel)
-
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
-
-                        ThemeSection(onOpenThemeDialog = { showThemeDialog = true })
-
-                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                        SettingsGroup("Appearance") {
+                            ThemeSection(onOpenThemeDialog = { showThemeDialog = true })
+                        }
 
                         // Reopens the first-time tutorial, like "How it works" in the app's settings
                         LinkRow(
@@ -153,20 +158,9 @@ internal fun SettingsDialog(
 
                         Spacer(Modifier.height(4.dp))
 
+                        // Every setting applies as it changes (the loop times as they're typed), so this only closes
                         Button(
-                            onClick = {
-                                val parsedStart = parseTimeToMs(startText)
-                                val parsedEnd = parseTimeToMs(endText)
-
-                                if (parsedStart != null) {
-                                    viewModel.loopStartMs = parsedStart.coerceIn(0L, songDurationMs)
-                                }
-                                if (parsedEnd != null) {
-                                    viewModel.loopEndMs = parsedEnd.coerceIn(0L, songDurationMs)
-                                }
-                                viewModel.isLoopingEnabled = isLooping
-                                onDismiss()
-                            },
+                            onClick = onDismiss,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(46.dp),

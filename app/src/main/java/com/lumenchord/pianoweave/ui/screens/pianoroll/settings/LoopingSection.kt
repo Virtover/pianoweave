@@ -40,8 +40,8 @@ fun LoopingSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingToggleRow(
-            title = "Loop Playback",
-            subtitle = "Repeat section during practice",
+            title = "Loop",
+            subtitle = "Repeat a section",
             checked = isLooping,
             onCheckedChange = {
                 onLoopingChange(it)

@@ -219,6 +219,11 @@ object SimpleMidiReader {
             .values
             .toList()
         val beats = mutableListOf<Beat>()
+        fun barTicks(meter: TimeSignature) =
+            meter.numerator.coerceAtLeast(1) * (division * 4L shr meter.denominatorPower.coerceIn(0, 6)).coerceAtLeast(1L)
+        // A first bar shorter than the bar after it is a pickup (the server writes one as, say, 1/4 before
+        // 2/4): its beats lead up to the first downbeat, as the end of a bar, so its start is no bar start
+        val hasPickup = meters.size >= 2 && meters[1].tick == barTicks(meters[0]) && barTicks(meters[1]) > meters[1].tick
         for ((index, meter) in meters.withIndex()) {
             val until = meters.getOrNull(index + 1)?.tick ?: (endTick + 1)
             val beatTicks = (division * 4L shr meter.denominatorPower.coerceIn(0, 6)).coerceAtLeast(1L)
@@ -226,7 +231,7 @@ object SimpleMidiReader {
             var tick = meter.tick
             var beatInBar = 0
             while (tick < until && tick <= endTick && beats.size < MAX_BEATS) {
-                beats += Beat(tempoMap.toMs(tick), isBarStart = beatInBar == 0)
+                beats += Beat(tempoMap.toMs(tick), isBarStart = beatInBar == 0 && !(hasPickup && index == 0))
                 beatInBar = (beatInBar + 1) % barBeats
                 tick += beatTicks
             }

@@ -20,7 +20,7 @@ fun TranspositionSection(viewModel: PianoWeaveViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         SettingHeader(
             title = "Transposition",
-            subtitle = "Shift every note up or down",
+            subtitle = "Shift all notes up or down",
             value = valueText,
             isDefault = offset == 0,
             accent = colorAccent,

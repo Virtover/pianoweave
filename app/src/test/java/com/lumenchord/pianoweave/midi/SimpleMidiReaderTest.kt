@@ -91,12 +91,13 @@ class SimpleMidiReaderTest {
     }
 
     @Test
-    fun pickupBarIsShortAndTheNextSignatureStartsABar() {
-        // The server writes a pickup as a short first bar: 1/4, then 3/4 from the second beat
+    fun pickupIsNoBarStartAndTheNextSignatureStartsABar() {
+        // The server writes a pickup as a short first bar: 1/4, then 3/4 from the second beat. The pickup
+        // beat leads up to the first downbeat, so it is no bar start
         val tempoTrack = intArrayOf(0x00) + timeSignature(1, 2) + intArrayOf(0x83, 0x60) + timeSignature(3, 2) + endOfTrack
         val beats = beats(tempoTrack, fiveQuarterNote)
         assertEquals(listOf(0L, 500L, 1000L, 1500L, 2000L, 2500L), beats.map { it.timeMs })
-        assertEquals(listOf(true, true, false, false, true, false), beats.map { it.isBarStart })
+        assertEquals(listOf(false, true, false, false, true, false), beats.map { it.isBarStart })
     }
 
     @Test

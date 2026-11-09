@@ -14,7 +14,7 @@ class MetronomeTest {
 
     @Test
     fun countInIsOneBarAtTheTempoAboutToPlay() {
-        assertEquals(CountIn(clicks = 3, beatMs = 400L), countInFor(grid(400L, 3, 3, 3), fromMs = 1200L))
+        assertEquals(CountIn(clicks = 3, beatMs = 400L, startBeatOfBar = 0), countInFor(grid(400L, 3, 3, 3), fromMs = 1200L))
     }
 
     @Test
@@ -49,5 +49,26 @@ class MetronomeTest {
         assertEquals(1000L, beatAtOrBefore(beats, 1499L)?.timeMs)
         assertEquals(1500L, beatAtOrBefore(beats, 1500L)?.timeMs)
         assertNull(beatAtOrBefore(beats.drop(1), 100L))
+    }
+
+    @Test
+    fun countInRunsIntoTheBarWhereItStarts() {
+        // Starting on beat 3 of 4: the clicks are beats 3, 4, 1, 2, stressed on the 1
+        val plan = countInFor(grid(500L, 4, 4, 4), fromMs = 3000L)!!
+        assertEquals(2, plan.startBeatOfBar)
+        assertEquals(listOf(2, 3, 0, 1), (0 until plan.clicks).map(plan::beatOfBar))
+        // On a bar start it's 1, 2, 3, 4
+        val onBar = countInFor(grid(500L, 4, 4, 4), fromMs = 2000L)!!
+        assertEquals(listOf(0, 1, 2, 3), (0 until onBar.clicks).map(onBar::beatOfBar))
+    }
+
+    @Test
+    fun countInFromAPickupLeadsIntoItsFirstDownbeat() {
+        // 2/4 with a one-beat pickup: from the start the count is "2, 1" and the pickup is the bar's 2
+        val beats = listOf(Beat(0L, false)) + grid(500L, 2, 2, 2).map { it.copy(timeMs = it.timeMs + 500L) }
+        val plan = countInFor(beats, fromMs = 0L)!!
+        assertEquals(2, plan.clicks)
+        assertEquals(1, plan.startBeatOfBar)
+        assertEquals(listOf(1, 0), (0 until plan.clicks).map(plan::beatOfBar))
     }
 }

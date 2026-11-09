@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.midi.MidiInputManager
+import com.lumenchord.pianoweave.ui.components.SettingLabel
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -56,11 +57,10 @@ fun SpeedSection(viewModel: PianoWeaveViewModel, context: Context) {
 @Composable
 fun WaitModeSection(viewModel: PianoWeaveViewModel, context: Context) {
     val colorAccent = LocalAppTheme.current.primaryColor
-    val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SettingToggleRow(
             title = "Strike Overlay",
-            subtitle = "Show STRIKE instruction banner in wait mode",
+            subtitle = "Show the notes to play while waiting",
             // Read straight from the view model: the banner can also be hidden from the toolbar or by swiping it away
             checked = viewModel.isStrikeOverlayEnabled,
             onCheckedChange = { viewModel.setStrikeOverlayEnabled(context, it) },
@@ -69,11 +69,9 @@ fun WaitModeSection(viewModel: PianoWeaveViewModel, context: Context) {
 
         // Only meaningful with a MIDI keyboard plugged in, so it appears with one
         if (MidiInputManager.isConnected) {
-            HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
-
             SettingToggleRow(
                 title = "Keyboard Sound",
-                subtitle = "Play your MIDI keyboard through the app. Turn off if it has its own speakers",
+                subtitle = "Play your MIDI keyboard through the app",
                 checked = viewModel.isKeyboardSoundEnabled,
                 onCheckedChange = { viewModel.setKeyboardSoundEnabled(context, it) },
                 accent = colorAccent
@@ -92,15 +90,13 @@ fun ThemeSection(onOpenThemeDialog: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
+        SettingLabel(
+            title = "Theme",
+            subtitle = appTheme.name,
             modifier = Modifier
                 .weight(1f)
-                .padding(end = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text("Theme", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text("Current: ${appTheme.name}", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
-        }
+                .padding(end = 12.dp)
+        )
 
         OutlinedButton(
             onClick = onOpenThemeDialog,

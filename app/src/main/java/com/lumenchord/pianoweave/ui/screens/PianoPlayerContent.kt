@@ -250,10 +250,12 @@ internal fun ModernPianoPlayerContent(
             val startNanos = System.nanoTime()
             fun waitUntil(nanos: Long) = ((nanos - System.nanoTime()) / 1_000_000L).coerceAtLeast(0L)
             try {
-                for (beat in 1..plan.clicks) {
-                    delay(waitUntil(startNanos + (beat - 1) * beatNanos))
-                    countInBeat = beat
-                    if (isHeard) MetronomeClick.play(isBarStart = beat == 1)
+                for (click in 0 until plan.clicks) {
+                    delay(waitUntil(startNanos + click * beatNanos))
+                    // The beat of the bar this click stands for, so the count runs into the bar where it starts
+                    val beatOfBar = plan.beatOfBar(click)
+                    countInBeat = beatOfBar + 1
+                    if (isHeard) MetronomeClick.play(isBarStart = beatOfBar == 0)
                 }
                 delay(waitUntil(startNanos + plan.clicks * beatNanos))
             } finally {
