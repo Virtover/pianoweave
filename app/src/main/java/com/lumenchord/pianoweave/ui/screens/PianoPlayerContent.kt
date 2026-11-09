@@ -635,6 +635,9 @@ internal fun ModernPianoPlayerContent(
                             .size(40.dp)
                             .clip(CircleShape)
                             .clickable(onClickLabel = "Turn off count-in", role = Role.Button) {
+                                // Stops here instead of playing on: the count was the lead-in, and after closing
+                                // it the user starts again when ready (with no count now)
+                                viewModel.isPlaying = false
                                 viewModel.setCountInEnabled(context, false)
                                 // Like hiding the note banner: a snackbar says where it's brought back, with Undo
                                 coroutineScope.launch {
