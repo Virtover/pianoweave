@@ -529,6 +529,9 @@ internal fun ModernPianoPlayerContent(
         }
     }
 
+    // Taller with the bars hidden; the count-in also uses it to sit in the middle of notes and keys together
+    val keyboardHeight = if (isUiHidden) 100.dp else 70.dp
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -603,7 +606,11 @@ internal fun ModernPianoPlayerContent(
             // Qualified: inside the screen's Column, the bare name resolves to the Column-scoped overload
             androidx.compose.animation.AnimatedVisibility(
                 visible = countInBeat > 0,
-                modifier = Modifier.align(Alignment.Center),
+                // With the bars shown, nudged down toward the keyboard below the notes; in full screen, in the
+                // middle of the notes
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = if (isUiHidden) 0.dp else keyboardHeight * 0.33f),
                 enter = fadeIn(tween(150)),
                 exit = fadeOut(tween(200))
             ) {
@@ -629,11 +636,19 @@ internal fun ModernPianoPlayerContent(
                             .clip(CircleShape)
                             .clickable(onClickLabel = "Turn off count-in", role = Role.Button) {
                                 viewModel.setCountInEnabled(context, false)
-                                voiceController.showNote(
-                                    if (viewModel.isVoiceCommandsEnabled) "Count-in off · say “count” or use Settings to turn it back on"
-                                    else "Count-in off · turn it back on in Settings",
-                                    Icons.Default.MusicNote
-                                )
+                                // Like hiding the note banner: a snackbar says where it's brought back, with Undo
+                                coroutineScope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = if (viewModel.isVoiceCommandsEnabled) "Count-in turned off. Bring it back from Settings or say “count”."
+                                        else "Count-in turned off. Bring it back from Settings.",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.setCountInEnabled(context, true)
+                                    }
+                                }
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -748,7 +763,6 @@ internal fun ModernPianoPlayerContent(
             )
         }
 
-        val keyboardHeight = if (isUiHidden) 100.dp else 70.dp
 
         Box(
             modifier = Modifier
