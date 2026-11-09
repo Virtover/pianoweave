@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.Icons
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,11 +14,12 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-/** What a voice command just did, shown briefly over the falling notes. */
+/** What a voice command (or another quick control, with its own [icon]) just did, shown briefly over the falling notes. */
 internal data class VoiceFeedback(
     val command: VoiceCommand,
     val text: String,
     val canUndo: Boolean,
+    val icon: ImageVector = Icons.Default.Mic,
     val id: Long = System.nanoTime()
 )
 
@@ -95,6 +99,11 @@ internal class VoiceCommandController(
     }
 
     /** Shows what was heard when it wasn't a command (debug builds, to tune recognition). */
+    /** A note from a control that isn't spoken (holding the speed button), in the same place as command feedback. */
+    fun showNote(text: String, icon: ImageVector) {
+        feedback = VoiceFeedback(VoiceCommand.UNDO, text, canUndo = false, icon = icon)
+    }
+
     fun showUnmatched(heard: String) {
         feedback = VoiceFeedback(VoiceCommand.UNDO, "Not a command: $heard", canUndo = false)
     }

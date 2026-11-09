@@ -263,7 +263,7 @@ internal fun VoiceFeedbackChip(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Mic, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+                Icon(info.icon, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
                 Text(info.text, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 if (info.canUndo) {
                     Icon(

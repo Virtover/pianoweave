@@ -66,6 +66,16 @@ internal fun PianoWeaveViewModel.setKeyboardSoundEnabledImpl(context: Context, e
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_KEYBOARD_SOUND_ENABLED, enabled).apply()
 }
 
+internal fun PianoWeaveViewModel.setMetronomeEnabledImpl(context: Context, enabled: Boolean) {
+    isMetronomeEnabled = enabled
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_METRONOME_ENABLED, enabled).apply()
+}
+
+internal fun PianoWeaveViewModel.setCountInEnabledImpl(context: Context, enabled: Boolean) {
+    isCountInEnabled = enabled
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_COUNT_IN_ENABLED, enabled).apply()
+}
+
 internal fun PianoWeaveViewModel.openPracticeSessionImpl(context: Context, song: StoredMidi) {
     if (lastPlayedSongPath != song.file.absolutePath) {
         playheadMs = 0L

@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.Manifest
 import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.SubtitlesOff
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
@@ -139,7 +142,8 @@ internal fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
 internal fun ModernToolbar(
     viewModel: PianoWeaveViewModel,
     onBack: () -> Unit,
-    onSetClick: () -> Unit
+    onSetClick: () -> Unit,
+    metronome: SpeedChipMetronome
 ) {
     val appTheme = LocalAppTheme.current
     val ColorGold = appTheme.primaryColor
@@ -202,13 +206,45 @@ internal fun ModernToolbar(
         ) {
             SpeedChip(
                 speed = viewModel.speedMultiplier,
-                onSelect = { viewModel.selectPlaybackSpeed(current, it) }
+                onSelect = { viewModel.selectPlaybackSpeed(current, it) },
+                metronome = metronome
             )
+            if (metronome.isOn) {
+                // Shown only while it's on, beating with it, so it's clear what's clicking and how to stop it
+                RollButton(
+                    isOn = true,
+                    role = Role.Switch,
+                    onClickLabel = "Turn off metronome",
+                    horizontalPadding = if (isPortrait) 0.dp else 14.dp,
+                    onClick = metronome.onToggle
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = if (isPortrait) "Metronome" else null,
+                        modifier = Modifier
+                            .size(19.dp)
+                            .graphicsLayer { alpha = 0.55f + 0.45f * metronome.pulse() }
+                    )
+                    if (!isPortrait) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Metronome",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
+            }
+            // In landscape it's labelled, unless the metronome's labelled button is beside it: then both
+            // labels crowd the bar, and wait mode (which turns the metronome off) keeps just its icon
+            val showWaitLabel = !isPortrait && !metronome.isOn
             RollButton(
                 isOn = viewModel.isWaitModeEnabled,
                 role = Role.Switch,
                 onClickLabel = if (viewModel.isWaitModeEnabled) "Turn off wait mode" else "Turn on wait mode",
-                horizontalPadding = if (isPortrait) 0.dp else 14.dp,
+                horizontalPadding = if (showWaitLabel) 14.dp else 0.dp,
                 onClick = {
                         if (viewModel.isWaitModeEnabled) {
                             AcousticNoteDetector.stop()
@@ -230,10 +266,10 @@ internal fun ModernToolbar(
             ) {
                 Icon(
                     imageVector = Icons.Default.Timer,
-                    contentDescription = if (isPortrait) "Wait mode" else null,
+                    contentDescription = if (showWaitLabel) null else "Wait mode",
                     modifier = Modifier.size(19.dp)
                 )
-                if (!isPortrait) {
+                if (showWaitLabel) {
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = "Wait mode",
@@ -280,18 +316,37 @@ internal fun ModernToolbar(
 private fun speedLabel(speed: Float): String =
     if (speed == speed.toInt().toFloat()) "${speed.toInt()}x" else "${speed}x"
 
-/** Current speed; tapping opens the list of speeds. Highlighted when not playing at normal speed. */
+/**
+ * The metronome in the toolbar: holding the speed button calls [onToggle], and while [isOn] a metronome
+ * button beside it pulses with each beat ([pulse], 0 to 1, read only when drawing) and turns it off.
+ */
+internal class SpeedChipMetronome(
+    val isOn: Boolean,
+    val onToggle: () -> Unit,
+    val pulse: () -> Float
+)
+
+/**
+ * Current speed; tapping opens the list of speeds, holding turns the metronome on or off. Highlighted when
+ * not playing at normal speed.
+ */
 @Composable
-private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit) {
+private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit, metronome: SpeedChipMetronome) {
     val colorGold = LocalAppTheme.current.primaryColor
     val isNormal = speed == 1.0f
     var expanded by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
 
     Box {
         RollButton(
             isOn = !isNormal,
             onClick = { expanded = true },
-            onClickLabel = "Change playback speed"
+            onClickLabel = "Change playback speed",
+            onLongClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                metronome.onToggle()
+            },
+            onLongClickLabel = if (metronome.isOn) "Turn off metronome" else "Turn on metronome"
         ) {
             Text(
                 text = speedLabel(speed),
@@ -329,6 +384,12 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit) {
                     }
                 )
             }
+            Text(
+                text = "Hold the speed button for the metronome",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 11.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
         }
     }
 }

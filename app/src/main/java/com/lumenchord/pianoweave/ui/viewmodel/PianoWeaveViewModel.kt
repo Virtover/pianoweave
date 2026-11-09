@@ -74,6 +74,10 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
     var isKeyboardSoundEnabled by mutableStateOf(true)
         internal set
+    var isMetronomeEnabled by mutableStateOf(false)
+        internal set
+    var isCountInEnabled by mutableStateOf(false)
+        internal set
 
     var isLoopingEnabled by mutableStateOf(false)
     var loopStartMs by mutableLongStateOf(0L)
@@ -410,6 +414,8 @@ class PianoWeaveViewModel : ViewModel() {
     fun selectPlaybackSpeed(context: Context, speed: Float) = selectPlaybackSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
     fun setKeyboardSoundEnabled(context: Context, enabled: Boolean) = setKeyboardSoundEnabledImpl(context, enabled)
+    fun setMetronomeEnabled(context: Context, enabled: Boolean) = setMetronomeEnabledImpl(context, enabled)
+    fun setCountInEnabled(context: Context, enabled: Boolean) = setCountInEnabledImpl(context, enabled)
     fun setVoiceCommandsEnabled(context: Context, enabled: Boolean) = setVoiceCommandsEnabledImpl(context, enabled)
     fun downloadVoiceModel(context: Context) = downloadVoiceModelImpl(context)
     fun setVoiceListeningMode(context: Context, mode: VoiceListeningMode) = setVoiceListeningModeImpl(context, mode)

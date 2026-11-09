@@ -70,7 +70,7 @@ private val tutorialSteps = listOf(
     TutorialStep(
         icon = Icons.Default.Tune,
         title = "Make it yours",
-        body = "Change the speed from the toolbar. Loop a section, transpose, or tweak the visuals in settings."
+        body = "Change the speed from the toolbar, or hold it to turn the metronome on and off. Loop a section, transpose, or tweak the visuals in settings."
     )
 )
 

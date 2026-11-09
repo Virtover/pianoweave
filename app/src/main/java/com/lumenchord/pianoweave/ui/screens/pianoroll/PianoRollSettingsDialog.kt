@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -22,9 +24,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.ui.components.AppThemeDialog
+import com.lumenchord.pianoweave.ui.components.settings.LinkRow
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.LoopingSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.MetronomeSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.TranspositionSection
-import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.VisualizerSettingsSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SpeedSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.ThemeSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.WaitModeSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.VoiceCommandsSection
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -33,6 +39,8 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 internal fun SettingsDialog(
     viewModel: PianoWeaveViewModel,
     songDurationMs: Long,
+    hasBeats: Boolean,
+    onOpenTutorial: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val currentContext = LocalContext.current
@@ -85,12 +93,15 @@ internal fun SettingsDialog(
                             titleColor = colorGold
                         )
 
-                        // Transposition Section
-                        TranspositionSection(viewModel = viewModel)
+                        // Ordered by how often they're changed while practicing
+                        SpeedSection(viewModel = viewModel, context = currentContext)
 
                         HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
-                        // Loop Section
+                        MetronomeSection(viewModel = viewModel, hasBeats = hasBeats)
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
                         LoopingSection(
                             viewModel = viewModel,
                             songDurationMs = songDurationMs,
@@ -104,16 +115,31 @@ internal fun SettingsDialog(
 
                         HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
-                        // Visualizer & Audio Settings
-                        VisualizerSettingsSection(
-                            viewModel = viewModel,
-                            context = currentContext,
-                            onOpenThemeDialog = { showThemeDialog = true }
-                        )
+                        TranspositionSection(viewModel = viewModel)
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                        WaitModeSection(viewModel = viewModel, context = currentContext)
 
                         HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
                         VoiceCommandsSection(viewModel = viewModel)
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                        ThemeSection(onOpenThemeDialog = { showThemeDialog = true })
+
+                        HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                        // Reopens the first-time tutorial, like "How it works" in the app's settings
+                        LinkRow(
+                            icon = Icons.Default.AutoStories,
+                            title = "How it works",
+                            subtitle = "The piano roll in four steps",
+                            previewTheme = appTheme,
+                            onClick = onOpenTutorial,
+                            trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+                        )
 
                         if (showThemeDialog) {
                             AppThemeDialog(

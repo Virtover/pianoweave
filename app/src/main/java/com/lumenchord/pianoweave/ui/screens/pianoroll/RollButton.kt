@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.lerp
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -46,6 +46,8 @@ internal fun RollButton(
     modifier: Modifier = Modifier,
     isOn: Boolean = false,
     onClickLabel: String? = null,
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
     role: Role = Role.Button,
     size: Dp = 40.dp,
     shape: Shape = PillShape,
@@ -70,11 +72,13 @@ internal fun RollButton(
             .background(lerp(ColorSurface.copy(alpha = 0.8f), accent.copy(alpha = 0.20f), on))
             .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f * on), Color.Transparent)))
             .border(1.dp, lerp(Color.White.copy(alpha = 0.12f), accent.copy(alpha = 0.75f), on), shape)
-            .clickable(
+            .combinedClickable(
                 interactionSource = interaction,
                 indication = ripple(),
                 onClickLabel = onClickLabel,
                 role = role,
+                onLongClickLabel = onLongClickLabel,
+                onLongClick = onLongClick,
                 onClick = onClick
             )
             .padding(horizontal = horizontalPadding),

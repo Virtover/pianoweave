@@ -106,8 +106,9 @@ fun AboutSettingsSection(
     }
 }
 
+/** A tappable row with an icon, a title and a one-line subtitle, leading somewhere else (in or out of the app). */
 @Composable
-private fun LinkRow(
+internal fun LinkRow(
     icon: ImageVector,
     title: String,
     subtitle: String,

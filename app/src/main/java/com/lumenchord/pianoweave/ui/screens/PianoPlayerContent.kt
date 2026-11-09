@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import androidx.compose.material.icons.filled.MusicNote
 import android.Manifest
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -30,11 +31,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lumenchord.pianoweave.ui.theme.DisplayFontFamily
+import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
+import com.lumenchord.pianoweave.audio.MetronomeClick
 import com.lumenchord.pianoweave.audio.PianoPlayer
 import com.lumenchord.pianoweave.audio.VoiceCommandRecognizer
 import com.lumenchord.pianoweave.audio.VoiceModelStore
@@ -82,6 +88,11 @@ internal fun ModernPianoPlayerContent(
     }
 
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
+    // The beat a count-in is on (1, 2, ...), shown over the stage; 0 when not counting in
+    var countInBeat by remember { mutableIntStateOf(0) }
+    // Whether playback was already running when the playback loop restarts (speed or wait mode changed):
+    // only a fresh press of play counts in
+    val playRun = remember { PlayRun() }
     var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
     var lastCompletedWaitOnsetMs by remember { mutableLongStateOf(-1L) }
     val waitGate = remember { WaitGate() }
@@ -217,12 +228,44 @@ internal fun ModernPianoPlayerContent(
     }
 
     LaunchedEffect(viewModel.isPlaying, viewModel.speedMultiplier, viewModel.isWaitModeEnabled, noteEvents) {
-        if (!viewModel.isPlaying) return@LaunchedEffect
+        if (!viewModel.isPlaying) {
+            playRun.isRunning = false
+            return@LaunchedEffect
+        }
+        val isFreshStart = !playRun.isRunning
+        playRun.isRunning = true
+
+        // The metronome follows the song's beats; wait mode stops at every chord, so it has none
+        val hasMetronome = beats.isNotEmpty() && !viewModel.isWaitModeEnabled
+        // One bar counted in before playing from [fromMs]. With the metronome on it's heard, and starts from
+        // the beat at (or just before) [fromMs], moving the playhead back to it, so the clicks lead straight
+        // into a beat; with it off, it's only counted on screen and playback starts where it was
+        suspend fun countIn(fromMs: Long) {
+            if (!hasMetronome || !viewModel.isCountInEnabled) return
+            val isHeard = viewModel.isMetronomeEnabled
+            val startMs = if (isHeard) beatAtOrBefore(beats, fromMs)?.timeMs ?: fromMs else fromMs
+            viewModel.playheadMs = startMs
+            val plan = countInFor(beats, startMs) ?: return
+            val beatNanos = (plan.beatMs * 1_000_000.0 / viewModel.speedMultiplier).toLong()
+            val startNanos = System.nanoTime()
+            fun waitUntil(nanos: Long) = ((nanos - System.nanoTime()) / 1_000_000L).coerceAtLeast(0L)
+            try {
+                for (beat in 1..plan.clicks) {
+                    delay(waitUntil(startNanos + (beat - 1) * beatNanos))
+                    countInBeat = beat
+                    if (isHeard) MetronomeClick.play(isBarStart = beat == 1)
+                }
+                delay(waitUntil(startNanos + plan.clicks * beatNanos))
+            } finally {
+                countInBeat = 0
+            }
+        }
 
         // Play at the end starts the song over; otherwise it stopped again at once and seemed broken
         if (!(viewModel.isLoopingEnabled && viewModel.loopEndMs > viewModel.loopStartMs) && viewModel.playheadMs >= songDurationMs) {
             viewModel.playheadMs = 0L
         }
+        if (isFreshStart) countIn(viewModel.playheadMs)
 
         // Pitches the song itself is sounding, so each gets its note off once no note of it is under the
         // playhead any more (ended, or jumped past by wait mode) and the sustain pedal is up
@@ -248,6 +291,8 @@ internal fun ModernPianoPlayerContent(
         }
 
         lastTriggeredHeadMs = viewModel.playheadMs
+        // Just before the playhead, so a beat right on it clicks too
+        var lastClickHeadMs = viewModel.playheadMs - 1
         var lastTime = System.nanoTime()
 
         while (viewModel.isPlaying) {
@@ -327,6 +372,11 @@ internal fun ModernPianoPlayerContent(
                 triggered.forEach(::songNoteOn)
             }
             lastTriggeredHeadMs = next
+            // Like the notes above: a jump (seek, drag) skips the beats in between instead of clicking them all
+            if (hasMetronome && viewModel.isMetronomeEnabled && next - lastClickHeadMs in 0L..500L) {
+                beatsBetween(beats, lastClickHeadMs, next).lastOrNull()?.let { MetronomeClick.play(it.isBarStart) }
+            }
+            lastClickHeadMs = next
 
             // A loop ending at or before its start (set that way in the loop settings) can't play: it
             // jumped back every frame, restarting its notes, so it counts as no loop
@@ -336,7 +386,13 @@ internal fun ModernPianoPlayerContent(
                 lastTriggeredHeadMs = viewModel.loopStartMs
                 PianoPlayer.stopAllNotes()
                 songSoundingPitches.clear()
-                val loopNotes = noteEvents.filter { viewModel.loopStartMs >= it.startMs && viewModel.loopStartMs < (it.startMs + it.durationMs) }
+                countIn(viewModel.loopStartMs)
+                // The count-in may have moved it back to a beat
+                val restartMs = viewModel.playheadMs
+                lastTriggeredHeadMs = restartMs
+                lastClickHeadMs = restartMs - 1
+                lastTime = System.nanoTime()
+                val loopNotes = noteEvents.filter { restartMs >= it.startMs && restartMs < (it.startMs + it.durationMs) }
                 if (isSongSoundOn) loopNotes.forEach(::songNoteOn)
             } else if (!isLooping && next >= songDurationMs) {
                 viewModel.playheadMs = songDurationMs
@@ -383,6 +439,15 @@ internal fun ModernPianoPlayerContent(
         VoiceCommandController(viewModel, isFullscreen = { isUiHidden }, setFullscreen = { isUiHidden = it })
     }
     val isVoiceActive = viewModel.isVoiceCommandsEnabled && viewModel.voiceModelState == VoiceModelState.READY
+
+    // Wait mode stops at every chord, so a steady click can't go with it (and the mic would hear it):
+    // turning wait mode on, however it's done, turns the metronome off and says so
+    LaunchedEffect(viewModel.isWaitModeEnabled) {
+        if (viewModel.isWaitModeEnabled && viewModel.isMetronomeEnabled) {
+            viewModel.setMetronomeEnabled(context, false)
+            if (beats.isNotEmpty()) voiceController.showNote("Metronome off for wait mode", Icons.Default.MusicNote)
+        }
+    }
     DisposableEffect(lifecycleOwner, isVoiceActive) {
         if (!isVoiceActive) return@DisposableEffect onDispose { }
         val modelDir = VoiceModelStore.modelDir(context)
@@ -501,6 +566,17 @@ internal fun ModernPianoPlayerContent(
                 satisfiedPitches = emptySet()
             )
 
+            if (countInBeat > 0) {
+                Text(
+                    text = countInBeat.toString(),
+                    modifier = Modifier.align(Alignment.Center),
+                    color = LocalAppTheme.current.primaryColor.copy(alpha = 0.85f),
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 72.sp
+                )
+            }
+
             if (!isUiHidden) {
                 ModernToolbar(
                     viewModel = viewModel,
@@ -508,7 +584,32 @@ internal fun ModernPianoPlayerContent(
                     onSetClick = {
                         viewModel.isPlaying = false
                         showSettingsDialog = true
-                    }
+                    },
+                    metronome = SpeedChipMetronome(
+                        isOn = beats.isNotEmpty() && viewModel.isMetronomeEnabled,
+                        onToggle = {
+                            when {
+                                beats.isEmpty() ->
+                                    voiceController.showNote("No beat information for this piece", Icons.Default.MusicNote)
+                                viewModel.isWaitModeEnabled && !viewModel.isMetronomeEnabled ->
+                                    voiceController.showNote("No metronome in wait mode · turn wait mode off first", Icons.Default.MusicNote)
+                                else -> {
+                                    val on = !viewModel.isMetronomeEnabled
+                                    viewModel.setMetronomeEnabled(context, on)
+                                    voiceController.showNote(
+                                        if (on) "Metronome on · tap ♪ to turn off" else "Metronome off",
+                                        Icons.Default.MusicNote
+                                    )
+                                }
+                            }
+                        },
+                        pulse = {
+                            // Bright on each beat, fading over 200 ms of real time; dim while paused
+                            val beat = beatAtOrBefore(beats, viewModel.playheadMs)
+                            if (beat == null || !viewModel.isPlaying) 0f
+                            else (1f - (viewModel.playheadMs - beat.timeMs) / viewModel.speedMultiplier / 200f).coerceIn(0f, 1f)
+                        }
+                    )
                 )
             }
 
@@ -635,6 +736,11 @@ internal fun ModernPianoPlayerContent(
         SettingsDialog(
             viewModel = viewModel,
             songDurationMs = songDurationMs,
+            hasBeats = beats.isNotEmpty(),
+            onOpenTutorial = {
+                showSettingsDialog = false
+                showTutorial = true
+            },
             onDismiss = { showSettingsDialog = false }
         )
     }
@@ -718,4 +824,9 @@ private fun DraggableVisibilityButton(
             modifier = Modifier.size(20.dp)
         )
     }
+}
+
+/** See `playRun` in [ModernPianoPlayerContent]. */
+private class PlayRun {
+    var isRunning = false
 }

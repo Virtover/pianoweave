@@ -84,7 +84,17 @@ object PianoPlayer : AutoCloseable {
                     return
                 }
 
+                // The metronome's woodblocks, on the drum channel; without them the piano still plays
+                try {
+                    if (loadSoundFont(MetronomeClick.soundFontFile(context).absolutePath) < 0) {
+                        Log.w(TAG, "Failed to load the metronome SoundFont")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to prepare the metronome SoundFont", e)
+                }
+
                 programChange(CHANNEL, GRAND_PIANO)
+                programChange(MetronomeClick.CHANNEL, 0)
                 setGain(targetGain)
                 currentGain = targetGain
 
@@ -199,6 +209,19 @@ object PianoPlayer : AutoCloseable {
             Log.e(TAG, "Error playing noteOn($pitch)", e)
             player = null
             isInitialized.set(false)
+        }
+    }
+
+    /** A metronome stroke on the drum channel; it rings out by itself, so it needs no note off. */
+    @Synchronized
+    fun click(key: Int, velocity: Int) {
+        if (player == null || !isInitialized.get()) {
+            appContext?.let { initialize(it) }
+        }
+        try {
+            player?.noteOn(MetronomeClick.CHANNEL, key, velocity.coerceIn(1, 127))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error playing click($key)", e)
         }
     }
 
