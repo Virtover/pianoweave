@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
@@ -636,18 +637,20 @@ internal fun ModernPianoPlayerContent(
                             },
                         contentAlignment = Alignment.Center
                     ) {
+                        // Faded as a whole, so it's there when looked for but the count stays the focus
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(22.dp)
+                                .graphicsLayer { alpha = 0.55f }
                                 .background(ColorSurface.copy(alpha = 0.8f), CircleShape)
-                                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape),
+                                .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "Turn off count-in",
                                 tint = accent,
-                                modifier = Modifier.size(13.dp)
+                                modifier = Modifier.size(12.dp)
                             )
                         }
                     }
