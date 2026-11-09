@@ -140,6 +140,7 @@ class VoiceCommandsTest {
         assertEquals(listOf(VoiceCommand.PLAY), VoiceCommand.parse(words("continue")))
         assertEquals(listOf(VoiceCommand.FORWARD), VoiceCommand.parse(words("ahead")))
         assertEquals(listOf(VoiceCommand.NORMAL), VoiceCommand.parse(words("normal")))
+        assertEquals(listOf(VoiceCommand.METRONOME), VoiceCommand.parse(words("metronome")))
         assertEquals(listOf(VoiceCommand.UNDO), VoiceCommand.parse(words("undo")))
         assertEquals(listOf(VoiceCommand.FULLSCREEN), VoiceCommand.parse(words("full", "screen")))
         assertEquals(listOf(VoiceCommand.FULLSCREEN), VoiceCommand.parse(words("screen")))

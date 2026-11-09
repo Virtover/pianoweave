@@ -56,6 +56,7 @@ private val COMMAND_GUIDE = listOf(
     "forward · ahead" to "Forward 5 seconds",
     "slower · faster" to "Change speed",
     "normal" to "Normal speed",
+    "metronome" to "Metronome on / off",
     "undo" to "Take back the last command"
 )
 

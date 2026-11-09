@@ -33,7 +33,9 @@ internal data class VoiceFeedback(
 internal class VoiceCommandController(
     private val viewModel: PianoWeaveViewModel,
     private val isFullscreen: () -> Boolean,
-    private val setFullscreen: (Boolean) -> Unit
+    private val setFullscreen: (Boolean) -> Unit,
+    /** Whether the song has beats; without them there's no metronome to turn on. */
+    private val hasBeats: () -> Boolean
 ) {
     companion object {
         const val UNDO_WINDOW_MS = 4000L
@@ -49,6 +51,7 @@ internal class VoiceCommandController(
         val loopStartMs: Long,
         val loopEndMs: Long,
         val speed: Float,
+        val isMetronomeEnabled: Boolean,
         val isFullscreen: Boolean,
         val markMs: Long?,
         val restoresPlayhead: Boolean,
@@ -98,12 +101,12 @@ internal class VoiceCommandController(
         feedback = VoiceFeedback(VoiceCommand.UNDO, "Selah · listening…", canUndo = false)
     }
 
-    /** Shows what was heard when it wasn't a command (debug builds, to tune recognition). */
     /** A note from a control that isn't spoken (holding the speed button), in the same place as command feedback. */
     fun showNote(text: String, icon: ImageVector) {
         feedback = VoiceFeedback(VoiceCommand.UNDO, text, canUndo = false, icon = icon)
     }
 
+    /** Shows what was heard when it wasn't a command (debug builds, to tune recognition). */
     fun showUnmatched(heard: String) {
         feedback = VoiceFeedback(VoiceCommand.UNDO, "Not a command: $heard", canUndo = false)
     }
@@ -189,6 +192,16 @@ internal class VoiceCommandController(
                 viewModel.selectPlaybackSpeed(context, 1.0f)
                 "Normal speed"
             }
+            VoiceCommand.METRONOME -> {
+                val on = !viewModel.isMetronomeEnabled
+                when {
+                    !hasBeats() -> return Step("No beat information for this piece", changed = false)
+                    // Wait mode stops at every chord, so it has no metronome (see PianoPlayerContent)
+                    on && viewModel.isWaitModeEnabled -> return Step("No metronome in wait mode", changed = false)
+                }
+                viewModel.setMetronomeEnabled(context, on)
+                if (on) "Metronome on" else "Metronome off"
+            }
             VoiceCommand.UNDO -> return null
         }
         return Step(text, jumped = jumped)
@@ -206,6 +219,8 @@ internal class VoiceCommandController(
         viewModel.loopStartMs = last.loopStartMs
         viewModel.loopEndMs = last.loopEndMs
         if (viewModel.speedMultiplier != last.speed) viewModel.selectPlaybackSpeed(context, last.speed)
+        // Also brings back a metronome that "wait" turned off
+        if (viewModel.isMetronomeEnabled != last.isMetronomeEnabled) viewModel.setMetronomeEnabled(context, last.isMetronomeEnabled)
         setFullscreen(last.isFullscreen)
         markMs = last.markMs
         // Only a jump is undone in time; undoing "loop" must not also rewind the seconds played since
@@ -222,6 +237,7 @@ internal class VoiceCommandController(
         loopStartMs = viewModel.loopStartMs,
         loopEndMs = viewModel.loopEndMs,
         speed = viewModel.speedMultiplier,
+        isMetronomeEnabled = viewModel.isMetronomeEnabled,
         isFullscreen = isFullscreen(),
         markMs = markMs,
         restoresPlayhead = restoresPlayhead

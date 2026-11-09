@@ -43,6 +43,8 @@ enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
     SLOWER(listOf("slower"), 0.7f),
     FASTER(listOf("faster"), 0.75f),
     NORMAL(listOf("normal"), 0.7f),
+    // Long, and like no other command, so it needs no more than the harmless ones
+    METRONOME(listOf("metronome"), 0.7f),
     UNDO(listOf("undo"), 0.7f);
 
     companion object {

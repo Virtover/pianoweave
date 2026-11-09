@@ -436,9 +436,16 @@ internal fun ModernPianoPlayerContent(
         isUiHidden = false
     }
 
+    // The controller outlives a change of song's beats (it's remembered once), so it reads the latest
+    val currentBeats by rememberUpdatedState(beats)
     // Voice commands listen while the screen is in the foreground (the recognizer frees its model on pause)
     val voiceController = remember {
-        VoiceCommandController(viewModel, isFullscreen = { isUiHidden }, setFullscreen = { isUiHidden = it })
+        VoiceCommandController(
+            viewModel,
+            isFullscreen = { isUiHidden },
+            setFullscreen = { isUiHidden = it },
+            hasBeats = { currentBeats.isNotEmpty() }
+        )
     }
     val isVoiceActive = viewModel.isVoiceCommandsEnabled && viewModel.voiceModelState == VoiceModelState.READY
 
