@@ -660,8 +660,8 @@ internal fun ModernPianoPlayerContent(
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Turn off count-in",
-                            tint = Color.White.copy(alpha = 0.35f),
-                            modifier = Modifier.size(14.dp)
+                            tint = Color.White.copy(alpha = 0.22f),
+                            modifier = Modifier.size(12.dp)
                         )
                     }
                 }
