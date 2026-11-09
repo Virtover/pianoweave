@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
@@ -580,22 +581,35 @@ internal fun VoiceCommandsHelpDialog(viewModel: PianoWeaveViewModel, onDismiss: 
                         onClose = onDismiss,
                         titleColor = accent
                     )
-                    Column(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = when {
-                                !viewModel.isVoiceCommandsEnabled -> "Voice commands are off. Tap the mic to turn them on, then say:"
-                                mode == VoiceListeningMode.SELAH -> "Say “Selah”, then the command:"
-                                else -> "Say a command on its own, with a short pause around it:"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        VoiceCommandGuide(mode)
+                    val scroll = rememberScrollState()
+                    // On a phone the list doesn't fit, and its first rows looked like all of it: while there's
+                    // more below, the list fades out at the bottom, so it reads as going on
+                    Box(modifier = Modifier.weight(1f, fill = false)) {
+                        Column(
+                            modifier = Modifier.verticalScroll(scroll),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = when {
+                                    !viewModel.isVoiceCommandsEnabled -> "Voice commands are off. Tap the mic to turn them on, then say:"
+                                    mode == VoiceListeningMode.SELAH -> "Say “Selah”, then the command:"
+                                    else -> "Say a command on its own, with a short pause around it:"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            VoiceCommandGuide(mode)
+                        }
+                        if (scroll.canScrollForward) {
+                            val surface = MaterialTheme.colorScheme.surface
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .background(Brush.verticalGradient(listOf(surface.copy(alpha = 0f), surface)))
+                            )
+                        }
                     }
                     Button(
                         onClick = onDismiss,

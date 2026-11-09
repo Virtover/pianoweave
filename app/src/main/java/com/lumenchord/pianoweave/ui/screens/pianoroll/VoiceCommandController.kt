@@ -205,11 +205,9 @@ internal class VoiceCommandController(
             }
             VoiceCommand.COUNT_IN -> {
                 val on = !viewModel.isCountInEnabled
-                when {
-                    !hasBeats() -> return Step("No beat information for this piece", changed = false)
-                    // Wait mode starts at each chord on its own, so there's nothing to count into
-                    on && viewModel.isWaitModeEnabled -> return Step("No count-in in wait mode", changed = false)
-                }
+                // Wait mode starts at each chord on its own, so there's nothing to count into. Without beats
+                // it still counts, on screen
+                if (on && viewModel.isWaitModeEnabled) return Step("No count-in in wait mode", changed = false)
                 viewModel.setCountInEnabled(context, on)
                 if (on) "Count-in on" else "Count-in off"
             }

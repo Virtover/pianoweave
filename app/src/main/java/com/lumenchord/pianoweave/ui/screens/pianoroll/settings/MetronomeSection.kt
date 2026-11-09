@@ -12,9 +12,10 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
 /**
- * The click and count-in. Both follow the song's own beats ([hasBeats]) and play along steadily; without
- * beats, or in wait mode, the switches stay greyed out and say why. Count-in sits indented under the
- * metronome, as part of it, though it also works alone (counted on screen only).
+ * The click and count-in. The metronome follows the song's own beats ([hasBeats]); without them, or in
+ * wait mode, it stays greyed out and says why. Count-in works in any song outside wait mode: with the
+ * metronome on it's one bar of clicks, so it sits indented under it as part of it; otherwise it's a
+ * 3-second countdown on screen and stands on its own.
  */
 @Composable
 fun MetronomeSection(viewModel: PianoWeaveViewModel, hasBeats: Boolean) {
@@ -22,8 +23,8 @@ fun MetronomeSection(viewModel: PianoWeaveViewModel, hasBeats: Boolean) {
     val accent = LocalAppTheme.current.primaryColor
     // Wait mode stops at every chord, so neither can play along with it (turning it on turns the metronome off)
     val isWaitMode = viewModel.isWaitModeEnabled
-    val isAvailable = hasBeats && !isWaitMode
-    val isMetronomeOn = isAvailable && viewModel.isMetronomeEnabled
+    val isMetronomeAvailable = hasBeats && !isWaitMode
+    val isMetronomeOn = isMetronomeAvailable && viewModel.isMetronomeEnabled
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SettingToggleRow(
@@ -37,17 +38,21 @@ fun MetronomeSection(viewModel: PianoWeaveViewModel, hasBeats: Boolean) {
             },
             checked = isMetronomeOn,
             onCheckedChange = { viewModel.setMetronomeEnabled(context, it) },
-            enabled = isAvailable,
+            enabled = isMetronomeAvailable,
             accent = accent
         )
         SettingToggleRow(
             title = "Count-in",
-            subtitle = if (isMetronomeOn) "One bar of clicks before playing" else "One bar counted on screen before playing",
-            checked = isAvailable && viewModel.isCountInEnabled,
+            subtitle = when {
+                isWaitMode -> "Not available in wait mode"
+                isMetronomeOn -> "One bar of clicks before playing, starting on a beat"
+                else -> "A 3-second countdown before playing"
+            },
+            checked = !isWaitMode && viewModel.isCountInEnabled,
             onCheckedChange = { viewModel.setCountInEnabled(context, it) },
-            enabled = isAvailable,
+            enabled = !isWaitMode,
             accent = accent,
-            modifier = Modifier.padding(start = 16.dp)
+            modifier = if (isMetronomeOn) Modifier.padding(start = 16.dp) else Modifier
         )
     }
 }

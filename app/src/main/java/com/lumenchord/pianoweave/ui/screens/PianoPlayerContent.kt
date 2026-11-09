@@ -1,5 +1,11 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import com.lumenchord.pianoweave.ui.theme.PillShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.filled.MusicNote
 import android.Manifest
 import android.util.Log
@@ -240,24 +246,36 @@ internal fun ModernPianoPlayerContent(
         // One bar counted in before playing from [fromMs]. With the metronome on it's heard, and starts from
         // the beat at (or just before) [fromMs], moving the playhead back to it, so the clicks lead straight
         // into a beat; with it off, it's only counted on screen and playback starts where it was
+        // Without the metronome (or beats) it's a plain countdown instead: 3, 2, 1, a second each, on screen
         suspend fun countIn(fromMs: Long) {
-            if (!hasMetronome || !viewModel.isCountInEnabled) return
-            val isHeard = viewModel.isMetronomeEnabled
+            if (viewModel.isWaitModeEnabled || !viewModel.isCountInEnabled) return
+            val isHeard = hasMetronome && viewModel.isMetronomeEnabled
             val startMs = if (isHeard) beatAtOrBefore(beats, fromMs)?.timeMs ?: fromMs else fromMs
             viewModel.playheadMs = startMs
-            val plan = countInFor(beats, startMs) ?: return
-            val beatNanos = (plan.beatMs * 1_000_000.0 / viewModel.speedMultiplier).toLong()
+            val plan = (if (isHeard) countInFor(beats, startMs) else null)
+                ?: CountIn(clicks = COUNTDOWN_SECONDS, beatMs = 1000L)
+            val beatNanos =
+                if (!isHeard) plan.beatMs * 1_000_000L
+                else (plan.beatMs * 1_000_000.0 / viewModel.speedMultiplier).toLong()
             val startNanos = System.nanoTime()
-            fun waitUntil(nanos: Long) = ((nanos - System.nanoTime()) / 1_000_000L).coerceAtLeast(0L)
+            // Waits in short steps so turning count-in off mid-count starts playback at once; false if it was
+            suspend fun waitUntil(nanos: Long): Boolean {
+                while (viewModel.isCountInEnabled) {
+                    val left = (nanos - System.nanoTime()) / 1_000_000L
+                    if (left <= 0) return true
+                    delay(left.coerceAtMost(20L))
+                }
+                return false
+            }
             try {
                 for (click in 0 until plan.clicks) {
-                    delay(waitUntil(startNanos + click * beatNanos))
+                    if (!waitUntil(startNanos + click * beatNanos)) return
                     // The beat of the bar this click stands for, so the count runs into the bar where it starts
                     val beatOfBar = plan.beatOfBar(click)
-                    countInBeat = beatOfBar + 1
+                    countInBeat = if (isHeard) beatOfBar + 1 else plan.clicks - click
                     if (isHeard) MetronomeClick.play(isBarStart = beatOfBar == 0)
                 }
-                delay(waitUntil(startNanos + plan.clicks * beatNanos))
+                waitUntil(startNanos + plan.clicks * beatNanos)
             } finally {
                 countInBeat = 0
             }
@@ -575,15 +593,45 @@ internal fun ModernPianoPlayerContent(
                 satisfiedPitches = emptySet()
             )
 
-            if (countInBeat > 0) {
-                Text(
-                    text = countInBeat.toString(),
-                    modifier = Modifier.align(Alignment.Center),
-                    color = LocalAppTheme.current.primaryColor.copy(alpha = 0.85f),
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 72.sp
-                )
+            // The count, with a way to turn count-in off right where it's noticed; both only while counting
+            var shownCountInBeat by remember { mutableIntStateOf(1) }
+            LaunchedEffect(countInBeat) { if (countInBeat > 0) shownCountInBeat = countInBeat }
+            // Qualified: inside the screen's Column, the bare name resolves to the Column-scoped overload
+            androidx.compose.animation.AnimatedVisibility(
+                visible = countInBeat > 0,
+                modifier = Modifier.align(Alignment.Center),
+                enter = fadeIn(tween(150)),
+                exit = fadeOut(tween(200))
+            ) {
+                val accent = LocalAppTheme.current.primaryColor
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = (if (countInBeat > 0) countInBeat else shownCountInBeat).toString(),
+                        color = accent.copy(alpha = 0.85f),
+                        fontFamily = DisplayFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 72.sp
+                    )
+                    TextButton(
+                        onClick = {
+                            viewModel.setCountInEnabled(context, false)
+                            voiceController.showNote(
+                                if (viewModel.isVoiceCommandsEnabled) "Count-in off · say “count” or use Settings to turn it back on"
+                                else "Count-in off · turn it back on in Settings",
+                                Icons.Default.MusicNote
+                            )
+                        },
+                        shape = PillShape,
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Count-in off", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                    }
+                }
             }
 
             if (!isUiHidden) {
@@ -839,3 +887,6 @@ private fun DraggableVisibilityButton(
 private class PlayRun {
     var isRunning = false
 }
+
+/** The count-in without the metronome: a countdown of this many seconds. */
+private const val COUNTDOWN_SECONDS = 3
