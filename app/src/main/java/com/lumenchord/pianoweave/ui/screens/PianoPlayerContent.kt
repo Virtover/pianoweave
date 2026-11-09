@@ -1,8 +1,11 @@
 package com.lumenchord.pianoweave.ui.screens
 
-import com.lumenchord.pianoweave.ui.theme.PillShape
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.geometry.Size
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.core.tween
@@ -604,7 +607,11 @@ internal fun ModernPianoPlayerContent(
                 exit = fadeOut(tween(200))
             ) {
                 val accent = LocalAppTheme.current.primaryColor
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // The number on its own, centred, with a small ✕ at its top-right that looks like the
+                // toolbar's round buttons (dark tile, faint edge, accent icon), so it plainly turns the
+                // count-in off. The box is padded the same on both sides, which keeps the number in the
+                // middle and the ✕ inside the box (taps outside a parent's bounds don't reach its children)
+                Box(modifier = Modifier.padding(horizontal = 32.dp)) {
                     Text(
                         text = (if (countInBeat > 0) countInBeat else shownCountInBeat).toString(),
                         color = accent.copy(alpha = 0.85f),
@@ -612,24 +619,37 @@ internal fun ModernPianoPlayerContent(
                         fontWeight = FontWeight.Bold,
                         fontSize = 72.sp
                     )
-                    TextButton(
-                        onClick = {
-                            viewModel.setCountInEnabled(context, false)
-                            voiceController.showNote(
-                                if (viewModel.isVoiceCommandsEnabled) "Count-in off · say “count” or use Settings to turn it back on"
-                                else "Count-in off · turn it back on in Settings",
-                                Icons.Default.MusicNote
-                            )
-                        },
-                        shape = PillShape,
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f)),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        modifier = Modifier.height(32.dp)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 34.dp, y = 2.dp)
+                            // A full-size touch target around the small circle
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable(onClickLabel = "Turn off count-in", role = Role.Button) {
+                                viewModel.setCountInEnabled(context, false)
+                                voiceController.showNote(
+                                    if (viewModel.isVoiceCommandsEnabled) "Count-in off · say “count” or use Settings to turn it back on"
+                                    else "Count-in off · turn it back on in Settings",
+                                    Icons.Default.MusicNote
+                                )
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Count-in off", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .background(ColorSurface.copy(alpha = 0.8f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Turn off count-in",
+                                tint = accent,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
                     }
                 }
             }
