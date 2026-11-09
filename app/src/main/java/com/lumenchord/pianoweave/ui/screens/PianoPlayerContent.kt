@@ -655,22 +655,14 @@ internal fun ModernPianoPlayerContent(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        // Faded as a whole, so it's there when looked for but the count stays the focus
-                        Box(
-                            modifier = Modifier
-                                .size(22.dp)
-                                .graphicsLayer { alpha = 0.55f }
-                                .background(ColorSurface.copy(alpha = 0.8f), CircleShape)
-                                .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Turn off count-in",
-                                tint = accent,
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
+                        // Just a faint ✕, with no button around it: there when looked for, without inviting a
+                        // tap or pulling the eye from the count
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Turn off count-in",
+                            tint = Color.White.copy(alpha = 0.35f),
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
                 }
             }
