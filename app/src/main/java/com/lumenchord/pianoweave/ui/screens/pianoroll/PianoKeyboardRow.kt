@@ -187,7 +187,9 @@ internal fun PianoKeyboardRow(
                 val isSatisfied = satisfiedPitches.contains(p)
 
                 val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
-                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L)
+                // A press the previous chord already used doesn't count here (wait mode wants it again)
+                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L) &&
+                        lastPress > (MidiInputManager.consumedPressTimestamps[p] ?: 0L)
 
                 if (isPressed || isTarget || isWaiting || isSatisfied) {
                     val color = when {
@@ -232,7 +234,8 @@ internal fun PianoKeyboardRow(
                 val isSatisfied = satisfiedPitches.contains(p)
 
                 val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
-                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L)
+                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L) &&
+                        lastPress > (MidiInputManager.consumedPressTimestamps[p] ?: 0L)
 
                 val highlightColor = when {
                     isSatisfied -> ColorSuccess

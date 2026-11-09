@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens
 
 import android.Manifest
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -80,8 +81,8 @@ internal fun ModernPianoPlayerContent(
 
     var lastTriggeredHeadMs by remember { mutableLongStateOf(-1L) }
     var currentWaitOnsetMs by remember { mutableLongStateOf(-1L) }
-    var arrivalAtWaitPointRealTime by remember { mutableLongStateOf(0L) }
     var lastCompletedWaitOnsetMs by remember { mutableLongStateOf(-1L) }
+    val waitGate = remember { WaitGate() }
 
     val chordHits = remember { mutableStateSetOf<Int>() }
 
@@ -143,9 +144,18 @@ internal fun ModernPianoPlayerContent(
         }
     }
 
-    val sustainedPitches = remember(noteEvents, viewModel.playheadMs, viewModel.isPlaying, viewModel.isWaitModeEnabled, currentWaitOnsetMs) {
+    /**
+     * Wait mode's chord at [onsetMs]: notes starting within 30 ms of it, except those of the chord passed last
+     * (at [completedOnsetMs], -1 if none). Both windows can hold the same note (one 15 ms after the last chord
+     * and 25 ms before this one), and it was then wanted twice: a second press for one note.
+     */
+    fun waitChordNotes(onsetMs: Long, completedOnsetMs: Long) = noteEvents.filter {
+        abs(it.startMs - onsetMs) <= 30L && (completedOnsetMs == -1L || it.startMs > completedOnsetMs + 30L)
+    }
+
+    val sustainedPitches = remember(noteEvents, viewModel.playheadMs, viewModel.isPlaying, viewModel.isWaitModeEnabled, currentWaitOnsetMs, lastCompletedWaitOnsetMs) {
         val waitTargetPitches = if (viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L) {
-            noteEvents.filter { abs(it.startMs - currentWaitOnsetMs) <= 30L }.map { it.pitch }.toSet()
+            waitChordNotes(currentWaitOnsetMs, lastCompletedWaitOnsetMs).map { it.pitch }.toSet()
         } else {
             emptySet()
         }
@@ -176,13 +186,23 @@ internal fun ModernPianoPlayerContent(
         noteEvents.filter { it.startMs >= viewModel.playheadMs }.minOfOrNull { it.startMs }
     }
 
-    val notesToStrike = remember(noteEvents, nextRequiredOnset) {
+    val notesToStrike = remember(noteEvents, nextRequiredOnset, lastCompletedWaitOnsetMs) {
         if (nextRequiredOnset == null) emptySet()
-        else noteEvents.filter { abs(it.startMs - nextRequiredOnset) <= 30L }.map { it.pitch }.toSet()
+        else waitChordNotes(nextRequiredOnset, lastCompletedWaitOnsetMs).map { it.pitch }.toSet()
     }
 
-    LaunchedEffect(notesToStrike, viewModel.isWaitModeEnabled, viewModel.isPlaying, MidiInputManager.isConnected) {
-        AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled && viewModel.isPlaying) notesToStrike else emptySet()
+    // The chord right after (close enough to be carried over, see WaitGate) may be played together with
+    // this one, so the microphone listens for its keys as closely as for this chord's
+    val notesToStrikeWithNext = remember(noteEvents, nextRequiredOnset, notesToStrike) {
+        if (nextRequiredOnset == null) return@remember emptySet()
+        val closeNext = noteEvents.filter { it.startMs > nextRequiredOnset + 30L }.minOfOrNull { it.startMs }
+            ?.takeIf { it - nextRequiredOnset <= WaitGate.CARRY_OVER_GAP_MS }
+            ?: return@remember notesToStrike
+        notesToStrike + waitChordNotes(closeNext, nextRequiredOnset).map { it.pitch }
+    }
+
+    LaunchedEffect(notesToStrikeWithNext, viewModel.isWaitModeEnabled, viewModel.isPlaying, MidiInputManager.isConnected) {
+        AcousticNoteDetector.targetPitches = if (viewModel.isWaitModeEnabled && viewModel.isPlaying) notesToStrikeWithNext else emptySet()
     }
 
     // While wait mode listens through the microphone, the song itself stays silent: the user plays
@@ -244,6 +264,9 @@ internal fun ModernPianoPlayerContent(
                 if (currentWaitOnsetMs != -1L && viewModel.playheadMs < currentWaitOnsetMs) {
                     currentWaitOnsetMs = -1L
                 }
+                // Seeks elsewhere (drag, double tap, reset, voice) clear these two; the gate follows them
+                if (currentWaitOnsetMs == -1L) waitGate.restartWait()
+                if (lastCompletedWaitOnsetMs == -1L) waitGate.clearCarry()
 
                 val upcoming = noteEvents.filter {
                     it.startMs >= viewModel.playheadMs &&
@@ -252,33 +275,25 @@ internal fun ModernPianoPlayerContent(
                 }.minOfOrNull { it.startMs }
 
                 if (upcoming != null) {
-                    val required = noteEvents.filter { abs(it.startMs - upcoming) <= 30L && it.pitch in startPitch..endPitch }.map { it.pitch }.toSet()
+                    val chordNotes = waitChordNotes(upcoming, lastCompletedWaitOnsetMs)
+                    val required = chordNotes.filter { it.pitch in startPitch..endPitch }.map { it.pitch }.toSet()
+                    val gate = waitGate.check(
+                        chordOnsetMs = upcoming,
+                        required = required,
+                        now = System.currentTimeMillis(),
+                        lastPressAt = { MidiInputManager.lastPressTimestamps[it] ?: 0L },
+                        consumedAt = { MidiInputManager.consumedPressTimestamps[it] ?: 0L }
+                    )
+                    currentWaitOnsetMs = upcoming
 
-                    if (currentWaitOnsetMs != upcoming) {
-                        currentWaitOnsetMs = upcoming
-                        arrivalAtWaitPointRealTime = System.currentTimeMillis()
+                    if (gate.passed || gate.hits != chordHits.toSet()) {
+                        Log.d("WaitGate", "onset=$upcoming required=$required hits=${gate.hits} passed=${gate.passed}")
                     }
-
-                    val currentPresses = required.mapNotNull { p ->
-                        val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
-                        val lastConsumed = MidiInputManager.consumedPressTimestamps[p] ?: 0L
-                        if (lastPress >= arrivalAtWaitPointRealTime - 300L && lastPress > lastConsumed) {
-                            p to lastPress
-                        } else {
-                            null
-                        }
-                    }.toMap()
-
                     chordHits.clear()
-                    chordHits.addAll(currentPresses.keys)
+                    chordHits.addAll(gate.hits)
 
-                    val isChordSatisfied = required.isNotEmpty() &&
-                            currentPresses.size == required.size &&
-                            (currentPresses.values.max() - currentPresses.values.min()) <= 1500L
-
-                    if (!isChordSatisfied && required.isNotEmpty()) {
-                        val currentTime = System.currentTimeMillis()
-                        currentPresses.filterValues { it < currentTime - 1500L }.keys.forEach(MidiInputManager::simulateExternalNoteOff)
+                    if (!gate.passed && required.isNotEmpty()) {
+                        gate.expired.forEach(MidiInputManager::simulateExternalNoteOff)
                         viewModel.playheadMs = upcoming
                         releaseEndedNotes()
                         delay(10)
@@ -291,14 +306,15 @@ internal fun ModernPianoPlayerContent(
                         // (other hand, keys off screen) sounds here. The keys just played are left out:
                         // the keyboard, or its sound through the app, already plays them
                         if (isSongSoundOn) {
-                            noteEvents.filter { abs(it.startMs - upcoming) <= 30L && it.pitch !in required }
-                                .forEach(::songNoteOn)
+                            chordNotes.filter { it.pitch !in required }.forEach(::songNoteOn)
                         }
                         lastCompletedWaitOnsetMs = upcoming
                         currentWaitOnsetMs = -1L
                         chordHits.clear()
-                        viewModel.playheadMs = upcoming + 35L
-                        lastTriggeredHeadMs = upcoming + 35L
+                        // Just past this chord's notes (within 30 ms); a note starting later, even 31 ms,
+                        // is the next chord's, so it must not be jumped over (it was, at +35)
+                        viewModel.playheadMs = upcoming + 31L
+                        lastTriggeredHeadMs = upcoming + 31L
                     }
                 }
             }

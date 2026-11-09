@@ -124,7 +124,9 @@ internal fun FallingNotesVisualizer(
             val isSatisfied = satisfiedPitches.contains(e.pitch) && isWaiting
 
             val lastPress = MidiInputManager.lastPressTimestamps[e.pitch] ?: 0L
-            val isRecentOnset = (now - lastPress <= 350L) && (MidiInputManager.pressedKeys.contains(e.pitch) || now - lastPress <= 250L)
+            // A press the previous chord already used doesn't count for a waiting note
+            val isRecentOnset = (now - lastPress <= 350L) && (MidiInputManager.pressedKeys.contains(e.pitch) || now - lastPress <= 250L) &&
+                    lastPress > (MidiInputManager.consumedPressTimestamps[e.pitch] ?: 0L)
             val isUserMatch = (isAtBaseline && MidiInputManager.pressedKeys.contains(e.pitch)) || (isWaiting && isRecentOnset)
 
             val baseCol = when {
