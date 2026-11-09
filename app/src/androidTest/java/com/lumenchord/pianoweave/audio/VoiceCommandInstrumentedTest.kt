@@ -167,7 +167,8 @@ class VoiceCommandInstrumentedTest {
 
     /**
      * Every phrase, in every synthesized voice (voice/matrix/<phrase>__v<n>.wav), normal and quiet, must
-     * come out as exactly its own command: never missed, never taken for another. "no" must do nothing.
+     * come out as exactly its own command: never missed, never taken for another. "no" must do nothing, and
+     * so must "continue", once a word for play, kept to show it isn't taken for "count".
      */
     @Test
     fun everyPhraseIsItsOwnCommand() {

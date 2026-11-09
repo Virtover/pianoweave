@@ -52,6 +52,7 @@ internal class VoiceCommandController(
         val loopEndMs: Long,
         val speed: Float,
         val isMetronomeEnabled: Boolean,
+        val isCountInEnabled: Boolean,
         val isFullscreen: Boolean,
         val markMs: Long?,
         val restoresPlayhead: Boolean,
@@ -202,6 +203,16 @@ internal class VoiceCommandController(
                 viewModel.setMetronomeEnabled(context, on)
                 if (on) "Metronome on" else "Metronome off"
             }
+            VoiceCommand.COUNT_IN -> {
+                val on = !viewModel.isCountInEnabled
+                when {
+                    !hasBeats() -> return Step("No beat information for this piece", changed = false)
+                    // Wait mode starts at each chord on its own, so there's nothing to count into
+                    on && viewModel.isWaitModeEnabled -> return Step("No count-in in wait mode", changed = false)
+                }
+                viewModel.setCountInEnabled(context, on)
+                if (on) "Count-in on" else "Count-in off"
+            }
             VoiceCommand.UNDO -> return null
         }
         return Step(text, jumped = jumped)
@@ -221,6 +232,7 @@ internal class VoiceCommandController(
         if (viewModel.speedMultiplier != last.speed) viewModel.selectPlaybackSpeed(context, last.speed)
         // Also brings back a metronome that "wait" turned off
         if (viewModel.isMetronomeEnabled != last.isMetronomeEnabled) viewModel.setMetronomeEnabled(context, last.isMetronomeEnabled)
+        if (viewModel.isCountInEnabled != last.isCountInEnabled) viewModel.setCountInEnabled(context, last.isCountInEnabled)
         setFullscreen(last.isFullscreen)
         markMs = last.markMs
         // Only a jump is undone in time; undoing "loop" must not also rewind the seconds played since
@@ -238,6 +250,7 @@ internal class VoiceCommandController(
         loopEndMs = viewModel.loopEndMs,
         speed = viewModel.speedMultiplier,
         isMetronomeEnabled = viewModel.isMetronomeEnabled,
+        isCountInEnabled = viewModel.isCountInEnabled,
         isFullscreen = isFullscreen(),
         markMs = markMs,
         restoresPlayhead = restoresPlayhead

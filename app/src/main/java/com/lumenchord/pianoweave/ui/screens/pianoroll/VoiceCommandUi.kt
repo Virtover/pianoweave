@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.lumenchord.pianoweave.audio.VoiceListeningMode
 import android.Manifest
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -145,6 +148,12 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
     val isListening = enabled && modelState == VoiceModelState.READY && status == VoiceCommandRecognizer.Status.LISTENING
     val needsModel = enabled && (modelState == VoiceModelState.FAILED || modelState == VoiceModelState.MISSING)
     var showProblem by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+
+    if (showHelp) {
+        VoiceCommandsHelpDialog(viewModel = viewModel, onDismiss = { showHelp = false })
+    }
 
     val hearingAlpha by animateFloatAsState(if (isHearing) 1f else 0f, tween(120), label = "voiceHearing")
 
@@ -179,6 +188,13 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
             } else {
                 onToggle(!enabled)
             }
+        },
+        // Holding it shows every command; the song pauses so nothing is missed while reading
+        onLongClickLabel = "What can I say",
+        onLongClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.isPlaying = false
+            showHelp = true
         }
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -479,6 +495,120 @@ private fun VoiceModelProblemDialog(
                             if (state == VoiceModelState.FAILED) "Try again" else "Download",
                             fontWeight = FontWeight.Black
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** What to say and what it does, for the list of words in settings and in the mic button's help. */
+private val COMMAND_GUIDE = listOf(
+    "play" to "Play",
+    "pause · stop" to "Pause",
+    "wait" to "Wait mode on / off",
+    "loop" to "Loop on / off",
+    "full screen" to "Hide / show the bars",
+    "loop start, loop end" to "Loop the part in between",
+    "again" to "Start over (or from the loop start)",
+    "back · rewind" to "Back 5 seconds",
+    "forward · ahead" to "Forward 5 seconds",
+    "slower · faster" to "Change speed",
+    "normal" to "Normal speed",
+    "metronome" to "Metronome on / off",
+    "count" to "Count-in on / off",
+    "undo" to "Take back the last command"
+)
+
+/** Every command with what it does, and how to say several or take one back ([mode] adds "Selah"). */
+@Composable
+internal fun VoiceCommandGuide(mode: VoiceListeningMode) {
+    val accent = LocalAppTheme.current.primaryColor
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        COMMAND_GUIDE.forEach { (words, action) ->
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(words, color = accent, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, modifier = Modifier.weight(0.45f))
+                Text(action, color = Color.White.copy(alpha = 0.8f), fontSize = 12.5.sp, modifier = Modifier.weight(0.55f))
+            }
+        }
+        val prefix = if (mode == VoiceListeningMode.SELAH) "Selah, " else ""
+        Text(
+            text = "Several in one go: “${prefix}full screen, play”, “${prefix}back back” (10 s). " +
+                    "Said by mistake? “undo” within 4 s, or tap the note that appears.",
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+/**
+ * "What can I say?", opened by holding the toolbar's mic button: every command, and (while voice commands
+ * are off) how to turn them on. Scrolls on a short landscape screen; the button stays below.
+ */
+@Composable
+internal fun VoiceCommandsHelpDialog(viewModel: PianoWeaveViewModel, onDismiss: () -> Unit) {
+    val appTheme = LocalAppTheme.current
+    val accent = appTheme.primaryColor
+    val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
+    val mode = viewModel.voiceListeningMode
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            DialogSurface(
+                light = accent,
+                modifier = Modifier
+                    .fillMaxWidth(0.98f)
+                    .wrapContentHeight(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, colorSlate)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    DialogHeader(
+                        title = "What can I say?",
+                        icon = Icons.Default.RecordVoiceOver,
+                        onClose = onDismiss,
+                        titleColor = accent
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = when {
+                                !viewModel.isVoiceCommandsEnabled -> "Voice commands are off. Tap the mic to turn them on, then say:"
+                                mode == VoiceListeningMode.SELAH -> "Say “Selah”, then the command:"
+                                else -> "Say a command on its own, with a short pause around it:"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        VoiceCommandGuide(mode)
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 46.dp),
+                        shape = PillShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = accent,
+                            contentColor = if (appTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("Got it", fontWeight = FontWeight.Black, fontSize = 13.sp)
                     }
                 }
             }

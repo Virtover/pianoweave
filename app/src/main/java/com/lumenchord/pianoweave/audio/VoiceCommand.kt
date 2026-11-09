@@ -28,7 +28,7 @@ data class HeardWord(val word: String, val confidence: Float, val duration: Floa
  * "forward") need more confidence.
  */
 enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
-    PLAY(listOf("play", "continue"), 0.7f),
+    PLAY(listOf("play"), 0.7f),
     PAUSE(listOf("pause", "stop"), 0.7f),
     WAIT(listOf("wait"), 0.7f),
     // "loop start" / "loop end" with the second word drowned out come out as "loop"
@@ -45,6 +45,7 @@ enum class VoiceCommand(val phrases: List<String>, val minConfidence: Float) {
     NORMAL(listOf("normal"), 0.7f),
     // Long, and like no other command, so it needs no more than the harmless ones
     METRONOME(listOf("metronome"), 0.7f),
+    COUNT_IN(listOf("count"), 0.7f),
     UNDO(listOf("undo"), 0.7f);
 
     companion object {

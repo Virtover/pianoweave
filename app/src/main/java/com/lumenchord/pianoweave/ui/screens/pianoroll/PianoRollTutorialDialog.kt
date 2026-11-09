@@ -64,7 +64,7 @@ private val tutorialSteps = listOf(
         highlights = listOf(
             Icons.Default.Mic to "Say it on its own, with a short pause around it. A few in a row work too: “full screen, play”.",
             Icons.AutoMirrored.Filled.Undo to "Misheard? Say “undo” to take it back.",
-            Icons.Default.Tune to "Every command, and a “Selah” mode for noisy rooms, are in settings."
+            Icons.Default.Tune to "Hold the mic button to see every command. A “Selah” mode for noisy rooms is in settings."
         )
     ),
     TutorialStep(

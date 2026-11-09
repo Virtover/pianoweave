@@ -37,28 +37,13 @@ import com.lumenchord.pianoweave.audio.VoiceMicMode
 import com.lumenchord.pianoweave.ui.screens.pianoroll.isDebuggableBuild
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.screens.pianoroll.rememberVoiceCommandsToggle
+import com.lumenchord.pianoweave.ui.screens.pianoroll.VoiceCommandGuide
 import com.lumenchord.pianoweave.ui.screens.pianoroll.voiceModelProblemText
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.VoiceModelState
 
-/** What to say and what it does, for the reference list. */
-private val COMMAND_GUIDE = listOf(
-    "play · continue" to "Play",
-    "pause · stop" to "Pause",
-    "wait" to "Wait mode on / off",
-    "loop" to "Loop on / off",
-    "full screen" to "Hide / show the bars",
-    "loop start, loop end" to "Loop the part in between",
-    "again" to "Start over (or from the loop start)",
-    "back · rewind" to "Back 5 seconds",
-    "forward · ahead" to "Forward 5 seconds",
-    "slower · faster" to "Change speed",
-    "normal" to "Normal speed",
-    "metronome" to "Metronome on / off",
-    "undo" to "Take back the last command"
-)
 
 /**
  * Voice commands in practice settings, kept compact: the switch says what it is (and, once on, that it
@@ -263,21 +248,7 @@ private fun CommandGuide(mode: VoiceListeningMode, accent: Color) {
                 modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                COMMAND_GUIDE.forEach { (words, action) ->
-                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(words, color = accent, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, modifier = Modifier.weight(0.45f))
-                        Text(action, color = Color.White.copy(alpha = 0.8f), fontSize = 12.5.sp, modifier = Modifier.weight(0.55f))
-                    }
-                }
-                val prefix = if (mode == VoiceListeningMode.SELAH) "Selah, " else ""
-                Text(
-                    text = "Several in one go: “${prefix}full screen, play”, “${prefix}back back” (10 s). " +
-                            "Said by mistake? “undo” within 4 s, or tap the note that appears.",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                VoiceCommandGuide(mode)
             }
         }
     }

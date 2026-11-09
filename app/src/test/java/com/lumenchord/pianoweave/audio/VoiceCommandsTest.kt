@@ -137,7 +137,8 @@ class VoiceCommandsTest {
     @Test
     fun parsesSingleCommands() {
         assertEquals(listOf(VoiceCommand.PAUSE), VoiceCommand.parse(words("pause")))
-        assertEquals(listOf(VoiceCommand.PLAY), VoiceCommand.parse(words("continue")))
+        assertEquals(listOf(VoiceCommand.COUNT_IN), VoiceCommand.parse(words("count")))
+        assertEquals(emptyList<VoiceCommand>(), VoiceCommand.parse(words("continue")))
         assertEquals(listOf(VoiceCommand.FORWARD), VoiceCommand.parse(words("ahead")))
         assertEquals(listOf(VoiceCommand.NORMAL), VoiceCommand.parse(words("normal")))
         assertEquals(listOf(VoiceCommand.METRONOME), VoiceCommand.parse(words("metronome")))
