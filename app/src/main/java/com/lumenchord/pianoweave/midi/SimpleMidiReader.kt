@@ -9,6 +9,9 @@ object SimpleMidiReader {
 
     private val EMPTY_SONG = MidiSong(emptyList(), emptyList())
 
+    // Some hours of fast beats; a broken file with a far-off note must not fill memory with them
+    private const val MAX_BEATS = 100_000
+
     fun parse(file: File): List<MidiNoteEvent> = parseSong(file).notes
 
     fun parse(inputStream: InputStream): List<MidiNoteEvent> = parseSong(inputStream).notes
@@ -92,6 +95,7 @@ object SimpleMidiReader {
         val tempoChanges = mutableListOf<Pair<Long, Int>>()
         // Sustain pedal (CC64) changes as tick to down; a piano has one pedal, whichever track holds it
         val pedalChanges = mutableListOf<Pair<Long, Boolean>>()
+        val timeSignatures = mutableListOf<TimeSignature>()
 
         /*
          * MIDI format 2 contains independent sequences.
@@ -136,7 +140,8 @@ object SimpleMidiReader {
                 trackEnd = trackEnd,
                 output = tickNotes,
                 tempoChanges = tempoChanges,
-                pedalChanges = pedalChanges
+                pedalChanges = pedalChanges,
+                timeSignatures = timeSignatures
             )
 
             /*
@@ -180,7 +185,53 @@ object SimpleMidiReader {
                     { it.pitch }
                 )
             )
-        return MidiSong(notes, sustainPedal)
+        val endTick = tickNotes.maxOfOrNull { it.endTick } ?: 0L
+        val beats =
+            if (hasBeatGrid(tempoChanges, timeSignatures)) beatGrid(timeSignatures, division, endTick, tempoMap)
+            else emptyList()
+        return MidiSong(notes, sustainPedal, beats)
+    }
+
+    /**
+     * Whether the file's beats mean something. Transkun writes through pretty_midi, which adds one 120 BPM
+     * tempo and a 4/4 time signature at tick 0 to every file, so that alone is no grid; the server's tempo
+     * map (a tempo change at every beat, bars from the downbeats) and DAW exports with a tempo change or
+     * another meter are. A DAW export at one tempo in plain 4/4 looks the same as Transkun and gets no grid.
+     */
+    private fun hasBeatGrid(tempoChanges: List<Pair<Long, Int>>, timeSignatures: List<TimeSignature>): Boolean =
+        tempoChanges.map { it.first }.distinct().size > 1 ||
+            timeSignatures.any { it.tick > 0 || it.numerator != 4 || it.denominatorPower != 2 }
+
+    /**
+     * Every beat from tick 0 through [endTick]. A beat is a 1/2^dd note of the time signature in force
+     * (a quarter in 4/4, an eighth in 6/8), and each time signature starts a new bar, as the MIDI standard
+     * places them; before the first one it is 4/4.
+     */
+    private fun beatGrid(
+        timeSignatures: List<TimeSignature>,
+        division: Int,
+        endTick: Long,
+        tempoMap: TempoMap
+    ): List<Beat> {
+        // Stable sort: of several signatures at one tick, the last one read wins
+        val meters = (listOf(TimeSignature(0L, 4, 2)) + timeSignatures.sortedBy { it.tick })
+            .associateBy { it.tick }
+            .values
+            .toList()
+        val beats = mutableListOf<Beat>()
+        for ((index, meter) in meters.withIndex()) {
+            val until = meters.getOrNull(index + 1)?.tick ?: (endTick + 1)
+            val beatTicks = (division * 4L shr meter.denominatorPower.coerceIn(0, 6)).coerceAtLeast(1L)
+            val barBeats = meter.numerator.coerceAtLeast(1)
+            var tick = meter.tick
+            var beatInBar = 0
+            while (tick < until && tick <= endTick && beats.size < MAX_BEATS) {
+                beats += Beat(tempoMap.toMs(tick), isBarStart = beatInBar == 0)
+                beatInBar = (beatInBar + 1) % barBeats
+                tick += beatTicks
+            }
+        }
+        return beats
     }
 
     private fun parseTrack(
@@ -188,7 +239,8 @@ object SimpleMidiReader {
         trackEnd: Int,
         output: MutableList<TickNote>,
         tempoChanges: MutableList<Pair<Long, Int>>,
-        pedalChanges: MutableList<Pair<Long, Boolean>>
+        pedalChanges: MutableList<Pair<Long, Boolean>>,
+        timeSignatures: MutableList<TimeSignature>
     ) {
         var currentTicks = 0L
 
@@ -313,6 +365,18 @@ object SimpleMidiReader {
 
                     if (tempo > 0) {
                         tempoChanges += currentTicks to tempo
+                    }
+                } else if (
+                    metaType == 0x58 &&
+                    metaLength == 4
+                ) {
+                    // nn dd cc bb: beats in the bar, beat as a power of two; the clocks per click and
+                    // 32nds per quarter that follow are not needed
+                    val numerator = buffer.get().toInt() and 0xFF
+                    val denominatorPower = buffer.get().toInt() and 0xFF
+                    buffer.position(buffer.position() + 2)
+                    if (numerator > 0) {
+                        timeSignatures += TimeSignature(currentTicks, numerator, denominatorPower)
                     }
                 } else {
                     buffer.position(
@@ -640,6 +704,13 @@ object SimpleMidiReader {
     private data class ActiveNote(
         val startTick: Long,
         val velocity: Int
+    )
+
+    /** A time signature meta event (FF 58): [numerator] beats of a 1/2^[denominatorPower] note per bar. */
+    private data class TimeSignature(
+        val tick: Long,
+        val numerator: Int,
+        val denominatorPower: Int
     )
 
     private data class TickNote(

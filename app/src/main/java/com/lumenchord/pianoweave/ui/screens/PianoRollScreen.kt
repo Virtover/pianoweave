@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.midi.SimpleMidiReader
 import com.lumenchord.pianoweave.midi.StoredMidi
@@ -34,6 +35,7 @@ fun PianoRollScreen(
 ) {
     var noteEvents by remember(song) { mutableStateOf<List<MidiNoteEvent>?>(null) }
     var sustainPedal by remember(song) { mutableStateOf<List<SustainPedalSpan>>(emptyList()) }
+    var beats by remember(song) { mutableStateOf<List<Beat>>(emptyList()) }
     var parseError by remember(song) { mutableStateOf<String?>(null) }
 
     // System back leaves the song like the toolbar's back arrow instead of closing the app. While the
@@ -50,6 +52,7 @@ fun PianoRollScreen(
             }
             val parsed = parsedSong.notes
             sustainPedal = parsedSong.sustainPedal
+            beats = parsedSong.beats
             noteEvents = parsed
             val duration = (parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
             if (viewModel.loopEndMs == 0L) {
@@ -65,7 +68,7 @@ fun PianoRollScreen(
     } else if (noteEvents == null) {
         MidiLoadingScreen()
     } else {
-        ModernPianoPlayerContent(song, noteEvents!!, sustainPedal, viewModel, onBack)
+        ModernPianoPlayerContent(song, noteEvents!!, sustainPedal, beats, viewModel, onBack)
     }
 }
 @Composable

@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -26,9 +27,11 @@ import com.lumenchord.pianoweave.ui.theme.StageOrnament
 import kotlin.math.PI
 import kotlin.math.sin
 
+/** The falling notes over the stage; [beats] (empty when the song has no beat grid) draw its bar and beat lines. */
 @Composable
 internal fun FallingNotesVisualizer(
     events: List<MidiNoteEvent>,
+    beats: List<Beat> = emptyList(),
     head: Long,
     start: Int,
     numWhiteKeys: Int,
@@ -91,19 +94,30 @@ internal fun FallingNotesVisualizer(
             )
         }
 
-        // 2. Bar Lines
-        val barIntervalMs = 2000L
-        val firstBar = (head / barIntervalMs) * barIntervalMs
+        // 2. Bar Lines: the song's own bars, with fainter beats between them, when it has a beat grid;
+        // otherwise an even line every two seconds, just to show the stage moving
         val lastMs = head + (size.height / scale).toLong()
-        for (ms in firstBar..lastMs step barIntervalMs) {
+        fun timeLine(ms: Long, alpha: Float, width: Float) {
             val y = size.height - ((ms - head) * scale)
             if (y in 0f..size.height) {
                 drawLine(
-                    color = Color.White.copy(alpha = 0.1f),
+                    color = Color.White.copy(alpha = alpha),
                     start = Offset(0f, y),
                     end = Offset(tw, y),
-                    strokeWidth = 1.dp.toPx()
+                    strokeWidth = width
                 )
+            }
+        }
+        if (beats.isNotEmpty()) {
+            var index = beats.binarySearchBy(head) { it.timeMs }.let { if (it < 0) -it - 1 else it }
+            while (index < beats.size && beats[index].timeMs <= lastMs) {
+                val beat = beats[index++]
+                if (beat.isBarStart) timeLine(beat.timeMs, 0.1f, 1.dp.toPx()) else timeLine(beat.timeMs, 0.04f, 1f)
+            }
+        } else {
+            val barIntervalMs = 2000L
+            for (ms in (head / barIntervalMs) * barIntervalMs..lastMs step barIntervalMs) {
+                timeLine(ms, 0.1f, 1.dp.toPx())
             }
         }
 

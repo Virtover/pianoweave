@@ -71,4 +71,47 @@ class SimpleMidiReaderTest {
         val song = SimpleMidiReader.parseSong(midi(0, track).inputStream())
         assertEquals(listOf(SustainPedalSpan(0L, 500L), SustainPedalSpan(1000L, Long.MAX_VALUE)), song.sustainPedal)
     }
+
+    private fun timeSignature(numerator: Int, denominatorPower: Int) =
+        intArrayOf(0xFF, 0x58, 0x04, numerator, denominatorPower, 24, 8)
+
+    /** A note from tick 0 to tick 2400 (five quarters; 2400 is the variable-length 0x92 0x60). */
+    private val fiveQuarterNote = intArrayOf(0x00, 0x90, 60, 100, 0x92, 0x60, 0x80, 60, 0) + endOfTrack
+
+    private fun beats(vararg tracks: IntArray) = SimpleMidiReader.parseSong(midi(1, *tracks).inputStream()).beats
+
+    @Test
+    fun tempoMapBeatsFollowTheTempoAndBarsTheTimeSignature() {
+        // Like the server's tempo map: a tempo change at beats, 3/4 from the start
+        val tempoTrack = intArrayOf(0x00) + tempo(500_000) + intArrayOf(0x00) + timeSignature(3, 2) +
+            intArrayOf(0x83, 0x60) + tempo(1_000_000) + intArrayOf(0x83, 0x60) + tempo(250_000) + endOfTrack
+        val beats = beats(tempoTrack, fiveQuarterNote)
+        assertEquals(listOf(0L, 500L, 1500L, 1750L, 2000L, 2250L), beats.map { it.timeMs })
+        assertEquals(listOf(true, false, false, true, false, false), beats.map { it.isBarStart })
+    }
+
+    @Test
+    fun pickupBarIsShortAndTheNextSignatureStartsABar() {
+        // The server writes a pickup as a short first bar: 1/4, then 3/4 from the second beat
+        val tempoTrack = intArrayOf(0x00) + timeSignature(1, 2) + intArrayOf(0x83, 0x60) + timeSignature(3, 2) + endOfTrack
+        val beats = beats(tempoTrack, fiveQuarterNote)
+        assertEquals(listOf(0L, 500L, 1000L, 1500L, 2000L, 2500L), beats.map { it.timeMs })
+        assertEquals(listOf(true, true, false, false, true, false), beats.map { it.isBarStart })
+    }
+
+    @Test
+    fun prettyMidiDefaultsAreNoBeatGrid() {
+        // Transkun's output when the server keeps it: one 120 BPM tempo and 4/4, both at tick 0
+        val tempoTrack = intArrayOf(0x00) + tempo(500_000) + intArrayOf(0x00) + timeSignature(4, 2) + endOfTrack
+        assertEquals(emptyList<Beat>(), beats(tempoTrack, fiveQuarterNote))
+        assertEquals(emptyList<Beat>(), beats(fiveQuarterNote))
+    }
+
+    @Test
+    fun sixEightBeatsAreEighths() {
+        val tempoTrack = intArrayOf(0x00) + timeSignature(6, 3) + endOfTrack
+        val beats = beats(tempoTrack, fiveQuarterNote)
+        assertEquals((0L..2500L step 250L).toList(), beats.map { it.timeMs })
+        assertEquals(listOf(0, 6), beats.indices.filter { beats[it].isBarStart })
+    }
 }

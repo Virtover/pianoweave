@@ -38,6 +38,7 @@ import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.PianoPlayer
 import com.lumenchord.pianoweave.audio.VoiceCommandRecognizer
 import com.lumenchord.pianoweave.audio.VoiceModelStore
+import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.midi.StoredMidi
@@ -57,6 +58,7 @@ internal fun ModernPianoPlayerContent(
     song: StoredMidi,
     rawEvents: List<MidiNoteEvent>,
     sustainPedal: List<SustainPedalSpan>,
+    beats: List<Beat>,
     viewModel: PianoWeaveViewModel,
     onBack: () -> Unit
 ) {
@@ -491,6 +493,7 @@ internal fun ModernPianoPlayerContent(
         ) {
             FallingNotesVisualizer(
                 events = noteEvents,
+                beats = beats,
                 head = viewModel.playheadMs,
                 start = startPitch,
                 numWhiteKeys = totalWhiteKeys,
