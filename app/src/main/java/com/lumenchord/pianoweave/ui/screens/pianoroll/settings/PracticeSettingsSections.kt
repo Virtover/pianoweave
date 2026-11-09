@@ -1,55 +1,92 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
 import android.content.Context
-import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.midi.MidiInputManager
+import com.lumenchord.pianoweave.ui.components.AppDropdownMenu
+import com.lumenchord.pianoweave.ui.components.AppMenuItem
 import com.lumenchord.pianoweave.ui.components.SettingLabel
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
+import com.lumenchord.pianoweave.ui.screens.pianoroll.ColorSurface
+import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import java.util.Locale
-import kotlin.math.abs
 
-/** Playback speed as a stepped slider, with a chip that resets it to normal. */
+/**
+ * Playback speed as one row: the current speed in a pill that opens the same list as the toolbar's speed
+ * button, so it takes a line instead of a slider.
+ */
 @Composable
 fun SpeedSection(viewModel: PianoWeaveViewModel, context: Context) {
     val colorAccent = LocalAppTheme.current.primaryColor
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val speedValues = PLAYBACK_SPEEDS
-        val normalIndex = speedValues.indexOf(1.0f)
-        val currentIndex = speedValues.indices.minByOrNull { abs(speedValues[it] - viewModel.speedMultiplier) } ?: normalIndex
-        val speedText = formatSpeed(viewModel.speedMultiplier)
-        SettingHeader(
+    var expanded by remember { mutableStateOf(false) }
+    val speed = viewModel.speedMultiplier
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SettingLabel(
             title = "Speed",
             subtitle = "Slow down to learn, speed up to challenge",
-            value = if (currentIndex == normalIndex) "Normal" else speedText,
-            isDefault = currentIndex == normalIndex,
-            accent = colorAccent,
-            onReset = { viewModel.selectPlaybackSpeed(context, 1.0f) }
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 12.dp)
         )
-        StepSlider(
-            stepCount = speedValues.size,
-            index = currentIndex,
-            onIndexChange = { viewModel.selectPlaybackSpeed(context, speedValues[it]) },
-            originIndex = normalIndex,
-            labels = speedValues.indices.associateWith { formatSpeed(speedValues[it]) },
-            accent = colorAccent,
-            valueDescription = "Playback speed, $speedText"
-        )
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                border = BorderStroke(1.dp, colorAccent),
+                shape = PillShape,
+                contentPadding = PaddingValues(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
+            ) {
+                Text(
+                    text = if (speed == 1.0f) "Normal" else formatSpeed(speed),
+                    color = colorAccent,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+                Icon(
+                    Icons.Default.ArrowDropDown,
+                    contentDescription = "Playback speed",
+                    tint = colorAccent,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            AppDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                heading = "Playback speed",
+                containerColor = ColorSurface
+            ) {
+                PLAYBACK_SPEEDS.forEach { option ->
+                    AppMenuItem(
+                        text = formatSpeed(option),
+                        hint = if (option == 1.0f) "Normal" else null,
+                        selected = option == speed,
+                        tint = colorAccent,
+                        role = Role.RadioButton,
+                        onClick = {
+                            expanded = false
+                            viewModel.selectPlaybackSpeed(context, option)
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -71,7 +108,7 @@ fun WaitModeSection(viewModel: PianoWeaveViewModel, context: Context) {
         if (MidiInputManager.isConnected) {
             SettingToggleRow(
                 title = "Keyboard Sound",
-                subtitle = "Play your MIDI keyboard through the app",
+                subtitle = "Play your MIDI keyboard through the app. Turn off if it has its own speakers",
                 checked = viewModel.isKeyboardSoundEnabled,
                 onCheckedChange = { viewModel.setKeyboardSoundEnabled(context, it) },
                 accent = colorAccent
@@ -80,46 +117,6 @@ fun WaitModeSection(viewModel: PianoWeaveViewModel, context: Context) {
     }
 }
 
-/** The app's color theme, with a button that opens the theme picker. */
-@Composable
-fun ThemeSection(onOpenThemeDialog: () -> Unit) {
-    val appTheme = LocalAppTheme.current
-    val colorAccent = appTheme.primaryColor
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        SettingLabel(
-            title = "Theme",
-            subtitle = appTheme.name,
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 12.dp)
-        )
-
-        OutlinedButton(
-            onClick = onOpenThemeDialog,
-            border = BorderStroke(1.dp, colorAccent),
-            shape = PillShape,
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .background(colorAccent, CircleShape)
-                        .border(1.dp, Color.White, CircleShape)
-                )
-                Text("Change", color = colorAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
-        }
-    }
-}
-
-/** "0.25x", "0.5x", "1x", "1.25x": no trailing zeros, so the labels under the speed slider stay short. */
+/** "0.25x", "0.5x", "1x", "1.25x": no trailing zeros, so speeds stay short. */
 private fun formatSpeed(speed: Float): String =
     String.format(Locale.US, "%.2f", speed).trimEnd('0').trimEnd('.') + "x"
