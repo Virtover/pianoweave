@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.ui.theme.AppTheme
 import com.lumenchord.pianoweave.util.AppLinks
+import com.lumenchord.pianoweave.util.isDebuggable
 import com.lumenchord.pianoweave.util.openUrl
 
 @Composable
@@ -30,7 +32,8 @@ fun AboutSettingsSection(
     previewTheme: AppTheme,
     discordLink: String?,
     isSignedIn: Boolean,
-    onOpenWalkthrough: () -> Unit
+    onOpenWalkthrough: () -> Unit,
+    onSimulateUpdate: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -86,6 +89,18 @@ fun AboutSettingsSection(
             previewTheme = previewTheme,
             onClick = { context.openUrl(AppLinks.TERMS_OF_SERVICE) }
         )
+
+        // Debug builds only: runs the in-app update flow against a fake Play (see AppUpdates.simulate)
+        if (context.isDebuggable) {
+            LinkRow(
+                icon = Icons.Default.SystemUpdate,
+                title = "Simulate app update (debug)",
+                subtitle = "Fake Play update: download, then Restart prompt",
+                previewTheme = previewTheme,
+                onClick = onSimulateUpdate,
+                trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+            )
+        }
 
         if (isSignedIn) {
             // Kept deliberately low-key; the actual deletion happens on the web page.

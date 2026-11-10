@@ -77,6 +77,9 @@ object AppPrefs {
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"
     /** How many times the hidden verse screen was opened; the logo hold gets shorter as it grows. */
     const val VERSE_OF_LIGHT_OPEN_COUNT = "verse_of_light_open_count"
+    /** Play version code of the last flexible in-app update the user declined, and when (epoch ms). */
+    const val DECLINED_UPDATE_VERSION_CODE = "declined_update_version_code"
+    const val DECLINED_UPDATE_AT = "declined_update_at"
 
     fun get(context: Context): SharedPreferences =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)

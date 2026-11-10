@@ -103,6 +103,10 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus
   `#piano-arrangement` (`libraryKey()` in `api/TranscriptionModels.kt`), so it never collides with the transcription
   of the same link and stays a working link; the mode is read back from the key (resume, cards, library tag).
+- **In-app updates** (`update/AppUpdates.kt`, Play `app-update`): once per start, after the permission prompts, a
+  newer Play version is offered as a flexible update (Restart snackbar when downloaded); priority 4–5 forces the
+  immediate flow; a declined version rests 3 days. Debug builds: Settings → "Simulate app update (debug)" runs it
+  against `FakeAppUpdateManager`. A real check only works on a Play install (internal app sharing).
 - **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a

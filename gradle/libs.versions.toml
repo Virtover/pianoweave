@@ -1,6 +1,7 @@
 [versions]
 agp = "9.4.0"
 billingKtx = "9.1.0"
+appUpdate = "2.1.0"
 composeCompiler = "2.4.20"
 
 coreKtx = "1.19.1"
@@ -40,6 +41,7 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
+app-update = { module = "com.google.android.play:app-update", version.ref = "appUpdate" }
 billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "billingKtx" }
 fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragmentKtxVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

@@ -27,7 +27,7 @@ android {
         minSdk = 26
         targetSdk = 37
 
-        versionCode = 38
+        versionCode = 39
         versionName = "1.1"
 
         testInstrumentationRunner =
@@ -122,6 +122,7 @@ dependencies {
 //    implementation("io.github.sceneview:sceneview:4.47.0")
 
     implementation(libs.billing.ktx)
+    implementation(libs.app.update)
 
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)

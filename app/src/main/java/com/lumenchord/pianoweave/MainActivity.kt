@@ -55,6 +55,16 @@ import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.util.LegalConsent
+import com.lumenchord.pianoweave.update.AppUpdates
+import com.lumenchord.pianoweave.ui.components.AppSnackbar
+import com.lumenchord.pianoweave.update.SimulatedUpdatePromptDialog
+import androidx.activity.result.IntentSenderRequest
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
 
@@ -65,6 +75,14 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> viewModel.startupPermissionsAnswered = true }
+
+    /** Play's in-app update dialog (see [AppUpdates]). */
+    private val updateFlowLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result -> AppUpdates.onFlowResult(this, result) }
+
+    private fun offerAppUpdate() = AppUpdates.offerUpdate(this, updateFlowLauncher)
+    private fun simulateAppUpdate() = AppUpdates.simulate(this, updateFlowLauncher)
 
     /**
      * Notifications for finished transcriptions and exports, and on Android 9 and below storage, which saving
@@ -137,12 +155,19 @@ class MainActivity : ComponentActivity() {
                         PianoWeaveApp(
                             viewModel = viewModel,
                             context = this@MainActivity,
-                            requestStartupPermissions = ::requestStartupPermissions
+                            requestStartupPermissions = ::requestStartupPermissions,
+                            offerAppUpdate = ::offerAppUpdate,
+                            simulateAppUpdate = ::simulateAppUpdate
                         )
                     }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        AppUpdates.onResume(this, updateFlowLauncher)
     }
 
     override fun onDestroy() {
@@ -161,7 +186,9 @@ private enum class AppTab {
 private fun PianoWeaveApp(
     viewModel: PianoWeaveViewModel,
     context: Context,
-    requestStartupPermissions: () -> Unit
+    requestStartupPermissions: () -> Unit,
+    offerAppUpdate: () -> Unit,
+    simulateAppUpdate: () -> Unit
 ) {
     // Tabs are pages, so Learn and Library can also be reached by swiping left or right
     val pagerState = rememberPagerState { AppTab.entries.size }
@@ -220,46 +247,92 @@ private fun PianoWeaveApp(
             }
         }
     ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            key = { AppTab.entries[it] }
-        ) { page ->
-            when (AppTab.entries[page]) {
-                AppTab.Learn -> {
-                    LearnScreen(
-                        viewModel = viewModel,
-                        context = context,
-                        onSongSelect = { selectedSong ->
-                            viewModel.openPracticeSession(context, selectedSong)
-                            viewModel.readySong = null
-                        }
-                    )
-                }
-    
-                AppTab.Storage -> {
-                    StorageScreen(
-                        viewModel = viewModel,
-                        songs = viewModel.songs,
-                        onSongsChange = { /* Handled reactively by viewModel state updates */ },
-                        context = context,
-                        onSongSelect = { clickedSong ->
-                            viewModel.openPracticeSession(context, clickedSong)
-                        },
-                        onDeleteClick = { songToDelete ->
-                            viewModel.deleteSong(context, songToDelete)
-                        },
-                        onImportMidi = { uri ->
-                            viewModel.importMidiFile(context, uri)
-                        },
-                        importError = viewModel.importError,
-                        onClearImportError = {
-                            viewModel.clearImportError()
-                        }
-                    )
+        Box(Modifier.fillMaxSize()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                key = { AppTab.entries[it] }
+            ) { page ->
+                when (AppTab.entries[page]) {
+                    AppTab.Learn -> {
+                        LearnScreen(
+                            viewModel = viewModel,
+                            context = context,
+                            onSongSelect = { selectedSong ->
+                                viewModel.openPracticeSession(context, selectedSong)
+                                viewModel.readySong = null
+                            }
+                        )
+                    }
+        
+                    AppTab.Storage -> {
+                        StorageScreen(
+                            viewModel = viewModel,
+                            songs = viewModel.songs,
+                            onSongsChange = { /* Handled reactively by viewModel state updates */ },
+                            context = context,
+                            onSongSelect = { clickedSong ->
+                                viewModel.openPracticeSession(context, clickedSong)
+                            },
+                            onDeleteClick = { songToDelete ->
+                                viewModel.deleteSong(context, songToDelete)
+                            },
+                            onImportMidi = { uri ->
+                                viewModel.importMidiFile(context, uri)
+                            },
+                            importError = viewModel.importError,
+                            onClearImportError = {
+                                viewModel.clearImportError()
+                            }
+                        )
+                    }
                 }
             }
+
+            // In-app update progress and the Restart prompt, above the tabs' content
+            SnackbarHost(
+                hostState = snackbarHost,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) { data ->
+                AppSnackbar(data)
+            }
         }
+    }
+
+    val updateState = AppUpdates.state
+    LaunchedEffect(updateState) {
+        when (updateState) {
+            AppUpdates.State.Downloading ->
+                // Short and hideable: the download carries on in the background either way
+                snackbarHost.showSnackbar(
+                    "Downloading the new version of Piano Weave…",
+                    actionLabel = "Hide",
+                    duration = SnackbarDuration.Short
+                )
+            AppUpdates.State.Downloaded -> {
+                val result = snackbarHost.showSnackbar(
+                    "A new version is ready",
+                    actionLabel = "Restart",
+                    duration = SnackbarDuration.Indefinite
+                )
+                if (result == SnackbarResult.ActionPerformed) AppUpdates.completeUpdate()
+            }
+            // Cleared only after it was shown: clearing first restarts this effect and cancels the snackbar
+            AppUpdates.State.SimulatedInstall -> {
+                snackbarHost.showSnackbar(
+                    "Simulated update installed (a real one restarts the app)",
+                    duration = SnackbarDuration.Short
+                )
+                AppUpdates.acknowledgeSimulatedInstall()
+            }
+            AppUpdates.State.SimulatedPrompt, AppUpdates.State.Idle -> Unit
+        }
+    }
+
+    if (updateState == AppUpdates.State.SimulatedPrompt) {
+        SimulatedUpdatePromptDialog(onAnswer = AppUpdates::answerSimulatedPrompt)
     }
 
     if (showVerseOfLight) {
@@ -270,6 +343,10 @@ private fun PianoWeaveApp(
     val startupPromptsDone = viewModel.startupPermissionsAnswered
     LaunchedEffect(Unit) {
         requestStartupPermissions()
+    }
+    // After the permission prompts, so Play's update sheet doesn't land on top of them
+    LaunchedEffect(startupPromptsDone) {
+        if (startupPromptsDone) offerAppUpdate()
     }
     LaunchedEffect(startupPromptsDone, viewModel.pendingBilledServerSignInOffer) {
         if (startupPromptsDone && viewModel.pendingBilledServerSignInOffer) viewModel.offerBilledServerSignIn(context)
@@ -300,6 +377,10 @@ private fun PianoWeaveApp(
             viewModel = viewModel,
             context = context,
             onDismiss = { showSettingsDialog = false },
+            onSimulateUpdate = {
+                showSettingsDialog = false
+                simulateAppUpdate()
+            },
             onOpenWalkthrough = {
                 showSettingsDialog = false
                 viewModel.openWelcomeTutorial()

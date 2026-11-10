@@ -29,6 +29,7 @@ fun AppSettingsDialog(
     viewModel: PianoWeaveViewModel,
     context: Context,
     onDismiss: () -> Unit,
+    onSimulateUpdate: () -> Unit,
     onOpenWalkthrough: () -> Unit
 ) {
     var selectedThemeId by remember { mutableStateOf(viewModel.selectedThemeId) }
@@ -122,7 +123,8 @@ fun AppSettingsDialog(
                             previewTheme = previewTheme,
                             discordLink = viewModel.discordLink,
                             isSignedIn = viewModel.isGoogleSignedIn,
-                            onOpenWalkthrough = onOpenWalkthrough
+                            onOpenWalkthrough = onOpenWalkthrough,
+                            onSimulateUpdate = onSimulateUpdate
                         )
                     }
 
