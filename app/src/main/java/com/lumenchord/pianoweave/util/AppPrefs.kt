@@ -64,6 +64,8 @@ object AppPrefs {
     const val IS_COUNT_IN_ENABLED = "is_count_in_enabled"
     /** Hands-free piano roll control by short spoken words (needs the downloaded voice model). */
     const val IS_VOICE_COMMANDS_ENABLED = "is_voice_commands_enabled"
+    /** Whether the "Voice commands on / What can I say?" pill shows after turning the feature on. */
+    const val IS_VOICE_COMMANDS_PILL_ENABLED = "is_voice_commands_pill_enabled"
     /** [com.lumenchord.pianoweave.audio.VoiceListeningMode] name: commands alone, or after "Selah". */
     const val VOICE_LISTENING_MODE = "voice_listening_mode"
     /** [com.lumenchord.pianoweave.audio.VoiceMicMode] name: the mic processing for voice commands (debug builds). */

@@ -23,6 +23,7 @@ enum class VoiceModelState { MISSING, DOWNLOADING, READY, FAILED }
 internal fun PianoWeaveViewModel.loadVoicePreferences(context: Context) {
     val prefs = AppPrefs.get(context)
     isVoiceCommandsEnabled = prefs.getBoolean(AppPrefs.IS_VOICE_COMMANDS_ENABLED, false)
+    isVoiceCommandsPillEnabled = prefs.getBoolean(AppPrefs.IS_VOICE_COMMANDS_PILL_ENABLED, true)
     voiceListeningMode = VoiceListeningMode.entries.firstOrNull {
         it.name == prefs.getString(AppPrefs.VOICE_LISTENING_MODE, null)
     } ?: VoiceListeningMode.WORDS
@@ -47,6 +48,11 @@ internal fun PianoWeaveViewModel.setVoiceCommandsEnabledImpl(context: Context, e
     isVoiceCommandsEnabled = enabled
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_VOICE_COMMANDS_ENABLED, enabled).apply()
     if (enabled && voiceModelState != VoiceModelState.READY) downloadVoiceModelImpl(context)
+}
+
+internal fun PianoWeaveViewModel.setVoiceCommandsPillEnabledImpl(context: Context, enabled: Boolean) {
+    isVoiceCommandsPillEnabled = enabled
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_VOICE_COMMANDS_PILL_ENABLED, enabled).apply()
 }
 
 internal fun PianoWeaveViewModel.setVoiceListeningModeImpl(context: Context, mode: VoiceListeningMode) {

@@ -1,7 +1,9 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,8 +25,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +60,11 @@ import com.lumenchord.pianoweave.ui.viewmodel.VoiceModelState
  * one-line example, and the full list of words folds out on request.
  */
 @Composable
-fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
+fun VoiceCommandsSection(
+    viewModel: PianoWeaveViewModel,
+    highlightPillToggle: Boolean = false,
+    onHighlightPillToggleDone: () -> Unit = {}
+) {
     val context = LocalContext.current
     val accent = LocalAppTheme.current.primaryColor
     val toggle = rememberVoiceCommandsToggle(viewModel)
@@ -106,6 +119,14 @@ fun VoiceCommandsSection(viewModel: PianoWeaveViewModel) {
                 )
             }
         }
+
+        PillNoticeToggle(
+            checked = viewModel.isVoiceCommandsPillEnabled,
+            accent = accent,
+            highlight = highlightPillToggle,
+            onCheckedChange = { viewModel.setVoiceCommandsPillEnabled(context, it) },
+            onHighlightDone = onHighlightPillToggleDone
+        )
     }
 }
 
@@ -147,6 +168,96 @@ private fun VoiceDownloadStatus(viewModel: PianoWeaveViewModel, accent: Color) {
             }
         }
         VoiceModelState.READY -> Unit
+    }
+}
+
+@Composable
+private fun PillNoticeToggle(
+    checked: Boolean,
+    accent: Color,
+    highlight: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onHighlightDone: () -> Unit
+) {
+    val pulse = remember { Animatable(0f) }
+
+    LaunchedEffect(highlight) {
+        if (!highlight) return@LaunchedEffect
+        pulse.snapTo(0f)
+        pulse.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 520)
+        )
+        pulse.snapTo(0f)
+        onHighlightDone()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawWithContent {
+                drawContent()
+                if (pulse.value > 0f) {
+                    val horizontalBleed = 10.dp.toPx()
+                    val center = Offset(
+                        x = -horizontalBleed + pulse.value * (size.width + horizontalBleed * 2f),
+                        y = size.height / 2f
+                    )
+                    drawIntoCanvas { canvas ->
+                        canvas.saveLayer(
+                            androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height),
+                            Paint()
+                        )
+                        drawRoundRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    accent.copy(alpha = pulse.value * 0.24f),
+                                    accent.copy(alpha = pulse.value * 0.1f),
+                                    Color.Transparent
+                                ),
+                                center = center,
+                                radius = 44.dp.toPx()
+                            ),
+                            topLeft = Offset(-horizontalBleed, 0f),
+                            size = androidx.compose.ui.geometry.Size(
+                                size.width + horizontalBleed * 2f,
+                                size.height
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f)
+                        )
+                        drawRoundRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color.White, Color.White, Color.Transparent),
+                                center = Offset(size.width / 2f, size.height / 2f),
+                                radius = size.width * 0.58f
+                            ),
+                            topLeft = Offset(-horizontalBleed, 0f),
+                            size = androidx.compose.ui.geometry.Size(
+                                size.width + horizontalBleed * 2f,
+                                size.height
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f),
+                            blendMode = BlendMode.DstIn
+                        )
+                        canvas.restore()
+                    }
+                }
+            }
+            .graphicsLayer {
+                scaleX = 1f + pulse.value * 0.025f
+                scaleY = 1f + pulse.value * 0.025f
+                translationY = -pulse.value * 1.dp.toPx()
+                alpha = 1f
+            }
+    ) {
+        SettingToggleRow(
+            title = "Show voice reminder",
+            subtitle = "Shows the quick “Voice commands on” notice with a link to “What can I say?”",
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            accent = accent,
+            modifier = Modifier.padding(vertical = 2.dp)
+        )
     }
 }
 

@@ -27,7 +27,7 @@ android {
         minSdk = 26
         targetSdk = 37
 
-        versionCode = 36
+        versionCode = 37
         versionName = "1.1"
 
         testInstrumentationRunner =
@@ -89,6 +89,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
 

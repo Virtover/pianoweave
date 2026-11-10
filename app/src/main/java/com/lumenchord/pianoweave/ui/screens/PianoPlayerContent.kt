@@ -16,6 +16,7 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -52,6 +54,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.MetronomeClick
 import com.lumenchord.pianoweave.audio.PianoPlayer
+import com.lumenchord.pianoweave.audio.VoiceCommand
 import com.lumenchord.pianoweave.audio.VoiceCommandRecognizer
 import com.lumenchord.pianoweave.audio.VoiceModelStore
 import com.lumenchord.pianoweave.midi.Beat
@@ -79,6 +82,10 @@ internal fun ModernPianoPlayerContent(
     onBack: () -> Unit
 ) {
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.Main) }
+    var scrollToVoiceCommandsReminder by remember { mutableStateOf(false) }
+    var pulseVoiceCommandsReminder by remember { mutableStateOf(false) }
+    var showVoiceCommandsStatus by remember { mutableStateOf(false) }
     var isUserSeeking by remember { mutableStateOf(false) }
 
     val startPitch = 21
@@ -121,6 +128,21 @@ internal fun ModernPianoPlayerContent(
     // Keep the song paused while the tutorial is open
     LaunchedEffect(showTutorial) {
         if (showTutorial) viewModel.isPlaying = false
+    }
+
+    LaunchedEffect(viewModel.isVoiceCommandsEnabled, viewModel.voiceModelState, viewModel.isVoiceCommandsPillEnabled) {
+        if (!viewModel.isVoiceCommandsEnabled || !viewModel.isVoiceCommandsPillEnabled || viewModel.voiceModelState != VoiceModelState.READY) {
+            showVoiceCommandsStatus = false
+            return@LaunchedEffect
+        }
+        showVoiceCommandsStatus = true
+        delay(3000)
+        showVoiceCommandsStatus = false
+    }
+
+    var showVoiceHelp by remember { mutableStateOf(false) }
+    if (showVoiceHelp) {
+        VoiceCommandsHelpDialog(viewModel = viewModel, onDismiss = { showVoiceHelp = false })
     }
 
     // Wait mode turned on with a MIDI keyboard never asked for the microphone, so unplugging the keyboard
@@ -726,6 +748,29 @@ internal fun ModernPianoPlayerContent(
 
             SeekIndicatorOverlay(seekInfo)
 
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showVoiceCommandsStatus,
+                enter = fadeIn(tween(160)),
+                exit = fadeOut(tween(200)),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = if (isUiHidden) 12.dp else 58.dp)
+            ) {
+                VoiceFeedbackChip(
+                    feedback = VoiceFeedback(VoiceCommand.UNDO, "Voice commands on", canUndo = false),
+                    onUndo = { if (voiceController.undoLast(context)) afterVoiceJump() },
+                    modifier = Modifier,
+                    linkText = "What can I say?",
+                    onOpenHelp = { showVoiceHelp = true },
+                    onOpenSettings = {
+                        settingsPage = SettingsPage.VoiceCommands
+                        scrollToVoiceCommandsReminder = true
+                        pulseVoiceCommandsReminder = false
+                        showSettingsDialog = true
+                    }
+                )
+            }
+
             VoiceFeedbackChip(
                 feedback = voiceController.feedback,
                 onUndo = { if (voiceController.undoLast(context)) afterVoiceJump() },
@@ -826,11 +871,27 @@ internal fun ModernPianoPlayerContent(
             viewModel = viewModel,
             songDurationMs = songDurationMs,
             hasBeats = beats.isNotEmpty(),
+            initialPage = settingsPage,
+            scrollToVoiceCommandsReminder = scrollToVoiceCommandsReminder,
+            pulseVoiceCommandsReminder = pulseVoiceCommandsReminder,
+            onVoiceCommandsReminderScrolled = {
+                scrollToVoiceCommandsReminder = false
+                pulseVoiceCommandsReminder = true
+            },
+            onVoiceCommandsReminderPulseDone = { pulseVoiceCommandsReminder = false },
             onOpenTutorial = {
                 showSettingsDialog = false
+                settingsPage = SettingsPage.Main
+                scrollToVoiceCommandsReminder = false
+                pulseVoiceCommandsReminder = false
                 showTutorial = true
             },
-            onDismiss = { showSettingsDialog = false }
+            onDismiss = {
+                showSettingsDialog = false
+                settingsPage = SettingsPage.Main
+                scrollToVoiceCommandsReminder = false
+                pulseVoiceCommandsReminder = false
+            }
         )
     }
 

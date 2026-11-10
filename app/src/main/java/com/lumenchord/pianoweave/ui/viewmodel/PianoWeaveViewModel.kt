@@ -87,6 +87,8 @@ class PianoWeaveViewModel : ViewModel() {
     // --- Voice Commands (piano roll) ---
     var isVoiceCommandsEnabled by mutableStateOf(false)
         internal set
+    var isVoiceCommandsPillEnabled by mutableStateOf(true)
+        internal set
     var voiceModelState by mutableStateOf(VoiceModelState.MISSING)
         internal set
     var voiceModelProgress by mutableFloatStateOf(0f)
@@ -417,6 +419,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setMetronomeEnabled(context: Context, enabled: Boolean) = setMetronomeEnabledImpl(context, enabled)
     fun setCountInEnabled(context: Context, enabled: Boolean) = setCountInEnabledImpl(context, enabled)
     fun setVoiceCommandsEnabled(context: Context, enabled: Boolean) = setVoiceCommandsEnabledImpl(context, enabled)
+    fun setVoiceCommandsPillEnabled(context: Context, enabled: Boolean) = setVoiceCommandsPillEnabledImpl(context, enabled)
     fun downloadVoiceModel(context: Context) = downloadVoiceModelImpl(context)
     fun setVoiceListeningMode(context: Context, mode: VoiceListeningMode) = setVoiceListeningModeImpl(context, mode)
     fun setVoiceMicMode(context: Context, mode: com.lumenchord.pianoweave.audio.VoiceMicMode) = setVoiceMicModeImpl(context, mode)

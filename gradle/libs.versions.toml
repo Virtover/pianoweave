@@ -26,6 +26,7 @@ googleid = "1.2.1"
 coil = "3.3.0"
 vosk = "0.3.75"
 jna = "5.18.1"
+animation = "1.12.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -65,6 +66,7 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" 
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 vosk-android = { module = "com.alphacephei:vosk-android", version.ref = "vosk" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

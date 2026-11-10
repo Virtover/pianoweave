@@ -17,6 +17,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.Close
 import com.lumenchord.pianoweave.ui.components.IconBadge
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalConfiguration
@@ -39,8 +40,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -245,9 +248,13 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
 internal fun VoiceFeedbackChip(
     feedback: VoiceFeedback?,
     onUndo: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    linkText: String? = null,
+    onOpenHelp: (() -> Unit)? = null,
+    onOpenSettings: (() -> Unit)? = null
 ) {
     val accent = LocalAppTheme.current.primaryColor
+    val isPortrait = LocalConfiguration.current.screenWidthDp < LocalConfiguration.current.screenHeightDp
     var shown by remember { mutableStateOf<VoiceFeedback?>(null) }
     var visible by remember { mutableStateOf(false) }
 
@@ -270,10 +277,17 @@ internal fun VoiceFeedbackChip(
             shape = PillShape,
             color = Color.Black.copy(alpha = 0.72f),
             border = BorderStroke(1.dp, accent.copy(alpha = 0.7f)),
-            modifier = if (info.canUndo) Modifier.clickable(onClickLabel = "Undo", onClick = {
-                visible = false
-                onUndo()
-            }) else Modifier
+            modifier = when {
+                info.canUndo -> Modifier.clickable(onClickLabel = "Undo", onClick = {
+                    visible = false
+                    onUndo()
+                })
+                onOpenHelp != null -> Modifier.clickable(onClickLabel = linkText ?: "Open help", onClick = {
+                    visible = false
+                    onOpenHelp()
+                })
+                else -> Modifier
+            }
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -281,8 +295,35 @@ internal fun VoiceFeedbackChip(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(info.icon, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
-                Text(info.text, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                if (info.canUndo) {
+                if (!isPortrait) {
+                    Text(info.text, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+                if (linkText != null) {
+                    Text(
+                        text = if (isPortrait) linkText else "$linkText",
+                        color = accent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(onClickLabel = linkText, onClick = { onOpenHelp?.invoke() })
+                    )
+                }
+                if (onOpenSettings != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .clickable(onClickLabel = "Open voice command settings", onClick = onOpenSettings),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Open voice command settings",
+                            tint = Color.White.copy(alpha = 0.75f),
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                } else if (info.canUndo) {
                     Icon(
                         Icons.AutoMirrored.Filled.Undo,
                         contentDescription = null,

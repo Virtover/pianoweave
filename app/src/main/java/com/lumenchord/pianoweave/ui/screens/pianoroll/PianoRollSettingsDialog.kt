@@ -48,9 +48,12 @@ import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.VoiceCommandsSect
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.WaitModeSection
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 
 /** The settings dialog's pages: the main one, and the less-used groups, each opened from a row on it. */
-private enum class SettingsPage { Main, WaitMode, VoiceCommands }
+internal enum class SettingsPage { Main, WaitMode, VoiceCommands }
 
 /**
  * Practice settings. The main page keeps what's changed while practicing (tempo, loop, transposition);
@@ -62,6 +65,11 @@ internal fun SettingsDialog(
     viewModel: PianoWeaveViewModel,
     songDurationMs: Long,
     hasBeats: Boolean,
+    initialPage: SettingsPage = SettingsPage.Main,
+    scrollToVoiceCommandsReminder: Boolean = false,
+    pulseVoiceCommandsReminder: Boolean = false,
+    onVoiceCommandsReminderScrolled: () -> Unit = {},
+    onVoiceCommandsReminderPulseDone: () -> Unit = {},
     onOpenTutorial: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -70,7 +78,26 @@ internal fun SettingsDialog(
     val appTheme = LocalAppTheme.current
     val colorGold = appTheme.primaryColor
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    var page by rememberSaveable { mutableStateOf(SettingsPage.Main) }
+    val scrollState = rememberScrollState()
+    var page by rememberSaveable { mutableStateOf(initialPage) }
+
+    LaunchedEffect(initialPage) {
+        page = initialPage
+    }
+
+    LaunchedEffect(page, scrollToVoiceCommandsReminder) {
+        if (page == SettingsPage.VoiceCommands && scrollToVoiceCommandsReminder) {
+            withFrameNanos { }
+            delay(140)
+            if (scrollState.maxValue > 0) {
+                snapshotFlow { scrollState.maxValue }
+                    .filter { it > 0 }
+                    .first()
+                scrollState.animateScrollTo(scrollState.maxValue)
+            }
+            onVoiceCommandsReminderScrolled()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.isPlaying = false
@@ -113,7 +140,7 @@ internal fun SettingsDialog(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(scrollState)
                             .padding(horizontal = 24.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
@@ -210,7 +237,11 @@ internal fun SettingsDialog(
 
                             SettingsPage.VoiceCommands -> {
                                 PageHeader("Voice commands", onBack = { page = SettingsPage.Main }, onClose = onDismiss)
-                                VoiceCommandsSection(viewModel = viewModel)
+                                VoiceCommandsSection(
+                                    viewModel = viewModel,
+                                    highlightPillToggle = pulseVoiceCommandsReminder,
+                                    onHighlightPillToggleDone = onVoiceCommandsReminderPulseDone
+                                )
                             }
                         }
                     }
