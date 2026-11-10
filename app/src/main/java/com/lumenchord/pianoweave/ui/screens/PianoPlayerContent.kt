@@ -767,7 +767,8 @@ internal fun ModernPianoPlayerContent(
                         scrollToVoiceCommandsReminder = true
                         pulseVoiceCommandsReminder = false
                         showSettingsDialog = true
-                    }
+                    },
+                    compactLinkOnly = true
                 )
             }
 

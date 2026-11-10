@@ -251,7 +251,8 @@ internal fun VoiceFeedbackChip(
     modifier: Modifier = Modifier,
     linkText: String? = null,
     onOpenHelp: (() -> Unit)? = null,
-    onOpenSettings: (() -> Unit)? = null
+    onOpenSettings: (() -> Unit)? = null,
+    compactLinkOnly: Boolean = false
 ) {
     val accent = LocalAppTheme.current.primaryColor
     val isPortrait = LocalConfiguration.current.screenWidthDp < LocalConfiguration.current.screenHeightDp
@@ -295,7 +296,7 @@ internal fun VoiceFeedbackChip(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(info.icon, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
-                if (!isPortrait) {
+                if (!isPortrait || !compactLinkOnly) {
                     Text(info.text, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 if (linkText != null) {
