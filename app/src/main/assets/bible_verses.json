@@ -1,5 +1,5 @@
 {
-  "source": "Verse texts based on the World English Bible (public domain). The divine name is rendered as \"the LORD\"; some verses are shortened. Hebrew names include vowel points (niqqud).",
+  "source": "Verse texts based on the World English Bible (public domain). The divine name is rendered as \"the LORD\"; some verses are shortened. Hebrew names include vowel points (niqqud), except the name YHWH, which is written without vowels.",
   "verses": [
     {
       "ref": "John 1:1",
@@ -47,7 +47,7 @@
       "text": "Jesus said to them, “I am the bread of life. Whoever comes to me will not be hungry, and whoever believes in me will never be thirsty.”",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -57,7 +57,7 @@
       "text": "Again, therefore, Jesus spoke to them, saying, “I am the light of the world. He who follows me will not walk in the darkness, but will have the light of life.”",
       "godName": {
         "name": "Yahweh Ori",
-        "hebrew": "יְהוָה אוֹרִי",
+        "hebrew": "יהוה אוֹרִי",
         "meaning": "The LORD is my light"
       }
     },
@@ -87,7 +87,7 @@
       "text": "I am the good shepherd. The good shepherd lays down his life for the sheep.",
       "godName": {
         "name": "Yahweh Rohi",
-        "hebrew": "יְהוָה רֹעִי",
+        "hebrew": "יהוה רֹעִי",
         "meaning": "The LORD is my shepherd"
       }
     },
@@ -117,7 +117,7 @@
       "text": "In my Father’s house are many homes. If it weren’t so, I would have told you. I am going to prepare a place for you. If I go and prepare a place for you, I will come again, and will receive you to myself; that where I am, you may be there also.",
       "godName": {
         "name": "Yahweh Shammah",
-        "hebrew": "יְהוָה שָׁמָּה",
+        "hebrew": "יהוה שָׁמָּה",
         "meaning": "The LORD is there"
       }
     },
@@ -167,7 +167,7 @@
       "text": "I have told you these things, that in me you may have peace. In the world you have trouble; but cheer up! I have overcome the world.",
       "godName": {
         "name": "Yahweh Nissi",
-        "hebrew": "יְהוָה נִסִּי",
+        "hebrew": "יהוה נִסִּי",
         "meaning": "The LORD is my banner"
       }
     },
@@ -207,7 +207,7 @@
       "text": "Blessed are those who hunger and thirst after righteousness, for they shall be filled.",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -247,7 +247,7 @@
       "text": "You are the light of the world. A city located on a hill can’t be hidden.",
       "godName": {
         "name": "Yahweh Ori",
-        "hebrew": "יְהוָה אוֹרִי",
+        "hebrew": "יהוה אוֹרִי",
         "meaning": "The LORD is my light"
       }
     },
@@ -257,7 +257,7 @@
       "text": "But seek first God’s Kingdom, and his righteousness; and all these things will be given to you as well.",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -287,7 +287,7 @@
       "text": "Come to me, all you who labor and are heavily burdened, and I will give you rest. Take my yoke upon you, and learn from me, for I am gentle and humble in heart; and you will find rest for your souls. For my yoke is easy, and my burden is light.",
       "godName": {
         "name": "Yahweh Shalom",
-        "hebrew": "יְהוָה שָׁלוֹם",
+        "hebrew": "יהוה שָׁלוֹם",
         "meaning": "The LORD is peace"
       }
     },
@@ -397,7 +397,7 @@
       "text": "But he was pierced for our transgressions. He was crushed for our iniquities. The punishment that brought our peace was on him; and by his wounds we are healed.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -467,7 +467,7 @@
       "text": "But God commends his own love toward us, in that while we were yet sinners, Christ died for us.",
       "godName": {
         "name": "Yahweh Tsidkenu",
-        "hebrew": "יְהוָה צִדְקֵנוּ",
+        "hebrew": "יהוה צִדְקֵנוּ",
         "meaning": "The LORD our righteousness"
       }
     },
@@ -477,7 +477,7 @@
       "text": "He himself bore our sins in his body on the tree, that we, having died to sins, might live to righteousness. You were healed by his wounds.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -487,7 +487,7 @@
       "text": "For all the fullness was pleased to dwell in him, and through him to reconcile all things to himself by him, whether things on the earth or things in the heavens, having made peace through the blood of his cross.",
       "godName": {
         "name": "Yahweh Shalom",
-        "hebrew": "יְהוָה שָׁלוֹם",
+        "hebrew": "יהוה שָׁלוֹם",
         "meaning": "The LORD is peace"
       }
     },
@@ -627,7 +627,7 @@
       "text": "The multitude also came together from the cities around Jerusalem, bringing sick people and those who were tormented by unclean spirits: and they were all healed.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -647,7 +647,7 @@
       "text": "God worked special miracles by the hands of Paul, so that even handkerchiefs or aprons were carried away from his body to the sick, and the diseases departed from them, and the evil spirits went out.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -667,7 +667,7 @@
       "text": "Heal the sick, cleanse the lepers, and cast out demons. Freely you received, so freely give.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -697,7 +697,7 @@
       "text": "Is any among you sick? Let him call for the elders of the assembly, and let them pray over him, anointing him with oil in the name of the Lord, and the prayer of faith will heal him who is sick, and the Lord will raise him up. If he has committed sins, he will be forgiven.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -707,7 +707,7 @@
       "text": "Confess your offenses to one another, and pray for one another, that you may be healed. The insistent prayer of a righteous person is powerfully effective.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -717,7 +717,7 @@
       "text": "Behold, a leper came to him and worshiped him, saying, “Lord, if you want to, you can make me clean.” Jesus stretched out his hand, and touched him, saying, “I want to. Be made clean.” Immediately his leprosy was cleansed.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -757,7 +757,7 @@
       "text": "Then Jesus answered her, “Woman, great is your faith! Be it done to you even as you desire.” And her daughter was healed from that hour.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -767,7 +767,7 @@
       "text": "He said to her, “Daughter, your faith has made you well. Go in peace, and be cured of your disease.”",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -807,7 +807,7 @@
       "text": "He therefore answered, “I don’t know if he is a sinner. One thing I do know: that though I was blind, now I see.”",
       "godName": {
         "name": "Yahweh Ori",
-        "hebrew": "יְהוָה אוֹרִי",
+        "hebrew": "יהוה אוֹרִי",
         "meaning": "The LORD is my light"
       }
     },
@@ -847,7 +847,7 @@
       "text": "Praise the LORD, my soul, and don’t forget all his benefits, who forgives all your sins, who heals all your diseases.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -857,7 +857,7 @@
       "text": "Haven’t I commanded you? Be strong and courageous. Don’t be afraid. Don’t be dismayed, for the LORD your God is with you wherever you go.",
       "godName": {
         "name": "Yahweh Shammah",
-        "hebrew": "יְהוָה שָׁמָּה",
+        "hebrew": "יהוה שָׁמָּה",
         "meaning": "The LORD is there"
       }
     },
@@ -867,7 +867,7 @@
       "text": "Be strong and courageous. Don’t be afraid or scared of them; for the LORD your God himself is who goes with you. He will not fail you nor forsake you.",
       "godName": {
         "name": "Yahweh Nissi",
-        "hebrew": "יְהוָה נִסִּי",
+        "hebrew": "יהוה נִסִּי",
         "meaning": "The LORD is my banner"
       }
     },
@@ -927,7 +927,7 @@
       "text": "“Come now, and let’s reason together,” says the LORD: “Though your sins are as scarlet, they shall be as white as snow. Though they are red like crimson, they shall be as wool.”",
       "godName": {
         "name": "Yahweh Tsidkenu",
-        "hebrew": "יְהוָה צִדְקֵנוּ",
+        "hebrew": "יהוה צִדְקֵנוּ",
         "meaning": "The LORD our righteousness"
       }
     },
@@ -937,7 +937,7 @@
       "text": "“For I know the thoughts that I think toward you,” says the LORD, “thoughts of peace, and not of evil, to give you hope and a future.”",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -987,7 +987,7 @@
       "text": "“Not by might, nor by power, but by my Spirit,” says the LORD of Armies.",
       "godName": {
         "name": "Yahweh Tsevaot",
-        "hebrew": "יְהוָה צְבָאוֹת",
+        "hebrew": "יהוה צְבָאוֹת",
         "meaning": "The LORD of hosts"
       }
     },
@@ -997,7 +997,7 @@
       "text": "The LORD is my shepherd: I shall lack nothing.",
       "godName": {
         "name": "Yahweh Rohi",
-        "hebrew": "יְהוָה רֹעִי",
+        "hebrew": "יהוה רֹעִי",
         "meaning": "The LORD is my shepherd"
       }
     },
@@ -1007,7 +1007,7 @@
       "text": "Even though I walk through the valley of the shadow of death, I will fear no evil, for you are with me. Your rod and your staff, they comfort me.",
       "godName": {
         "name": "Yahweh Shammah",
-        "hebrew": "יְהוָה שָׁמָּה",
+        "hebrew": "יהוה שָׁמָּה",
         "meaning": "The LORD is there"
       }
     },
@@ -1017,7 +1017,7 @@
       "text": "The LORD is my light and my salvation. Whom shall I fear? The LORD is the strength of my life. Of whom shall I be afraid?",
       "godName": {
         "name": "Yahweh Ori",
-        "hebrew": "יְהוָה אוֹרִי",
+        "hebrew": "יהוה אוֹרִי",
         "meaning": "The LORD is my light"
       }
     },
@@ -1037,7 +1037,7 @@
       "text": "Also delight yourself in the LORD, and he will give you the desires of your heart.",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -1047,7 +1047,7 @@
       "text": "God is our refuge and strength, a very present help in trouble.",
       "godName": {
         "name": "Yahweh Tsevaot",
-        "hebrew": "יְהוָה צְבָאוֹת",
+        "hebrew": "יהוה צְבָאוֹת",
         "meaning": "The LORD of hosts"
       }
     },
@@ -1077,7 +1077,7 @@
       "text": "For he will put his angels in charge of you, to guard you in all your ways.",
       "godName": {
         "name": "Yahweh Tsevaot",
-        "hebrew": "יְהוָה צְבָאוֹת",
+        "hebrew": "יהוה צְבָאוֹת",
         "meaning": "The LORD of hosts"
       }
     },
@@ -1087,7 +1087,7 @@
       "text": "Trust in the LORD with all your heart, and don’t lean on your own understanding. In all your ways acknowledge him, and he will make your paths straight.",
       "godName": {
         "name": "Yahweh Rohi",
-        "hebrew": "יְהוָה רֹעִי",
+        "hebrew": "יהוה רֹעִי",
         "meaning": "The LORD is my shepherd"
       }
     },
@@ -1127,7 +1127,7 @@
       "text": "In nothing be anxious, but in everything, by prayer and petition with thanksgiving, let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your thoughts in Christ Jesus.",
       "godName": {
         "name": "Yahweh Shalom",
-        "hebrew": "יְהוָה שָׁלוֹם",
+        "hebrew": "יהוה שָׁלוֹם",
         "meaning": "The LORD is peace"
       }
     },
@@ -1147,7 +1147,7 @@
       "text": "My God will supply every need of yours according to his riches in glory in Christ Jesus.",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -1177,7 +1177,7 @@
       "text": "But as it is written, “Things which an eye didn’t see, and an ear didn’t hear, which didn’t enter into the heart of man, these God has prepared for those who love him.”",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -1197,7 +1197,7 @@
       "text": "If we confess our sins, he is faithful and righteous to forgive us the sins, and to cleanse us from all unrighteousness.",
       "godName": {
         "name": "Yahweh Tsidkenu",
-        "hebrew": "יְהוָה צִדְקֵנוּ",
+        "hebrew": "יהוה צִדְקֵנוּ",
         "meaning": "The LORD our righteousness"
       }
     },
@@ -1227,7 +1227,7 @@
       "text": "But if any of you lacks wisdom, let him ask of God, who gives to all liberally and without reproach, and it will be given to him.",
       "godName": {
         "name": "Yahweh Jireh",
-        "hebrew": "יְהוָה יִרְאֶה",
+        "hebrew": "יהוה יִרְאֶה",
         "meaning": "The LORD will provide"
       }
     },
@@ -1237,7 +1237,7 @@
       "text": "Be free from the love of money, content with such things as you have, for he has said, “I will in no way leave you, neither will I in any way forsake you.”",
       "godName": {
         "name": "Yahweh Shammah",
-        "hebrew": "יְהוָה שָׁמָּה",
+        "hebrew": "יהוה שָׁמָּה",
         "meaning": "The LORD is there"
       }
     },
@@ -1277,7 +1277,7 @@
       "text": "The LORD bless you, and keep you. The LORD make his face to shine on you, and be gracious to you. The LORD lift up his face toward you, and give you peace.",
       "godName": {
         "name": "Yahweh Shalom",
-        "hebrew": "יְהוָה שָׁלוֹם",
+        "hebrew": "יהוה שָׁלוֹם",
         "meaning": "The LORD is peace"
       }
     },
@@ -1307,7 +1307,7 @@
       "text": "In peace I will both lay myself down and sleep, for you, the LORD alone, make me live in safety.",
       "godName": {
         "name": "Yahweh Shalom",
-        "hebrew": "יְהוָה שָׁלוֹם",
+        "hebrew": "יהוה שָׁלוֹם",
         "meaning": "The LORD is peace"
       }
     },
@@ -1347,7 +1347,7 @@
       "text": "Now may the Lord of peace himself give you peace at all times in all ways. The Lord be with you all.",
       "godName": {
         "name": "Yahweh Shalom",
-        "hebrew": "יְהוָה שָׁלוֹם",
+        "hebrew": "יהוה שָׁלוֹם",
         "meaning": "The LORD is peace"
       }
     },
@@ -1357,7 +1357,7 @@
       "text": "Beloved, I pray that you may prosper in all things and be healthy, even as your soul prospers.",
       "godName": {
         "name": "Yahweh Rapha",
-        "hebrew": "יְהוָה רֹפְאֶךָ",
+        "hebrew": "יהוה רֹפְאֶךָ",
         "meaning": "The LORD who heals you"
       }
     },
@@ -1407,7 +1407,7 @@
       "text": "Holy, holy, holy is the Lord God, the Almighty, who was and who is and who is to come!",
       "godName": {
         "name": "Yahweh Tsevaot",
-        "hebrew": "יְהוָה צְבָאוֹת",
+        "hebrew": "יהוה צְבָאוֹת",
         "meaning": "The LORD of hosts"
       }
     },
@@ -1427,7 +1427,7 @@
       "text": "For the Lamb who is in the middle of the throne shepherds them and leads them to springs of life-giving waters. And God will wipe away every tear from their eyes.",
       "godName": {
         "name": "Yahweh Rohi",
-        "hebrew": "יְהוָה רֹעִי",
+        "hebrew": "יהוה רֹעִי",
         "meaning": "The LORD is my shepherd"
       }
     },
