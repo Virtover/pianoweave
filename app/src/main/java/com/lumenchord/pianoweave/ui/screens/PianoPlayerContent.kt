@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
@@ -551,8 +552,13 @@ internal fun ModernPianoPlayerContent(
         }
     }
 
-    // Taller with the bars hidden; the count-in also uses it to sit in the middle of notes and keys together
-    val keyboardHeight = if (isUiHidden) 100.dp else 70.dp
+    // Taller with the bars hidden; the count-in also uses it to sit in the middle of notes and keys together.
+    // A tablet has height to spare, so its keys get closer to a real key's proportions and are easier to hit.
+    val isLargeWindow = rememberWindowRoom().isLarge
+    val keyboardHeight = when {
+        isLargeWindow -> if (isUiHidden) 120.dp else 104.dp
+        else -> if (isUiHidden) 100.dp else 70.dp
+    }
 
     Column(
         modifier = Modifier

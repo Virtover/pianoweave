@@ -6,7 +6,6 @@ import android.Manifest
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import android.content.Context
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,9 +16,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -39,7 +40,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,9 +72,12 @@ fun StorageScreen(
     importError: String? = null,
     onClearImportError: () -> Unit = {}
 ) {
-    val configuration = LocalConfiguration.current
-    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
-    val isLandscape = !isPortrait
+    val room = rememberWindowRoom()
+    val isLandscape = room.isLandscape
+    // Compact sizes only where height is short (phones in landscape), not on a tablet held sideways
+    val isShort = room.isShort
+    // Two columns of cards where a single one would be a long, mostly empty strip
+    val gridColumns = if (room.isLarge && room.isLandscape) 2 else 1
     val appTheme = LocalAppTheme.current
 
     val colorSurface = MaterialTheme.colorScheme.surface
@@ -113,7 +116,7 @@ fun StorageScreen(
         uri?.let { onImportMidi(it) }
     }
 
-    val listState = rememberLazyListState()
+    val listState = rememberLazyGridState()
     val previousSongsSize = remember { mutableIntStateOf(songs.size) }
 
     LaunchedEffect(songs.size) {
@@ -295,7 +298,7 @@ fun StorageScreen(
             },
             icon = Icons.Default.Add,
             text = "Import",
-            height = if (isLandscape) 32.dp else 36.dp
+            height = if (isShort) 32.dp else 36.dp
         )
     }
 
@@ -366,7 +369,7 @@ fun StorageScreen(
 
     Column(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp)
+        verticalArrangement = Arrangement.spacedBy(if (isShort) 6.dp else 8.dp)
     ) {
         // --- Header Section ---
         if (isLandscape) {
@@ -524,12 +527,12 @@ fun StorageScreen(
             onValueChange = { searchQuery = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (isLandscape) 38.dp else 44.dp),
+                .height(if (isShort) 38.dp else 44.dp),
             interactionSource = interactionSource,
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = if (isLandscape) 13.sp else 14.sp
+                fontSize = if (isShort) 13.sp else 14.sp
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.secondary),
             decorationBox = { innerTextField ->
@@ -543,7 +546,7 @@ fun StorageScreen(
                     placeholder = {
                         Text(
                             "Search library...",
-                            fontSize = if (isLandscape) 13.sp else 14.sp,
+                            fontSize = if (isShort) 13.sp else 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -552,7 +555,7 @@ fun StorageScreen(
                             Icons.Default.Search,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(if (isLandscape) 16.dp else 18.dp)
+                            modifier = Modifier.size(if (isShort) 16.dp else 18.dp)
                         )
                     },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
@@ -571,7 +574,7 @@ fun StorageScreen(
                     } else null,
                     contentPadding = PaddingValues(
                         horizontal = 12.dp,
-                        vertical = if (isLandscape) 2.dp else 6.dp
+                        vertical = if (isShort) 2.dp else 6.dp
                     ),
                     container = {
                         OutlinedTextFieldDefaults.Container(
@@ -580,7 +583,7 @@ fun StorageScreen(
                             interactionSource = interactionSource,
                             // The same quiet well as the Transcribe card's link field
                             colors = quietFieldColors(),
-                            shape = RoundedCornerShape(if (isLandscape) 12.dp else 14.dp)
+                            shape = RoundedCornerShape(if (isShort) 12.dp else 14.dp)
                         )
                     }
                 )
@@ -603,7 +606,7 @@ fun StorageScreen(
                         imageVector = if (songs.isEmpty()) Icons.Default.LibraryMusic else Icons.Default.Search,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                        modifier = Modifier.size(if (isLandscape) 42.dp else 56.dp)
+                        modifier = Modifier.size(if (isShort) 42.dp else 56.dp)
                     )
                     Text(
                         text = if (songs.isEmpty()) "No saved songs yet." else "No songs match your search query.",
@@ -613,10 +616,12 @@ fun StorageScreen(
                 }
             }
         } else {
-            LazyColumn(
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(gridColumns),
                 state = listState,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp)
+                verticalArrangement = Arrangement.spacedBy(if (isShort) 6.dp else 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(
                     filteredSongs,

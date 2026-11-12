@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
-import android.content.res.Configuration
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -44,7 +45,6 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -94,7 +94,7 @@ internal fun HowItWorksPath(
     val at = -0.6f + light.value * 3.2f
     fun glowAt(position: Float) = (1f - abs(at - position) / 0.7f).coerceIn(0f, 1f)
 
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isShort = rememberWindowRoom().isShort
     val tappable = Modifier
         .clip(RoundedCornerShape(16.dp))
         .clickable(onClick = onClick)
@@ -149,7 +149,7 @@ internal fun HowItWorksPath(
         }
     }
 
-    if (isLandscape) {
+    if (isShort) {
         // The Convert card fills most of a landscape screen, so the link sits beside the steps instead of
         // below them: whenever the steps peek over the bottom edge, the way into the walkthrough does too.
         // The close mark takes the top-left corner, away from the link.

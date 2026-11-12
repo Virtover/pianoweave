@@ -1,6 +1,5 @@
 package com.lumenchord.pianoweave.ui.components
 
-import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -8,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,7 +18,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,29 +37,32 @@ fun AdaptiveNavigation(
     onLogoLongHold: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val room = rememberWindowRoom()
+    // A rail from tablet width up too, where a bottom bar would stretch two items across the whole screen
+    val useRail = room.isLandscape || room.isWide
+    // Tablets get a roomier rail: larger mark and labels, items under the header and Settings at the foot
+    val isLarge = room.isLarge
     val accent = LocalAppTheme.current.primaryColor
     val sky = Modifier.lampGlow(background = MaterialTheme.colorScheme.background, accent = accent)
     val barColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
 
-    if (isLandscape) {
+    if (useRail) {
         Row(modifier = Modifier.fillMaxSize().then(sky)) {
             NavigationRail(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .widthIn(min = 88.dp, max = 110.dp)
+                    .widthIn(min = if (isLarge) 104.dp else 88.dp, max = if (isLarge) 120.dp else 110.dp)
                     .drawBehind { edgeLight(accent, vertical = true) },
                 containerColor = barColor,
                 windowInsets = NavigationRailDefaults.windowInsets,
                 header = {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                        modifier = Modifier.padding(top = if (isLarge) 28.dp else 16.dp, bottom = 8.dp)
                     ) {
                         Surface(
                             modifier = Modifier
-                                .size(52.dp)
+                                .size(if (isLarge) 60.dp else 52.dp)
                                 .clip(CircleShape)
                                 .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
                             shape = CircleShape,
@@ -72,18 +74,19 @@ fun AdaptiveNavigation(
                                     painter = painterResource(id = R.drawable.app_icon),
                                     contentDescription = "Piano Weave Settings",
                                     modifier = Modifier
-                                        .size(38.dp)
+                                        .size(if (isLarge) 44.dp else 38.dp)
                                         .clip(CircleShape)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(if (isLarge) 10.dp else 8.dp))
 
-                        PianoWeaveWordmark(fontSize = 13.sp, stacked = true)
+                        PianoWeaveWordmark(fontSize = if (isLarge) 15.sp else 13.sp, stacked = true)
                     }
                 }
             ) {
-                Spacer(modifier = Modifier.weight(1f))
+                val labelSize = if (isLarge) 13.sp else 11.sp
+                if (isLarge) Spacer(Modifier.height(36.dp)) else Spacer(modifier = Modifier.weight(1f))
 
                 NavigationRailItem(
                     selected = isLearnSelected,
@@ -92,7 +95,7 @@ fun AdaptiveNavigation(
                     label = {
                         Text(
                             text = "Transcribe",
-                            fontSize = 11.sp,
+                            fontSize = labelSize,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             softWrap = false,
@@ -107,7 +110,7 @@ fun AdaptiveNavigation(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(if (isLarge) 20.dp else 16.dp))
 
                 NavigationRailItem(
                     selected = isStorageSelected,
@@ -116,7 +119,7 @@ fun AdaptiveNavigation(
                     label = {
                         Text(
                             text = "Library",
-                            fontSize = 11.sp,
+                            fontSize = labelSize,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             softWrap = false,
@@ -132,13 +135,27 @@ fun AdaptiveNavigation(
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
+
+                // The logo opens Settings too, but on a tablet's tall rail a plain gear makes it easy to find
+                if (isLarge) {
+                    IconButton(onClick = onOpenSettingsDialog, modifier = Modifier.padding(bottom = 20.dp)) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(start = 12.dp, end = 24.dp, top = 16.dp, bottom = 16.dp)
+                    .then(
+                        if (isLarge) Modifier.padding(start = 20.dp, end = 32.dp, top = 24.dp, bottom = 20.dp)
+                        else Modifier.padding(start = 12.dp, end = 24.dp, top = 16.dp, bottom = 16.dp)
+                    )
             ) {
                 content()
             }

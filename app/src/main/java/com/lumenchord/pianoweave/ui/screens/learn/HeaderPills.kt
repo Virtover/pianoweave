@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
-import android.content.res.Configuration
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
@@ -23,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -53,11 +53,11 @@ private fun HeaderPill(
     borderColor: Color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
     content: @Composable RowScope.() -> Unit
 ) {
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isShort = rememberWindowRoom().isShort
     Surface(
         onClick = onClick,
         modifier = modifier
-            .height(if (isLandscape) 26.dp else 28.dp)
+            .height(if (isShort) 26.dp else 28.dp)
             .semantics {
                 contentDescription = description
                 role = Role.Button

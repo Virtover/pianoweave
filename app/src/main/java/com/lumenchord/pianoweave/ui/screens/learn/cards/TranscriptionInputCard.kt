@@ -8,7 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import android.content.Context
-import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,7 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalConfiguration
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,8 +79,11 @@ fun TranscriptionInputCard(
     linkInputAnchors: LinkInputAnchors = remember { LinkInputAnchors() }
 ) {
     val isSuccess = !viewModel.isLoading && viewModel.readySong != null
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val room = rememberWindowRoom()
+    val isShort = room.isShort
+    val isWide = room.isWide
+    // Tablets: a little more air and a larger button, so the card doesn't look like a phone's on a big screen
+    val isLarge = room.isLarge
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -195,268 +197,273 @@ fun TranscriptionInputCard(
         animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
         label = "convertCardWash"
     )
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = cardShape,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSuccess) MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
-            else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .cardWash(accent, washStrength)
-                // Landscape has about 330dp of height: tighter, so the whole card fits without scrolling
-                .padding(if (isLandscape) 12.dp else 16.dp),
-            verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
-        ) {
-            val sourceSelector = @Composable { modifier: Modifier ->
-                SourceSelector(
-                    selected = source,
-                    enabled = !viewModel.isLoading && !viewModel.isRecording,
-                    isCompact = !isLandscape,
-                    onSelect = { viewModel.selectTranscriptionSource(it) },
-                    modifier = modifier
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconBadge(Icons.Default.AutoAwesome, tint = accent, size = if (isLandscape) 26.dp else 30.dp)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = "AI Transcription",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = if (isLandscape) Modifier else Modifier.weight(1f),
-                    color = accent
-                )
-
-                // Landscape is short but wide: the source choice shares the title's row instead of taking its own.
-                if (isLandscape) {
-                    if (canUseFiles) {
-                        sourceSelector(Modifier.weight(1f).padding(horizontal = 16.dp))
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-                } else {
-                    Spacer(Modifier.width(8.dp))
-                }
-
-                val statusColor = viewModel.serverStatus.statusColor
-
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                    modifier = Modifier.clickable {
-                        if (!viewModel.isLoading) {
-                            onOpenServerSettings()
-                        }
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(color = statusColor, shape = CircleShape)
-                        )
-
-                        // A custom server shows the server icon of Server Settings in place of the gear: a word
-                        // ("Custom") widened the chip enough to cut off the title in portrait.
-                        val isCustom = !viewModel.isUsingDefaultServer
-                        Icon(
-                            imageVector = if (isCustom) Icons.Default.Dns else Icons.Default.Settings,
-                            contentDescription = if (isCustom) "Custom server settings" else "Server Settings",
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-
-            if (canUseFiles && !isLandscape) {
-                sourceSelector(Modifier)
-            }
-
-            if (source == TranscriptionSource.Record) {
-                when {
-                    viewModel.isRecording -> RecordingArea(
-                        elapsedMs = viewModel.recordingElapsedMs,
-                        level = viewModel.recordingLevel,
-                        maxMinutes = viewModel.maxVideoLengthMinutes,
-                        onStop = { viewModel.stopRecording() },
-                        onDiscard = discard
-                    )
-                    selectedFile != null -> SelectedFileRow(
-                        file = selectedFile,
-                        enabled = !viewModel.isLoading,
-                        onChange = record,
-                        onClear = discard,
-                        icon = Icons.Default.Mic,
-                        changeLabel = "Record again",
-                        clearLabel = "Delete recording"
-                    )
-                    !viewModel.isLoading -> StartRecordingArea(
-                        maxMinutes = viewModel.maxVideoLengthMinutes,
-                        onClick = startRecording
-                    )
-                }
-            } else if (source == TranscriptionSource.File) {
-                when {
-                    selectedFile != null -> SelectedFileRow(
-                        file = selectedFile,
-                        enabled = !viewModel.isLoading,
-                        onChange = pickFile,
-                        onClear = { viewModel.clearSelectedMediaFile() }
-                    )
-                    !viewModel.isLoading -> ChooseFileArea(
-                        maxSizeMb = viewModel.maxUploadSizeMb,
-                        maxMinutes = viewModel.maxVideoLengthMinutes,
-                        onClick = pickFile
-                    )
-                }
-            } else OutlinedTextField(
-                value = viewModel.videoUrl,
-                onValueChange = { viewModel.updateUrl(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { linkInputAnchors.isLinkFieldFocused = it.isFocused }
-                    .onGloballyPositioned { linkInputAnchors.linkFieldTopInRoot = it.positionInRoot().y },
-                // Without arrangements piano covers are what the server does best; with them, any video will do
-                placeholder = {
-                    val hint = when {
-                        viewModel.supportsArrangement -> if (isLandscape) "Paste a video link" else "Video link"
-                        else -> if (isLandscape) "Paste a piano cover link" else "Piano cover link"
-                    }
-                    Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                },
-                singleLine = true,
-                enabled = !viewModel.isLoading,
-                shape = RoundedCornerShape(14.dp),
-                colors = quietFieldColors(),
-                leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary) },
-                trailingIcon = {
-                    if (viewModel.isLoading) return@OutlinedTextField
-                    if (viewModel.videoUrl.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.updateUrl("") }) {
-                            Icon(Icons.Default.Clear, "Clear")
-                        }
-                    } else {
-                        IconButton(onClick = {
-                            scope.launch {
-                                val pasted = clipboard.getClipEntry()?.clipData
-                                    ?.takeIf { it.itemCount > 0 }
-                                    ?.getItemAt(0)?.coerceToText(context)?.toString()?.trim()
-                                if (!pasted.isNullOrEmpty()) viewModel.updateUrl(pasted)
-                            }
-                        }) {
-                            Icon(Icons.Default.ContentPaste, "Paste link", tint = MaterialTheme.colorScheme.secondary)
-                        }
-                    }
-                }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // By the card's own width, not the window's: beside the recent songs on a smaller tablet it is narrow
+        // again. A phone in landscape keeps the shared row however narrow, as it has no height to spare.
+        val inlineSelector = isWide && (isShort || maxWidth >= 480.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = cardShape,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSuccess) MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+                else MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
             )
+        ) {
+            Column(
+                modifier = Modifier
+                    .cardWash(accent, washStrength)
+                    // A phone in landscape has about 330dp of height: tighter, so the whole card fits without scrolling
+                    .padding(if (isShort) 12.dp else if (isLarge) 20.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(if (isShort) 8.dp else if (isLarge) 14.dp else 12.dp)
+            ) {
+                val sourceSelector = @Composable { modifier: Modifier ->
+                    SourceSelector(
+                        selected = source,
+                        enabled = !viewModel.isLoading && !viewModel.isRecording,
+                        isCompact = !inlineSelector,
+                        onSelect = { viewModel.selectTranscriptionSource(it) },
+                        modifier = modifier
+                    )
+                }
 
-            val needsPassword = viewModel.serverStatus == ServerStatus.PASSWORD_REQUIRED
-            if (needsPassword && !viewModel.isLoading) {
-                ServerPasswordNotice(isOfficialServer = viewModel.isUsingDefaultServer, onClick = onOpenServerSettings)
-            }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconBadge(Icons.Default.AutoAwesome, tint = accent, size = if (isShort) 26.dp else 30.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "AI Transcription",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (inlineSelector) Modifier else Modifier.weight(1f),
+                        color = accent
+                    )
 
-            if (!viewModel.isLoading && !viewModel.isRecording) {
-                val isBilled = viewModel.isBilledServer
-                val cost = viewModel.estimatedCostCredits
-                val buttonLabel = if (isLandscape) "Transcribe to MIDI" else "Transcribe"
-                val canTranscribe = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
-                    !viewModel.isCalculatingCost && !needsPassword
-                // Fades from waiting to ready as a link is pasted, rather than switching abruptly
-                val readiness by animateFloatAsState(
-                    targetValue = if (canTranscribe) 1f else 0f,
-                    animationSpec = tween(durationMillis = 260),
-                    label = "transcribeReadiness"
-                )
-                val container = lerp(accent.copy(alpha = 0.08f), accent, readiness)
-                val content = lerp(accent.copy(alpha = 0.45f), MaterialTheme.colorScheme.onSecondary, readiness)
-                val interaction = remember { MutableInteractionSource() }
-                val pressed by interaction.collectIsPressedAsState()
-                val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "transcribePress")
+                    // A wide card: the source choice shares the title's row instead of taking its own.
+                    if (inlineSelector) {
+                        if (canUseFiles) {
+                            sourceSelector(Modifier.weight(1f).padding(horizontal = 16.dp))
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    } else {
+                        Spacer(Modifier.width(8.dp))
+                    }
 
-                Button(
-                    onClick = onTranscribeClick,
-                    enabled = canTranscribe,
-                    interactionSource = interaction,
+                    val statusColor = viewModel.serverStatus.statusColor
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        modifier = Modifier.clickable {
+                            if (!viewModel.isLoading) {
+                                onOpenServerSettings()
+                            }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(color = statusColor, shape = CircleShape)
+                            )
+
+                            // A custom server shows the server icon of Server Settings in place of the gear: a word
+                            // ("Custom") widened the chip enough to cut off the title in portrait.
+                            val isCustom = !viewModel.isUsingDefaultServer
+                            Icon(
+                                imageVector = if (isCustom) Icons.Default.Dns else Icons.Default.Settings,
+                                contentDescription = if (isCustom) "Custom server settings" else "Server Settings",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (canUseFiles && !inlineSelector) {
+                    sourceSelector(Modifier)
+                }
+
+                if (source == TranscriptionSource.Record) {
+                    when {
+                        viewModel.isRecording -> RecordingArea(
+                            elapsedMs = viewModel.recordingElapsedMs,
+                            level = viewModel.recordingLevel,
+                            maxMinutes = viewModel.maxVideoLengthMinutes,
+                            onStop = { viewModel.stopRecording() },
+                            onDiscard = discard
+                        )
+                        selectedFile != null -> SelectedFileRow(
+                            file = selectedFile,
+                            enabled = !viewModel.isLoading,
+                            onChange = record,
+                            onClear = discard,
+                            icon = Icons.Default.Mic,
+                            changeLabel = "Record again",
+                            clearLabel = "Delete recording"
+                        )
+                        !viewModel.isLoading -> StartRecordingArea(
+                            maxMinutes = viewModel.maxVideoLengthMinutes,
+                            onClick = startRecording
+                        )
+                    }
+                } else if (source == TranscriptionSource.File) {
+                    when {
+                        selectedFile != null -> SelectedFileRow(
+                            file = selectedFile,
+                            enabled = !viewModel.isLoading,
+                            onChange = pickFile,
+                            onClear = { viewModel.clearSelectedMediaFile() }
+                        )
+                        !viewModel.isLoading -> ChooseFileArea(
+                            maxSizeMb = viewModel.maxUploadSizeMb,
+                            maxMinutes = viewModel.maxVideoLengthMinutes,
+                            onClick = pickFile
+                        )
+                    }
+                } else OutlinedTextField(
+                    value = viewModel.videoUrl,
+                    onValueChange = { viewModel.updateUrl(it) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        // The card's 8dp landscape gap felt cramped under the field; the button gets a little more air
-                        .padding(top = if (isLandscape) 6.dp else 0.dp)
-                        .height(if (isLandscape) 44.dp else 50.dp)
-                        .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
-                        .graphicsLayer {
-                            scaleX = pressScale
-                            scaleY = pressScale
+                        .onFocusChanged { linkInputAnchors.isLinkFieldFocused = it.isFocused }
+                        .onGloballyPositioned { linkInputAnchors.linkFieldTopInRoot = it.positionInRoot().y },
+                    // Without arrangements piano covers are what the server does best; with them, any video will do
+                    placeholder = {
+                        val hint = when {
+                            viewModel.supportsArrangement -> if (isWide) "Paste a video link" else "Video link"
+                            else -> if (isWide) "Paste a piano cover link" else "Piano cover link"
                         }
-                        .clip(PillShape)
-                        .background(container)
-                        // A faint sheen on top once ready, so it reads as lit rather than flat
-                        .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
-                    shape = PillShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = content,
-                        disabledContainerColor = Color.Transparent,
-                        disabledContentColor = content
-                    )
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        if (isBilled && viewModel.isCalculatingCost) {
-                            Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
+                        Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                    singleLine = true,
+                    enabled = !viewModel.isLoading,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = quietFieldColors(),
+                    leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary) },
+                    trailingIcon = {
+                        if (viewModel.isLoading) return@OutlinedTextField
+                        if (viewModel.videoUrl.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.updateUrl("") }) {
+                                Icon(Icons.Default.Clear, "Clear")
+                            }
                         } else {
-                            Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
-                            if (isBilled && cost != null) {
-                                Spacer(Modifier.width(10.dp))
-                                Surface(
-                                    shape = PillShape,
-                                    color = content.copy(alpha = 0.14f),
-                                    contentColor = content
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            IconButton(onClick = {
+                                scope.launch {
+                                    val pasted = clipboard.getClipEntry()?.clipData
+                                        ?.takeIf { it.itemCount > 0 }
+                                        ?.getItemAt(0)?.coerceToText(context)?.toString()?.trim()
+                                    if (!pasted.isNullOrEmpty()) viewModel.updateUrl(pasted)
+                                }
+                            }) {
+                                Icon(Icons.Default.ContentPaste, "Paste link", tint = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                    }
+                )
+
+                val needsPassword = viewModel.serverStatus == ServerStatus.PASSWORD_REQUIRED
+                if (needsPassword && !viewModel.isLoading) {
+                    ServerPasswordNotice(isOfficialServer = viewModel.isUsingDefaultServer, onClick = onOpenServerSettings)
+                }
+
+                if (!viewModel.isLoading && !viewModel.isRecording) {
+                    val isBilled = viewModel.isBilledServer
+                    val cost = viewModel.estimatedCostCredits
+                    val buttonLabel = if (isWide) "Transcribe to MIDI" else "Transcribe"
+                    val canTranscribe = (if (source == TranscriptionSource.Link) viewModel.videoUrl.isNotBlank() else selectedFile != null) &&
+                        !viewModel.isCalculatingCost && !needsPassword
+                    // Fades from waiting to ready as a link is pasted, rather than switching abruptly
+                    val readiness by animateFloatAsState(
+                        targetValue = if (canTranscribe) 1f else 0f,
+                        animationSpec = tween(durationMillis = 260),
+                        label = "transcribeReadiness"
+                    )
+                    val container = lerp(accent.copy(alpha = 0.08f), accent, readiness)
+                    val content = lerp(accent.copy(alpha = 0.45f), MaterialTheme.colorScheme.onSecondary, readiness)
+                    val interaction = remember { MutableInteractionSource() }
+                    val pressed by interaction.collectIsPressedAsState()
+                    val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "transcribePress")
+
+                    Button(
+                        onClick = onTranscribeClick,
+                        enabled = canTranscribe,
+                        interactionSource = interaction,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // The card's 8dp short-window gap felt cramped under the field; the button gets a little more air
+                            .padding(top = if (isShort) 6.dp else 0.dp)
+                            .height(if (isShort) 44.dp else if (isLarge) 54.dp else 50.dp)
+                            .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
+                            .graphicsLayer {
+                                scaleX = pressScale
+                                scaleY = pressScale
+                            }
+                            .clip(PillShape)
+                            .background(container)
+                            // A faint sheen on top once ready, so it reads as lit rather than flat
+                            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
+                        shape = PillShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = content,
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = content
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            if (isBilled && viewModel.isCalculatingCost) {
+                                Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
+                            } else {
+                                Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
+                                if (isBilled && cost != null) {
+                                    Spacer(Modifier.width(10.dp))
+                                    Surface(
+                                        shape = PillShape,
+                                        color = content.copy(alpha = 0.14f),
+                                        contentColor = content
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.MonetizationOn,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Text(
-                                            text = "$cost",
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 13.sp
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.MonetizationOn,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                            Text(
+                                                text = "$cost",
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 13.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // A reminder of what the terms dialog said, so it only appears once the user has agreed to them.
-            // A quiet footnote under the button, rather than a row of its own between the source and the input.
-            if (hasAcceptedTerms) {
-                RightsFootnote()
+                // A reminder of what the terms dialog said, so it only appears once the user has agreed to them.
+                // A quiet footnote under the button, rather than a row of its own between the source and the input.
+                if (hasAcceptedTerms) {
+                    RightsFootnote()
+                }
             }
         }
     }
@@ -510,9 +517,9 @@ private fun ServerPasswordNotice(isOfficialServer: Boolean, onClick: () -> Unit)
 private fun RightsFootnote() {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
     val linkColor = MaterialTheme.colorScheme.secondary
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    // Portrait has room for one short line only; the full sentence wrapped and left "Terms" on a line of its own
-    val notice = if (isLandscape) "Only convert music you have the right to use · " else "Convert music you've the right to use · "
+    val isWide = rememberWindowRoom().isWide
+    // A phone in portrait has room for one short line only; the full sentence wrapped and left "Terms" on a line of its own
+    val notice = if (isWide) "Only convert music you have the right to use · " else "Convert music you've the right to use · "
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,

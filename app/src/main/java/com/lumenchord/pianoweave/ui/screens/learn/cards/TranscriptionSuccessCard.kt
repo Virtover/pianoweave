@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
+
 import com.lumenchord.pianoweave.api.isArrangementKey
 import androidx.compose.animation.core.Animatable
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -18,7 +20,6 @@ import coil3.compose.AsyncImage
 import com.lumenchord.pianoweave.ui.components.ArtBackdrop
 import com.lumenchord.pianoweave.ui.components.smallThumbnailUrl
 import com.lumenchord.pianoweave.ui.components.songDetails
-import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -29,7 +30,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,12 +50,11 @@ fun TranscriptionSuccessCard(
     /** Offered for uploads and recordings, which arrive named after the file. */
     onEditDetails: (() -> Unit)? = null
 ) {
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isShort = rememberWindowRoom().isShort
     val accent = MaterialTheme.colorScheme.secondary
     val glory = Moods.Glory
     val surface = MaterialTheme.colorScheme.surface
-    val shape = RoundedCornerShape(if (isLandscape) 14.dp else 20.dp)
+    val shape = RoundedCornerShape(if (isShort) 14.dp else 20.dp)
     val metadata = song.metadata
 
     val glow = remember(song.file) { Animatable(0f) }
@@ -92,10 +91,10 @@ fun TranscriptionSuccessCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(if (isLandscape) 12.dp else 18.dp),
+                .padding(if (isShort) 12.dp else 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (metadata.thumbnail.isNotBlank() && !isLandscape) {
+            if (metadata.thumbnail.isNotBlank() && !isShort) {
                 AsyncImage(
                     model = smallThumbnailUrl(metadata.thumbnail),
                     contentDescription = null,
@@ -111,14 +110,14 @@ fun TranscriptionSuccessCard(
                 Icon(
                     imageVector = Icons.Default.Stars,
                     contentDescription = null,
-                    modifier = Modifier.size(if (isLandscape) 28.dp else 44.dp),
+                    modifier = Modifier.size(if (isShort) 28.dp else 44.dp),
                     tint = glory.core
                 )
-                Spacer(Modifier.height(if (isLandscape) 6.dp else 10.dp))
+                Spacer(Modifier.height(if (isShort) 6.dp else 10.dp))
             }
             Text(
                 text = if (song.videoUrl.isArrangementKey) "Arrangement ready" else "Transcription ready",
-                style = (if (isLandscape) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
+                style = (if (isShort) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
                     .copy(fontWeight = FontWeight.Bold),
                 color = glory.core
             )
@@ -140,26 +139,26 @@ fun TranscriptionSuccessCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(Modifier.height(if (isLandscape) 10.dp else 16.dp))
+            Spacer(Modifier.height(if (isShort) 10.dp else 16.dp))
             Button(
                 onClick = { onSongSelect(song) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isLandscape) 42.dp else 52.dp),
+                    .height(if (isShort) 42.dp else 52.dp),
                 shape = PillShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accent,
                     contentColor = MaterialTheme.colorScheme.onSecondary
                 )
             ) {
-                Icon(Icons.Default.PlayArrow, null, Modifier.size(if (isLandscape) 20.dp else 24.dp))
+                Icon(Icons.Default.PlayArrow, null, Modifier.size(if (isShort) 20.dp else 24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Start practicing", fontWeight = FontWeight.ExtraBold, fontSize = if (isLandscape) 14.sp else 16.sp)
+                Text("Start practicing", fontWeight = FontWeight.ExtraBold, fontSize = if (isShort) 14.sp else 16.sp)
             }
             if (onEditDetails != null) {
                 TextButton(
                     onClick = onEditDetails,
-                    modifier = Modifier.padding(top = if (isLandscape) 2.dp else 6.dp)
+                    modifier = Modifier.padding(top = if (isShort) 2.dp else 6.dp)
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp), tint = accent)
                     Spacer(Modifier.width(6.dp))

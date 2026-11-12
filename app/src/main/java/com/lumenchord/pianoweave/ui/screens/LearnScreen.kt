@@ -2,8 +2,6 @@ package com.lumenchord.pianoweave.ui.screens
 
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import android.content.Context
-import android.content.res.Configuration
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -24,6 +23,7 @@ import com.lumenchord.pianoweave.midi.hasEditableDetails
 import com.lumenchord.pianoweave.ui.components.AppSnackbar
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.components.ServerMaintenanceBanner
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.screens.learn.cards.HowItWorksPath
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
@@ -54,7 +54,10 @@ fun LearnScreen(
     val snackbarScope = rememberCoroutineScope()
 
     val scrollState = rememberScrollState()
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val room = rememberWindowRoom()
+    val isShort = room.isShort
+    // Tablet landscape: transcribing on the left, recent songs on the right
+    val twoPane = room.isLarge && room.isLandscape
 
     var viewportHeightPx by remember { mutableFloatStateOf(0f) }
     var scrollContainerTopInRoot by remember { mutableFloatStateOf(0f) }
@@ -206,7 +209,7 @@ fun LearnScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = if (isLandscape) 2.dp else 8.dp),
+                        .padding(horizontal = 16.dp, vertical = if (isShort) 2.dp else 8.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -221,102 +224,135 @@ fun LearnScreen(
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = if (isLandscape) 10.dp else 4.dp, bottom = 12.dp),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(0.9f),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // 1. SUCCESS HERO - High visibility practicing prompt
-                        if (!viewModel.isLoading && viewModel.readySong != null) {
-                            viewModel.readySong?.let { song ->
-                                TranscriptionSuccessCard(
-                                    song = song,
-                                    onSongSelect = onSongSelect,
-                                    onEditDetails = if (song.hasEditableDetails) {
-                                        { songBeingEdited = song }
-                                    } else null
-                                )
-                            }
-                        }
-
-                        // Planned server restart or shutdown, above the input it affects
-                        ServerMaintenance.notice?.let { notice ->
-                            ServerMaintenanceBanner(notice = notice)
-                        }
-
-                        // 2. INPUT CARD - Primary conversion entry
-                        TranscriptionInputCard(
-                            viewModel = viewModel,
-                            context = context,
-                            onOpenServerSettings = { viewModel.showServerSettingsDialog = true },
-                            linkInputAnchors = linkInputAnchors
-                        )
-
-                        // 3. PROGRESS CARD - Active loading feedback
-                        if (viewModel.isLoading) {
-                            TranscriptionProgressCard(
-                                viewModel = viewModel,
-                                progress = viewModel.progress,
-                                status = viewModel.status,
-                                onCancelClick = { handleCancelClick() },
-                                modifier = Modifier.onGloballyPositioned { coordinates ->
-                                    progressCardTopInRoot = coordinates.positionInRoot().y
-                                    progressCardHeightPx = coordinates.size.height.toFloat()
-                                }
-                            )
-                        }
-
-                        // 4. ERROR CARD - Persistent error feedback (dismissible)
-                        if (!viewModel.isLoading && (viewModel.transcriptionError != null || viewModel.status.startsWith("Error"))) {
-                            val errorMsg = viewModel.transcriptionError ?: viewModel.status.removePrefix("Error: ")
-                            TranscriptionErrorCard(
-                                errorMessage = errorMsg,
-                                onErrorDismiss = { viewModel.clearTranscriptionError() },
-                                onUploadInstead = if (viewModel.uploadOfferedFor == errorMsg) {
-                                    { viewModel.uploadInsteadOfLink() }
+                // Success, input, progress, error and How it works: everything about the next transcription
+                val transcribeCards = @Composable {
+                    // 1. SUCCESS HERO - High visibility practicing prompt
+                    if (!viewModel.isLoading && viewModel.readySong != null) {
+                        viewModel.readySong?.let { song ->
+                            TranscriptionSuccessCard(
+                                song = song,
+                                onSongSelect = onSongSelect,
+                                onEditDetails = if (song.hasEditableDetails) {
+                                    { songBeingEdited = song }
                                 } else null
                             )
                         }
+                    }
 
-                        // 5. HOW IT WORKS - for new users, right under the input it explains; stays until finished or hidden.
-                        // Hidden while transcribing so the progress card has the screen to itself.
-                        AnimatedVisibility(
-                            visible = viewModel.showHowItWorksHint && !viewModel.isLoading,
-                            enter = fadeIn(tween(400)),
-                            exit = fadeOut(tween(300))
-                        ) {
-                            HowItWorksPath(
-                                onClick = { viewModel.openWelcomeTutorial() },
-                                onHide = {
-                                    viewModel.setHowItWorksHintShown(context, false)
-                                    snackbarScope.launch {
-                                        snackbarHostState.currentSnackbarData?.dismiss()
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = "You can find it in Settings › About",
-                                            actionLabel = "Undo",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            viewModel.setHowItWorksHintShown(context, true)
-                                        }
+                    // Planned server restart or shutdown, above the input it affects
+                    ServerMaintenance.notice?.let { notice ->
+                        ServerMaintenanceBanner(notice = notice)
+                    }
+
+                    // 2. INPUT CARD - Primary conversion entry
+                    TranscriptionInputCard(
+                        viewModel = viewModel,
+                        context = context,
+                        onOpenServerSettings = { viewModel.showServerSettingsDialog = true },
+                        linkInputAnchors = linkInputAnchors
+                    )
+
+                    // 3. PROGRESS CARD - Active loading feedback
+                    if (viewModel.isLoading) {
+                        TranscriptionProgressCard(
+                            viewModel = viewModel,
+                            progress = viewModel.progress,
+                            status = viewModel.status,
+                            onCancelClick = { handleCancelClick() },
+                            modifier = Modifier.onGloballyPositioned { coordinates ->
+                                progressCardTopInRoot = coordinates.positionInRoot().y
+                                progressCardHeightPx = coordinates.size.height.toFloat()
+                            }
+                        )
+                    }
+
+                    // 4. ERROR CARD - Persistent error feedback (dismissible)
+                    if (!viewModel.isLoading && (viewModel.transcriptionError != null || viewModel.status.startsWith("Error"))) {
+                        val errorMsg = viewModel.transcriptionError ?: viewModel.status.removePrefix("Error: ")
+                        TranscriptionErrorCard(
+                            errorMessage = errorMsg,
+                            onErrorDismiss = { viewModel.clearTranscriptionError() },
+                            onUploadInstead = if (viewModel.uploadOfferedFor == errorMsg) {
+                                { viewModel.uploadInsteadOfLink() }
+                            } else null
+                        )
+                    }
+
+                    // 5. HOW IT WORKS - for new users, right under the input it explains; stays until finished or hidden.
+                    // Hidden while transcribing so the progress card has the screen to itself.
+                    AnimatedVisibility(
+                        visible = viewModel.showHowItWorksHint && !viewModel.isLoading,
+                        enter = fadeIn(tween(400)),
+                        exit = fadeOut(tween(300))
+                    ) {
+                        HowItWorksPath(
+                            onClick = { viewModel.openWelcomeTutorial() },
+                            onHide = {
+                                viewModel.setHowItWorksHintShown(context, false)
+                                snackbarScope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "You can find it in Settings › About",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.setHowItWorksHintShown(context, true)
                                     }
-                                },
-                                modifier = Modifier.padding(top = if (isLandscape) 4.dp else 20.dp)
-                            )
-                        }
+                                }
+                            },
+                            modifier = Modifier.padding(top = if (isShort) 4.dp else 20.dp)
+                        )
+                    }
+                }
 
-                        // 6. RECENT SONGS - quick way back into practicing
-                        val recentSongs = remember(viewModel.songs, viewModel.readySong) {
-                            viewModel.songs.filter { it.file != viewModel.readySong?.file }.take(3)
+                // 6. RECENT SONGS - quick way back into practicing; tablets have room for a few more
+                val recentSongs = remember(viewModel.songs, viewModel.readySong, room) {
+                    viewModel.songs.filter { it.file != viewModel.readySong?.file }.take(if (!room.isLarge) 3 else if (twoPane) 6 else 8)
+                }
+
+                val sideBySide = twoPane && recentSongs.isNotEmpty()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Side by side, the panes are short for a tablet's height: held a little above the middle
+                        // rather than against the top, with the empty space below
+                        .then(if (sideBySide) Modifier.defaultMinSize(minHeight = viewportHeight * 0.8f) else Modifier)
+                        .padding(top = if (isShort) 10.dp else if (room.isLarge) 12.dp else 4.dp, bottom = 12.dp),
+                    contentAlignment = if (sideBySide) BiasAlignment(0f, -0.4f) else Alignment.TopCenter
+                ) {
+                    if (sideBySide) {
+                        // A tablet in landscape: the songs sit beside the cards rather than far below them
+                        Row(
+                            modifier = Modifier
+                                .widthIn(max = 1120.dp)
+                                .fillMaxWidth(0.96f),
+                            horizontalArrangement = Arrangement.spacedBy(40.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1.3f),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                transcribeCards()
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                RecentSongsSection(songs = recentSongs, onSongSelect = onSongSelect, showHeaderGap = false)
+                            }
                         }
-                        if (recentSongs.isNotEmpty()) {
-                            RecentSongsSection(songs = recentSongs, onSongSelect = onSongSelect)
+                    } else {
+                        Column(
+                            // Capped so cards don't stretch into long, thin strips on a tablet
+                            modifier = Modifier
+                                .widthIn(max = 680.dp)
+                                .fillMaxWidth(0.9f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            transcribeCards()
+                            if (recentSongs.isNotEmpty()) {
+                                RecentSongsSection(songs = recentSongs, onSongSelect = onSongSelect)
+                            }
                         }
                     }
                 }

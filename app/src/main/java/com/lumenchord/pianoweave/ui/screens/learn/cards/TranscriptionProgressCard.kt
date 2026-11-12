@@ -1,12 +1,13 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
+
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
-import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,7 +42,7 @@ fun TranscriptionProgressCard(
     modifier: Modifier = Modifier
 ) {
     val accent = MaterialTheme.colorScheme.secondary
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isShort = rememberWindowRoom().isShort
     val onSurface = MaterialTheme.colorScheme.onSurface
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -53,11 +53,11 @@ fun TranscriptionProgressCard(
         Column(
             modifier = Modifier
                 .cardWash(accent)
-                .padding(if (isLandscape) 12.dp else 16.dp),
-            verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
+                .padding(if (isShort) 12.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isShort) 8.dp else 12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(Icons.Default.GraphicEq, tint = accent, size = if (isLandscape) 26.dp else 30.dp)
+                IconBadge(Icons.Default.GraphicEq, tint = accent, size = if (isShort) 26.dp else 30.dp)
                 Spacer(Modifier.width(10.dp))
                 Text(
                     text = if (viewModel.transcriptionMode == TranscriptionMode.Arrangement) "Arranging" else "Transcribing",
@@ -204,7 +204,7 @@ fun TranscriptionErrorCard(
     /** Shown as "Upload a file instead" when the server could not read the link. */
     onUploadInstead: (() -> Unit)? = null
 ) {
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isShort = rememberWindowRoom().isShort
     // Sorrow that is held, not alarm: Moods.Lament (Psalm 56:8)
     val lament = Moods.Lament.core
     DangerCard(
@@ -215,7 +215,7 @@ fun TranscriptionErrorCard(
         Column(
             modifier = Modifier
                 .cardWash(lament)
-                .padding(if (isLandscape) 12.dp else 16.dp),
+                .padding(if (isShort) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
@@ -223,7 +223,7 @@ fun TranscriptionErrorCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // A tear, kept in His bottle
-                IconBadge(Icons.Default.WaterDrop, tint = lament, size = if (isLandscape) 26.dp else 30.dp)
+                IconBadge(Icons.Default.WaterDrop, tint = lament, size = if (isShort) 26.dp else 30.dp)
                 Spacer(Modifier.width(10.dp))
                 Text(
                     text = "Transcription failed",

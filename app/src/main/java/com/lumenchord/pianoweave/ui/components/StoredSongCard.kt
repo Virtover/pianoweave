@@ -57,10 +57,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import android.content.res.Configuration
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,7 +82,8 @@ fun StoredSongCard(
     /** Null for songs whose details come from their source link. */
     onEditDetails: (() -> Unit)? = null
 ) {
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val room = rememberWindowRoom()
+    val isShort = room.isShort
     val metadata = song.metadata
     val details = remember(metadata.author, metadata.duration) { songDetails(metadata) }
 
@@ -106,7 +105,7 @@ fun StoredSongCard(
             ) {
                 SongThumbnail(
                     thumbnailUrl = metadata.thumbnail,
-                    size = if (isLandscape) 40.dp else 48.dp
+                    size = if (isShort) 40.dp else 48.dp
                 )
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -114,7 +113,7 @@ fun StoredSongCard(
                         text = metadata.title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = if (isLandscape) 14.sp else 15.sp
+                            fontSize = if (isShort) 14.sp else 15.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -126,7 +125,7 @@ fun StoredSongCard(
                     ) {
                         // A transcription and an arrangement of one link share a title; the tag tells them apart
                         song.madeAs?.let { mode ->
-                            SongModeTag(mode, compact = !isLandscape)
+                            SongModeTag(mode, compact = !room.isWide)
                             Spacer(Modifier.width(6.dp))
                         }
                         Text(

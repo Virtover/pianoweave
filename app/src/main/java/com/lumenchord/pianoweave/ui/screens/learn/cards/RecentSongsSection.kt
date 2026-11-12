@@ -26,24 +26,25 @@ import com.lumenchord.pianoweave.ui.components.SongThumbnail
 import com.lumenchord.pianoweave.ui.components.songDetails
 import com.lumenchord.pianoweave.ui.components.SongModeTag
 import com.lumenchord.pianoweave.ui.components.madeAs
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.platform.LocalConfiguration
+import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 
 /** The newest songs in the library, so the Transcribe screen is a way back into practicing too. */
 @Composable
 fun RecentSongsSection(
     songs: List<StoredMidi>,
-    onSongSelect: (StoredMidi) -> Unit
+    onSongSelect: (StoredMidi) -> Unit,
+    /** Off beside the cards (tablet landscape), so the header lines up with the top of the Transcribe card. */
+    showHeaderGap: Boolean = true
 ) {
+    val room = rememberWindowRoom()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+            .padding(top = if (showHeaderGap) 8.dp else 0.dp),
+        verticalArrangement = Arrangement.spacedBy(if (room.isLarge) 4.dp else 2.dp)
     ) {
-        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         SectionHeader("Recently added")
         songs.forEach { song ->
             Row(
@@ -51,11 +52,11 @@ fun RecentSongsSection(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .clickable { onSongSelect(song) }
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                    .padding(horizontal = if (room.isLarge) 8.dp else 4.dp, vertical = if (room.isLarge) 8.dp else 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                SongThumbnail(thumbnailUrl = song.metadata.thumbnail, size = 40.dp)
+                SongThumbnail(thumbnailUrl = song.metadata.thumbnail, size = if (room.isLarge) 46.dp else 40.dp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = song.metadata.title,
@@ -69,7 +70,7 @@ fun RecentSongsSection(
                     if (mode != null || details != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             mode?.let {
-                                SongModeTag(it, compact = !isLandscape)
+                                SongModeTag(it, compact = !room.isWide)
                                 Spacer(Modifier.width(6.dp))
                             }
                             details?.let {
