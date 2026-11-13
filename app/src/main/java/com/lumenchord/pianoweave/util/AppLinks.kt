@@ -19,6 +19,9 @@ object AppLinks {
     /** One version of the Terms (its effective date), in Polish or English. */
     fun termsVersion(version: String, polish: Boolean): String =
         "${DOCS_BASE_URL}terms/$version${if (polish) "_pl" else ""}.html"
+
+    /** One version of the Privacy Policy (its effective date); it is in English only. */
+    fun privacyVersion(version: String): String = "${DOCS_BASE_URL}privacy/$version.html"
 }
 
 /** Opens [url] in the browser; returns false if no app can handle it. */

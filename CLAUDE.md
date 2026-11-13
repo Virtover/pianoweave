@@ -92,13 +92,18 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   raw Vosk stream, decoded by Vosk with a command grammar. Design notes, thresholds, measurements and test/replay
   tools are in `app/src/main/java/com/lumenchord/pianoweave/audio/CLAUDE.md` (read it before changing voice code,
   including the UI side in `pianoroll/VoiceCommand*.kt`).
-- **Terms of Service versions**: each version is `docs/terms/<effective date>.html` + `_pl.html`, listed in
-  `docs/terms_versions.json`. `docs/terms.js` picks by today's UTC date: the fixed URLs
-  (`terms_of_service[_upcoming][_pl].html`, which the app links) redirect, and version pages show an upcoming /
-  archived box. The app (`LegalConsent`) fetches the same list: from a version's date the transcription consent asks
-  again; before it, people who already had the app see `TermsChangeDialog` once (fresh installs don't). To change the
-  Terms: add both pages, the date (also in `LegalConsent.BUNDLED_VERSIONS`) and links in the fixed pages' fallback
-  lists, at least 14 days ahead (the Terms promise that notice). The Privacy Policy isn't versioned.
+- **Legal document versions** (Terms of Service, Privacy Policy, "Above all"): each version is
+  `docs/<terms|privacy|above_all>/<effective date>.html` (+ `_pl.html` for Terms and Above all), listed in
+  `docs/terms_versions.json` (`versions` = Terms, the key older app releases read; `privacy_policy`; `above_all`).
+  `docs/terms.js` picks by today's UTC date: the fixed URLs (`terms_of_service[_upcoming][_pl].html`,
+  `privacy_policy[_upcoming].html`, `above_all[_pl].html`) redirect, and version pages show an upcoming / archived
+  box. "Above all" is the developer's statement that Terms section 13 points to (users needn't agree with it); each Terms version links one Above-all version
+  directly (several may link the same one), so a new Above-all version comes with a new Terms version. The app
+  (`LegalConsent`) fetches the same list for Terms and Privacy Policy: from a Terms version's date the transcription
+  consent asks again; before it, people who already had the app see `TermsChangeDialog` once per version (fresh
+  installs don't), with Terms and Privacy changes in one dialog. To change a document: add its page(s), the date
+  (Terms/Privacy also in `LegalDocument.bundledVersions`) and links in the fixed pages' fallback lists, at least 14
+  days ahead (the Terms promise that notice).
 - **Piano arrangements**: when server-info says `arrangement: true`, Transcribe opens `TranscriptionModeDialog`
   (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus
   `#piano-arrangement` (`libraryKey()` in `api/TranscriptionModels.kt`), so it never collides with the transcription

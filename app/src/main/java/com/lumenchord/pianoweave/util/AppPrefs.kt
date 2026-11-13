@@ -53,12 +53,16 @@ object AppPrefs {
     const val PENDING_DETAIL_EDITS = "pending_detail_edits"
 
     // Legal
-    /** The [LegalConsent.TERMS_VERSION] the user last agreed to before transcribing. */
+    /** The Terms version ([LegalConsent.currentVersion]) the user last agreed to before transcribing. */
     const val ACCEPTED_TERMS_VERSION = "accepted_terms_version"
     /** The newest announced Terms version the user has been told about ("" if none; absent before first launch). */
     const val SEEN_TERMS_CHANGE_NOTICE = "seen_terms_change_notice"
     /** Last fetched Terms versions (effective dates, comma-separated), from docs/terms_versions.json. */
     const val TERMS_VERSIONS = "terms_versions"
+    /** The newest announced Privacy Policy version the user has been told about (as [SEEN_TERMS_CHANGE_NOTICE]). */
+    const val SEEN_PRIVACY_CHANGE_NOTICE = "seen_privacy_change_notice"
+    /** Last fetched Privacy Policy versions (as [TERMS_VERSIONS]). */
+    const val PRIVACY_VERSIONS = "privacy_versions"
 
     // UI & playback
     const val SELECTED_THEME_ID = "selected_theme_id"

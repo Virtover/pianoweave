@@ -402,19 +402,20 @@ private fun PianoWeaveApp(
         )
     }
 
-    // Advance notice of new Terms, once, after startup prompts and the walkthrough are out of the way.
-    // The published version list may announce a change this build doesn't know about yet.
-    var termsChange by remember { mutableStateOf(LegalConsent.termsChangeToAnnounce(context)) }
+    // Advance notice of new Terms and/or Privacy Policy (one dialog for both), once, after startup prompts and
+    // the walkthrough are out of the way. The published version list may announce a change this build doesn't
+    // know about yet.
+    var legalChanges by remember { mutableStateOf(LegalConsent.changesToAnnounce(context)) }
     LaunchedEffect(Unit) {
-        if (LegalConsent.refreshVersions(context)) termsChange = LegalConsent.termsChangeToAnnounce(context)
+        if (LegalConsent.refreshVersions(context)) legalChanges = LegalConsent.changesToAnnounce(context)
     }
-    val announcedVersion = termsChange
-    if (announcedVersion != null && startupPromptsDone && connectionProblem == null && !viewModel.showWelcomeTutorial) {
+    val announcedChanges = legalChanges
+    if (announcedChanges != null && startupPromptsDone && connectionProblem == null && !viewModel.showWelcomeTutorial) {
         TermsChangeDialog(
-            version = announcedVersion,
+            changes = announcedChanges,
             onDismiss = {
-                LegalConsent.markTermsChangeNoticeSeen(context, announcedVersion)
-                termsChange = null
+                LegalConsent.markChangesSeen(context, announcedChanges)
+                legalChanges = null
             }
         )
     }
