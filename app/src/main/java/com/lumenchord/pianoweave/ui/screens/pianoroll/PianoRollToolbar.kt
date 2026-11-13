@@ -220,7 +220,7 @@ internal fun ModernToolbar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.MusicNote,
-                        contentDescription = if (isPortrait) "Metronome" else null,
+                        contentDescription = if (isPortrait || metronome.label != null) "Metronome" else null,
                         modifier = Modifier
                             .size(19.dp)
                             .graphicsLayer { alpha = 0.55f + 0.45f * metronome.pulse() }
@@ -228,7 +228,7 @@ internal fun ModernToolbar(
                     if (!isPortrait) {
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Metronome",
+                            text = metronome.label ?: "Metronome",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -322,6 +322,8 @@ private fun speedLabel(speed: Float): String =
  */
 internal class SpeedChipMetronome(
     val isOn: Boolean,
+    /** The tempo and meter being played, shown on the button in landscape; null to show "Metronome". */
+    val label: String? = null,
     val onToggle: () -> Unit,
     val pulse: () -> Float
 )

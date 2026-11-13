@@ -41,6 +41,16 @@ fun MetronomeSection(viewModel: PianoWeaveViewModel, hasBeats: Boolean) {
             enabled = isMetronomeAvailable,
             accent = accent
         )
+        if (isMetronomeOn) {
+            SettingToggleRow(
+                title = "Silent until the first note",
+                subtitle = "No clicks over the quiet start of the recording",
+                checked = viewModel.isMetronomeLeadInSilent,
+                onCheckedChange = { viewModel.setMetronomeLeadInSilent(context, it) },
+                accent = accent,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        }
         SettingToggleRow(
             title = "Count-in",
             subtitle = when {

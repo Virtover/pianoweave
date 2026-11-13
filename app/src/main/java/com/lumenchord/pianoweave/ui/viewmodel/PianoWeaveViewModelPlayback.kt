@@ -71,6 +71,11 @@ internal fun PianoWeaveViewModel.setMetronomeEnabledImpl(context: Context, enabl
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_METRONOME_ENABLED, enabled).apply()
 }
 
+internal fun PianoWeaveViewModel.setMetronomeLeadInSilentImpl(context: Context, silent: Boolean) {
+    isMetronomeLeadInSilent = silent
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_METRONOME_LEAD_IN_SILENT, silent).apply()
+}
+
 internal fun PianoWeaveViewModel.setCountInEnabledImpl(context: Context, enabled: Boolean) {
     isCountInEnabled = enabled
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_COUNT_IN_ENABLED, enabled).apply()

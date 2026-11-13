@@ -68,7 +68,10 @@ import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.ui.viewmodel.VoiceModelState
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -274,8 +277,11 @@ internal fun ModernPianoPlayerContent(
         // the beat at (or just before) [fromMs], moving the playhead back to it, so the clicks lead straight
         // into a beat; with it off, it's only counted on screen and playback starts where it was
         // Without the metronome (or beats) it's a plain countdown instead: 3, 2, 1, a second each, on screen
+        // The playback position for the click scheduler below; null while it isn't moving (counting in)
+        val clock = AtomicReference<PlaybackClock?>(null)
         suspend fun countIn(fromMs: Long) {
             if (viewModel.isWaitModeEnabled || !viewModel.isCountInEnabled) return
+            clock.set(null)
             val isHeard = hasMetronome && viewModel.isMetronomeEnabled
             val startMs = if (isHeard) beatAtOrBefore(beats, fromMs)?.timeMs ?: fromMs else fromMs
             viewModel.playheadMs = startMs
@@ -338,16 +344,47 @@ internal fun ModernPianoPlayerContent(
         }
 
         lastTriggeredHeadMs = viewModel.playheadMs
-        // Just before the playhead, so a beat right on it clicks too
-        var lastClickHeadMs = viewModel.playheadMs - 1
         var lastTime = System.nanoTime()
+        // Song time not yet added to the whole-millisecond playhead; dropping it every step made playback
+        // run behind the clock (about half a millisecond per 10 ms step)
+        var carryMs = 0.0
+
+        // The clicks run on their own thread from the playback clock: each beat a short way ahead is waited
+        // for and played at its own time, instead of on the next pass of this loop (up to a step late)
+        val clickJob = if (!hasMetronome) null else launch(Dispatchers.Default) {
+            val scheduler = ClickScheduler(
+                beats,
+                clickFromMs = if (viewModel.isMetronomeLeadInSilent) firstClickMs(noteEvents) ?: Long.MIN_VALUE else Long.MIN_VALUE
+            )
+            while (isActive) {
+                val now = System.nanoTime()
+                val current = clock.get()
+                if (current == null || !viewModel.isMetronomeEnabled) {
+                    scheduler.reset()
+                    delay(CLICK_POLL_MS)
+                    continue
+                }
+                for (beat in scheduler.due(current.headAt(now).toLong(), (CLICK_LOOKAHEAD_MS * current.speed).toLong())) {
+                    // Read again just before playing: a seek, loop wrap or stop since then drops the click
+                    var dueClock = clock.get() ?: break
+                    val waitMs = (dueClock.nanosAt(beat.timeMs) - System.nanoTime()) / 1_000_000L
+                    if (waitMs > 0) delay(waitMs)
+                    dueClock = clock.get() ?: break
+                    val lateMs = (System.nanoTime() - dueClock.nanosAt(beat.timeMs)) / 1_000_000L
+                    if (lateMs in -CLICK_POLL_MS..CLICK_MAX_LATE_MS) MetronomeClick.play(isBarStart = beat.isBarStart)
+                }
+                delay(CLICK_POLL_MS)
+            }
+        }
 
         while (viewModel.isPlaying) {
             val now = System.nanoTime()
-            val dt = (now - lastTime) / 1_000_000L
+            carryMs += (now - lastTime) / 1_000_000.0 * viewModel.speedMultiplier
             lastTime = now
+            val stepMs = carryMs.toLong()
+            carryMs -= stepMs
 
-            val targetNext = viewModel.playheadMs + (dt * viewModel.speedMultiplier).toLong()
+            val targetNext = viewModel.playheadMs + stepMs
 
             if (viewModel.isWaitModeEnabled) {
                 // The playhead went back (seek, drag, reset, loop wrap): chords at or after it must be
@@ -419,11 +456,6 @@ internal fun ModernPianoPlayerContent(
                 triggered.forEach(::songNoteOn)
             }
             lastTriggeredHeadMs = next
-            // Like the notes above: a jump (seek, drag) skips the beats in between instead of clicking them all
-            if (hasMetronome && viewModel.isMetronomeEnabled && next - lastClickHeadMs in 0L..500L) {
-                beatsBetween(beats, lastClickHeadMs, next).lastOrNull()?.let { MetronomeClick.play(it.isBarStart) }
-            }
-            lastClickHeadMs = next
 
             // A loop ending at or before its start (set that way in the loop settings) can't play: it
             // jumped back every frame, restarting its notes, so it counts as no loop
@@ -437,8 +469,8 @@ internal fun ModernPianoPlayerContent(
                 // The count-in may have moved it back to a beat
                 val restartMs = viewModel.playheadMs
                 lastTriggeredHeadMs = restartMs
-                lastClickHeadMs = restartMs - 1
                 lastTime = System.nanoTime()
+                carryMs = 0.0
                 val loopNotes = noteEvents.filter { restartMs >= it.startMs && restartMs < (it.startMs + it.durationMs) }
                 if (isSongSoundOn) loopNotes.forEach(::songNoteOn)
             } else if (!isLooping && next >= songDurationMs) {
@@ -450,8 +482,11 @@ internal fun ModernPianoPlayerContent(
                 }
             }
             releaseEndedNotes()
+            // Where the song is now, for the clicks; in wait mode it stands still at chords, so none
+            clock.set(if (hasMetronome && viewModel.isPlaying) PlaybackClock(viewModel.playheadMs + carryMs, lastTime, viewModel.speedMultiplier) else null)
             delay(10)
         }
+        clickJob?.cancel()
     }
 
     val isWaitingAtBaseline = viewModel.isPlaying && viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
@@ -483,6 +518,9 @@ internal fun ModernPianoPlayerContent(
 
     // The controller outlives a change of song's beats (it's remembered once), so it reads the latest
     val currentBeats by rememberUpdatedState(beats)
+    // The tempo (as heard, so at the chosen speed) and meter for the toolbar; derived, so the toolbar only
+    // recomposes when they change, not every frame with the playhead
+    val beatInfo by remember(beats) { derivedStateOf { beatInfoAt(beats, viewModel.playheadMs) } }
     // Voice commands listen while the screen is in the foreground (the recognizer frees its model on pause)
     val voiceController = remember {
         VoiceCommandController(
@@ -705,6 +743,7 @@ internal fun ModernPianoPlayerContent(
                     },
                     metronome = SpeedChipMetronome(
                         isOn = beats.isNotEmpty() && viewModel.isMetronomeEnabled,
+                        label = beatInfo?.let { "${(it.bpm * viewModel.speedMultiplier).roundToInt()} BPM · ${it.meter}" },
                         onToggle = {
                             when {
                                 beats.isEmpty() ->
@@ -990,3 +1029,9 @@ private class PlayRun {
 
 /** The count-in without the metronome: a countdown of this many seconds. */
 private const val COUNTDOWN_SECONDS = 3
+
+/** How far ahead of the playback clock, in real time, the click scheduler looks for beats, and how often. */
+private const val CLICK_LOOKAHEAD_MS = 40L
+private const val CLICK_POLL_MS = 10L
+/** A click later than this (the thread held up) is dropped rather than heard off the beat. */
+private const val CLICK_MAX_LATE_MS = 30L

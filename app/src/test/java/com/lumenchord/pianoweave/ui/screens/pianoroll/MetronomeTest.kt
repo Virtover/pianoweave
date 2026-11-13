@@ -71,4 +71,38 @@ class MetronomeTest {
         assertEquals(1, plan.startBeatOfBar)
         assertEquals(listOf(1, 0), (0 until plan.clicks).map(plan::beatOfBar))
     }
+
+    @Test
+    fun schedulerHandsOutEachBeatOnceAShortWayAhead() {
+        val scheduler = ClickScheduler(grid(500L, 4, 4))
+        assertEquals(listOf(0L), scheduler.due(0L, 40L).map { it.timeMs })
+        assertEquals(emptyList<Long>(), scheduler.due(10L, 40L).map { it.timeMs })
+        assertEquals(listOf(500L), scheduler.due(470L, 40L).map { it.timeMs })
+        assertEquals(emptyList<Long>(), scheduler.due(480L, 40L).map { it.timeMs })
+    }
+
+    @Test
+    fun aSeekSkipsTheBeatsInBetweenAndBackClicksThemAgain() {
+        val scheduler = ClickScheduler(grid(500L, 4, 4, 4))
+        scheduler.due(0L, 40L)
+        // Forward: from the new place, not every beat jumped over
+        assertEquals(listOf(3000L), scheduler.due(3000L, 40L).map { it.timeMs })
+        // Back (a loop wrap): the beat there clicks again
+        assertEquals(listOf(1000L), scheduler.due(1000L, 40L).map { it.timeMs })
+    }
+
+    @Test
+    fun afterAPauseItStartsFromThePlayhead() {
+        val scheduler = ClickScheduler(grid(500L, 4, 4))
+        scheduler.due(1200L, 40L)
+        scheduler.reset()
+        assertEquals(listOf(1500L), scheduler.due(1490L, 40L).map { it.timeMs })
+    }
+
+    @Test
+    fun theClockGivesTheRealTimeOfABeatAtAnySpeed() {
+        val clock = PlaybackClock(headMs = 1000.0, anchorNanos = 5_000_000_000L, speed = 0.5f)
+        assertEquals(5_000_000_000L + 1_000_000_000L, clock.nanosAt(1500L))
+        assertEquals(1250.0, clock.headAt(5_500_000_000L), 1e-9)
+    }
 }

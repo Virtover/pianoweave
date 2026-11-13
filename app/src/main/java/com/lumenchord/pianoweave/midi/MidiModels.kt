@@ -13,10 +13,14 @@ data class SustainPedalSpan(
     val endMs: Long
 )
 
-/** One beat of a song's grid; [isBarStart] on the first beat of each bar. */
+/**
+ * One beat of a song's grid; [isBarStart] on the first beat of each bar. [beatUnit] is the time signature's
+ * denominator in force (4: the beat is a quarter note, as in every transcription; 8 in 6/8).
+ */
 data class Beat(
     val timeMs: Long,
-    val isBarStart: Boolean
+    val isBarStart: Boolean,
+    val beatUnit: Int = 4
 )
 
 /**

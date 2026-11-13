@@ -338,6 +338,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     MidiInputManager.isSoundEnabled = isKeyboardSoundEnabled
     isMetronomeEnabled = prefs.getBoolean(AppPrefs.IS_METRONOME_ENABLED, false)
     isCountInEnabled = prefs.getBoolean(AppPrefs.IS_COUNT_IN_ENABLED, false)
+    isMetronomeLeadInSilent = prefs.getBoolean(AppPrefs.IS_METRONOME_LEAD_IN_SILENT, false)
     loadVoicePreferences(context)
     // A theme merged into another resolves to its replacement, so the picker shows it as selected
     selectedThemeId = AppThemeManager.resolveId(prefs.getString(AppPrefs.SELECTED_THEME_ID, null)) ?: AppThemeManager.defaultTheme.id

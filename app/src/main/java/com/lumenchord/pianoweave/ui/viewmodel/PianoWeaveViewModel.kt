@@ -78,6 +78,8 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
     var isCountInEnabled by mutableStateOf(false)
         internal set
+    var isMetronomeLeadInSilent by mutableStateOf(false)
+        internal set
 
     var isLoopingEnabled by mutableStateOf(false)
     var loopStartMs by mutableLongStateOf(0L)
@@ -423,6 +425,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setKeyboardSoundEnabled(context: Context, enabled: Boolean) = setKeyboardSoundEnabledImpl(context, enabled)
     fun setMetronomeEnabled(context: Context, enabled: Boolean) = setMetronomeEnabledImpl(context, enabled)
     fun setCountInEnabled(context: Context, enabled: Boolean) = setCountInEnabledImpl(context, enabled)
+    fun setMetronomeLeadInSilent(context: Context, silent: Boolean) = setMetronomeLeadInSilentImpl(context, silent)
     fun setVoiceCommandsEnabled(context: Context, enabled: Boolean) = setVoiceCommandsEnabledImpl(context, enabled)
     fun setVoiceCommandsPillEnabled(context: Context, enabled: Boolean) = setVoiceCommandsPillEnabledImpl(context, enabled)
     fun downloadVoiceModel(context: Context) = downloadVoiceModelImpl(context)

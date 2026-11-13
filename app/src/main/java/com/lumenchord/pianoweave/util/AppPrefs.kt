@@ -68,6 +68,8 @@ object AppPrefs {
     const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
     /** A click on every beat of songs with a beat grid (not in wait mode). */
     const val IS_METRONOME_ENABLED = "is_metronome_enabled"
+    /** Whether the metronome stays silent over the beats before the song's first note. */
+    const val IS_METRONOME_LEAD_IN_SILENT = "is_metronome_lead_in_silent"
     /** One bar of clicks before playback starts and each time a loop starts over. */
     const val IS_COUNT_IN_ENABLED = "is_count_in_enabled"
     /** Hands-free piano roll control by short spoken words (needs the downloaded voice model). */
