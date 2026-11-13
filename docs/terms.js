@@ -12,6 +12,9 @@
 //   announced, or archived.
 // - A version page's #doc-changes box (what changes from the previous version) shows only while that version is
 //   upcoming. It is hidden here rather than in the HTML, so readers without JavaScript still see the announcement.
+//
+// Testing: add ?today=YYYY-MM-DD to any of these pages to see them as on that date. The links and redirects the
+// script makes keep the parameter, so you can click through.
 (function () {
     var base = new URL('.', document.currentScript.src);
 
@@ -63,12 +66,17 @@
         pl: function (d) { return '<strong>Nowy dokument.</strong> Wchodzi w życie ' + d; }
     };
 
+    var todayOverride = new URLSearchParams(location.search).get('today');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(todayOverride || '')) todayOverride = null;
+
     function today() {
-        return new Date().toISOString().slice(0, 10);
+        return todayOverride || new Date().toISOString().slice(0, 10);
     }
 
     function pageUrl(doc, version, lang) {
-        return new URL(DOCS[doc].dir + version + (lang === 'pl' ? '_pl' : '') + '.html', base).href;
+        var url = new URL(DOCS[doc].dir + version + (lang === 'pl' ? '_pl' : '') + '.html', base);
+        if (todayOverride) url.searchParams.set('today', todayOverride);
+        return url.href;
     }
 
     function formatDate(version, lang) {

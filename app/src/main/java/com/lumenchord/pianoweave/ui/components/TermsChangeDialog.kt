@@ -32,12 +32,14 @@ import java.util.Locale
  * Advance notice of new Terms and/or a new Privacy Policy ([changes], effective dates in ISO), in one dialog when
  * both change. The Terms promise this notice in the App at least 14 days ahead, so it is shown once per version;
  * any way of closing it counts as seen. The text stays general because a change can be announced without an app
- * release; each document's page lists what changes.
+ * release; each document's page lists what changes. [linkToUpcomingPages] is for made-up versions (the debug
+ * preview): the buttons then open the fixed "upcoming" pages, as the made-up version pages don't exist.
  */
 @Composable
 fun TermsChangeDialog(
     changes: LegalChanges,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    linkToUpcomingPages: Boolean = false
 ) {
     val context = LocalContext.current
     val appTheme = LocalAppTheme.current
@@ -45,8 +47,13 @@ fun TermsChangeDialog(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
     // The Terms page has both languages; open the user's one first. The Privacy Policy is in English only.
-    val termsUrl = changes.terms?.let { AppLinks.termsVersion(it, polish = Locale.getDefault().language == "pl") }
-    val privacyUrl = changes.privacyPolicy?.let { AppLinks.privacyVersion(it) }
+    val polish = Locale.getDefault().language == "pl"
+    val termsUrl = changes.terms?.let {
+        if (linkToUpcomingPages) AppLinks.termsUpcoming(polish) else AppLinks.termsVersion(it, polish)
+    }
+    val privacyUrl = changes.privacyPolicy?.let {
+        if (linkToUpcomingPages) AppLinks.PRIVACY_POLICY_UPCOMING else AppLinks.privacyVersion(it)
+    }
     val both = termsUrl != null && privacyUrl != null
     val title = when {
         both -> "Terms and Privacy Update"

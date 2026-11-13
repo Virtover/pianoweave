@@ -22,6 +22,11 @@ object AppLinks {
 
     /** One version of the Privacy Policy (its effective date); it is in English only. */
     fun privacyVersion(version: String): String = "${DOCS_BASE_URL}privacy/$version.html"
+
+    /** The next announced Terms (or the current ones if none is), for links that have no real version to name. */
+    fun termsUpcoming(polish: Boolean): String = "${DOCS_BASE_URL}terms_of_service_upcoming${if (polish) "_pl" else ""}.html"
+
+    const val PRIVACY_POLICY_UPCOMING = "${DOCS_BASE_URL}privacy_policy_upcoming.html"
 }
 
 /** Opens [url] in the browser; returns false if no app can handle it. */

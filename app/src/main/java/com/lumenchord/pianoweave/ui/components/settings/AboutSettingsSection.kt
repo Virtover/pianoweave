@@ -15,16 +15,25 @@ import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lumenchord.pianoweave.ui.components.TermsChangeDialog
 import com.lumenchord.pianoweave.ui.theme.AppTheme
+import com.lumenchord.pianoweave.util.LegalChanges
 import com.lumenchord.pianoweave.util.AppLinks
 import com.lumenchord.pianoweave.util.isDebuggable
 import com.lumenchord.pianoweave.util.openUrl
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 @Composable
 fun AboutSettingsSection(
@@ -102,6 +111,27 @@ fun AboutSettingsSection(
             )
         }
 
+        // Debug builds only: shows the Terms / Privacy change notice with made-up dates, a different case each tap.
+        // Nothing is stored, so the real notice still comes when a change is announced.
+        if (context.isDebuggable) {
+            var previewCase by remember { mutableIntStateOf(0) }
+            var previewChanges by remember { mutableStateOf<LegalChanges?>(null) }
+            LinkRow(
+                icon = Icons.Default.Gavel,
+                title = "Preview legal change notice (debug)",
+                subtitle = "Next: " + LEGAL_PREVIEW_CASES[previewCase % LEGAL_PREVIEW_CASES.size],
+                previewTheme = previewTheme,
+                onClick = {
+                    previewChanges = legalPreviewChanges(previewCase)
+                    previewCase++
+                },
+                trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+            )
+            previewChanges?.let { changes ->
+                TermsChangeDialog(changes = changes, onDismiss = { previewChanges = null }, linkToUpcomingPages = true)
+            }
+        }
+
         if (isSignedIn) {
             // Kept deliberately low-key; the actual deletion happens on the web page.
             TextButton(
@@ -118,6 +148,20 @@ fun AboutSettingsSection(
                 )
             }
         }
+    }
+}
+
+private val LEGAL_PREVIEW_CASES = listOf("Terms only", "Privacy Policy only", "both, same date", "both, different dates")
+
+/** Made-up announced versions (14 and 21 days ahead) for each of [LEGAL_PREVIEW_CASES], in turn. */
+private fun legalPreviewChanges(case: Int): LegalChanges {
+    val soon = LocalDate.now(ZoneOffset.UTC).plusDays(14).toString()
+    val later = LocalDate.now(ZoneOffset.UTC).plusDays(21).toString()
+    return when (case % LEGAL_PREVIEW_CASES.size) {
+        0 -> LegalChanges(terms = soon, privacyPolicy = null)
+        1 -> LegalChanges(terms = null, privacyPolicy = soon)
+        2 -> LegalChanges(terms = soon, privacyPolicy = soon)
+        else -> LegalChanges(terms = later, privacyPolicy = soon)
     }
 }
 

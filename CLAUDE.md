@@ -103,7 +103,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   consent asks again; before it, people who already had the app see `TermsChangeDialog` once per version (fresh
   installs don't), with Terms and Privacy changes in one dialog. To change a document: add its page(s), the date
   (Terms/Privacy also in `LegalDocument.bundledVersions`) and links in the fixed pages' fallback lists, at least 14
-  days ahead (the Terms promise that notice).
+  days ahead (the Terms promise that notice). Testing needs no made-up versions: debug builds have Settings →
+  "Preview legal change notice (debug)" (each tap a different case), and any page takes `?today=YYYY-MM-DD`.
 - **Piano arrangements**: when server-info says `arrangement: true`, Transcribe opens `TranscriptionModeDialog`
   (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus
   `#piano-arrangement` (`libraryKey()` in `api/TranscriptionModels.kt`), so it never collides with the transcription
