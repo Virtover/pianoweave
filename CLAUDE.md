@@ -107,6 +107,15 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   newer Play version is offered as a flexible update (Restart snackbar when downloaded); priority 4–5 forces the
   immediate flow; a declined version rests 3 days. Debug builds: Settings → "Simulate app update (debug)" runs it
   against `FakeAppUpdateManager`. A real check only works on a Play install (internal app sharing).
+- **Server announcements** (`api/Announcements.kt`, server `GET /api/announcements`): fetched at launch, on every
+  resume (throttled 30 s) and on server change, from the selected server *and* the official one (a takedown
+  notice comes from there). Each server's last good list is kept in prefs and stays shown on 404/503/offline.
+  Critical non-dismissible → full-screen `Dialog` (Back can't close it; "Hide this message" goes through a
+  warning with checkbox + 5 s countdown and moves it to the Learn banner, whose ✕ then moves it to the bottom of
+  Settings, from where it can go back); critical dismissible → pop-up once per run; the rest → the Learn
+  screen's `AnnouncementBanners`. Links open only `https` in the browser. To test against a local mock on the
+  API 37 emulator use `adb reverse tcp:PORT tcp:PORT` + `http://127.0.0.1:PORT/`: `10.0.2.2` is a local-network
+  address, which the app can't reach on API 37 without a local-network permission.
 - **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a

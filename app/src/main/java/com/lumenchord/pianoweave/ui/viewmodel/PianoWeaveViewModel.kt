@@ -360,6 +360,10 @@ class PianoWeaveViewModel : ViewModel() {
     internal var autoReconnectJob: Job? = null
     internal var serverCheckJob: Job? = null
     internal var maintenanceWatchJob: Job? = null
+    internal var announcementsJob: Job? = null
+    internal var announcementsJobServers: List<String>? = null
+    /** The servers last asked for announcements, and when (elapsed realtime). */
+    internal var lastAnnouncementsFetch: Pair<List<String>, Long>? = null
     internal var appContext: Context? = null
 
     var importError by mutableStateOf<String?>(null)
@@ -403,6 +407,7 @@ class PianoWeaveViewModel : ViewModel() {
     suspend fun testServerConnection(url: String): ServerStatus = testServerConnectionImpl(url)
     fun checkServerHealthAndInfo(context: Context? = null) = checkServerHealthAndInfoImpl(context)
     fun startAutoReconnect(context: Context? = null) = startAutoReconnectImpl(context)
+    fun refreshAnnouncements(context: Context, force: Boolean = false) = refreshAnnouncementsImpl(context, force)
     fun refreshUserBalance(context: Context) = refreshUserBalanceImpl(context)
     fun loadPreferences(context: Context) = loadPreferencesImpl(context)
     fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) = updateServerSettingsImpl(context, useCustom, customUrl, customClientId)

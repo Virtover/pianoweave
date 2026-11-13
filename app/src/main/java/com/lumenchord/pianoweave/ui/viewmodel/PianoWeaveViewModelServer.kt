@@ -148,6 +148,8 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
     if (url != arrangementInfoServerUrl) supportsArrangement = false
     ServerMaintenance.watch(url)
     startMaintenanceWatch()
+    // A changed server brings its own announcements (and the official server's, for a custom one)
+    (context ?: appContext)?.let { refreshAnnouncementsImpl(it) }
     // Only the newest check counts: typing a server URL checks on every key, and an older check
     // answering last would otherwise show the status of a half-typed address
     serverCheckJob?.cancel()

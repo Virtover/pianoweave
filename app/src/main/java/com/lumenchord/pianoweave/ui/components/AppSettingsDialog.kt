@@ -126,6 +126,9 @@ fun AppSettingsDialog(
                             onOpenWalkthrough = onOpenWalkthrough,
                             onSimulateUpdate = onSimulateUpdate
                         )
+
+                        // Critical server messages moved off the Learn screen, so they can still be read
+                        AnnouncementSettingsSection(previewTheme = previewTheme)
                     }
 
                     Spacer(Modifier.height(10.dp))

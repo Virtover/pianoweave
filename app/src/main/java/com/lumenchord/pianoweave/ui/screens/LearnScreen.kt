@@ -24,6 +24,7 @@ import com.lumenchord.pianoweave.ui.components.AppSnackbar
 import com.lumenchord.pianoweave.ui.components.EditSongDetailsDialog
 import com.lumenchord.pianoweave.ui.components.ServerMaintenanceBanner
 import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
+import com.lumenchord.pianoweave.ui.components.AnnouncementBanners
 import com.lumenchord.pianoweave.ui.screens.learn.*
 import com.lumenchord.pianoweave.ui.screens.learn.cards.HowItWorksPath
 import com.lumenchord.pianoweave.ui.screens.learn.cards.RecentSongsSection
@@ -243,6 +244,9 @@ fun LearnScreen(
                     ServerMaintenance.notice?.let { notice ->
                         ServerMaintenanceBanner(notice = notice)
                     }
+
+                    // Messages from the server's administrator
+                    AnnouncementBanners()
 
                     // 2. INPUT CARD - Primary conversion entry
                     TranscriptionInputCard(

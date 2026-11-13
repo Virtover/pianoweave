@@ -22,6 +22,14 @@ object AppPrefs {
     /** Optional password of the custom server, encrypted (read via [SecretStore]); only ever sent to [CUSTOM_SERVER_URL]. */
     const val CUSTOM_SERVER_PASSWORD = "custom_server_password"
     const val USER_CREDITS = "user_credits"
+    /** Each followed server's last good announcement list, as JSON: {server base URL: [announcements]}. */
+    const val ANNOUNCEMENTS_CACHE = "announcements_cache"
+    /** Announcement keys ("server id") the user dismissed; dropped once the server stops listing them. */
+    const val DISMISSED_ANNOUNCEMENTS = "dismissed_announcements"
+    /** Keys of critical, undismissable announcements the user hid anyway: shown as a banner instead. */
+    const val HIDDEN_CRITICAL_ANNOUNCEMENTS = "hidden_critical_announcements"
+    /** Of those, the ones also moved off the Learn screen: listed at the bottom of Settings. */
+    const val ARCHIVED_CRITICAL_ANNOUNCEMENTS = "archived_critical_announcements"
 
     // Transcription
     const val ACTIVE_JOB_ID = "active_job_id"

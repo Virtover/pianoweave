@@ -20,6 +20,14 @@ interface PianoApi {
     @GET("api/server-info")
     suspend fun getServerInfo(): ServerInfoResponse
 
+    /** Raw JSON: parsed by [AnnouncementParser], which skips what this app doesn't know. */
+    @GET("api/announcements")
+    suspend fun getAnnouncements(
+        @Query("platform") platform: String,
+        @Query("app_version") appVersion: Long?,
+        @Query("lang") lang: String
+    ): Response<ResponseBody>
+
     @GET("api/billing/balance")
     suspend fun getUserBalance(
         @Header("Authorization") authHeader: String? = null,

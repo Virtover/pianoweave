@@ -184,4 +184,22 @@ class PianoApiRequestsTest {
             assertEquals("The server could not transcribe this.", job.failureMessage)
         }
     }
+
+    // --- Announcements ---
+
+    @Test
+    fun announcementsSendPlatformVersionAndLanguage() = runBlocking {
+        api(200, """{"announcements": []}""").getAnnouncements("android", 41, "pl-PL")
+        val url = lastRequest!!.url
+        assertEquals("/api/announcements", url.encodedPath)
+        assertEquals("android", url.queryParameter("platform"))
+        assertEquals("41", url.queryParameter("app_version"))
+        assertEquals("pl-PL", url.queryParameter("lang"))
+    }
+
+    @Test
+    fun anOlderServerWithoutAnnouncementsDoesntThrow() = runBlocking {
+        val response = api(404, """{"detail": "Not Found"}""").getAnnouncements("android", 41, "en")
+        assertEquals(404, response.code())
+    }
 }

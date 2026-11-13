@@ -43,6 +43,7 @@ import com.lumenchord.pianoweave.ui.components.BilledServerGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.NoGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.ServerConnectionDialog
 import com.lumenchord.pianoweave.ui.components.TermsChangeDialog
+import com.lumenchord.pianoweave.ui.components.CriticalAnnouncementHost
 import com.lumenchord.pianoweave.ui.screens.LearnScreen
 import com.lumenchord.pianoweave.ui.screens.PianoRollScreen
 import com.lumenchord.pianoweave.ui.viewmodel.*
@@ -160,6 +161,9 @@ class MainActivity : ComponentActivity() {
                             simulateAppUpdate = ::simulateAppUpdate
                         )
                     }
+
+                    // Over everything, the piano roll included
+                    CriticalAnnouncementHost()
                 }
             }
         }
@@ -168,6 +172,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         AppUpdates.onResume(this, updateFlowLauncher)
+        // Announcements may say how to keep using the app; asked again on every return (throttled)
+        viewModel.refreshAnnouncements(this)
     }
 
     override fun onDestroy() {
