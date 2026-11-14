@@ -2,6 +2,7 @@ package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -118,9 +119,7 @@ internal fun beatInfoAt(beats: List<Beat>, ms: Long): BeatInfo? {
     val index = (beats.firstAtOrAfter(ms + 1) - 1).coerceIn(0, beats.lastIndex)
     // The four beat lengths ending at this beat; at the very start the first four
     val end = index.coerceIn(minOf(4, beats.lastIndex), beats.lastIndex)
-    val lengths = (end - minOf(4, end) until end).map { beats[it + 1].timeMs - beats[it].timeMs }.sorted()
-    val median = if (lengths.size % 2 == 1) lengths[lengths.size / 2].toDouble()
-    else (lengths[lengths.size / 2 - 1] + lengths[lengths.size / 2]) / 2.0
+    val median = median((end - minOf(4, end) until end).map { (beats[it + 1].timeMs - beats[it].timeMs).toDouble() })
     if (median <= 0) return null
     val barStart = (index downTo 0).firstOrNull { beats[it].isBarStart }
         ?: beats.indexOfFirst { it.isBarStart }.takeIf { it >= 0 }
@@ -136,3 +135,41 @@ internal fun beatInfoAt(beats: List<Beat>, ms: Long): BeatInfo? {
 internal fun firstClickMs(notes: List<MidiNoteEvent>): Long? = notes.minOfOrNull { it.startMs }?.minus(LEAD_IN_TOLERANCE_MS)
 
 private const val LEAD_IN_TOLERANCE_MS = 60L
+
+private fun median(values: List<Double>): Double {
+    val sorted = values.sorted()
+    val mid = sorted.size / 2
+    return if (sorted.size % 2 == 1) sorted[mid] else (sorted[mid - 1] + sorted[mid]) / 2.0
+}
+
+/**
+ * Whether the song's tempo moves enough that the clicks will audibly speed up and slow down, worth a
+ * warning when the metronome is turned on. Either the shown tempo (median of four beats, see [beatInfoAt])
+ * covers a wide range over most of the song (its 10th to 90th percentile more than [SPREAD] apart: slow and
+ * fast passages, a performance that wanders, as in a rubato ballad going from 40 to 56 BPM), or many beats
+ * differ from the beats around them (an unsteady pulse). Some give is normal in any recording, and the
+ * ends of a song (a ritardando) are left out by the percentiles; too few beats to tell are steady.
+ */
+internal fun isTempoUnstable(beats: List<Beat>): Boolean {
+    if (beats.size < MIN_BEATS_TO_JUDGE) return false
+    val lengths = beats.zipWithNext { a, b -> (b.timeMs - a.timeMs).toDouble() }
+    val shown = lengths.indices.map { i -> median(lengths.subList(maxOf(0, i - 3), i + 1)) }.sorted()
+    val spread = shown[(shown.lastIndex * 0.9).toInt()] / shown[(shown.lastIndex * 0.1).toInt()]
+    val jittery = lengths.indices.count { i ->
+        val around = (maxOf(0, i - 4) until minOf(lengths.size, i + 5)).filter { it != i }.map { lengths[it] }
+        abs(lengths[i] / median(around) - 1) > JITTER
+    }
+    return spread > SPREAD || jittery > lengths.size * JITTERY_SHARE
+}
+
+/** The warning shown when the metronome is turned on in a song whose tempo is unstable; kept short, as it
+ * follows "Metronome on · " in a one-line pill that must fit a narrow phone in portrait. */
+internal const val UNSTABLE_TEMPO_NOTE = "Warning: unstable tempo"
+
+private const val MIN_BEATS_TO_JUDGE = 9
+/** How far apart (as a ratio) the slower and faster tempos of most of the song may be and still be steady. */
+private const val SPREAD = 1.2
+/** A beat this much longer or shorter than the beats around it is off the pulse... */
+private const val JITTER = 0.10
+/** ...and this share of such beats is an unsteady pulse. */
+private const val JITTERY_SHARE = 0.2

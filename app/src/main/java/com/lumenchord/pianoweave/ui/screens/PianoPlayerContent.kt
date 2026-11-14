@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Warning
 import android.Manifest
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -521,13 +522,16 @@ internal fun ModernPianoPlayerContent(
     // The tempo (as heard, so at the chosen speed) and meter for the toolbar; derived, so the toolbar only
     // recomposes when they change, not every frame with the playhead
     val beatInfo by remember(beats) { derivedStateOf { beatInfoAt(beats, viewModel.playheadMs) } }
+    val isTempoUnstable = remember(beats) { isTempoUnstable(beats) }
+    val currentIsTempoUnstable by rememberUpdatedState(isTempoUnstable)
     // Voice commands listen while the screen is in the foreground (the recognizer frees its model on pause)
     val voiceController = remember {
         VoiceCommandController(
             viewModel,
             isFullscreen = { isUiHidden },
             setFullscreen = { isUiHidden = it },
-            hasBeats = { currentBeats.isNotEmpty() }
+            hasBeats = { currentBeats.isNotEmpty() },
+            isTempoUnstable = { currentIsTempoUnstable }
         )
     }
     val isVoiceActive = viewModel.isVoiceCommandsEnabled && viewModel.voiceModelState == VoiceModelState.READY
@@ -538,6 +542,19 @@ internal fun ModernPianoPlayerContent(
         if (viewModel.isWaitModeEnabled && viewModel.isMetronomeEnabled) {
             viewModel.setMetronomeEnabled(context, false)
             if (beats.isNotEmpty()) voiceController.showNote("Metronome off for wait mode", Icons.Default.MusicNote)
+        }
+    }
+    // A metronome left on from another song gives no "Metronome on" note, so an unstable tempo is said as
+    // the song opens instead; once per song (the saved key keeps a rotation from saying it again)
+    var tempoWarnedFor by rememberSaveable { mutableStateOf<Int?>(null) }
+    LaunchedEffect(beats) {
+        val key = beats.hashCode()
+        if (key == tempoWarnedFor) return@LaunchedEffect
+        tempoWarnedFor = key
+        if (isTempoUnstable && viewModel.isMetronomeEnabled && !viewModel.isWaitModeEnabled) {
+            // After the screen has opened, so it isn't missed in the transition
+            delay(600)
+            voiceController.showNote("Metronome on · $UNSTABLE_TEMPO_NOTE", Icons.Default.Warning)
         }
     }
     DisposableEffect(lifecycleOwner, isVoiceActive) {
@@ -754,8 +771,12 @@ internal fun ModernPianoPlayerContent(
                                     val on = !viewModel.isMetronomeEnabled
                                     viewModel.setMetronomeEnabled(context, on)
                                     voiceController.showNote(
-                                        if (on) "Metronome on · tap ♪ to turn off" else "Metronome off",
-                                        Icons.Default.MusicNote
+                                        when {
+                                            !on -> "Metronome off"
+                                            isTempoUnstable -> "Metronome on · $UNSTABLE_TEMPO_NOTE"
+                                            else -> "Metronome on · tap ♪ to turn off"
+                                        },
+                                        if (on && isTempoUnstable) Icons.Default.Warning else Icons.Default.MusicNote
                                     )
                                 }
                             }
@@ -917,6 +938,7 @@ internal fun ModernPianoPlayerContent(
             viewModel = viewModel,
             songDurationMs = songDurationMs,
             hasBeats = beats.isNotEmpty(),
+            isTempoUnstable = isTempoUnstable,
             initialPage = settingsPage,
             scrollToVoiceCommandsReminder = scrollToVoiceCommandsReminder,
             pulseVoiceCommandsReminder = pulseVoiceCommandsReminder,

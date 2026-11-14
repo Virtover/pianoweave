@@ -65,6 +65,7 @@ internal fun SettingsDialog(
     viewModel: PianoWeaveViewModel,
     songDurationMs: Long,
     hasBeats: Boolean,
+    isTempoUnstable: Boolean = false,
     initialPage: SettingsPage = SettingsPage.Main,
     scrollToVoiceCommandsReminder: Boolean = false,
     pulseVoiceCommandsReminder: Boolean = false,
@@ -155,7 +156,7 @@ internal fun SettingsDialog(
 
                                 SettingsGroup("Tempo") {
                                     SpeedSection(viewModel = viewModel, context = currentContext)
-                                    MetronomeSection(viewModel = viewModel, hasBeats = hasBeats)
+                                    MetronomeSection(viewModel = viewModel, hasBeats = hasBeats, isTempoUnstable = isTempoUnstable)
                                 }
 
                                 HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))

@@ -12,13 +12,14 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
 /**
- * The click and count-in. The metronome follows the song's own beats ([hasBeats]); without them, or in
- * wait mode, it stays greyed out and says why. Count-in works in any song outside wait mode: with the
+ * The click and count-in. The metronome follows the song's own beats ([hasBeats]), and once on says so
+ * when their tempo moves a lot ([isTempoUnstable]); without beats, or in wait mode, it stays greyed out
+ * and says why. Count-in works in any song outside wait mode: with the
  * metronome on it's one bar of clicks, so it sits indented under it as part of it; otherwise it's a
  * 3-second countdown on screen and stands on its own.
  */
 @Composable
-fun MetronomeSection(viewModel: PianoWeaveViewModel, hasBeats: Boolean) {
+fun MetronomeSection(viewModel: PianoWeaveViewModel, hasBeats: Boolean, isTempoUnstable: Boolean = false) {
     val context = LocalContext.current
     val accent = LocalAppTheme.current.primaryColor
     // Wait mode stops at every chord, so neither can play along with it (turning it on turns the metronome off)
@@ -32,6 +33,9 @@ fun MetronomeSection(viewModel: PianoWeaveViewModel, hasBeats: Boolean) {
             subtitle = when {
                 !hasBeats -> "No beat information for this piece"
                 isWaitMode -> "Not available in wait mode"
+                // Said once it's on, as the clicks start to follow it
+                isMetronomeOn && isTempoUnstable ->
+                    "Clicks on every beat of the recording. Warning: this recording has an unstable tempo, so the clicks will vary in speed"
                 isMetronomeOn -> "Clicks on every beat of the recording"
                 // The quick switch is worth knowing while it's off, which is when someone would want it
                 else -> "Clicks on every beat of the recording. While playing, hold the speed button"

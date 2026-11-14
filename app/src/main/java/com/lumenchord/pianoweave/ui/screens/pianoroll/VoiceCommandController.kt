@@ -35,7 +35,9 @@ internal class VoiceCommandController(
     private val isFullscreen: () -> Boolean,
     private val setFullscreen: (Boolean) -> Unit,
     /** Whether the song has beats; without them there's no metronome to turn on. */
-    private val hasBeats: () -> Boolean
+    private val hasBeats: () -> Boolean,
+    /** Whether the song's tempo moves a lot, so turning the metronome on warns that the clicks will too. */
+    private val isTempoUnstable: () -> Boolean = { false }
 ) {
     companion object {
         const val UNDO_WINDOW_MS = 4000L
@@ -201,7 +203,11 @@ internal class VoiceCommandController(
                     on && viewModel.isWaitModeEnabled -> return Step("No metronome in wait mode", changed = false)
                 }
                 viewModel.setMetronomeEnabled(context, on)
-                if (on) "Metronome on" else "Metronome off"
+                when {
+                    !on -> "Metronome off"
+                    isTempoUnstable() -> "Metronome on · $UNSTABLE_TEMPO_NOTE"
+                    else -> "Metronome on"
+                }
             }
             VoiceCommand.COUNT_IN -> {
                 val on = !viewModel.isCountInEnabled

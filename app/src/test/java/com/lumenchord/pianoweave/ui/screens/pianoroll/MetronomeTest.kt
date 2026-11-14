@@ -105,4 +105,52 @@ class MetronomeTest {
         assertEquals(5_000_000_000L + 1_000_000_000L, clock.nanosAt(1500L))
         assertEquals(1250.0, clock.headAt(5_500_000_000L), 1e-9)
     }
+
+    /** Beats with these lengths, in bars of four. */
+    private fun beatsOf(lengths: List<Long>): List<Beat> =
+        (lengths.runningFold(0L) { t, l -> t + l }).mapIndexed { i, t -> Beat(t, i % 4 == 0) }
+
+    @Test
+    fun aSteadyPerformanceIsStable() {
+        // Small give around 500 ms, as any recording has
+        assertEquals(false, isTempoUnstable(beatsOf(List(40) { 490L + (it * 7) % 25 })))
+        // A gentle ritardando at the end stays a nuance
+        assertEquals(false, isTempoUnstable(beatsOf(List(32) { 500L } + listOf(520L, 540L, 560L))))
+    }
+
+    @Test
+    fun anUnsteadyPulseIsUnstable() {
+        // Every other beat pulled or pushed by 20-30 %
+        assertEquals(true, isTempoUnstable(beatsOf(List(40) { if (it % 2 == 0) 500L else listOf(380L, 640L)[it / 2 % 2] })))
+    }
+
+    @Test
+    fun aDifferentTempoForAGoodPartIsUnstable() {
+        // Steady, but half the song at 120 BPM and half at 80: one tempo per section, still not one tempo
+        assertEquals(true, isTempoUnstable(beatsOf(List(20) { 500L } + List(20) { 750L })))
+    }
+
+    @Test
+    fun tooFewBeatsAreNotJudged() {
+        assertEquals(false, isTempoUnstable(beatsOf(listOf(300L, 900L, 300L))))
+        assertEquals(false, isTempoUnstable(emptyList()))
+    }
+
+    @Test
+    fun aWanderingBalladIsUnstable() {
+        // The beat lengths (ms) of a real transcription of a rubato piano ballad: no beat far off its
+        // neighbours, but the tempo wanders between about 33 and 61 BPM
+        val lengths = listOf(
+            1660L, 1660L, 1560L, 1560L, 1560L, 1680L, 1300L, 1300L, 1280L, 1380L, 1360L, 1580L, 1480L, 1780L,
+            1820L, 1260L, 1400L, 1420L, 1360L, 1360L, 1020L, 1000L, 1140L, 1060L, 1060L, 1080L, 1140L, 1220L,
+            1040L, 1160L, 1280L, 1300L, 1100L, 1260L, 1320L, 1340L, 1060L, 1200L, 1300L, 1400L, 1120L, 1240L,
+            1260L, 1380L, 1200L, 1420L, 1400L, 1460L, 1260L, 1400L, 1580L, 1540L, 1260L, 1400L, 1320L, 1440L,
+            1340L, 1340L, 1340L, 1400L, 1120L, 1180L, 1160L, 1200L, 1120L, 1200L, 1320L, 1260L, 1060L, 1040L,
+            1200L, 1220L, 1160L, 1140L, 1160L, 1220L, 1140L, 1160L, 1040L, 1160L, 1020L, 1180L, 1100L, 1080L,
+            1040L, 1140L, 1020L, 1160L, 1080L, 1060L, 1020L, 1100L, 1260L, 1240L, 1460L, 1400L, 1400L, 1460L,
+            1500L, 1300L, 1120L, 1380L, 1380L, 1340L, 1360L, 1580L, 1540L, 1420L, 1300L, 1100L, 1080L, 1140L,
+            1160L, 1200L, 1100L, 980L, 1080L, 1060L, 980L, 1020L, 1040L, 1080L
+        )
+        assertEquals(true, isTempoUnstable(beatsOf(lengths)))
+    }
 }

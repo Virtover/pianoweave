@@ -103,7 +103,11 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   consent asks again; before it, people who already had the app see `TermsChangeDialog` once per version (fresh
   installs don't), with Terms and Privacy changes in one dialog. To change a document: add its page(s), the date
   (Terms/Privacy also in `LegalDocument.bundledVersions`) and links in the fixed pages' fallback lists, at least 14
-  days ahead (the Terms promise that notice). Testing needs no made-up versions: debug builds have Settings →
+  days ahead (the Terms promise that notice). **A new user must never get the change notice** (this bug has come
+  back before): "new" means no preferences at all on the first launch, not install time = update time (they differ
+  after an update before the first launch, or two installs in a row), and the user stays new until the version
+  lists are first fetched (`LEGAL_NEW_USER`). `LegalConsentTest` covers this; run it after touching `LegalConsent`
+  or anything that writes preferences before `LegalConsent.onAppStart`. Testing needs no made-up versions: debug builds have Settings →
   "Preview legal change notice (debug)" (each tap a different case), and any page takes `?today=YYYY-MM-DD`.
 - **Piano arrangements**: when server-info says `arrangement: true`, Transcribe opens `TranscriptionModeDialog`
   (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus

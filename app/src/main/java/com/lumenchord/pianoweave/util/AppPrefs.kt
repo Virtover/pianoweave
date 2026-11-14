@@ -63,6 +63,8 @@ object AppPrefs {
     const val SEEN_PRIVACY_CHANGE_NOTICE = "seen_privacy_change_notice"
     /** Last fetched Privacy Policy versions (as [TERMS_VERSIONS]). */
     const val PRIVACY_VERSIONS = "privacy_versions"
+    /** Set on a new user's first launch until the legal version lists are first fetched: no change notices then. */
+    const val LEGAL_NEW_USER = "legal_new_user"
 
     // UI & playback
     const val SELECTED_THEME_ID = "selected_theme_id"

@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.util
 
 import android.content.Context
+import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -30,6 +31,10 @@ data class LegalChanges(val terms: String?, val privacyPolicy: String?)
  * transcribing), and whether they have been told about an announced change to either (the Terms promise notice in
  * the App 14 days ahead). "Above all" needs nothing here: each Terms version links the version it applies.
  *
+ * Change notices are only for people who were using the App when the change was announced. A new user starts on
+ * the documents as they are, never with a notice: see [onAppStart] (a regression of this was fixed twice; keep
+ * LegalConsentTest passing).
+ *
  * Versions are effective dates, published in docs/terms_versions.json; the site picks the page by the same rule
  * (docs/terms.js). A version applies from its date (UTC), so announcing a change needs no app release.
  */
@@ -40,14 +45,15 @@ object LegalConsent {
 
     private val VERSION_PATTERN = Regex("""\d{4}-\d{2}-\d{2}""")
 
-    /** Set on the first launch after a fresh install: such users get the documents as they are, not change notices. */
-    @Volatile private var isNewInstallSession = false
     @Volatile private var hasRefreshed = false
 
     private fun today(): String = LocalDate.now(ZoneOffset.UTC).toString()
 
     fun versions(context: Context, document: LegalDocument = LegalDocument.TERMS): List<String> =
-        AppPrefs.get(context).getString(document.versionsPref, null)
+        versions(AppPrefs.get(context), document)
+
+    internal fun versions(prefs: SharedPreferences, document: LegalDocument): List<String> =
+        prefs.getString(document.versionsPref, null)
             ?.split(',')?.filter { it.matches(VERSION_PATTERN) }?.sorted()?.takeIf { it.isNotEmpty() }
             ?: document.bundledVersions
 
@@ -59,10 +65,11 @@ object LegalConsent {
     }
 
     /** The next announced version, if any. */
-    fun upcomingVersion(context: Context, document: LegalDocument = LegalDocument.TERMS): String? {
-        val today = today()
-        return versions(context, document).firstOrNull { it > today }
-    }
+    fun upcomingVersion(context: Context, document: LegalDocument = LegalDocument.TERMS): String? =
+        upcomingVersion(AppPrefs.get(context), document, today())
+
+    private fun upcomingVersion(prefs: SharedPreferences, document: LegalDocument, today: String): String? =
+        versions(prefs, document).firstOrNull { it > today }
 
     /** Whether the user agreed to the Terms in effect today; a new version asks again before the next transcription. */
     fun hasAcceptedTerms(context: Context): Boolean {
@@ -75,38 +82,48 @@ object LegalConsent {
         AppPrefs.get(context).edit().putString(AppPrefs.ACCEPTED_TERMS_VERSION, currentVersion(context)).apply()
     }
 
+    /** Call once at startup, before anything else writes preferences, and before [changesToAnnounce]. */
+    fun onAppStart(context: Context) = onAppStart(AppPrefs.get(context), today())
+
     /**
-     * Call once at startup, before [changesToAnnounce]. Notices go to people who were using the App before a
-     * change was announced; someone who just installed it starts on the documents as they are, so the change is
-     * marked as seen for them (and they agree to new Terms before transcribing once they apply). A document first
-     * tracked by an app update counts as never told, so a change already announced for it is still shown.
+     * A new user is recognised by having no preferences at all yet, not by install and update times: those differ
+     * when the App is updated before its first launch (a Play auto-update, or two installs in a row while testing),
+     * which used to show new users a change notice. A restored backup brings preferences, so it counts as returning.
+     *
+     * New users get every announced change marked as seen, and stay "new" ([AppPrefs.LEGAL_NEW_USER]) until the
+     * published lists are first fetched, so a change announced before they installed, which an offline first
+     * launch didn't know about, isn't shown to them later either. Someone already using the App gets "" for a
+     * document it starts tracking (an app update), so a change already announced for it is still told.
      */
-    @Suppress("DEPRECATION")
-    fun onAppStart(context: Context) {
-        val prefs = AppPrefs.get(context)
+    internal fun onAppStart(prefs: SharedPreferences, today: String) {
+        val isFirstLaunch = prefs.all.isEmpty()
         val untracked = LegalDocument.entries.filter { !prefs.contains(it.seenNoticePref) }
-        if (untracked.isEmpty()) return
-        val info = runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
-        isNewInstallSession = info != null && info.firstInstallTime == info.lastUpdateTime
+        if (!isFirstLaunch && untracked.isEmpty()) return
+        val isNewUser = isFirstLaunch || prefs.getBoolean(AppPrefs.LEGAL_NEW_USER, false)
         val editor = prefs.edit()
+        if (isFirstLaunch) editor.putBoolean(AppPrefs.LEGAL_NEW_USER, true)
         untracked.forEach { document ->
-            val seen = if (isNewInstallSession) upcomingVersion(context, document).orEmpty() else ""
+            val seen = if (isNewUser) upcomingVersion(prefs, document, today).orEmpty() else ""
             editor.putString(document.seenNoticePref, seen)
         }
         editor.apply()
     }
 
-    private fun changeToAnnounce(context: Context, document: LegalDocument): String? {
-        val upcoming = upcomingVersion(context, document) ?: return null
-        val seen = AppPrefs.get(context).getString(document.seenNoticePref, null).orEmpty()
+    private fun changeToAnnounce(prefs: SharedPreferences, document: LegalDocument, today: String): String? {
+        val upcoming = upcomingVersion(prefs, document, today) ?: return null
+        val seen = prefs.getString(document.seenNoticePref, null).orEmpty()
         return upcoming.takeIf { it > seen }
     }
 
     /** The announced versions the user hasn't been told about yet, or null if there are none. */
-    fun changesToAnnounce(context: Context): LegalChanges? {
+    fun changesToAnnounce(context: Context): LegalChanges? = changesToAnnounce(AppPrefs.get(context), today())
+
+    internal fun changesToAnnounce(prefs: SharedPreferences, today: String): LegalChanges? {
+        // Until the first fetch a new user may not know every change announced before they installed
+        if (prefs.getBoolean(AppPrefs.LEGAL_NEW_USER, false)) return null
         val changes = LegalChanges(
-            terms = changeToAnnounce(context, LegalDocument.TERMS),
-            privacyPolicy = changeToAnnounce(context, LegalDocument.PRIVACY_POLICY)
+            terms = changeToAnnounce(prefs, LegalDocument.TERMS, today),
+            privacyPolicy = changeToAnnounce(prefs, LegalDocument.PRIVACY_POLICY, today)
         )
         return changes.takeIf { it.terms != null || it.privacyPolicy != null }
     }
@@ -138,21 +155,32 @@ object LegalConsent {
         }.getOrNull() ?: return@withContext false
         val fetched = LegalDocument.entries.mapNotNull { document ->
             val array = json.optJSONArray(document.jsonKey) ?: return@mapNotNull null
-            val list = (0 until array.length()).map { array.optString(it) }.filter { it.matches(VERSION_PATTERN) }.sorted()
-            if (list.isEmpty()) null else document to list
-        }
-        if (fetched.isEmpty()) return@withContext false
-        hasRefreshed = true
-        val editor = AppPrefs.get(context).edit()
-        fetched.forEach { (document, list) -> editor.putString(document.versionsPref, list.joinToString(",")) }
+            document to (0 until array.length()).map { array.optString(it) }
+        }.toMap()
+        val updated = applyFetchedVersions(AppPrefs.get(context), fetched, today())
+        if (updated) hasRefreshed = true
+        updated
+    }
+
+    /** Stores fetched lists (invalid dates dropped); a new user is told none of the changes announced so far. */
+    internal fun applyFetchedVersions(
+        prefs: SharedPreferences,
+        fetched: Map<LegalDocument, List<String>>,
+        today: String
+    ): Boolean {
+        val valid = fetched.mapValues { (_, list) -> list.filter { it.matches(VERSION_PATTERN) }.sorted() }
+            .filterValues { it.isNotEmpty() }
+        if (valid.isEmpty()) return false
+        val editor = prefs.edit()
+        valid.forEach { (document, list) -> editor.putString(document.versionsPref, list.joinToString(",")) }
         editor.apply()
-        if (isNewInstallSession) {
-            val seenEditor = AppPrefs.get(context).edit()
-            fetched.forEach { (document, _) ->
-                upcomingVersion(context, document)?.let { seenEditor.putString(document.seenNoticePref, it) }
+        if (prefs.getBoolean(AppPrefs.LEGAL_NEW_USER, false)) {
+            val seenEditor = prefs.edit()
+            LegalDocument.entries.forEach { document ->
+                upcomingVersion(prefs, document, today)?.let { seenEditor.putString(document.seenNoticePref, it) }
             }
-            seenEditor.apply()
+            seenEditor.remove(AppPrefs.LEGAL_NEW_USER).apply()
         }
-        true
+        return true
     }
 }
