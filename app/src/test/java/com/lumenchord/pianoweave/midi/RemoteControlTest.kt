@@ -27,6 +27,15 @@ class RemoteControlTest {
     }
 
     @Test
+    fun seekForwardAndBack() {
+        // 1500 ms = 0x00 0x0B 0x5C in 7-bit groups
+        assertEquals(RemoteControl.Command.Seek(1500), RemoteControl.parse(msg(0xF0, 0x7D, 0x50, 0x57, 0x14, 0, 0, 11, 92, 0xF7)))
+        assertEquals(RemoteControl.Command.Seek(-1500), RemoteControl.parse(msg(0xF0, 0x7D, 0x50, 0x57, 0x14, 1, 0, 11, 92, 0xF7)))
+        assertNull(RemoteControl.parse(msg(0xF0, 0x7D, 0x50, 0x57, 0x14, 0, 0, 0, 0, 0xF7)))  // nowhere
+        assertNull(RemoteControl.parse(msg(0xF0, 0x7D, 0x50, 0x57, 0x14, 0, 11, 0xF7)))       // cut short
+    }
+
+    @Test
     fun nonsenseIsIgnored() {
         assertNull(RemoteControl.parse(msg(0xF0, 0x7D, 0x50, 0x57, 0x13, 0, 0, 0xF7)))  // speed 0
         assertNull(RemoteControl.parse(msg(0xF0, 0x7D, 0x50, 0x57, 0x03, 1, 0xF7)))     // the app's own transport

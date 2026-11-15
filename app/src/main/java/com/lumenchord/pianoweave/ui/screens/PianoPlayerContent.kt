@@ -514,7 +514,9 @@ internal fun ModernPianoPlayerContent(
         }
     }
 
-    // ...and the page can drive the roll back: play / pause, wait mode and speed (see RemoteControl)
+    // ...and the page can drive the roll back: play / pause, wait mode, speed, and scrolling through the
+    // song (see RemoteControl)
+    val remoteSongLengthMs by rememberUpdatedState(songDurationMs)
     LaunchedEffect(Unit) {
         RemoteControl.commands.collect { command ->
             when (command) {
@@ -534,6 +536,17 @@ internal fun ModernPianoPlayerContent(
                 is RemoteControl.Command.Speed -> {
                     val speed = PLAYBACK_SPEEDS.minBy { abs(it - command.speed) }
                     if (speed != viewModel.speedMultiplier) viewModel.selectPlaybackSpeed(context, speed)
+                }
+                is RemoteControl.Command.Seek -> {
+                    // A scroll on the page is a drag on the roll here: it stops, and the song moves
+                    viewModel.isPlaying = false
+                    PianoPlayer.stopAllNotes()
+                    currentWaitOnsetMs = -1L
+                    lastCompletedWaitOnsetMs = -1L
+                    chordHits.clear()
+                    val newHead = (viewModel.playheadMs + command.deltaMs).coerceIn(0L, remoteSongLengthMs)
+                    viewModel.playheadMs = newHead
+                    lastTriggeredHeadMs = newHead
                 }
             }
         }

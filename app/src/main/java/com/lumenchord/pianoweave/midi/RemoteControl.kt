@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asSharedFlow
  *   F0 7D 50 57 11 <0|1>        pause / play
  *   F0 7D 50 57 12 <0|1>        wait mode off / on
  *   F0 7D 50 57 13 speed(2)     playback speed x100, 7-bit groups, high first (snapped to the app's speeds)
+ *   F0 7D 50 57 14 <0|1> ms(3)  move the song forward / back by ms (a scroll on the page; pauses, like a drag)
  *
  * Commands arrive on MIDI / Bluetooth threads; the open piano roll collects [commands] and applies them.
  * Nothing collects while no song is open, so they're simply dropped then.
@@ -21,6 +22,7 @@ object RemoteControl {
         data class Play(val on: Boolean) : Command
         data class WaitMode(val on: Boolean) : Command
         data class Speed(val speed: Float) : Command
+        data class Seek(val deltaMs: Long) : Command
     }
 
     private val _commands = MutableSharedFlow<Command>(extraBufferCapacity = 16)
@@ -41,6 +43,11 @@ object RemoteControl {
                 if (m.size < 8) return null
                 val x100 = (arg shl 7) or (m[6].toInt() and 0x7F)
                 if (x100 in 10..400) Command.Speed(x100 / 100f) else null
+            }
+            0x14 -> {
+                if (m.size < 10) return null
+                val ms = ((m[6].toLong() and 0x7F) shl 14) or ((m[7].toLong() and 0x7F) shl 7) or (m[8].toLong() and 0x7F)
+                if (ms == 0L) null else Command.Seek(if (arg == 1) -ms else ms)
             }
             else -> null
         }
