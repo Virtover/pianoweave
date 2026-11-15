@@ -91,7 +91,7 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
         if (!hasBle) {
             Hint("This phone has no Bluetooth MIDI. USB keyboards still work.")
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SettingsGroup("Bluetooth") {
                 SettingToggleRow(
                     title = "Bluetooth MIDI",
                     subtitle = "Connect BLE MIDI keyboards and computers",
@@ -103,19 +103,12 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
                     accent = accent
                 )
                 if (BluetoothMidi.isEnabled) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "BLUETOOTH",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (ready) SearchButton(accent) { BluetoothMidi.startScan(context) }
-                    }
                     if (!ready) {
                         TurnOnCard(accent) { gate.run(BluetoothMidiPermissions.forAll(), ::goLive) }
                     } else {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            SearchButton(accent) { BluetoothMidi.startScan(context) }
+                        }
                         BluetoothList(context, accent)
                     }
                     gate.problem?.let { problem ->
