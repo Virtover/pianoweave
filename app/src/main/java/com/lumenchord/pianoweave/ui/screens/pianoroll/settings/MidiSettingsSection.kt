@@ -56,7 +56,7 @@ import kotlinx.coroutines.delay
  * a computer connected to the phone), and what happens to the notes.
  *
  * Opening the page searches for keyboards (which reveals nothing about the phone). The phone becomes findable
- * for computers only on "Connect a computer", for a short time (see [BleMidiPeripheral]). A connection stays
+ * for computers only on "Make visible", for a short time (see [BleMidiPeripheral]). A connection stays
  * after the page is closed.
  */
 @Composable
@@ -321,8 +321,9 @@ private fun BluetoothList(context: Context, accent: Color) {
 }
 
 /**
- * "Connect a computer", kept low-key under the list: most people only connect keyboards, and it isn't a device
- * row. Tapping it makes the phone findable for [BleMidiPeripheral.VISIBLE_MS]; the line then shows the time
+ * "Phone as a MIDI device", kept low-key under the list: most people only connect keyboards, and it isn't a
+ * device row. Named for what it does (any BLE MIDI central can connect: a DAW, a browser, another phone), so it
+ * neither oversells nor points at a particular use. Tapping it makes the phone findable for [BleMidiPeripheral.VISIBLE_MS]; the line then shows the time
  * left and Stop, in the same height so nothing jumps. Not shown while a computer is connected (it's in the
  * list then).
  */
@@ -347,7 +348,7 @@ private fun ConnectComputerRow(context: Context, accent: Color) {
                 LiveDot(accent, size = 7)
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    "Waiting for a computer · %d:%02d".format(secondsLeft / 60, secondsLeft % 60),
+                    "Visible · %d:%02d".format(secondsLeft / 60, secondsLeft % 60),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -360,19 +361,15 @@ private fun ConnectComputerRow(context: Context, accent: Color) {
                     modifier = Modifier.height(28.dp)
                 ) { Text("Stop", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
             } else {
-                Text("Using a computer?", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))
+                Text("Phone as a MIDI device", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))
                 TextButton(
                     onClick = { BleMidiPeripheral.setDiscoverable(context, true) },
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     modifier = Modifier.height(28.dp)
-                ) {
-                    Icon(Icons.Default.Computer, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Connect", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
+                ) { Text("Make visible", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
             }
         }
-        if (visible) Hint("Choose this phone in the computer's Bluetooth MIDI list.")
+        if (visible) Hint("Choose this phone on the other device. It's hidden again once that connects.")
         else problem?.let { Text(it, fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.error) }
     }
 }

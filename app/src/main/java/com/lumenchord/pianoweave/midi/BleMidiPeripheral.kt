@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Bluetooth is central-only), never be found itself, so a page can't pose as a keyboard.
  *
  * Safety: BLE MIDI has no pairing, so anyone nearby could connect while the phone is findable, and everyone
- * scanning sees its Bluetooth name. So the phone is never findable by default: only after "Using a computer? Connect"
+ * scanning sees its Bluetooth name. So the phone is never findable by default: only after "Make visible"
  * on the MIDI & Bluetooth page, for [VISIBLE_MS] at most ([setDiscoverable]), ending early when a computer
  * connects or the page closes. Only one computer at a time is served: while it's connected, other devices can't
  * subscribe and their notes are ignored. All a connection can do is exchange MIDI notes; the page shows who is
@@ -50,7 +50,7 @@ import java.util.concurrent.ConcurrentHashMap
 object BleMidiPeripheral {
     private const val TAG = "BleMidiPeripheral"
 
-    /** How long "Connect a computer" keeps the phone findable. */
+    /** How long "Make visible" keeps the phone findable. */
     const val VISIBLE_MS = 2 * 60_000L
 
     /** On while computers can actually find the phone (advertising has started). */
@@ -96,7 +96,7 @@ object BleMidiPeripheral {
     private var payloadSize = 20 // ATT MTU 23 minus 3 until a central negotiates more
 
     /**
-     * "Connect a computer": findable for [VISIBLE_MS] (asking again restarts the time). Turning it off stops
+     * "Make visible": findable for [VISIBLE_MS] (asking again restarts the time). Turning it off stops
      * advertising; the server stays up for a computer that is still connected and closes when it leaves.
      * Main thread.
      */
@@ -360,7 +360,7 @@ object BleMidiPeripheral {
                 connected.remove(device)
                 subscribers.remove(device)
                 // The page closed earlier and the last computer just left: nothing to keep the server for.
-                // Otherwise it's findable again only if "Connect a computer" is still counting down.
+                // Otherwise it's findable again only if "Make visible" is still counting down.
                 main.post { if (!discoverable && connected.isEmpty()) stop() else updateAdvertising() }
             }
             updateCentralName()
