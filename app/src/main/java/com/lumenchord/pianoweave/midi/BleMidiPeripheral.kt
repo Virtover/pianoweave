@@ -87,7 +87,8 @@ object BleMidiPeripheral {
     private val subscribers = ConcurrentHashMap.newKeySet<BluetoothDevice>()
     private val main = Handler(Looper.getMainLooper())
     private val parser = MidiNoteParser(
-        MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff, MidiInputManager::receiveControlChange
+        MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff, MidiInputManager::receiveControlChange,
+        RemoteControl::receive
     )
 
     // Android sends one notification at a time per connection (the next must wait for onNotificationSent),

@@ -6,10 +6,33 @@ import org.junit.Test
 class MidiNoteParserTest {
 
     private val events = mutableListOf<String>()
+    private val sysEx = mutableListOf<List<Int>>()
     private val parser = MidiNoteParser(
         onNoteOn = { pitch, velocity -> events += "on $pitch $velocity" },
-        onNoteOff = { pitch -> events += "off $pitch" }
+        onNoteOff = { pitch -> events += "off $pitch" },
+        onSysEx = { m -> sysEx += m.map { it.toInt() and 0xFF } }
     )
+
+    @Test
+    fun shortSysExIsHandedOnWhole() {
+        feed(0xF0, 0x7D, 0x50)
+        feed(0x57, 0x11, 1, 0xF7, 0x90, 60, 100)
+        assertEquals(listOf(listOf(0xF0, 0x7D, 0x50, 0x57, 0x11, 1, 0xF7)), sysEx)
+        assertEquals(listOf("on 60 100"), events)
+    }
+
+    @Test
+    fun longSysExIsSkipped() {
+        feed(0xF0, *IntArray(100) { 1 }, 0xF7, 0xF0, 0x7D, 0xF7)
+        assertEquals(listOf(listOf(0xF0, 0x7D, 0xF7)), sysEx)
+    }
+
+    @Test
+    fun sysExCutShortByAStatusIsDropped() {
+        feed(0xF0, 0x7D, 0x50, 0x90, 60, 100, 0xF7)
+        assertEquals(emptyList<List<Int>>(), sysEx)
+        assertEquals(listOf("on 60 100"), events)
+    }
 
     private fun feed(vararg bytes: Int, offset: Int = 0, count: Int = bytes.size) =
         parser.feed(ByteArray(bytes.size) { bytes[it].toByte() }, offset, count)

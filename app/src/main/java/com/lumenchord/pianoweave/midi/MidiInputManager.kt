@@ -187,7 +187,7 @@ object MidiInputManager {
         if (info.outputPortCount == 0) return false
         val outputPort = device.openOutputPort(0) ?: return false
         if ((activeDevice != null && activeDevice !== device) || bleKeyboard != null) disconnect()
-        val parser = MidiNoteParser(::receiveNoteOn, ::receiveNoteOff, ::receiveControlChange)
+        val parser = MidiNoteParser(::receiveNoteOn, ::receiveNoteOff, ::receiveControlChange, RemoteControl::receive)
         outputPort.connect(object : MidiReceiver() {
             override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
                 parser.feed(msg, offset, count)

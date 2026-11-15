@@ -62,7 +62,9 @@ import com.lumenchord.pianoweave.audio.VoiceModelStore
 import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
+import com.lumenchord.pianoweave.midi.RemoteControl
 import com.lumenchord.pianoweave.midi.RollSync
+import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.SustainPedalSpan
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
@@ -509,6 +511,31 @@ internal fun ModernPianoPlayerContent(
             }
         } finally {
             RollSync.endSong()
+        }
+    }
+
+    // ...and the page can drive the roll back: play / pause, wait mode and speed (see RemoteControl)
+    LaunchedEffect(Unit) {
+        RemoteControl.commands.collect { command ->
+            when (command) {
+                is RemoteControl.Command.Play -> {
+                    if (!command.on) PianoPlayer.stopAllNotes()
+                    viewModel.isPlaying = command.on
+                }
+                is RemoteControl.Command.WaitMode -> when {
+                    !command.on -> {
+                        AcousticNoteDetector.stop()
+                        viewModel.isWaitModeEnabled = false
+                    }
+                    // The computer that sent this plays into the app, so wait mode can hear the notes;
+                    // without it, it would need the microphone, which can't be asked for from afar
+                    MidiInputManager.isMidiDeviceConnected() -> viewModel.isWaitModeEnabled = true
+                }
+                is RemoteControl.Command.Speed -> {
+                    val speed = PLAYBACK_SPEEDS.minBy { abs(it - command.speed) }
+                    if (speed != viewModel.speedMultiplier) viewModel.selectPlaybackSpeed(context, speed)
+                }
+            }
         }
     }
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
