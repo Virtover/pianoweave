@@ -85,6 +85,7 @@ object BluetoothMidi {
     private var appContext: Context? = null
     private var openedDevice: MidiDevice? = null
     private var initialized = false
+    private var scanCallback: ScanCallback? = null
     private val stopScanLater = Runnable { stopScan(reportNothingFound = true) }
 
     /** Called once at app start, after [MidiInputManager.initialize]. */
@@ -147,48 +148,62 @@ object BluetoothMidi {
         }
         val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(BleMidiPacket.SERVICE_UUID)).build()
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
-        runCatching { scanner.startScan(listOf(filter), settings, scanCallback) }
+        // A previous scan can outlive its callback after the settings page is closed.
+        // Clear that scanner session before starting a new one.
+        scanCallback?.let { previous -> runCatching { scanner.stopScan(previous) } }
+        lateinit var callback: ScanCallback
+        callback = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult) {
+                if (scanCallback !== callback) return
+                val address = result.device.address
+                val name = result.scanRecord?.deviceName?.takeIf(String::isNotBlank)
+                    ?: runCatching { result.device.name }.getOrNull()?.takeIf(String::isNotBlank)
+                    ?: "Bluetooth MIDI keyboard"
+                main.post {
+                    if (scanCallback !== callback) return@post
+                    val keyboard = FoundKeyboard(address, name, result.rssi)
+                    val index = found.indexOfFirst { it.address == address }
+                    if (index >= 0) found[index] = keyboard else found.add(keyboard)
+                    found.sortByDescending { it.rssi }
+                }
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                main.post {
+                    if (scanCallback !== callback) return@post
+                    stopScan()
+                    message = "Couldn't search for keyboards (error $errorCode)"
+                }
+            }
+        }
+        scanCallback = callback
+        runCatching { scanner.startScan(listOf(filter), settings, callback) }
             .onSuccess {
                 isScanning = true
                 main.postDelayed(stopScanLater, SCAN_MS)
             }
-            .onFailure { message = "Couldn't search for keyboards" }
+            .onFailure {
+                if (scanCallback === callback) scanCallback = null
+                message = "Couldn't search for keyboards"
+            }
     }
 
     /** Stops searching; [reportNothingFound] (the search ran its full time) explains an empty list. */
     fun stopScan(reportNothingFound: Boolean = false) {
         main.removeCallbacks(stopScanLater)
-        if (!isScanning) return
+        val wasScanning = isScanning
         isScanning = false
         val context = appContext ?: return
-        runCatching { adapter(context)?.bluetoothLeScanner?.stopScan(scanCallback) }
-        if (reportNothingFound && found.isEmpty() && message == null) {
+        val callback = scanCallback
+        scanCallback = null
+        if (callback != null) {
+            runCatching { adapter(context)?.bluetoothLeScanner?.stopScan(callback) }
+        }
+        if (wasScanning && reportNothingFound && found.isEmpty() && message == null) {
             message = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                 "No keyboard found. Is its Bluetooth on? (On this Android version Location must be on too.)"
             } else {
                 "No keyboard found. Is its Bluetooth on, and not connected to another device?"
-            }
-        }
-    }
-
-    private val scanCallback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val address = result.device.address
-            val name = result.scanRecord?.deviceName?.takeIf(String::isNotBlank)
-                ?: runCatching { result.device.name }.getOrNull()?.takeIf(String::isNotBlank)
-                ?: "Bluetooth MIDI keyboard"
-            main.post {
-                val keyboard = FoundKeyboard(address, name, result.rssi)
-                val index = found.indexOfFirst { it.address == address }
-                if (index >= 0) found[index] = keyboard else found.add(keyboard)
-                found.sortByDescending { it.rssi }
-            }
-        }
-
-        override fun onScanFailed(errorCode: Int) {
-            main.post {
-                isScanning = false
-                message = "Couldn't search for keyboards (error $errorCode)"
             }
         }
     }

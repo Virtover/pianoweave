@@ -258,7 +258,6 @@ private fun TurnOnCard(accent: Color, onTurnOn: () -> Unit) {
 @Composable
 private fun BluetoothList(context: Context, accent: Color) {
     val computer = BleMidiPeripheral.connectedCentralName
-    val phoneName = remember { BluetoothMidi.phoneName(context) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (computer != null) {
             DeviceRow(
@@ -293,20 +292,6 @@ private fun BluetoothList(context: Context, accent: Color) {
             Hint(BluetoothMidi.message ?: "No keyboards nearby. Turn on the keyboard's Bluetooth and search again.")
         } else {
             BluetoothMidi.message?.let { Hint(it) }
-        }
-        if (computer == null) {
-            // A computer connects to the phone, not the other way round: say which name to pick there
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(Icons.Default.Computer, contentDescription = null, tint = accent.copy(alpha = 0.7f), modifier = Modifier.size(18.dp).padding(top = 1.dp))
-                Hint(
-                    "Computer: connect from there and pick " +
-                        (phoneName?.let { "“$it”" } ?: "this phone") + ". It can connect while this page is open."
-                )
-            }
         }
     }
 }
