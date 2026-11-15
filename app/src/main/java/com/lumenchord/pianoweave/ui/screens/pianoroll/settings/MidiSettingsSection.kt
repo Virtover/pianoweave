@@ -66,7 +66,7 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
     fun goLive() {
         ready = true
         BleMidiPeripheral.setDiscoverable(context, true)
-        BluetoothMidi.startScan(context)
+        if (!hasBluetoothConnection()) BluetoothMidi.startScan(context)
     }
 
     // Back from the system's Bluetooth or permission screens: pick up where things stand now
@@ -153,6 +153,9 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
 
 private fun isBluetoothReady(context: Context): Boolean =
     BluetoothMidiPermissions.has(context, BluetoothMidiPermissions.forAll()) && BluetoothMidi.isBluetoothOn(context)
+
+private fun hasBluetoothConnection(): Boolean =
+    BluetoothMidi.isKeyboardConnected() || BleMidiPeripheral.connectedCentralName != null
 
 @Composable
 private fun Hint(text: String) {
@@ -300,13 +303,13 @@ private fun BluetoothList(context: Context, accent: Color) {
                 onDisconnect = { BluetoothMidi.disconnect(context) }
             )
         }
-        if (computer == null &&
+        if (!hasBluetoothConnection() &&
             BluetoothMidi.found.isEmpty() &&
             !BluetoothMidi.isScanning &&
             BluetoothMidi.connectingAddress == null
         ) {
             Hint(BluetoothMidi.message ?: "No keyboards nearby. Turn on the keyboard's Bluetooth and search again.")
-        } else if (BluetoothMidi.connectingAddress == null) {
+        } else if (BluetoothMidi.connectingAddress == null && !hasBluetoothConnection()) {
             BluetoothMidi.message?.let { Hint(it) }
         }
     }
