@@ -36,13 +36,12 @@ import java.util.concurrent.ConcurrentHashMap
  * Why the phone has to be the visible one: a web page can only connect to Bluetooth devices (Web
  * Bluetooth is central-only), never be found itself, so a page can't pose as a keyboard.
  *
- * Like Android's own Bluetooth settings, the phone is discoverable only while the MIDI & Bluetooth page is
- * open ([setDiscoverable]); a computer that connected stays connected after the page is closed.
- *
- * Safety: BLE MIDI has no pairing, so anyone nearby could connect while the phone is findable. To keep that
- * window small, the phone stops advertising as soon as a computer connects, and only one computer at a time is
- * served: while it's connected, other devices can't subscribe and their notes are ignored. All a connection
- * can do is exchange MIDI notes; the page shows who is connected, with Disconnect.
+ * Safety: BLE MIDI has no pairing, so anyone nearby could connect while the phone is findable, and everyone
+ * scanning sees its Bluetooth name. So the phone is never findable by default: only after "Connect a computer"
+ * on the MIDI & Bluetooth page, for [VISIBLE_MS] at most ([setDiscoverable]), ending early when a computer
+ * connects or the page closes. Only one computer at a time is served: while it's connected, other devices can't
+ * subscribe and their notes are ignored. All a connection can do is exchange MIDI notes; the page shows who is
+ * connected, with Disconnect. A computer that connected stays connected after the page is closed.
  *
  * Android has no built-in "phone as Bluetooth MIDI" mode, so this is a small GATT server with the standard
  * BLE MIDI service, advertised so computers find it.
@@ -51,19 +50,23 @@ import java.util.concurrent.ConcurrentHashMap
 object BleMidiPeripheral {
     private const val TAG = "BleMidiPeripheral"
 
-    /** On while computers can find the phone (the MIDI page is open and Bluetooth works). */
+    /** How long "Connect a computer" keeps the phone findable. */
+    const val VISIBLE_MS = 2 * 60_000L
+
+    /** On while computers can actually find the phone (advertising has started). */
     var isRunning by mutableStateOf(false)
         private set
     /** Whether the phone may expose itself as a Bluetooth MIDI device for computers. */
     var isEnabled by mutableStateOf(true)
         private set
+    /** [SystemClock.elapsedRealtime] when the requested visibility ends, or 0 when not requested (observable). */
+    var visibleUntil by mutableStateOf(0L)
+        private set
 
-    /** Wanted by the MIDI page; the server outlives it only while a computer is connected. */
+    /** Visibility was asked for; the server outlives it only while a computer is connected. */
     @Volatile
     private var discoverable = false
-    /** Who wants the phone findable right now (see [setDiscoverable]). */
-    private val wanters = mutableSetOf<String>()
-    const val ROLL = "piano roll"
+    private val hideLater = Runnable { endVisibility() }
 
     /** A start is pending or advertising is on, so it's never asked twice (Android fails the second). */
     private var advertising = false
@@ -93,17 +96,35 @@ object BleMidiPeripheral {
     private var payloadSize = 20 // ATT MTU 23 minus 3 until a central negotiates more
 
     /**
-     * Discoverable while the MIDI page is open. Turning it off stops advertising; the server stays up for
-     * a computer that is still connected and closes when it leaves.
+     * "Connect a computer": findable for [VISIBLE_MS] (asking again restarts the time). Turning it off stops
+     * advertising; the server stays up for a computer that is still connected and closes when it leaves.
+     * Main thread.
      */
-    fun setDiscoverable(context: Context, on: Boolean, by: String = "midi page") {
+    fun setDiscoverable(context: Context, on: Boolean) {
         if (on && (!isEnabled || !BluetoothMidi.isEnabled)) return
-        // Several screens can want the phone findable (the MIDI page, the piano roll once a computer is
-        // known); it stays findable while any of them does
-        if (on) wanters.add(by) else wanters.remove(by)
-        discoverable = wanters.isNotEmpty()
-        if (discoverable && server == null) start(context) else updateAdvertising()
-        if (!discoverable && connected.isEmpty()) stop()
+        main.removeCallbacks(hideLater)
+        discoverable = on
+        if (on) {
+            visibleUntil = SystemClock.elapsedRealtime() + VISIBLE_MS
+            main.postDelayed(hideLater, VISIBLE_MS)
+            if (server == null) {
+                // Couldn't start ([problem] says why): not visible after all
+                if (!start(context)) { main.removeCallbacks(hideLater); discoverable = false; visibleUntil = 0L }
+            } else {
+                updateAdvertising()
+            }
+        } else {
+            endVisibility()
+        }
+    }
+
+    /** Time is up, a computer connected, or the page closed: nobody can find the phone any more. */
+    private fun endVisibility() {
+        main.removeCallbacks(hideLater)
+        discoverable = false
+        visibleUntil = 0L
+        updateAdvertising()
+        if (connected.isEmpty()) stop()
     }
 
     /**
@@ -121,11 +142,6 @@ object BleMidiPeripheral {
         }
     }
 
-    /** Whether a computer has connected before; see [AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN]. */
-    fun isComputerKnown(context: Context): Boolean =
-        isEnabled && BluetoothMidi.isEnabled &&
-            AppPrefs.get(context).getBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, false)
-
     /** Enables or disables the phone-side Bluetooth MIDI peripheral. */
     fun setEnabled(context: Context, enabled: Boolean) {
         isEnabled = enabled
@@ -138,12 +154,8 @@ object BleMidiPeripheral {
         isEnabled = BluetoothMidi.isEnabled
     }
 
-    /**
-     * Ends the connection with the computer (the "Disconnect" on its row), and forgets it, so the piano
-     * roll no longer keeps the phone findable for it.
-     */
+    /** Ends the connection with the computer (the "Disconnect" on its row). */
     fun disconnectComputer() {
-        appContext?.let { AppPrefs.get(it).edit().putBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, false).apply() }
         connected.forEach { device -> runCatching { server?.cancelConnection(device) } }
         // Some phones ignore cancelConnection for a link the computer opened, so close the server too.
         // Do not reopen it: explicit Disconnect must prevent an immediate computer reconnect.
@@ -199,8 +211,9 @@ object BleMidiPeripheral {
     }
 
     fun stop() {
+        main.removeCallbacks(hideLater)
         discoverable = false
-        wanters.clear()
+        visibleUntil = 0L
         advertising = false
         runCatching { advertiser?.stopAdvertising(advertiseCallback) }
         runCatching { server?.close() }
@@ -282,7 +295,12 @@ object BleMidiPeripheral {
                 main.post { isRunning = true }
                 return
             }
-            main.post { problem = "Couldn't make the phone visible (error $errorCode)"; isRunning = false; advertising = false }
+            main.post {
+                problem = "Couldn't make the phone visible (error $errorCode)"
+                isRunning = false
+                advertising = false
+                endVisibility()
+            }
         }
     }
 
@@ -342,7 +360,7 @@ object BleMidiPeripheral {
                 connected.remove(device)
                 subscribers.remove(device)
                 // The page closed earlier and the last computer just left: nothing to keep the server for.
-                // Otherwise the phone becomes findable again, if something still wants it so.
+                // Otherwise it's findable again only if "Connect a computer" is still counting down.
                 main.post { if (!discoverable && connected.isEmpty()) stop() else updateAdvertising() }
             }
             updateCentralName()
@@ -389,9 +407,8 @@ object BleMidiPeripheral {
                         return
                     }
                     if (subscribers.add(device)) {
-                        main.post(::updateAdvertising) // connected: no longer findable by others
+                        main.post(::endVisibility) // connected: no longer findable by others
                         MidiInputManager.onNewListener()
-                        appContext?.let { AppPrefs.get(it).edit().putBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, true).apply() }
                     }
                 } else if (subscribers.remove(device)) {
                     main.post(::updateAdvertising)

@@ -78,11 +78,6 @@ object AppPrefs {
     const val IS_BLE_MIDI_ENABLED = "is_ble_midi_enabled"
     /** Address of the Bluetooth MIDI keyboard connected last, reconnected on start; removed on "Disconnect". */
     const val BLUETOOTH_MIDI_LAST_KEYBOARD = "bluetooth_midi_last_keyboard"
-    /**
-     * A computer has connected to the phone's Bluetooth MIDI before (until its "Disconnect"), so the phone is
-     * findable whenever the piano roll is open and the computer can reconnect without the settings page.
-     */
-    const val BLUETOOTH_MIDI_COMPUTER_KNOWN = "bluetooth_midi_computer_known"
     /** A click on every beat of songs with a beat grid (not in wait mode). */
     const val IS_METRONOME_ENABLED = "is_metronome_enabled"
     /** Whether the metronome stays silent over the beats before the song's first note. */

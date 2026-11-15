@@ -115,7 +115,7 @@ object BluetoothMidi {
                     }
                     BluetoothAdapter.STATE_ON -> {
                         reconnectLast(app) // back on: look for the last keyboard
-                        bluetoothRestarts++ // and an open MIDI page searches and becomes findable again
+                        bluetoothRestarts++ // and an open MIDI page searches again
                     }
                 }
             }

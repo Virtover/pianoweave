@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,13 +49,15 @@ import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import kotlinx.coroutines.delay
 
 /**
  * The "MIDI & Bluetooth" settings page: what's connected, one Bluetooth list (keyboards to connect to, and
  * a computer connected to the phone), and what happens to the notes.
  *
- * Like Android's own Bluetooth settings, opening the page is the "pairing mode": it searches for keyboards
- * and makes the phone findable for computers until it's closed. A connection stays after that.
+ * Opening the page searches for keyboards (which reveals nothing about the phone). The phone becomes findable
+ * for computers only on "Connect a computer", for a short time (see [BleMidiPeripheral]). A connection stays
+ * after the page is closed.
  */
 @Composable
 internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Context) {
@@ -65,7 +68,6 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
 
     fun goLive() {
         ready = true
-        BleMidiPeripheral.setDiscoverable(context, true)
         if (!hasBluetoothConnection()) BluetoothMidi.startScan(context)
     }
 
@@ -96,10 +98,7 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
                     title = "Bluetooth MIDI",
                     subtitle = "Connect BLE MIDI keyboards and computers",
                     checked = BluetoothMidi.isEnabled,
-                    onCheckedChange = { enabled ->
-                        BluetoothMidi.setEnabled(context, enabled)
-                        if (enabled && ready) BleMidiPeripheral.setDiscoverable(context, true)
-                    },
+                    onCheckedChange = { enabled -> BluetoothMidi.setEnabled(context, enabled) },
                     accent = accent
                 )
                 if (BluetoothMidi.isEnabled) {
@@ -122,7 +121,7 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
                             }
                             BluetoothList(context, accent)
                         }
-                        VisibilityRow(context, accent)
+                        if (BleMidiPeripheral.connectedCentralName == null) ConnectComputerRow(context, accent)
                     }
                     gate.problem?.let { problem ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -322,51 +321,61 @@ private fun BluetoothList(context: Context, accent: Color) {
 }
 
 /**
- * How computers see the phone: findable under its Bluetooth name while this page is open, hidden again once a
- * computer is connected (see [BleMidiPeripheral]). Saying the name out loud also tells the user what nearby
- * people can see.
+ * "Connect a computer": makes the phone findable for a computer for [BleMidiPeripheral.VISIBLE_MS], with the
+ * time left and a way to stop early. Hidden again as soon as a computer connects (it then shows in the list).
  */
 @Composable
-private fun VisibilityRow(context: Context, accent: Color) {
-    val phone = remember { BluetoothMidi.phoneName(context) }
-    val computer = BleMidiPeripheral.connectedCentralName
+private fun ConnectComputerRow(context: Context, accent: Color) {
+    val until = BleMidiPeripheral.visibleUntil
     val problem = BleMidiPeripheral.problem
-    val visible = BleMidiPeripheral.isRunning
-    val title = when {
-        computer != null -> "Hidden from other devices"
-        visible -> if (phone != null) "Visible as “$phone”" else "Visible to computers"
-        problem != null -> "Computers can't find this phone"
-        else -> "Making the phone visible…"
-    }
-    val subtitle = when {
-        computer != null -> "Only $computer can use this phone while connected"
-        visible -> "Computers nearby can connect while this page is open. Connect from Chrome or Edge (Web Bluetooth) or your DAW's Bluetooth MIDI."
-        else -> problem
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Box(
-            modifier = Modifier.size(32.dp).background(accent.copy(alpha = if (visible) 0.16f else 0.08f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Computer, contentDescription = null, tint = if (visible) accent else accent.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+    val visible = until > 0L
+    val secondsLeft by produceState(0L, until) {
+        while (until > 0L) {
+            value = ((until - SystemClock.elapsedRealtime()) / 1000).coerceAtLeast(0)
+            delay(1000)
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-            subtitle?.let {
+    }
+    val idleText = "Lets a computer find this phone for ${BleMidiPeripheral.VISIBLE_MS / 60_000} minutes"
+    Surface(
+        onClick = { if (!visible) BleMidiPeripheral.setDiscoverable(context, true) },
+        shape = RoundedCornerShape(12.dp),
+        color = if (visible) accent.copy(alpha = 0.08f) else MaterialTheme.colorScheme.background,
+        border = BorderStroke(1.dp, if (visible) accent.copy(alpha = 0.5f) else MaterialTheme.colorScheme.tertiaryContainer),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(Icons.Default.Computer, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    it,
+                    if (visible) "Waiting for a computer…" else "Connect a computer",
+                    fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    when {
+                        visible -> "Choose this phone on the computer · %d:%02d".format(secondsLeft / 60, secondsLeft % 60)
+                        problem != null -> problem
+                        else -> idleText
+                    },
                     fontSize = 11.sp,
                     lineHeight = 15.sp,
-                    color = if (problem != null && !visible && computer == null) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = when {
+                        visible -> accent
+                        problem != null -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
+            if (visible) {
+                TextButton(onClick = { BleMidiPeripheral.setDiscoverable(context, false) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text("Stop", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
         }
-        if (visible) LiveDot(accent, size = 7)
     }
 }
 
