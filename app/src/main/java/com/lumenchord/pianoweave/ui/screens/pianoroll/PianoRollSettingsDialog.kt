@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
@@ -36,11 +37,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.lumenchord.pianoweave.midi.BleMidiPeripheral
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.AppThemeDialog
 import com.lumenchord.pianoweave.ui.components.settings.LinkRow
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.LoopingSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.MetronomeSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.MidiSettingsSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SettingsGroup
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SpeedSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.TranspositionSection
@@ -53,7 +57,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.delay
 
 /** The settings dialog's pages: the main one, and the less-used groups, each opened from a row on it. */
-internal enum class SettingsPage { Main, WaitMode, VoiceCommands }
+internal enum class SettingsPage { Main, Midi, WaitMode, VoiceCommands }
 
 /**
  * Practice settings. The main page keeps what's changed while practicing (tempo, loop, transposition);
@@ -108,20 +112,24 @@ internal fun SettingsDialog(
     var endText by remember { mutableStateOf(formatTime(viewModel.loopEndMs)) }
     var isLooping by remember { mutableStateOf(viewModel.isLoopingEnabled) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    // Not the platform's default dialog width: it left the settings in a thin column (upright, and even
+    // more so sideways), wrapping every subtitle. The dialog takes the screen's width instead, up to a
+    // comfortable reading width on wide screens.
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         // System back on a page returns to the main one instead of closing the dialog
         BackHandler(enabled = page != SettingsPage.Main) { page = SettingsPage.Main }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 24.dp),
+                .padding(horizontal = 12.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
             DialogSurface(
                 light = colorGold,
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
+                    .widthIn(max = 460.dp)
+                    .fillMaxWidth()
                     .heightIn(max = 650.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = ColorSurface,
@@ -142,7 +150,7 @@ internal fun SettingsDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(scrollState)
-                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                            .padding(horizontal = 18.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
                         when (shown) {
@@ -196,6 +204,14 @@ internal fun SettingsDialog(
                                             trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
                                         )
                                         LinkRow(
+                                            icon = Icons.Default.Piano,
+                                            title = "MIDI & Bluetooth",
+                                            subtitle = midiSummary(),
+                                            previewTheme = appTheme,
+                                            onClick = { page = SettingsPage.Midi },
+                                            trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+                                        )
+                                        LinkRow(
                                             icon = Icons.Default.Palette,
                                             title = "Theme",
                                             subtitle = appTheme.name,
@@ -231,6 +247,11 @@ internal fun SettingsDialog(
                                 }
                             }
 
+                            SettingsPage.Midi -> {
+                                PageHeader("MIDI & Bluetooth", onBack = { page = SettingsPage.Main }, onClose = onDismiss)
+                                MidiSettingsSection(viewModel = viewModel, context = currentContext)
+                            }
+
                             SettingsPage.WaitMode -> {
                                 PageHeader("Wait mode", onBack = { page = SettingsPage.Main }, onClose = onDismiss)
                                 WaitModeSection(viewModel = viewModel, context = currentContext)
@@ -263,10 +284,23 @@ internal fun SettingsDialog(
 }
 
 /** What the wait mode row says about its settings, so the page needn't be opened to check them. */
-private fun waitModeSummary(viewModel: PianoWeaveViewModel): String {
-    val banner = if (viewModel.isStrikeOverlayEnabled) "Strike overlay on" else "Strike overlay off"
-    if (!MidiInputManager.isConnected) return banner
-    return banner + if (viewModel.isKeyboardSoundEnabled) " · keyboard sound on" else " · keyboard sound off"
+private fun waitModeSummary(viewModel: PianoWeaveViewModel): String =
+    if (viewModel.isStrikeOverlayEnabled) "Strike overlay on" else "Strike overlay off"
+
+/** What the MIDI row says: what's connected, so the page needn't be opened to check. */
+private fun midiSummary(): String {
+    val keyboard = MidiInputManager.connectedName
+    val computer = BleMidiPeripheral.connectedCentralName
+    return when {
+        keyboard != null && computer != null -> "$keyboard · $computer"
+        keyboard != null -> when (MidiInputManager.connectedTransport) {
+            MidiInputManager.Transport.Bluetooth -> "$keyboard · Bluetooth"
+            MidiInputManager.Transport.Usb -> "$keyboard · USB"
+            else -> keyboard
+        }
+        computer != null -> "$computer · over Bluetooth"
+        else -> "No keyboard connected"
+    }
 }
 
 /** A settings page's header: back to the main page, the page's name, and close. */

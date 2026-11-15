@@ -36,9 +36,25 @@ object MidiInputManager {
     private var midiManager: MidiManager? = null
     private val pressedKeysMutex = ReentrantLock()
 
-    /** True while a MIDI keyboard is connected and sending notes. Observable from Compose. */
-    var isConnected by mutableStateOf(false)
+    /** How the connected device is attached, for the settings' status card. */
+    enum class Transport { Usb, Bluetooth, Other }
+
+    /** A device opened through Android's MIDI service (USB, a Bluetooth keyboard, a computer over USB). */
+    private var isDeviceConnected by mutableStateOf(false)
+
+    /** The connected device's name and transport, or null; observable from Compose. */
+    var connectedName by mutableStateOf<String?>(null)
         private set
+    var connectedTransport by mutableStateOf<Transport?>(null)
+        private set
+
+    /**
+     * True while something plays notes into the app: a MIDI keyboard (USB or Bluetooth), or a computer
+     * connected to the phone's own Bluetooth MIDI ([BleMidiPeripheral]).
+     * Observable from Compose.
+     */
+    val isConnected: Boolean
+        get() = isDeviceConnected || BleMidiPeripheral.connectedCentralName != null
 
     fun isMidiDeviceConnected(): Boolean = isConnected
 
@@ -54,8 +70,8 @@ object MidiInputManager {
         }
 
     /**
-     * Whether the song being played is also sent to the connected MIDI device, so e.g. the piano on the website
-     * (phone plugged into a computer in USB "MIDI" mode) shows and plays it. Only the song's notes are sent, never
+     * Whether the song being played is also sent to the connected MIDI device or computer (e.g. a computer the
+     * phone is plugged into in USB "MIDI" mode), which can then show and play it. Only the song's notes are sent, never
      * notes received from the device, so nothing echoes back.
      */
     @Volatile
@@ -64,6 +80,29 @@ object MidiInputManager {
             field = value
             if (!value) sendAllNotesOff()
         }
+
+    /**
+     * Goes up each time something new starts listening to what the app sends (a device attached, a computer
+     * subscribing over Bluetooth), so [RollSync] sends it the song from the start.
+     */
+    @Volatile
+    var listenerGeneration = 0
+        private set
+
+    internal fun onNewListener() { listenerGeneration++ }
+
+    /** Whether anyone hears what the app sends, and sending is on. */
+    fun canSendSync(): Boolean = isOutputEnabled && (activeInputPort != null || BleMidiPeripheral.hasListeners)
+
+    /** The largest SysEx message every listener can take whole (Bluetooth's packet size is the limit). */
+    fun maxSysExSize(): Int = if (BleMidiPeripheral.hasListeners) BleMidiPeripheral.maxSysExSize() else 256
+
+    /** A whole SysEx message (F0 ... F7) to every listener; see [RollSync]. */
+    fun sendSysEx(message: ByteArray) {
+        if (!isOutputEnabled) return
+        activeInputPort?.let { send(it, message) }
+        BleMidiPeripheral.send(message)
+    }
 
     /** Pitches sent as note on and not yet as note off, so stopping releases exactly those on the other side. */
     private val sentPitches = ConcurrentHashMap.newKeySet<Int>()
@@ -107,6 +146,8 @@ object MidiInputManager {
         if (activeDevice != null || pendingDeviceId != null) return
         // Only devices that send notes to us (e.g. not a synth app that only accepts input)
         if (deviceInfo.outputPortCount == 0) return
+        // A Bluetooth keyboard only exists once BluetoothMidi has opened it, and it attaches that one itself
+        if (deviceInfo.type == MidiDeviceInfo.TYPE_BLUETOOTH) return
 
         pendingDeviceId = deviceInfo.id
         manager.openDevice(deviceInfo, { device ->
@@ -116,34 +157,70 @@ object MidiInputManager {
                 return@openDevice
             }
             pendingDeviceId = null
-            val outputPort = device?.openOutputPort(0)
-            if (device == null || outputPort == null) {
-                device?.close()
-                return@openDevice
-            }
-            val parser = MidiNoteParser(
-                onNoteOn = { pitch, velocity ->
-                    if (isSoundEnabled) {
-                        PianoPlayer.noteOn(pitch, velocity)
-                        soundingPitches.add(pitch)
-                    }
-                    simulateExternalNoteOn(pitch)
-                },
-                onNoteOff = { pitch ->
-                    if (soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch)
-                    simulateExternalNoteOff(pitch)
-                }
-            )
-            outputPort.connect(object : MidiReceiver() {
-                override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
-                    parser.feed(msg, offset, count)
-                }
-            })
-            activeDevice = device
-            activePort = outputPort
-            activeInputPort = if (deviceInfo.inputPortCount > 0) runCatching { device.openInputPort(0) }.getOrNull() else null
-            isConnected = true
+            if (device == null || !attach(device)) device?.close()
         }, Handler(Looper.getMainLooper()))
+    }
+
+    /**
+     * Starts listening to an opened device (and sending to it, if it takes input). Used for devices found
+     * on their own (USB) and for Bluetooth keyboards opened by [BluetoothMidi]; a newly attached device
+     * replaces the current one. Returns false if the device sends nothing, so it isn't kept open.
+     */
+    internal fun attach(device: MidiDevice): Boolean {
+        val info = device.info
+        if (info.outputPortCount == 0) return false
+        val outputPort = device.openOutputPort(0) ?: return false
+        if (activeDevice != null && activeDevice !== device) disconnect()
+        val parser = MidiNoteParser(onNoteOn = ::receiveNoteOn, onNoteOff = ::receiveNoteOff)
+        outputPort.connect(object : MidiReceiver() {
+            override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
+                parser.feed(msg, offset, count)
+            }
+        })
+        activeDevice = device
+        activePort = outputPort
+        activeInputPort = if (info.inputPortCount > 0) runCatching { device.openInputPort(0) }.getOrNull() else null
+        if (activeInputPort != null) onNewListener()
+        connectedName = info.properties.getString(MidiDeviceInfo.PROPERTY_NAME)
+            ?: info.properties.getString(MidiDeviceInfo.PROPERTY_PRODUCT)
+            ?: "MIDI keyboard"
+        connectedTransport = when (info.type) {
+            MidiDeviceInfo.TYPE_USB -> Transport.Usb
+            MidiDeviceInfo.TYPE_BLUETOOTH -> Transport.Bluetooth
+            else -> Transport.Other
+        }
+        isDeviceConnected = true
+        return true
+    }
+
+    /** True if [device] is the one currently attached (so [BluetoothMidi] knows whether it's still in use). */
+    internal fun isAttached(device: MidiDevice?): Boolean = device != null && activeDevice === device
+
+    /** Closes the attached device (e.g. "Disconnect" on a Bluetooth keyboard) and falls back to another one. */
+    fun disconnectActive() {
+        disconnect()
+        midiManager?.let(::connectFirstAvailable)
+    }
+
+    /** A note from a keyboard or a connected computer: sounded (if on) and shown as pressed. */
+    internal fun receiveNoteOn(pitch: Int, velocity: Int) {
+        if (isSoundEnabled) {
+            PianoPlayer.noteOn(pitch, velocity)
+            soundingPitches.add(pitch)
+        }
+        simulateExternalNoteOn(pitch)
+    }
+
+    internal fun receiveNoteOff(pitch: Int) {
+        if (soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch)
+        simulateExternalNoteOff(pitch)
+    }
+
+    /** A computer disconnected from the phone's Bluetooth MIDI: let go of whatever it was holding. */
+    internal fun releaseExternalNotes() {
+        releaseSoundingNotes()
+        externalPresses.clear()
+        syncPressedKeys()
     }
 
     private fun disconnect() {
@@ -154,7 +231,9 @@ object MidiInputManager {
         runCatching { activeDevice?.close() }
         activePort = null
         activeDevice = null
-        isConnected = false
+        isDeviceConnected = false
+        connectedName = null
+        connectedTransport = null
         releaseSoundingNotes()
         externalPresses.clear()
         syncPressedKeys()
@@ -185,14 +264,18 @@ object MidiInputManager {
     /** Sends a song note to the connected device (see [isOutputEnabled]). */
     fun sendNoteOn(pitch: Int, velocity: Int) {
         if (!isOutputEnabled || pitch !in 0..127) return
-        val port = activeInputPort ?: return
-        if (send(port, byteArrayOf(0x90.toByte(), pitch.toByte(), velocity.coerceIn(1, 127).toByte()))) sentPitches.add(pitch)
+        val message = byteArrayOf(0x90.toByte(), pitch.toByte(), velocity.coerceIn(1, 127).toByte())
+        val port = activeInputPort
+        val sentToDevice = port != null && send(port, message)
+        val sentToComputer = BleMidiPeripheral.send(message)
+        if (sentToDevice || sentToComputer) sentPitches.add(pitch)
     }
 
     fun sendNoteOff(pitch: Int) {
         if (!sentPitches.remove(pitch)) return
-        val port = activeInputPort ?: return
-        send(port, byteArrayOf(0x80.toByte(), pitch.toByte(), 0))
+        val message = byteArrayOf(0x80.toByte(), pitch.toByte(), 0)
+        activeInputPort?.let { send(it, message) }
+        BleMidiPeripheral.send(message)
     }
 
     /** Releases every note this app sent; not a MIDI "all notes off", which would also cut notes played on the other side. */

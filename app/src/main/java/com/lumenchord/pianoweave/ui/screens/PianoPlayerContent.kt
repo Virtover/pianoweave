@@ -62,6 +62,7 @@ import com.lumenchord.pianoweave.audio.VoiceModelStore
 import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
+import com.lumenchord.pianoweave.midi.RollSync
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.SustainPedalSpan
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
@@ -493,6 +494,21 @@ internal fun ModernPianoPlayerContent(
     }
 
     val isWaitingAtBaseline = viewModel.isPlaying && viewModel.isWaitModeEnabled && currentWaitOnsetMs != -1L
+
+    // Mirrors the roll to a connected computer: the song's notes ahead of time and where playback is, so a
+    // page there can show them falling, and stop with wait mode (see RollSync)
+    val isWaitingNow by rememberUpdatedState(isWaitingAtBaseline)
+    LaunchedEffect(noteEvents) {
+        RollSync.startSong(noteEvents)
+        try {
+            while (isActive) {
+                RollSync.tick(viewModel.playheadMs, viewModel.isPlaying, isWaitingNow, viewModel.speedMultiplier)
+                delay(50)
+            }
+        } finally {
+            RollSync.endSong()
+        }
+    }
     val waitTargetPitches = if (isWaitingAtBaseline) notesToStrike else emptySet()
     var seekInfo by remember { mutableStateOf<SeekInfo?>(null) }
     var isUiHidden by remember { mutableStateOf(false) }

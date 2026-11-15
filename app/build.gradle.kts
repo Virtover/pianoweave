@@ -86,6 +86,7 @@ android {
             path("src/main/cpp/CMakeLists.txt")
         }
     }
+    buildToolsVersion = "36.0.0"
 }
 
 dependencies {

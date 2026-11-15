@@ -1,0 +1,344 @@
+package com.lumenchord.pianoweave.midi
+
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothGattServer
+import android.bluetooth.BluetoothGattServerCallback
+import android.bluetooth.BluetoothGattService
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
+import android.bluetooth.le.AdvertiseCallback
+import android.bluetooth.le.AdvertiseData
+import android.bluetooth.le.AdvertiseSettings
+import android.bluetooth.le.BluetoothLeAdvertiser
+import android.content.Context
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.ParcelUuid
+import android.os.SystemClock
+import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import java.util.ArrayDeque
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Makes the phone itself a Bluetooth LE MIDI device, so a computer can connect to it: a web page through
+ * Web Bluetooth (Chrome or Edge), or a DAW through the computer's Bluetooth MIDI support. Notes the computer sends play in the app like a MIDI keyboard's; the song the
+ * app plays goes back to the computer ([MidiInputManager.sendNoteOn]).
+ *
+ * Why the phone has to be the visible one: a web page can only connect to Bluetooth devices (Web
+ * Bluetooth is central-only), never be found itself, so a page can't pose as a keyboard.
+ *
+ * Like Android's own Bluetooth settings, the phone is discoverable only while the MIDI & Bluetooth page is
+ * open ([setDiscoverable]); a computer that connected stays connected after the page is closed.
+ *
+ * Android has no built-in "phone as Bluetooth MIDI" mode, so this is a small GATT server with the standard
+ * BLE MIDI service, advertised so computers find it.
+ */
+@SuppressLint("MissingPermission") // every entry point checks BluetoothMidiPermissions first
+object BleMidiPeripheral {
+    private const val TAG = "BleMidiPeripheral"
+
+    /** On while computers can find the phone (the MIDI page is open and Bluetooth works). */
+    var isRunning by mutableStateOf(false)
+        private set
+
+    /** Wanted by the MIDI page; the server outlives it only while a computer is connected. */
+    @Volatile
+    private var discoverable = false
+    /** A start is pending or advertising is on, so it's never asked twice (Android fails the second). */
+    private var advertising = false
+
+    /** The connected computer's name (or "A computer"), or null; observable from Compose. */
+    var connectedCentralName by mutableStateOf<String?>(null)
+        private set
+
+    /** Why the phone couldn't be made visible, for the settings page; null when fine. */
+    var problem by mutableStateOf<String?>(null)
+        private set
+
+    private var server: BluetoothGattServer? = null
+    private var appContext: Context? = null
+    private var characteristic: BluetoothGattCharacteristic? = null
+    private var advertiser: BluetoothLeAdvertiser? = null
+    private val connected = ConcurrentHashMap.newKeySet<BluetoothDevice>()
+    private val subscribers = ConcurrentHashMap.newKeySet<BluetoothDevice>()
+    private val main = Handler(Looper.getMainLooper())
+    private val parser = MidiNoteParser(MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff)
+
+    // Android sends one notification at a time per connection (the next must wait for onNotificationSent),
+    // so messages queue here and go out together: a chord becomes one packet.
+    private val queue = ArrayDeque<ByteArray>()
+    private var inFlight = 0
+    private var inFlightSince = 0L
+    private var payloadSize = 20 // ATT MTU 23 minus 3 until a central negotiates more
+
+    /**
+     * Discoverable while the MIDI page is open. Turning it off stops advertising; the server stays up for
+     * a computer that is still connected and closes when it leaves.
+     */
+    fun setDiscoverable(context: Context, on: Boolean) {
+        discoverable = on
+        if (on) {
+            if (server == null) start(context) else startAdvertising()
+        } else {
+            runCatching { advertiser?.stopAdvertising(advertiseCallback) }
+            advertising = false
+            isRunning = false
+            if (connected.isEmpty()) stop()
+        }
+    }
+
+    /** Ends the connection with the computer (the "Disconnect" on its row). */
+    fun disconnectComputer() {
+        connected.forEach { device -> runCatching { server?.cancelConnection(device) } }
+        // Some phones ignore cancelConnection for a link the computer opened; closing the server always
+        // ends it. Then it opens again if the MIDI page still wants the phone findable.
+        main.postDelayed({
+            if (connected.isEmpty()) return@postDelayed
+            val context = appContext
+            val reopen = discoverable
+            stop()
+            if (reopen && context != null) setDiscoverable(context, true)
+        }, 1500)
+    }
+
+    private fun start(context: Context): Boolean {
+        if (server != null) return true
+        appContext = context.applicationContext
+        problem = null
+        if (!BluetoothMidiPermissions.has(context, BluetoothMidiPermissions.forVisibility())) {
+            problem = "Bluetooth permission needed"
+            return false
+        }
+        val manager = context.getSystemService(BluetoothManager::class.java)
+        val adapter = manager?.adapter
+        if (manager == null || adapter == null) { problem = "This phone has no Bluetooth"; return false }
+        if (!adapter.isEnabled) { problem = "Bluetooth is off"; return false }
+        val leAdvertiser = adapter.bluetoothLeAdvertiser
+        if (leAdvertiser == null || !adapter.isMultipleAdvertisementSupported) {
+            problem = "This phone can't act as a Bluetooth MIDI device"
+            return false
+        }
+        val gatt = manager.openGattServer(context.applicationContext, callback)
+        if (gatt == null) { problem = "Bluetooth didn't respond, try again"; return false }
+
+        val midi = BluetoothGattCharacteristic(
+            BleMidiPacket.CHARACTERISTIC_UUID,
+            BluetoothGattCharacteristic.PROPERTY_READ or
+                BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE or
+                BluetoothGattCharacteristic.PROPERTY_NOTIFY,
+            BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE
+        )
+        midi.addDescriptor(
+            BluetoothGattDescriptor(
+                BleMidiPacket.CCCD_UUID,
+                BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
+            )
+        )
+        val service = BluetoothGattService(BleMidiPacket.SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
+        service.addCharacteristic(midi)
+        server = gatt
+        characteristic = midi
+        advertiser = leAdvertiser
+        // Advertising starts once the service is really there (onServiceAdded), or a quick computer
+        // could connect and find nothing.
+        if (!gatt.addService(service)) {
+            stop()
+            problem = "Bluetooth didn't respond, try again"
+            return false
+        }
+        return true
+    }
+
+    fun stop() {
+        discoverable = false
+        advertising = false
+        runCatching { advertiser?.stopAdvertising(advertiseCallback) }
+        runCatching { server?.close() }
+        server = null
+        characteristic = null
+        advertiser = null
+        connected.clear()
+        subscribers.clear()
+        synchronized(queue) { queue.clear(); inFlight = 0 }
+        isRunning = false
+        if (connectedCentralName != null) {
+            connectedCentralName = null
+            MidiInputManager.releaseExternalNotes()
+        }
+    }
+
+    /** A computer is connected and subscribed to the phone's notes. */
+    val hasListeners: Boolean get() = subscribers.isNotEmpty()
+
+    /** The largest SysEx message that fits one packet (header, timestamp, message, timestamp before F7). */
+    fun maxSysExSize(): Int = payloadSize - 3
+
+    /** Sends one MIDI message to the connected computer; false if none is listening. */
+    fun send(message: ByteArray): Boolean {
+        if (subscribers.isEmpty()) return false
+        synchronized(queue) { queue.add(message) }
+        main.post(::flush)
+        return true
+    }
+
+    private fun flush() {
+        val srv = server ?: return
+        val ch = characteristic ?: return
+        val packet: ByteArray
+        synchronized(queue) {
+            // A notification that never reported back (link hiccup) mustn't block the queue for good
+            if (inFlight > 0 && SystemClock.uptimeMillis() - inFlightSince > 250) inFlight = 0
+            if (inFlight > 0 || queue.isEmpty()) return
+            val messages = ArrayList<ByteArray>()
+            var size = 1 // header
+            while (queue.isNotEmpty() && size + BleMidiPacket.encodedSize(queue.peek()!!) <= payloadSize) {
+                val m = queue.poll()!!
+                messages.add(m)
+                size += BleMidiPacket.encodedSize(m)
+            }
+            if (messages.isEmpty()) { queue.poll(); return } // a message too big for any packet
+            packet = BleMidiPacket.encodeAll(messages)
+            inFlight = subscribers.size
+            inFlightSince = SystemClock.uptimeMillis()
+        }
+        subscribers.forEach { device ->
+            val ok = runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    srv.notifyCharacteristicChanged(device, ch, false, packet) == BluetoothGatt.GATT_SUCCESS
+                } else {
+                    @Suppress("DEPRECATION")
+                    ch.value = packet
+                    @Suppress("DEPRECATION")
+                    srv.notifyCharacteristicChanged(device, ch, false)
+                }
+            }.getOrDefault(false)
+            if (!ok) synchronized(queue) { inFlight = (inFlight - 1).coerceAtLeast(0) }
+        }
+    }
+
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
+            main.post { isRunning = true; problem = null }
+        }
+
+        override fun onStartFailure(errorCode: Int) {
+            Log.w(TAG, "Advertising failed: $errorCode")
+            if (errorCode == ADVERTISE_FAILED_DATA_TOO_LARGE) {
+                // A long phone name doesn't fit next to the service in the scan response: go without it
+                startAdvertising(includeName = false, retry = true)
+                return
+            }
+            if (errorCode == ADVERTISE_FAILED_ALREADY_STARTED) {
+                main.post { isRunning = true }
+                return
+            }
+            main.post { problem = "Couldn't make the phone visible (error $errorCode)"; isRunning = false; advertising = false }
+        }
+    }
+
+    private fun startAdvertising(includeName: Boolean = true, retry: Boolean = false) {
+        val adv = advertiser ?: return
+        if (advertising && !retry) return
+        advertising = true
+        val settings = AdvertiseSettings.Builder()
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+            .setConnectable(true)
+            .setTimeout(0)
+            .build()
+        // The 128-bit service UUID fills most of the 31-byte advertisement; the name goes in the scan response
+        val data = AdvertiseData.Builder()
+            .setIncludeDeviceName(false)
+            .addServiceUuid(ParcelUuid(BleMidiPacket.SERVICE_UUID))
+            .build()
+        val scanResponse = AdvertiseData.Builder().setIncludeDeviceName(includeName).build()
+        runCatching { adv.startAdvertising(settings, data, scanResponse, advertiseCallback) }
+            .onFailure { main.post { problem = "Couldn't make the phone visible" } }
+    }
+
+    private fun updateCentralName() {
+        val first = connected.firstOrNull()
+        val name = first?.let { runCatching { it.name }.getOrNull()?.takeIf(String::isNotBlank) ?: "A computer" }
+        main.post {
+            val wasConnected = connectedCentralName != null
+            connectedCentralName = name
+            if (wasConnected && name == null) MidiInputManager.releaseExternalNotes()
+        }
+    }
+
+    private val callback = object : BluetoothGattServerCallback() {
+        override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
+            if (status == BluetoothGatt.GATT_SUCCESS) { if (discoverable) startAdvertising() }
+            else main.post { problem = "Bluetooth didn't respond, try again"; stop() }
+        }
+
+        override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                connected.add(device)
+                // Without a connect() of its own, Android's cancelConnection() can't end a link the
+                // computer opened ("Disconnect" did nothing); this registers the link with our server.
+                runCatching { server?.connect(device, false) }
+            } else {
+                connected.remove(device)
+                subscribers.remove(device)
+                // The page closed earlier and the last computer just left: nothing to keep the server for
+                if (!discoverable && connected.isEmpty()) main.post { if (!discoverable && connected.isEmpty()) stop() }
+            }
+            updateCentralName()
+        }
+
+        override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
+            payloadSize = (mtu - 3).coerceIn(20, 200)
+        }
+
+        override fun onCharacteristicReadRequest(device: BluetoothDevice, requestId: Int, offset: Int, ch: BluetoothGattCharacteristic) {
+            // The BLE MIDI spec: a read returns no payload
+            server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, ByteArray(0))
+        }
+
+        override fun onCharacteristicWriteRequest(
+            device: BluetoothDevice, requestId: Int, ch: BluetoothGattCharacteristic,
+            preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?
+        ) {
+            if (value != null && ch.uuid == BleMidiPacket.CHARACTERISTIC_UUID) {
+                val midi = BleMidiPacket.decode(value)
+                synchronized(parser) { parser.feed(midi, 0, midi.size) }
+            }
+            if (responseNeeded) server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+        }
+
+        override fun onDescriptorReadRequest(device: BluetoothDevice, requestId: Int, offset: Int, descriptor: BluetoothGattDescriptor) {
+            val value = if (device in subscribers) BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            else BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+            server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, value)
+        }
+
+        override fun onDescriptorWriteRequest(
+            device: BluetoothDevice, requestId: Int, descriptor: BluetoothGattDescriptor,
+            preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?
+        ) {
+            if (descriptor.uuid == BleMidiPacket.CCCD_UUID) {
+                // Bit 0: notifications on (what a MIDI central asks for to hear the phone)
+                if (value != null && value.isNotEmpty() && value[0].toInt() and 1 == 1) {
+                    if (subscribers.add(device)) MidiInputManager.onNewListener()
+                } else {
+                    subscribers.remove(device)
+                }
+            }
+            if (responseNeeded) server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+        }
+
+        override fun onNotificationSent(device: BluetoothDevice?, status: Int) {
+            synchronized(queue) { inFlight = (inFlight - 1).coerceAtLeast(0) }
+            main.post(::flush)
+        }
+    }
+}

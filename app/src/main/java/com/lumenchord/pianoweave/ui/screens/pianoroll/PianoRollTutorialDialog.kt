@@ -54,7 +54,7 @@ private val tutorialSteps = listOf(
         highlights = listOf(
             Icons.Default.Mic to "Works acoustically: it listens to your real piano through the microphone.",
             Icons.Default.Hearing to "Keep your phone near the piano, in a quiet room, for the best experience.",
-            Icons.Default.Piano to "Have a USB MIDI keyboard? Plug it in and it's used instead, with the rest of the song playing along."
+            Icons.Default.Piano to "Have a MIDI keyboard? Plug it in by USB or connect it over Bluetooth (Settings → MIDI & Bluetooth) and it's used instead, with the rest of the song playing along."
         )
     ),
     TutorialStep(

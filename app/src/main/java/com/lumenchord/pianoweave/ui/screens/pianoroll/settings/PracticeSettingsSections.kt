@@ -104,23 +104,7 @@ fun WaitModeSection(viewModel: PianoWeaveViewModel, context: Context) {
             accent = colorAccent
         )
 
-        // Only meaningful with a MIDI keyboard plugged in, so it appears with one
-        if (MidiInputManager.isConnected) {
-            SettingToggleRow(
-                title = "Keyboard Sound",
-                subtitle = "Play your MIDI keyboard through the app. Turn off if it has its own speakers",
-                checked = viewModel.isKeyboardSoundEnabled,
-                onCheckedChange = { viewModel.setKeyboardSoundEnabled(context, it) },
-                accent = colorAccent
-            )
-            SettingToggleRow(
-                title = "Send to MIDI",
-                subtitle = "Send the song to the connected device, e.g. the piano on pianoweave's website over a USB cable",
-                checked = viewModel.isMidiOutputEnabled,
-                onCheckedChange = { viewModel.setMidiOutputEnabled(context, it) },
-                accent = colorAccent
-            )
-        }
+        // A keyboard's own settings (its sound, sending the song out) live on the MIDI & Bluetooth page
     }
 }
 

@@ -74,6 +74,8 @@ object AppPrefs {
     const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
     /** Whether the song being played is also sent to the connected MIDI device (e.g. the website piano on a computer). */
     const val IS_MIDI_OUTPUT_ENABLED = "is_midi_output_enabled"
+    /** Address of the Bluetooth MIDI keyboard connected last, reconnected on start; removed on "Disconnect". */
+    const val BLUETOOTH_MIDI_LAST_KEYBOARD = "bluetooth_midi_last_keyboard"
     /** A click on every beat of songs with a beat grid (not in wait mode). */
     const val IS_METRONOME_ENABLED = "is_metronome_enabled"
     /** Whether the metronome stays silent over the beats before the song's first note. */
