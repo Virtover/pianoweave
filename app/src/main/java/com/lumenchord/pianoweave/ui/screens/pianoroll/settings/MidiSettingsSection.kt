@@ -50,6 +50,13 @@ import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.ui.draw.clip
+import com.lumenchord.pianoweave.ui.components.IconBadge
+import com.lumenchord.pianoweave.ui.theme.PillShape
 
 /**
  * The "MIDI & Bluetooth" settings page: what's connected, one Bluetooth list (keyboards to connect to, and
@@ -321,12 +328,13 @@ private fun BluetoothList(context: Context, accent: Color) {
 }
 
 /**
- * "Phone as a MIDI device", kept low-key under the list: most people only connect keyboards, and it isn't a
- * device row. Named for what it does (any BLE MIDI central can connect: a DAW, a browser, another phone), so it
- * neither oversells nor points at a particular use. Tapping it makes the phone findable for [BleMidiPeripheral.VISIBLE_MS]; the line then shows the time
- * left and Stop, in the same height so nothing jumps. Not shown while a computer is connected (it's in the
- * list then).
+ * "Connect from another device": makes the phone findable for [BleMidiPeripheral.VISIBLE_MS], so music apps on a
+ * computer, tablet or phone can use it as a Bluetooth MIDI device. Deliberately not a card like the keyboards
+ * above (a plain settings row with a phone badge, below a divider): it's about this phone, not one to connect
+ * to. What it's for is in a tooltip, general on purpose. While visible the row shows the time left and Stop.
+ * Not shown while a computer is connected (it's in the list then).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConnectComputerRow(context: Context, accent: Color) {
     val until = BleMidiPeripheral.visibleUntil
@@ -338,39 +346,77 @@ private fun ConnectComputerRow(context: Context, accent: Color) {
             delay(1000)
         }
     }
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer)
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (visible) {
-                LiveDot(accent, size = 7)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    "Visible · %d:%02d".format(secondsLeft / 60, secondsLeft % 60),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(
-                    onClick = { BleMidiPeripheral.setDiscoverable(context, false) },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    modifier = Modifier.height(28.dp)
-                ) { Text("Stop", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-            } else {
-                Text("Phone as a MIDI device", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))
-                TextButton(
-                    onClick = { BleMidiPeripheral.setDiscoverable(context, true) },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    modifier = Modifier.height(28.dp)
-                ) { Text("Make visible", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+            IconBadge(Icons.Default.Smartphone, tint = accent, size = 32.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                TooltipBox(
+                    positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+                    tooltip = {
+                        RichTooltip(title = { Text("Connect from another device") }) {
+                            Text(
+                                "Music apps on a computer, tablet or another phone can use this phone as a Bluetooth " +
+                                    "MIDI device: they can play notes in the App, and get the song as it plays (with Send the song on).\n\n" +
+                                    "Tap Make visible, then choose this phone on the other device within " +
+                                    "${BleMidiPeripheral.VISIBLE_MS / 60_000} minutes. Otherwise nobody can find it.",
+                                lineHeight = 18.sp
+                            )
+                        }
+                    },
+                    state = tooltipState
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp)) // not a pill: the title can wrap to two lines
+                            .clickable(onClickLabel = "Explain") { scope.launch { tooltipState.show() } }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "Connect from another device",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Icon(Icons.Outlined.Info, contentDescription = null, tint = muted, modifier = Modifier.size(14.dp))
+                    }
+                }
+                if (visible) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LiveDot(accent, size = 6)
+                        Text(
+                            "Visible · %d:%02d".format(secondsLeft / 60, secondsLeft % 60),
+                            fontSize = 11.sp,
+                            color = accent
+                        )
+                    }
+                } else if (problem != null) {
+                    Text(problem, fontSize = 11.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = { BleMidiPeripheral.setDiscoverable(context, !visible) },
+                shape = PillShape,
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.6f)),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text(if (visible) "Stop" else "Make visible", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
-        if (visible) Hint("Choose this phone on the other device. It's hidden again once that connects.")
-        else problem?.let { Text(it, fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.error) }
     }
 }
 
