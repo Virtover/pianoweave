@@ -321,8 +321,10 @@ private fun BluetoothList(context: Context, accent: Color) {
 }
 
 /**
- * "Connect a computer": makes the phone findable for a computer for [BleMidiPeripheral.VISIBLE_MS], with the
- * time left and a way to stop early. Hidden again as soon as a computer connects (it then shows in the list).
+ * "Connect a computer", kept low-key under the list: most people only connect keyboards, and it isn't a device
+ * row. Tapping it makes the phone findable for [BleMidiPeripheral.VISIBLE_MS]; the line then shows the time
+ * left and Stop, in the same height so nothing jumps. Not shown while a computer is connected (it's in the
+ * list then).
  */
 @Composable
 private fun ConnectComputerRow(context: Context, accent: Color) {
@@ -335,47 +337,43 @@ private fun ConnectComputerRow(context: Context, accent: Color) {
             delay(1000)
         }
     }
-    val idleText = "Lets a computer find this phone for ${BleMidiPeripheral.VISIBLE_MS / 60_000} minutes"
-    Surface(
-        onClick = { if (!visible) BleMidiPeripheral.setDiscoverable(context, true) },
-        shape = RoundedCornerShape(12.dp),
-        color = if (visible) accent.copy(alpha = 0.08f) else MaterialTheme.colorScheme.background,
-        border = BorderStroke(1.dp, if (visible) accent.copy(alpha = 0.5f) else MaterialTheme.colorScheme.tertiaryContainer),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(
-            modifier = Modifier.padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Computer, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    if (visible) "Waiting for a computer…" else "Connect a computer",
-                    fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    when {
-                        visible -> "Choose this phone on the computer · %d:%02d".format(secondsLeft / 60, secondsLeft % 60)
-                        problem != null -> problem
-                        else -> idleText
-                    },
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
-                    color = when {
-                        visible -> accent
-                        problem != null -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
-            }
             if (visible) {
-                TextButton(onClick = { BleMidiPeripheral.setDiscoverable(context, false) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text("Stop", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                LiveDot(accent, size = 7)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "Waiting for a computer · %d:%02d".format(secondsLeft / 60, secondsLeft % 60),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(
+                    onClick = { BleMidiPeripheral.setDiscoverable(context, false) },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.height(28.dp)
+                ) { Text("Stop", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+            } else {
+                Text("Using a computer?", fontSize = 12.sp, color = muted, modifier = Modifier.weight(1f))
+                TextButton(
+                    onClick = { BleMidiPeripheral.setDiscoverable(context, true) },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Icon(Icons.Default.Computer, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Connect", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
+        if (visible) Hint("Choose this phone in the computer's Bluetooth MIDI list.")
+        else problem?.let { Text(it, fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.error) }
     }
 }
 

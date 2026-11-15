@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Bluetooth is central-only), never be found itself, so a page can't pose as a keyboard.
  *
  * Safety: BLE MIDI has no pairing, so anyone nearby could connect while the phone is findable, and everyone
- * scanning sees its Bluetooth name. So the phone is never findable by default: only after "Connect a computer"
+ * scanning sees its Bluetooth name. So the phone is never findable by default: only after "Using a computer? Connect"
  * on the MIDI & Bluetooth page, for [VISIBLE_MS] at most ([setDiscoverable]), ending early when a computer
  * connects or the page closes. Only one computer at a time is served: while it's connected, other devices can't
  * subscribe and their notes are ignored. All a connection can do is exchange MIDI notes; the page shows who is
