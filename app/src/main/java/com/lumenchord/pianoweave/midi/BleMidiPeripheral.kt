@@ -21,6 +21,7 @@ import android.os.Looper
 import android.os.ParcelUuid
 import android.os.SystemClock
 import android.util.Log
+import com.lumenchord.pianoweave.util.AppPrefs
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -52,6 +53,10 @@ object BleMidiPeripheral {
     /** Wanted by the MIDI page; the server outlives it only while a computer is connected. */
     @Volatile
     private var discoverable = false
+    /** Who wants the phone findable right now (see [setDiscoverable]). */
+    private val wanters = mutableSetOf<String>()
+    const val ROLL = "piano roll"
+
     /** A start is pending or advertising is on, so it's never asked twice (Android fails the second). */
     private var advertising = false
 
@@ -83,9 +88,12 @@ object BleMidiPeripheral {
      * Discoverable while the MIDI page is open. Turning it off stops advertising; the server stays up for
      * a computer that is still connected and closes when it leaves.
      */
-    fun setDiscoverable(context: Context, on: Boolean) {
-        discoverable = on
-        if (on) {
+    fun setDiscoverable(context: Context, on: Boolean, by: String = "midi page") {
+        // Several screens can want the phone findable (the MIDI page, the piano roll once a computer is
+        // known); it stays findable while any of them does
+        if (on) wanters.add(by) else wanters.remove(by)
+        discoverable = wanters.isNotEmpty()
+        if (discoverable) {
             if (server == null) start(context) else startAdvertising()
         } else {
             runCatching { advertiser?.stopAdvertising(advertiseCallback) }
@@ -95,8 +103,17 @@ object BleMidiPeripheral {
         }
     }
 
-    /** Ends the connection with the computer (the "Disconnect" on its row). */
+    /** Whether a computer has connected before; see [AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN]. */
+    fun isComputerKnown(context: Context): Boolean =
+        AppPrefs.get(context).getBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, false)
+
+    /**
+     * Ends the connection with the computer (the "Disconnect" on its row), and forgets it, so the piano
+     * roll no longer keeps the phone findable for it.
+     */
     fun disconnectComputer() {
+        appContext?.let { AppPrefs.get(it).edit().putBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, false).apply() }
+        wanters.remove(ROLL)
         connected.forEach { device -> runCatching { server?.cancelConnection(device) } }
         // Some phones ignore cancelConnection for a link the computer opened; closing the server always
         // ends it. Then it opens again if the MIDI page still wants the phone findable.
@@ -159,6 +176,7 @@ object BleMidiPeripheral {
 
     fun stop() {
         discoverable = false
+        wanters.clear()
         advertising = false
         runCatching { advertiser?.stopAdvertising(advertiseCallback) }
         runCatching { server?.close() }
@@ -264,8 +282,13 @@ object BleMidiPeripheral {
             .onFailure { main.post { problem = "Couldn't make the phone visible" } }
     }
 
+    /**
+     * A computer counts as connected once it subscribes to the phone's notes, as every MIDI client does.
+     * Not on the link alone: Android tells a GATT server about every LE link to the phone, including the
+     * one to a Bluetooth keyboard the phone connected to itself, which then showed up as a "computer" too.
+     */
     private fun updateCentralName() {
-        val first = connected.firstOrNull()
+        val first = subscribers.firstOrNull()
         val name = first?.let { runCatching { it.name }.getOrNull()?.takeIf(String::isNotBlank) ?: "A computer" }
         main.post {
             val wasConnected = connectedCentralName != null
@@ -328,10 +351,14 @@ object BleMidiPeripheral {
             if (descriptor.uuid == BleMidiPacket.CCCD_UUID) {
                 // Bit 0: notifications on (what a MIDI central asks for to hear the phone)
                 if (value != null && value.isNotEmpty() && value[0].toInt() and 1 == 1) {
-                    if (subscribers.add(device)) MidiInputManager.onNewListener()
+                    if (subscribers.add(device)) {
+                        MidiInputManager.onNewListener()
+                        appContext?.let { AppPrefs.get(it).edit().putBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, true).apply() }
+                    }
                 } else {
                     subscribers.remove(device)
                 }
+                updateCentralName()
             }
             if (responseNeeded) server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
         }

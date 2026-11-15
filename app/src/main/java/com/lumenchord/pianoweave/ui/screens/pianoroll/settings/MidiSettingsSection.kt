@@ -74,6 +74,10 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
         val nowReady = isBluetoothReady(context)
         if (hasBle && nowReady) goLive() else ready = nowReady
     }
+    // Bluetooth switched off and on while the page is open (from quick settings, or by the system)
+    LaunchedEffect(BluetoothMidi.bluetoothRestarts) {
+        if (BluetoothMidi.bluetoothRestarts > 0 && hasBle && isBluetoothReady(context)) goLive()
+    }
     DisposableEffect(Unit) {
         onDispose {
             BluetoothMidi.stopScan()

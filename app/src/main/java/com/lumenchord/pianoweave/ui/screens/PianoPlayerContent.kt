@@ -62,6 +62,9 @@ import com.lumenchord.pianoweave.audio.VoiceModelStore
 import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
+import com.lumenchord.pianoweave.midi.BleMidiPeripheral
+import com.lumenchord.pianoweave.midi.BluetoothMidi
+import com.lumenchord.pianoweave.midi.BluetoothMidiPermissions
 import com.lumenchord.pianoweave.midi.RollSync
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.SustainPedalSpan
@@ -498,11 +501,24 @@ internal fun ModernPianoPlayerContent(
     // Mirrors the roll to a connected computer: the song's notes ahead of time and where playback is, so a
     // page there can show them falling, and stop with wait mode (see RollSync)
     val isWaitingNow by rememberUpdatedState(isWaitingAtBaseline)
+    // A computer that has connected before (e.g. a page with falling notes) can find the phone again
+    // whenever the piano roll is open, without opening the MIDI settings page first
+    DisposableEffect(BluetoothMidi.bluetoothRestarts) {
+        val appContext = context.applicationContext
+        if (BleMidiPeripheral.isComputerKnown(appContext) &&
+            BluetoothMidiPermissions.has(appContext, BluetoothMidiPermissions.forVisibility()) &&
+            BluetoothMidi.isBluetoothOn(appContext)
+        ) {
+            BleMidiPeripheral.setDiscoverable(appContext, true, BleMidiPeripheral.ROLL)
+        }
+        onDispose { BleMidiPeripheral.setDiscoverable(appContext, false, BleMidiPeripheral.ROLL) }
+    }
+
     LaunchedEffect(noteEvents) {
         RollSync.startSong(noteEvents)
         try {
             while (isActive) {
-                RollSync.tick(viewModel.playheadMs, viewModel.isPlaying, isWaitingNow, viewModel.speedMultiplier)
+                RollSync.tick(viewModel.playheadMs, viewModel.isPlaying, isWaitingNow, viewModel.isWaitModeEnabled, viewModel.speedMultiplier)
                 delay(50)
             }
         } finally {

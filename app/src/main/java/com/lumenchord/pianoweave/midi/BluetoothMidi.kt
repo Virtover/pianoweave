@@ -77,6 +77,9 @@ object BluetoothMidi {
     /** A one-line problem to show under the search (permission, Bluetooth off, couldn't connect). */
     var message by mutableStateOf<String?>(null)
         private set
+    /** Goes up each time Bluetooth comes back on, so an open MIDI page can start over (observable). */
+    var bluetoothRestarts by mutableStateOf(0)
+        private set
 
     private val main = Handler(Looper.getMainLooper())
     private var appContext: Context? = null
@@ -98,7 +101,10 @@ object BluetoothMidi {
                         BleMidiPeripheral.stop()
                         connectedAddress = null
                     }
-                    BluetoothAdapter.STATE_ON -> reconnectLast(app) // back on: look for the last keyboard
+                    BluetoothAdapter.STATE_ON -> {
+                        reconnectLast(app) // back on: look for the last keyboard
+                        bluetoothRestarts++ // and an open MIDI page searches and becomes findable again
+                    }
                 }
             }
         }, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)

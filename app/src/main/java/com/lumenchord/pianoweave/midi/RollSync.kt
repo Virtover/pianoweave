@@ -11,7 +11,7 @@ import android.os.SystemClock
  *   F0 7D 50 57 <command> <data> F7          ("PW" = Piano Weave), numbers in 7-bit groups, high first
  *   01 reset      head(4)                    forget all notes; the song is at [head] ms
  *   02 notes      (start(4) length(3) pitch velocity)*   notes of the song, sent ~6 s before they're due
- *   03 transport  head(4) flags speed(2)     flags: 1 playing, 2 waiting (wait mode); speed x100
+ *   03 transport  head(4) flags speed(2)     flags: 1 playing, 2 waiting now, 4 wait mode on; speed x100
  *   04 end                                   the song was closed
  *
  * Times are song milliseconds (already transposed notes, as the app plays them). Sent only while a
@@ -45,7 +45,7 @@ object RollSync {
     }
 
     /** Called ~20 times a second while the piano roll is open. */
-    fun tick(headMs: Long, isPlaying: Boolean, isWaiting: Boolean, speed: Float) {
+    fun tick(headMs: Long, isPlaying: Boolean, isWaiting: Boolean, isWaitMode: Boolean, speed: Float) {
         if (notes.isEmpty() || !MidiInputManager.canSendSync()) {
             syncedGeneration = -1 // when someone listens again, they get everything from the start
             return
@@ -58,7 +58,7 @@ object RollSync {
         if (generation != syncedGeneration || jumped) reset(headMs)
         syncedGeneration = generation
         announce(headMs)
-        sendTransport(headMs, isPlaying, isWaiting, speed, now)
+        sendTransport(headMs, isPlaying, isWaiting, isWaitMode, speed, now)
         lastHead = headMs
         lastTickAt = now
     }
@@ -93,8 +93,9 @@ object RollSync {
         send(2, data)
     }
 
-    private fun sendTransport(headMs: Long, isPlaying: Boolean, isWaiting: Boolean, speed: Float, now: Long) {
-        val flags = (if (isPlaying) 1 else 0) or (if (isWaiting) 2 else 0)
+    private fun sendTransport(headMs: Long, isPlaying: Boolean, isWaiting: Boolean, isWaitMode: Boolean, speed: Float, now: Long) {
+        // Wait mode on its own: between the notes it waits at, the other side still lets you play ahead
+        val flags = (if (isPlaying) 1 else 0) or (if (isWaiting) 2 else 0) or (if (isWaitMode) 4 else 0)
         val speedX100 = (speed * 100).toInt().coerceIn(1, 0x3FFF)
         val state = listOf(flags, speedX100)
         val moving = isPlaying && !isWaiting
