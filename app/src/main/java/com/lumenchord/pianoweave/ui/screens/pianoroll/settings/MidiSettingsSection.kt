@@ -52,11 +52,8 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.ui.draw.clip
-import com.lumenchord.pianoweave.ui.components.IconBadge
-import com.lumenchord.pianoweave.ui.theme.PillShape
 
 /**
  * The "MIDI & Bluetooth" settings page: what's connected, one Bluetooth list (keyboards to connect to, and
@@ -329,9 +326,9 @@ private fun BluetoothList(context: Context, accent: Color) {
 
 /**
  * "Connect from another device": makes the phone findable for [BleMidiPeripheral.VISIBLE_MS], so music apps on a
- * computer, tablet or phone can use it as a Bluetooth MIDI device. Deliberately not a card like the keyboards
- * above (a plain settings row with a phone badge, below a divider): it's about this phone, not one to connect
- * to. What it's for is in a tooltip, general on purpose. While visible the row shows the time left and Stop.
+ * computer, tablet or phone can use it as a Bluetooth MIDI device. Deliberately quiet and not a card like the
+ * keyboards above (a muted line below a divider): few people need it, and it's about this phone, not one to
+ * connect to. What it's for is in a tooltip, general on purpose. While visible the row shows the time left and Stop.
  * Not shown while a computer is connected (it's in the list then).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -353,11 +350,9 @@ private fun ConnectComputerRow(context: Context, accent: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer)
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconBadge(Icons.Default.Smartphone, tint = accent, size = 32.dp)
-            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 TooltipBox(
                     positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
@@ -384,10 +379,9 @@ private fun ConnectComputerRow(context: Context, accent: Color) {
                     ) {
                         Text(
                             "Connect from another device",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            lineHeight = 17.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            color = muted,
                             modifier = Modifier.weight(1f, fill = false)
                         )
                         Icon(Icons.Outlined.Info, contentDescription = null, tint = muted, modifier = Modifier.size(14.dp))
@@ -407,12 +401,10 @@ private fun ConnectComputerRow(context: Context, accent: Color) {
                 }
             }
             Spacer(Modifier.width(8.dp))
-            OutlinedButton(
+            TextButton(
                 onClick = { BleMidiPeripheral.setDiscoverable(context, !visible) },
-                shape = PillShape,
-                border = BorderStroke(1.dp, accent.copy(alpha = 0.6f)),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                modifier = Modifier.height(32.dp)
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                modifier = Modifier.height(28.dp)
             ) {
                 Text(if (visible) "Stop" else "Make visible", color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
