@@ -49,6 +49,9 @@ object BleMidiPeripheral {
     /** On while computers can find the phone (the MIDI page is open and Bluetooth works). */
     var isRunning by mutableStateOf(false)
         private set
+    /** Whether the phone may expose itself as a Bluetooth MIDI device for computers. */
+    var isEnabled by mutableStateOf(true)
+        private set
 
     /** Wanted by the MIDI page; the server outlives it only while a computer is connected. */
     @Volatile
@@ -89,6 +92,7 @@ object BleMidiPeripheral {
      * a computer that is still connected and closes when it leaves.
      */
     fun setDiscoverable(context: Context, on: Boolean, by: String = "midi page") {
+        if (on && (!isEnabled || !BluetoothMidi.isEnabled)) return
         // Several screens can want the phone findable (the MIDI page, the piano roll once a computer is
         // known); it stays findable while any of them does
         if (on) wanters.add(by) else wanters.remove(by)
@@ -105,7 +109,20 @@ object BleMidiPeripheral {
 
     /** Whether a computer has connected before; see [AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN]. */
     fun isComputerKnown(context: Context): Boolean =
-        AppPrefs.get(context).getBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, false)
+        isEnabled && BluetoothMidi.isEnabled &&
+            AppPrefs.get(context).getBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, false)
+
+    /** Enables or disables the phone-side Bluetooth MIDI peripheral. */
+    fun setEnabled(context: Context, enabled: Boolean) {
+        isEnabled = enabled
+        AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_BLE_MIDI_ENABLED, enabled).apply()
+        if (!enabled) stop()
+    }
+
+    fun initialize(context: Context) {
+        appContext = context.applicationContext
+        isEnabled = BluetoothMidi.isEnabled
+    }
 
     /**
      * Ends the connection with the computer (the "Disconnect" on its row), and forgets it, so the piano
@@ -113,17 +130,10 @@ object BleMidiPeripheral {
      */
     fun disconnectComputer() {
         appContext?.let { AppPrefs.get(it).edit().putBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, false).apply() }
-        wanters.remove(ROLL)
         connected.forEach { device -> runCatching { server?.cancelConnection(device) } }
-        // Some phones ignore cancelConnection for a link the computer opened; closing the server always
-        // ends it. Then it opens again if the MIDI page still wants the phone findable.
-        main.postDelayed({
-            if (connected.isEmpty()) return@postDelayed
-            val context = appContext
-            val reopen = discoverable
-            stop()
-            if (reopen && context != null) setDiscoverable(context, true)
-        }, 1500)
+        // Some phones ignore cancelConnection for a link the computer opened, so close the server too.
+        // Do not reopen it: explicit Disconnect must prevent an immediate computer reconnect.
+        stop()
     }
 
     private fun start(context: Context): Boolean {

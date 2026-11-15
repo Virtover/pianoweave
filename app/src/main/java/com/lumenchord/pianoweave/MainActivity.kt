@@ -36,6 +36,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.audio.AcousticNoteDetector
 import com.lumenchord.pianoweave.audio.PianoPlayer
+import com.lumenchord.pianoweave.midi.BleMidiPeripheral
 import com.lumenchord.pianoweave.midi.BluetoothMidi
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.AdaptiveNavigation
@@ -129,6 +130,7 @@ class MainActivity : ComponentActivity() {
         MidiInputManager.initialize(applicationContext)
         // Bluetooth MIDI: reconnect the last keyboard, and stay visible to computers if that's on
         BluetoothMidi.initialize(applicationContext)
+        BleMidiPeripheral.initialize(applicationContext)
 
         viewModel.loadHowItWorksHint(applicationContext)
 

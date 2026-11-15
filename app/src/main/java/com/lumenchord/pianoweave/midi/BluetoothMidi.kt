@@ -80,6 +80,9 @@ object BluetoothMidi {
     /** Goes up each time Bluetooth comes back on, so an open MIDI page can start over (observable). */
     var bluetoothRestarts by mutableStateOf(0)
         private set
+    /** Whether Bluetooth MIDI keyboard and computer connections are enabled. */
+    var isEnabled by mutableStateOf(true)
+        private set
 
     private val main = Handler(Looper.getMainLooper())
     private var appContext: Context? = null
@@ -94,6 +97,7 @@ object BluetoothMidi {
         initialized = true
         val app = context.applicationContext
         appContext = app
+        isEnabled = AppPrefs.get(app).getBoolean(AppPrefs.IS_BLE_MIDI_ENABLED, true)
         ContextCompat.registerReceiver(app, object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
@@ -131,10 +135,12 @@ object BluetoothMidi {
 
     fun startScan(context: Context) {
         message = null
+        if (!isEnabled) return
         if (!BluetoothMidiPermissions.has(context, BluetoothMidiPermissions.forKeyboards())) {
             message = "Allow Bluetooth access to find keyboards"
             return
         }
+
         val scanner = adapter(context)?.takeIf { it.isEnabled }?.bluetoothLeScanner
         if (scanner == null) {
             message = "Turn Bluetooth on to find keyboards"
@@ -188,6 +194,19 @@ object BluetoothMidi {
             }
     }
 
+    /** Enables or disables all Bluetooth MIDI connections, including keyboards and computers. */
+    fun setEnabled(context: Context, enabled: Boolean) {
+        isEnabled = enabled
+        AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_BLE_MIDI_ENABLED, enabled).apply()
+        if (!enabled) {
+            stopScan()
+            disconnect(context)
+            BleMidiPeripheral.setEnabled(context, false)
+        } else {
+            BleMidiPeripheral.setEnabled(context, true)
+        }
+    }
+
     /** Stops searching; [reportNothingFound] (the search ran its full time) explains an empty list. */
     fun stopScan(reportNothingFound: Boolean = false) {
         main.removeCallbacks(stopScanLater)
@@ -209,12 +228,13 @@ object BluetoothMidi {
     }
 
     fun connect(context: Context, address: String, quiet: Boolean = false) {
+        if (!isEnabled) return
+        if (!quiet) message = null
         if (connectingAddress != null) return
         if (!BluetoothMidiPermissions.has(context, BluetoothMidiPermissions.forKeyboards())) return
         val adapter = adapter(context)?.takeIf { it.isEnabled } ?: return
         val midi = context.getSystemService(MidiManager::class.java) ?: return
         stopScan()
-        if (!quiet) message = null
         val device = runCatching { adapter.getRemoteDevice(address) }.getOrNull() ?: return
         connectingAddress = address
         val timeout = Runnable {
@@ -236,6 +256,7 @@ object BluetoothMidi {
             openedDevice?.takeIf { it !== opened }?.let { runCatching { it.close() } }
             openedDevice = opened
             connectedAddress = address
+            if (!quiet) message = null
             AppPrefs.get(context).edit().putString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, address).apply()
         }, main)
     }
@@ -254,6 +275,7 @@ object BluetoothMidi {
         connectedAddress != null && MidiInputManager.connectedTransport == MidiInputManager.Transport.Bluetooth
 
     private fun reconnectLast(context: Context) {
+        if (!isEnabled) return
         if (MidiInputManager.connectedTransport != null) return // something's connected already (e.g. USB)
         val last = AppPrefs.get(context).getString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, null) ?: return
         connect(context, last, quiet = true)

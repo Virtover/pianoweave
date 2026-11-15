@@ -92,29 +92,41 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
             Hint("This phone has no Bluetooth MIDI. USB keyboards still work.")
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "BLUETOOTH",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (ready) SearchButton(accent) { BluetoothMidi.startScan(context) }
-                }
-                if (!ready) {
-                    TurnOnCard(accent) { gate.run(BluetoothMidiPermissions.forAll(), ::goLive) }
-                } else {
-                    BluetoothList(context, accent)
-                }
-                gate.problem?.let { problem ->
+                SettingToggleRow(
+                    title = "Bluetooth MIDI",
+                    subtitle = "Connect BLE MIDI keyboards and computers",
+                    checked = BluetoothMidi.isEnabled,
+                    onCheckedChange = { enabled ->
+                        BluetoothMidi.setEnabled(context, enabled)
+                        if (enabled && ready) BleMidiPeripheral.setDiscoverable(context, true)
+                    },
+                    accent = accent
+                )
+                if (BluetoothMidi.isEnabled) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(problem, fontSize = 12.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
-                        TextButton(onClick = {
-                            context.startActivity(
-                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                            )
-                        }) { Text("App settings", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                        Text(
+                            "BLUETOOTH",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (ready) SearchButton(accent) { BluetoothMidi.startScan(context) }
+                    }
+                    if (!ready) {
+                        TurnOnCard(accent) { gate.run(BluetoothMidiPermissions.forAll(), ::goLive) }
+                    } else {
+                        BluetoothList(context, accent)
+                    }
+                    gate.problem?.let { problem ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(problem, fontSize = 12.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                                )
+                            }) { Text("App settings", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                        }
                     }
                 }
             }
@@ -288,9 +300,13 @@ private fun BluetoothList(context: Context, accent: Color) {
                 onDisconnect = { BluetoothMidi.disconnect(context) }
             )
         }
-        if (computer == null && BluetoothMidi.found.isEmpty() && !BluetoothMidi.isScanning) {
+        if (computer == null &&
+            BluetoothMidi.found.isEmpty() &&
+            !BluetoothMidi.isScanning &&
+            BluetoothMidi.connectingAddress == null
+        ) {
             Hint(BluetoothMidi.message ?: "No keyboards nearby. Turn on the keyboard's Bluetooth and search again.")
-        } else {
+        } else if (BluetoothMidi.connectingAddress == null) {
             BluetoothMidi.message?.let { Hint(it) }
         }
     }
