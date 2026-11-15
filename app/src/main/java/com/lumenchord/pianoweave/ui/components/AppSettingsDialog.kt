@@ -36,18 +36,20 @@ fun AppSettingsDialog(
     var showSignOutConfirm by remember { mutableStateOf(false) }
     val previewTheme = AppThemeManager.getTheme(selectedThemeId)
 
-    // Its own width, the same on every phone (see settingsDialogWidth)
-    Dialog(onDismissRequest = onDismiss, properties = SettingsDialogProperties) {
+    // On a phone its own width, the same on every phone (see settingsDialogWidth); tablets as they were
+    val isPhone = isPhoneForSettings()
+    val phoneWidth = settingsDialogWidth()
+    Dialog(onDismissRequest = onDismiss, properties = settingsDialogProperties()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 12.dp),
+                .padding(horizontal = if (isPhone) 0.dp else 8.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             DialogSurface(
                 light = previewTheme.primaryColor,
                 modifier = Modifier
-                    .width(settingsDialogWidth())
+                    .then(if (isPhone) Modifier.width(phoneWidth) else Modifier.fillMaxWidth(0.98f))
                     .heightIn(max = 580.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,

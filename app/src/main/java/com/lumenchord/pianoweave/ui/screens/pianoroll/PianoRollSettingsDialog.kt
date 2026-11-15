@@ -9,7 +9,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
-import com.lumenchord.pianoweave.ui.components.SettingsDialogProperties
+import com.lumenchord.pianoweave.ui.components.isPhoneForSettings
+import com.lumenchord.pianoweave.ui.components.settingsDialogProperties
 import com.lumenchord.pianoweave.ui.components.settingsDialogWidth
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -114,21 +115,24 @@ internal fun SettingsDialog(
     var endText by remember { mutableStateOf(formatTime(viewModel.loopEndMs)) }
     var isLooping by remember { mutableStateOf(viewModel.isLoopingEnabled) }
 
-    // Same width as the app's main settings, the same on every phone (see settingsDialogWidth)
-    Dialog(onDismissRequest = onDismiss, properties = SettingsDialogProperties) {
+    // On a phone the same width as the app's main settings, the same on every phone (see
+    // settingsDialogWidth); tablets as they always were
+    val isPhone = isPhoneForSettings()
+    val phoneWidth = settingsDialogWidth()
+    Dialog(onDismissRequest = onDismiss, properties = settingsDialogProperties()) {
         // System back on a page returns to the main one instead of closing the dialog
         BackHandler(enabled = page != SettingsPage.Main) { page = SettingsPage.Main }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 12.dp),
+                .padding(horizontal = if (isPhone) 0.dp else 24.dp, vertical = if (isPhone) 12.dp else 24.dp),
             contentAlignment = Alignment.Center
         ) {
             DialogSurface(
                 light = colorGold,
                 modifier = Modifier
-                    .width(settingsDialogWidth())
+                    .then(if (isPhone) Modifier.width(phoneWidth) else Modifier.fillMaxWidth(0.92f))
                     .heightIn(max = 650.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = ColorSurface,
@@ -149,7 +153,7 @@ internal fun SettingsDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(scrollState)
-                            .padding(16.dp),
+                            .padding(horizontal = if (isPhone) 16.dp else 24.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
                         when (shown) {
