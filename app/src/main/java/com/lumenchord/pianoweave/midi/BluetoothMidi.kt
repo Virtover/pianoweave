@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
@@ -89,6 +90,12 @@ object BluetoothMidi {
     private var openedDevice: MidiDevice? = null
     private var initialized = false
     private var scanCallback: ScanCallback? = null
+    /**
+     * The scanner [scanCallback] was started on. Each context's BluetoothManager has its own adapter and
+     * scanner, and stopping on another one silently does nothing: the search keeps running in the system and
+     * every later start fails with SCAN_FAILED_ALREADY_STARTED (error 1) until the app restarts.
+     */
+    private var activeScanner: BluetoothLeScanner? = null
     private val stopScanLater = Runnable { stopScan(reportNothingFound = true) }
 
     /** Called once at app start, after [MidiInputManager.initialize]. */
@@ -156,7 +163,7 @@ object BluetoothMidi {
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
         // A previous scan can outlive its callback after the settings page is closed.
         // Clear that scanner session before starting a new one.
-        scanCallback?.let { previous -> runCatching { scanner.stopScan(previous) } }
+        scanCallback?.let { previous -> runCatching { (activeScanner ?: scanner).stopScan(previous) } }
         lateinit var callback: ScanCallback
         callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -183,13 +190,14 @@ object BluetoothMidi {
             }
         }
         scanCallback = callback
+        activeScanner = scanner
         runCatching { scanner.startScan(listOf(filter), settings, callback) }
             .onSuccess {
                 isScanning = true
                 main.postDelayed(stopScanLater, SCAN_MS)
             }
             .onFailure {
-                if (scanCallback === callback) scanCallback = null
+                if (scanCallback === callback) { scanCallback = null; activeScanner = null }
                 message = "Couldn't search for keyboards"
             }
     }
@@ -212,11 +220,12 @@ object BluetoothMidi {
         main.removeCallbacks(stopScanLater)
         val wasScanning = isScanning
         isScanning = false
-        val context = appContext ?: return
         val callback = scanCallback
+        val scanner = activeScanner
         scanCallback = null
+        activeScanner = null
         if (callback != null) {
-            runCatching { adapter(context)?.bluetoothLeScanner?.stopScan(callback) }
+            runCatching { (scanner ?: appContext?.let { adapter(it)?.bluetoothLeScanner })?.stopScan(callback) }
         }
         if (wasScanning && reportNothingFound && found.isEmpty() && message == null) {
             message = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {

@@ -106,10 +106,23 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
                     if (!ready) {
                         TurnOnCard(accent) { gate.run(BluetoothMidiPermissions.forAll(), ::goLive) }
                     } else {
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            SearchButton(accent) { BluetoothMidi.startScan(context) }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Devices",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                SearchButton(accent) { BluetoothMidi.startScan(context) }
+                            }
+                            BluetoothList(context, accent)
                         }
-                        BluetoothList(context, accent)
+                        VisibilityRow(context, accent)
                     }
                     gate.problem?.let { problem ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -305,6 +318,55 @@ private fun BluetoothList(context: Context, accent: Color) {
         } else if (BluetoothMidi.connectingAddress == null && !hasBluetoothConnection()) {
             BluetoothMidi.message?.let { Hint(it) }
         }
+    }
+}
+
+/**
+ * How computers see the phone: findable under its Bluetooth name while this page is open, hidden again once a
+ * computer is connected (see [BleMidiPeripheral]). Saying the name out loud also tells the user what nearby
+ * people can see.
+ */
+@Composable
+private fun VisibilityRow(context: Context, accent: Color) {
+    val phone = remember { BluetoothMidi.phoneName(context) }
+    val computer = BleMidiPeripheral.connectedCentralName
+    val problem = BleMidiPeripheral.problem
+    val visible = BleMidiPeripheral.isRunning
+    val title = when {
+        computer != null -> "Hidden from other devices"
+        visible -> if (phone != null) "Visible as “$phone”" else "Visible to computers"
+        problem != null -> "Computers can't find this phone"
+        else -> "Making the phone visible…"
+    }
+    val subtitle = when {
+        computer != null -> "Only $computer can use this phone while connected"
+        visible -> "Computers nearby can connect while this page is open. Connect from Chrome or Edge (Web Bluetooth) or your DAW's Bluetooth MIDI."
+        else -> problem
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(32.dp).background(accent.copy(alpha = if (visible) 0.16f else 0.08f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Computer, contentDescription = null, tint = if (visible) accent else accent.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+            subtitle?.let {
+                Text(
+                    it,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    color = if (problem != null && !visible && computer == null) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (visible) LiveDot(accent, size = 7)
     }
 }
 

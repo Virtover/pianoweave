@@ -151,17 +151,26 @@ fun AboutSettingsSection(
     }
 }
 
-private val LEGAL_PREVIEW_CASES = listOf("Terms only", "Privacy Policy only", "both, same date", "both, different dates")
+private val LEGAL_PREVIEW_CASES = listOf(
+    "Terms only", "Privacy Policy only", "both, same date", "both, different dates",
+    "both, already in effect", "Terms in effect, Policy upcoming"
+)
 
-/** Made-up announced versions (14 and 21 days ahead) for each of [LEGAL_PREVIEW_CASES], in turn. */
+/**
+ * Made-up versions for each of [LEGAL_PREVIEW_CASES], in turn: announced ones 14 and 21 days ahead, and ones that
+ * took effect 3 days ago (the user missed the notice period).
+ */
 private fun legalPreviewChanges(case: Int): LegalChanges {
     val soon = LocalDate.now(ZoneOffset.UTC).plusDays(14).toString()
     val later = LocalDate.now(ZoneOffset.UTC).plusDays(21).toString()
+    val past = LocalDate.now(ZoneOffset.UTC).minusDays(3).toString()
     return when (case % LEGAL_PREVIEW_CASES.size) {
         0 -> LegalChanges(terms = soon, privacyPolicy = null)
         1 -> LegalChanges(terms = null, privacyPolicy = soon)
         2 -> LegalChanges(terms = soon, privacyPolicy = soon)
-        else -> LegalChanges(terms = later, privacyPolicy = soon)
+        3 -> LegalChanges(terms = later, privacyPolicy = soon)
+        4 -> LegalChanges(terms = past, privacyPolicy = past)
+        else -> LegalChanges(terms = past, privacyPolicy = soon)
     }
 }
 

@@ -39,6 +39,11 @@ import java.util.concurrent.ConcurrentHashMap
  * Like Android's own Bluetooth settings, the phone is discoverable only while the MIDI & Bluetooth page is
  * open ([setDiscoverable]); a computer that connected stays connected after the page is closed.
  *
+ * Safety: BLE MIDI has no pairing, so anyone nearby could connect while the phone is findable. To keep that
+ * window small, the phone stops advertising as soon as a computer connects, and only one computer at a time is
+ * served: while it's connected, other devices can't subscribe and their notes are ignored. All a connection
+ * can do is exchange MIDI notes; the page shows who is connected, with Disconnect.
+ *
  * Android has no built-in "phone as Bluetooth MIDI" mode, so this is a small GATT server with the standard
  * BLE MIDI service, advertised so computers find it.
  */
@@ -97,13 +102,22 @@ object BleMidiPeripheral {
         // known); it stays findable while any of them does
         if (on) wanters.add(by) else wanters.remove(by)
         discoverable = wanters.isNotEmpty()
-        if (discoverable) {
-            if (server == null) start(context) else startAdvertising()
-        } else {
+        if (discoverable && server == null) start(context) else updateAdvertising()
+        if (!discoverable && connected.isEmpty()) stop()
+    }
+
+    /**
+     * Advertises only while the phone is wanted findable and no computer is connected: once one is, nobody else
+     * nearby can find the phone (or see its name) until it leaves. Main thread.
+     */
+    private fun updateAdvertising() {
+        val want = discoverable && server != null && subscribers.isEmpty()
+        if (want) {
+            startAdvertising()
+        } else if (advertising || isRunning) {
             runCatching { advertiser?.stopAdvertising(advertiseCallback) }
             advertising = false
             isRunning = false
-            if (connected.isEmpty()) stop()
         }
     }
 
@@ -254,7 +268,7 @@ object BleMidiPeripheral {
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
-            main.post { isRunning = true; problem = null }
+            main.post { if (advertising) { isRunning = true; problem = null } }
         }
 
         override fun onStartFailure(errorCode: Int) {
@@ -307,9 +321,14 @@ object BleMidiPeripheral {
         }
     }
 
+    /** The connected computer, or anyone while no computer is connected. */
+    private fun isAllowed(device: BluetoothDevice): Boolean = subscribers.isEmpty() || device in subscribers
+
+    private const val GATT_WRITE_NOT_PERMITTED = 3
+
     private val callback = object : BluetoothGattServerCallback() {
         override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
-            if (status == BluetoothGatt.GATT_SUCCESS) { if (discoverable) startAdvertising() }
+            if (status == BluetoothGatt.GATT_SUCCESS) main.post(::updateAdvertising)
             else main.post { problem = "Bluetooth didn't respond, try again"; stop() }
         }
 
@@ -322,8 +341,9 @@ object BleMidiPeripheral {
             } else {
                 connected.remove(device)
                 subscribers.remove(device)
-                // The page closed earlier and the last computer just left: nothing to keep the server for
-                if (!discoverable && connected.isEmpty()) main.post { if (!discoverable && connected.isEmpty()) stop() }
+                // The page closed earlier and the last computer just left: nothing to keep the server for.
+                // Otherwise the phone becomes findable again, if something still wants it so.
+                main.post { if (!discoverable && connected.isEmpty()) stop() else updateAdvertising() }
             }
             updateCentralName()
         }
@@ -341,7 +361,8 @@ object BleMidiPeripheral {
             device: BluetoothDevice, requestId: Int, ch: BluetoothGattCharacteristic,
             preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?
         ) {
-            if (value != null && ch.uuid == BleMidiPacket.CHARACTERISTIC_UUID) {
+            // While a computer is connected, notes from any other device nearby are ignored
+            if (value != null && ch.uuid == BleMidiPacket.CHARACTERISTIC_UUID && isAllowed(device)) {
                 val midi = BleMidiPacket.decode(value)
                 synchronized(parser) { parser.feed(midi, 0, midi.size) }
             }
@@ -361,12 +382,19 @@ object BleMidiPeripheral {
             if (descriptor.uuid == BleMidiPacket.CCCD_UUID) {
                 // Bit 0: notifications on (what a MIDI central asks for to hear the phone)
                 if (value != null && value.isNotEmpty() && value[0].toInt() and 1 == 1) {
+                    if (!isAllowed(device)) {
+                        // One computer at a time: a second one is turned away, not silently given the song
+                        if (responseNeeded) server?.sendResponse(device, requestId, GATT_WRITE_NOT_PERMITTED, 0, null)
+                        runCatching { server?.cancelConnection(device) }
+                        return
+                    }
                     if (subscribers.add(device)) {
+                        main.post(::updateAdvertising) // connected: no longer findable by others
                         MidiInputManager.onNewListener()
                         appContext?.let { AppPrefs.get(it).edit().putBoolean(AppPrefs.BLUETOOTH_MIDI_COMPUTER_KNOWN, true).apply() }
                     }
-                } else {
-                    subscribers.remove(device)
+                } else if (subscribers.remove(device)) {
+                    main.post(::updateAdvertising)
                 }
                 updateCentralName()
             }

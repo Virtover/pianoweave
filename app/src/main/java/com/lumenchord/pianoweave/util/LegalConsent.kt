@@ -20,7 +20,7 @@ enum class LegalDocument(
 ) {
     // "versions" is the Terms' key because app releases from before the Privacy Policy was versioned read it
     TERMS("versions", listOf("2026-10-28", "2026-11-20"), AppPrefs.TERMS_VERSIONS, AppPrefs.SEEN_TERMS_CHANGE_NOTICE),
-    PRIVACY_POLICY("privacy_policy", listOf("2026-11-04"), AppPrefs.PRIVACY_VERSIONS, AppPrefs.SEEN_PRIVACY_CHANGE_NOTICE)
+    PRIVACY_POLICY("privacy_policy", listOf("2026-11-04", "2026-11-16"), AppPrefs.PRIVACY_VERSIONS, AppPrefs.SEEN_PRIVACY_CHANGE_NOTICE)
 }
 
 /** Announced versions the user hasn't been told about yet (at least one is set), told together in one notice. */
@@ -33,7 +33,8 @@ data class LegalChanges(val terms: String?, val privacyPolicy: String?)
  *
  * Change notices are only for people who were using the App when the change was announced. A new user starts on
  * the documents as they are, never with a notice: see [onAppStart] (a regression of this was fixed twice; keep
- * LegalConsentTest passing).
+ * LegalConsentTest passing). Someone who didn't open the App until after a change took effect still gets the
+ * notice, then saying the change is already in effect.
  *
  * Versions are effective dates, published in docs/terms_versions.json; the site picks the page by the same rule
  * (docs/terms.js). A version applies from its date (UTC), so announcing a change needs no app release.
@@ -90,29 +91,47 @@ object LegalConsent {
      * when the App is updated before its first launch (a Play auto-update, or two installs in a row while testing),
      * which used to show new users a change notice. A restored backup brings preferences, so it counts as returning.
      *
-     * New users get every announced change marked as seen, and stay "new" ([AppPrefs.LEGAL_NEW_USER]) until the
-     * published lists are first fetched, so a change announced before they installed, which an offline first
-     * launch didn't know about, isn't shown to them later either. Someone already using the App gets "" for a
-     * document it starts tracking (an app update), so a change already announced for it is still told.
+     * Each document's "seen" preference is the newest version the user knows about: told in a notice, or already
+     * listed when they started. New users get every listed version marked as seen, and stay "new"
+     * ([AppPrefs.LEGAL_NEW_USER]) until the published lists are first fetched, so a change announced before they
+     * installed, which an offline first launch didn't know about, isn't shown to them later either. Someone
+     * already using the App gets the version in effect for a document it starts tracking (an app update), so a
+     * change already announced for it is still told.
      */
     internal fun onAppStart(prefs: SharedPreferences, today: String) {
         val isFirstLaunch = prefs.all.isEmpty()
-        val untracked = LegalDocument.entries.filter { !prefs.contains(it.seenNoticePref) }
-        if (!isFirstLaunch && untracked.isEmpty()) return
         val isNewUser = isFirstLaunch || prefs.getBoolean(AppPrefs.LEGAL_NEW_USER, false)
         val editor = prefs.edit()
-        if (isFirstLaunch) editor.putBoolean(AppPrefs.LEGAL_NEW_USER, true)
-        untracked.forEach { document ->
-            val seen = if (isNewUser) upcomingVersion(prefs, document, today).orEmpty() else ""
-            editor.putString(document.seenNoticePref, seen)
+        var changed = false
+        if (isFirstLaunch) { editor.putBoolean(AppPrefs.LEGAL_NEW_USER, true); changed = true }
+        LegalDocument.entries.forEach { document ->
+            val seen = prefs.getString(document.seenNoticePref, null)
+            val known = when {
+                // A new user knows every version listed so far, upcoming ones included
+                seen == null && isNewUser -> versions(prefs, document).last()
+                // Someone already using the App (an update that starts tracking this document), or a value from
+                // releases where "" meant "none told yet": they know the one in effect, so a later one is told
+                seen.isNullOrEmpty() -> currentVersionOrNull(prefs, document, today).orEmpty()
+                else -> return@forEach
+            }
+            if (known != seen) { editor.putString(document.seenNoticePref, known); changed = true }
         }
-        editor.apply()
+        if (changed) editor.apply()
     }
 
+    private fun currentVersionOrNull(prefs: SharedPreferences, document: LegalDocument, today: String): String? =
+        versions(prefs, document).lastOrNull { it <= today }
+
+    /**
+     * The version to tell about: the one in effect if it's newer than what the user knows (it took effect while
+     * they weren't using the App, so the advance notice never reached them), otherwise the next announced one.
+     * An older version that was already replaced doesn't matter any more.
+     */
     private fun changeToAnnounce(prefs: SharedPreferences, document: LegalDocument, today: String): String? {
-        val upcoming = upcomingVersion(prefs, document, today) ?: return null
-        val seen = prefs.getString(document.seenNoticePref, null).orEmpty()
-        return upcoming.takeIf { it > seen }
+        val known = prefs.getString(document.seenNoticePref, null).orEmpty()
+        val current = currentVersionOrNull(prefs, document, today)
+        val upcoming = versions(prefs, document).filter { it > today }
+        return (listOfNotNull(current) + upcoming).firstOrNull { it > known }
     }
 
     /** The announced versions the user hasn't been told about yet, or null if there are none. */
@@ -177,7 +196,7 @@ object LegalConsent {
         if (prefs.getBoolean(AppPrefs.LEGAL_NEW_USER, false)) {
             val seenEditor = prefs.edit()
             LegalDocument.entries.forEach { document ->
-                upcomingVersion(prefs, document, today)?.let { seenEditor.putString(document.seenNoticePref, it) }
+                seenEditor.putString(document.seenNoticePref, versions(prefs, document).last())
             }
             seenEditor.remove(AppPrefs.LEGAL_NEW_USER).apply()
         }

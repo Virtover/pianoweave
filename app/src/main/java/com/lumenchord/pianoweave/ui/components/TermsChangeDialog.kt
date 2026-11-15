@@ -25,6 +25,7 @@ import com.lumenchord.pianoweave.util.AppLinks
 import com.lumenchord.pianoweave.util.LegalChanges
 import com.lumenchord.pianoweave.util.openUrl
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -129,10 +130,15 @@ private fun formatDate(version: String): String = runCatching {
     LocalDate.parse(version).format(DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH))
 }.getOrDefault(version)
 
-/** The notice for whichever documents change; the deadline to leave is the earliest change. */
+/**
+ * The notice for whichever documents change; the deadline to leave is the earliest change. A change that already
+ * took effect (the user didn't open the App during the notice period) is told in the past tense.
+ */
 private fun changeNoticeText(changes: LegalChanges): String {
     val terms = changes.terms
     val privacy = changes.privacyPolicy
+    val today = LocalDate.now(ZoneOffset.UTC).toString()
+    if (listOfNotNull(terms, privacy).any { it <= today }) return inEffectNoticeText(terms, privacy, today)
     val earliest = formatDate(listOfNotNull(terms, privacy).min())
     val leave = "If you don't agree, you can stop using the App and delete your account before $earliest."
     return when {
@@ -150,6 +156,32 @@ private fun changeNoticeText(changes: LegalChanges): String {
             "A new Privacy Policy takes effect on ${formatDate(privacy!!)}. What changes is listed at the top of " +
                 "the new Policy.\n\nUntil then, the current Privacy Policy applies. $leave"
     }
+}
+
+/** At least one of the documents is already in effect; the other (if any) may still be upcoming. */
+private fun inEffectNoticeText(terms: String?, privacy: String?, today: String): String {
+    fun effect(version: String) = if (version <= today) "took effect on ${formatDate(version)}" else "takes effect on ${formatDate(version)}"
+    val both = terms != null && privacy != null
+    val what = when {
+        both && terms == privacy -> "New Terms of Service and a new Privacy Policy ${effect(terms!!)}."
+        both -> "New Terms of Service ${effect(terms!!)}, and a new Privacy Policy ${effect(privacy!!)}."
+        terms != null -> "New Terms of Service ${effect(terms)}."
+        else -> "A new Privacy Policy ${effect(privacy!!)}."
+    }
+    val where = if (both) "What changes is listed at the top of each." else if (terms != null) "What changes is listed at the top of the new Terms." else "What changes is listed at the top of the new Policy."
+    val upcoming = listOfNotNull(terms, privacy).filter { it > today }.minOrNull()
+    val leave = if (upcoming != null) {
+        "If you don't agree, you can stop using the App and delete your account; for the change on ${formatDate(upcoming)}, before that date."
+    } else {
+        "If you don't agree, you can stop using the App and delete your account."
+    }
+    val applies = when {
+        upcoming != null -> "The one already in effect applies now."
+        both -> "They apply now."
+        else -> "It applies now."
+    }
+    val consent = if (terms != null && terms <= today) " You'll be asked to agree to the new Terms before your next transcription." else ""
+    return "$what $where\n\n$applies$consent $leave"
 }
 
 @Composable
