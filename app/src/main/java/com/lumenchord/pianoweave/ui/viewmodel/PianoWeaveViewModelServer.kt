@@ -336,6 +336,8 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     isStrikeOverlayEnabled = prefs.getBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, true)
     isKeyboardSoundEnabled = prefs.getBoolean(AppPrefs.IS_KEYBOARD_SOUND_ENABLED, true)
     MidiInputManager.isSoundEnabled = isKeyboardSoundEnabled
+    isMidiOutputEnabled = prefs.getBoolean(AppPrefs.IS_MIDI_OUTPUT_ENABLED, true)
+    MidiInputManager.isOutputEnabled = isMidiOutputEnabled
     isMetronomeEnabled = prefs.getBoolean(AppPrefs.IS_METRONOME_ENABLED, false)
     isCountInEnabled = prefs.getBoolean(AppPrefs.IS_COUNT_IN_ENABLED, false)
     isMetronomeLeadInSilent = prefs.getBoolean(AppPrefs.IS_METRONOME_LEAD_IN_SILENT, false)

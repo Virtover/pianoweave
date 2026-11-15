@@ -72,6 +72,8 @@ object AppPrefs {
     const val IS_STRIKE_OVERLAY_ENABLED = "is_strike_overlay_enabled"
     /** Whether notes from a connected MIDI keyboard are played through the app's piano sound. */
     const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
+    /** Whether the song being played is also sent to the connected MIDI device (e.g. the website piano on a computer). */
+    const val IS_MIDI_OUTPUT_ENABLED = "is_midi_output_enabled"
     /** A click on every beat of songs with a beat grid (not in wait mode). */
     const val IS_METRONOME_ENABLED = "is_metronome_enabled"
     /** Whether the metronome stays silent over the beats before the song's first note. */

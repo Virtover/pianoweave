@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.util.Log
+import com.lumenchord.pianoweave.midi.MidiInputManager
 import dev.kotlinds.fluidsynthkmp.AudioConfig
 import dev.kotlinds.fluidsynthkmp.FluidSynthPlayer
 import dev.kotlinds.fluidsynthkmp.Interpolation
@@ -240,6 +241,8 @@ object PianoPlayer : AutoCloseable {
      */
     @Synchronized
     fun stopAllNotes() {
+        // The song's notes mirrored to a connected MIDI device stop with it
+        MidiInputManager.sendAllNotesOff()
         for (pitch in 0..127) {
             try {
                 player?.noteOff(CHANNEL, pitch)

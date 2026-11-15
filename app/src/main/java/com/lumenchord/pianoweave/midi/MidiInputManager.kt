@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.midi
 import android.content.Context
 import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
+import android.media.midi.MidiInputPort
 import android.media.midi.MidiManager
 import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
@@ -28,6 +29,9 @@ object MidiInputManager {
 
     private var activeDevice: MidiDevice? = null
     private var activePort: MidiOutputPort? = null
+    /** Where the app sends notes to the device (e.g. a computer the phone is plugged into in USB MIDI mode). */
+    @Volatile
+    private var activeInputPort: MidiInputPort? = null
     private var pendingDeviceId: Int? = null
     private var midiManager: MidiManager? = null
     private val pressedKeysMutex = ReentrantLock()
@@ -48,6 +52,21 @@ object MidiInputManager {
             field = value
             if (!value) releaseSoundingNotes()
         }
+
+    /**
+     * Whether the song being played is also sent to the connected MIDI device, so e.g. the piano on the website
+     * (phone plugged into a computer in USB "MIDI" mode) shows and plays it. Only the song's notes are sent, never
+     * notes received from the device, so nothing echoes back.
+     */
+    @Volatile
+    var isOutputEnabled = true
+        set(value) {
+            field = value
+            if (!value) sendAllNotesOff()
+        }
+
+    /** Pitches sent as note on and not yet as note off, so stopping releases exactly those on the other side. */
+    private val sentPitches = ConcurrentHashMap.newKeySet<Int>()
 
     /** Keyboard notes this app is sounding, so a note off (or turning the sound off) stops only those. */
     private val soundingPitches = ConcurrentHashMap.newKeySet<Int>()
@@ -122,11 +141,15 @@ object MidiInputManager {
             })
             activeDevice = device
             activePort = outputPort
+            activeInputPort = if (deviceInfo.inputPortCount > 0) runCatching { device.openInputPort(0) }.getOrNull() else null
             isConnected = true
         }, Handler(Looper.getMainLooper()))
     }
 
     private fun disconnect() {
+        sendAllNotesOff()
+        runCatching { activeInputPort?.close() }
+        activeInputPort = null
         runCatching { activePort?.close() }
         runCatching { activeDevice?.close() }
         activePort = null
@@ -158,6 +181,27 @@ object MidiInputManager {
         externalPresses.remove(pitch)
         syncPressedKeys()
     }
+
+    /** Sends a song note to the connected device (see [isOutputEnabled]). */
+    fun sendNoteOn(pitch: Int, velocity: Int) {
+        if (!isOutputEnabled || pitch !in 0..127) return
+        val port = activeInputPort ?: return
+        if (send(port, byteArrayOf(0x90.toByte(), pitch.toByte(), velocity.coerceIn(1, 127).toByte()))) sentPitches.add(pitch)
+    }
+
+    fun sendNoteOff(pitch: Int) {
+        if (!sentPitches.remove(pitch)) return
+        val port = activeInputPort ?: return
+        send(port, byteArrayOf(0x80.toByte(), pitch.toByte(), 0))
+    }
+
+    /** Releases every note this app sent; not a MIDI "all notes off", which would also cut notes played on the other side. */
+    fun sendAllNotesOff() {
+        sentPitches.toList().forEach(::sendNoteOff)
+    }
+
+    private fun send(port: MidiInputPort, bytes: ByteArray): Boolean =
+        runCatching { port.send(bytes, 0, bytes.size) }.isSuccess
 
     private fun releaseSoundingNotes() {
         soundingPitches.toList().forEach { pitch ->

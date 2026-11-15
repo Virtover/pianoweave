@@ -113,6 +113,13 @@ fun WaitModeSection(viewModel: PianoWeaveViewModel, context: Context) {
                 onCheckedChange = { viewModel.setKeyboardSoundEnabled(context, it) },
                 accent = colorAccent
             )
+            SettingToggleRow(
+                title = "Send to MIDI",
+                subtitle = "Send the song to the connected device, e.g. the piano on pianoweave's website over a USB cable",
+                checked = viewModel.isMidiOutputEnabled,
+                onCheckedChange = { viewModel.setMidiOutputEnabled(context, it) },
+                accent = colorAccent
+            )
         }
     }
 }

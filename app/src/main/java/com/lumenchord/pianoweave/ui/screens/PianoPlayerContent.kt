@@ -326,6 +326,7 @@ internal fun ModernPianoPlayerContent(
         val songSoundingPitches = mutableSetOf<Int>()
         fun songNoteOn(note: MidiNoteEvent) {
             PianoPlayer.noteOn(note.pitch, note.velocity)
+            MidiInputManager.sendNoteOn(note.pitch, note.velocity)
             songSoundingPitches.add(note.pitch)
         }
         fun releaseEndedNotes() {
@@ -335,6 +336,7 @@ internal fun ModernPianoPlayerContent(
                 val stillSounding = noteEvents.any { it.pitch == pitch && head >= it.startMs && head < it.startMs + it.durationMs }
                 // A key the user holds (keyboard or on screen) shares the channel; cutting it would silence them
                 if (!stillSounding && pitch !in MidiInputManager.pressedKeys) PianoPlayer.noteOff(pitch)
+                if (!stillSounding) MidiInputManager.sendNoteOff(pitch)
                 stillSounding
             }
         }
