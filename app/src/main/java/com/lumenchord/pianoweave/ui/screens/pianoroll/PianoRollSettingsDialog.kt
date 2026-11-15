@@ -9,6 +9,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
+import com.lumenchord.pianoweave.ui.components.SettingsDialogProperties
+import com.lumenchord.pianoweave.ui.components.settingsDialogWidth
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.layout.*
@@ -31,7 +33,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,24 +114,21 @@ internal fun SettingsDialog(
     var endText by remember { mutableStateOf(formatTime(viewModel.loopEndMs)) }
     var isLooping by remember { mutableStateOf(viewModel.isLoopingEnabled) }
 
-    // Sized like the app's main settings (AppSettingsDialog): the platform's dialog width with slim margins.
-    // Except on a narrow screen (a phone held upright), where the platform's width left a thin column
-    // that wrapped every subtitle: there the dialog takes the screen's width.
-    val isNarrow = LocalConfiguration.current.screenWidthDp < 600
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = !isNarrow)) {
+    // Same width as the app's main settings, the same on every phone (see settingsDialogWidth)
+    Dialog(onDismissRequest = onDismiss, properties = SettingsDialogProperties) {
         // System back on a page returns to the main one instead of closing the dialog
         BackHandler(enabled = page != SettingsPage.Main) { page = SettingsPage.Main }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = if (isNarrow) 12.dp else 8.dp, vertical = 12.dp),
+                .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             DialogSurface(
                 light = colorGold,
                 modifier = Modifier
-                    .fillMaxWidth(if (isNarrow) 1f else 0.98f)
+                    .width(settingsDialogWidth())
                     .heightIn(max = 650.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = ColorSurface,

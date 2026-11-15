@@ -36,17 +36,18 @@ fun AppSettingsDialog(
     var showSignOutConfirm by remember { mutableStateOf(false) }
     val previewTheme = AppThemeManager.getTheme(selectedThemeId)
 
-    Dialog(onDismissRequest = onDismiss) {
+    // Its own width, the same on every phone (see settingsDialogWidth)
+    Dialog(onDismissRequest = onDismiss, properties = SettingsDialogProperties) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             DialogSurface(
                 light = previewTheme.primaryColor,
                 modifier = Modifier
-                    .fillMaxWidth(0.98f)
+                    .width(settingsDialogWidth())
                     .heightIn(max = 580.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
