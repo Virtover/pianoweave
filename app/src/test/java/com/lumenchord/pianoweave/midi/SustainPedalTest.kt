@@ -58,6 +58,15 @@ class SustainPedalTest {
     }
 
     @Test
+    fun allNotesOffFromTheSimulatorReachesTheParserAsControlChange123() {
+        val changes = mutableListOf<Pair<Int, Int>>()
+        val parser = MidiNoteParser({ _, _ -> }, { }, { c, v -> changes += c to v })
+        val midi = BleMidiPacket.decode(byteArrayOf(0x9A.toByte(), 0xD5.toByte(), 0xB0.toByte(), 0x7B, 0x00))
+        parser.feed(midi, 0, midi.size)
+        assertEquals(listOf(123 to 0), changes)
+    }
+
+    @Test
     fun theParserReportsControlChangesIncludingRunningStatus() {
         val changes = mutableListOf<Pair<Int, Int>>()
         val parser = MidiNoteParser({ _, _ -> }, { }, { c, v -> changes += c to v })

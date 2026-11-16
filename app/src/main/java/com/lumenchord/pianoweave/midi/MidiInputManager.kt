@@ -9,6 +9,7 @@ import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +20,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 object MidiInputManager {
+    private const val TAG = "MidiInputManager"
 
     val pressedKeys = mutableStateListOf<Int>()
     val lastPressTimestamps = ConcurrentHashMap<Int, Long>()
@@ -246,15 +248,15 @@ object MidiInputManager {
     }
 
     /**
-     * Control change from a keyboard or computer: the sustain pedal (64); "all notes off" (123), which lets
-     * go of every key (the pedal still holds the sound, as MIDI asks); and "all sound off" (120), which
-     * silences everything at once.
+     * Control change from a keyboard or computer: the sustain pedal (64), and "all notes off" (123) / "all
+     * sound off" (120), which silence everything the keyboard plays, pedal-held notes too. (MIDI lets the
+     * pedal hold notes through 123, but here it's the keyboard's panic button: nothing may keep ringing.)
      */
     internal fun receiveControlChange(controller: Int, value: Int) {
+        Log.d(TAG, "control change $controller = $value")
         when (controller) {
             64 -> sustain.onPedal(value)
-            123 -> externalPresses.toList().forEach(::receiveNoteOff)
-            120 -> releaseExternalNotes()
+            120, 123 -> releaseExternalNotes()
         }
     }
 
