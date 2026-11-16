@@ -32,6 +32,9 @@ object MidiInputManager {
     /** Where the app sends notes to the device (e.g. a computer the phone is plugged into in USB MIDI mode). */
     @Volatile
     private var activeInputPort: MidiInputPort? = null
+    /** A Bluetooth keyboard the app connected itself ([BluetoothMidi]); instead of [activeDevice]. */
+    @Volatile
+    private var bleKeyboard: BleMidiKeyboard? = null
     private var pendingDeviceId: Int? = null
     private var midiManager: MidiManager? = null
     private val pressedKeysMutex = ReentrantLock()
@@ -39,7 +42,7 @@ object MidiInputManager {
     /** How the connected device is attached, for the settings' status card. */
     enum class Transport { Usb, Bluetooth, Other }
 
-    /** A device opened through Android's MIDI service (USB, a Bluetooth keyboard, a computer over USB). */
+    /** A keyboard is attached: a device opened through Android's MIDI service (USB, a computer over USB) or a Bluetooth one. */
     private var isDeviceConnected by mutableStateOf(false)
 
     /** The connected device's name and transport, or null; observable from Compose. */
@@ -92,15 +95,20 @@ object MidiInputManager {
     internal fun onNewListener() { listenerGeneration++ }
 
     /** Whether anyone hears what the app sends, and sending is on. */
-    fun canSendSync(): Boolean = isOutputEnabled && (activeInputPort != null || BleMidiPeripheral.hasListeners)
+    fun canSendSync(): Boolean = isOutputEnabled &&
+        (activeInputPort != null || bleKeyboard?.isReady == true || BleMidiPeripheral.hasListeners)
 
     /** The largest SysEx message every listener can take whole (Bluetooth's packet size is the limit). */
-    fun maxSysExSize(): Int = if (BleMidiPeripheral.hasListeners) BleMidiPeripheral.maxSysExSize() else 256
+    fun maxSysExSize(): Int = minOf(
+        if (BleMidiPeripheral.hasListeners) BleMidiPeripheral.maxSysExSize() else 256,
+        bleKeyboard?.maxSysExSize() ?: 256,
+    )
 
     /** A whole SysEx message (F0 ... F7) to every listener; see [RollSync]. */
     fun sendSysEx(message: ByteArray) {
         if (!isOutputEnabled) return
         activeInputPort?.let { send(it, message) }
+        bleKeyboard?.send(message)
         BleMidiPeripheral.send(message)
     }
 
@@ -143,7 +151,7 @@ object MidiInputManager {
     }
 
     private fun autoConnectToDevice(manager: MidiManager, deviceInfo: MidiDeviceInfo) {
-        if (activeDevice != null || pendingDeviceId != null) return
+        if (activeDevice != null || bleKeyboard != null || pendingDeviceId != null) return
         // Only devices that send notes to us (e.g. not a synth app that only accepts input)
         if (deviceInfo.outputPortCount == 0) return
         // A Bluetooth keyboard only exists once BluetoothMidi has opened it, and it attaches that one itself
@@ -162,15 +170,15 @@ object MidiInputManager {
     }
 
     /**
-     * Starts listening to an opened device (and sending to it, if it takes input). Used for devices found
-     * on their own (USB) and for Bluetooth keyboards opened by [BluetoothMidi]; a newly attached device
-     * replaces the current one. Returns false if the device sends nothing, so it isn't kept open.
+     * Starts listening to an opened device (and sending to it, if it takes input), e.g. a USB keyboard; a
+     * newly attached device replaces the current one. Returns false if the device sends nothing, so it
+     * isn't kept open.
      */
     internal fun attach(device: MidiDevice): Boolean {
         val info = device.info
         if (info.outputPortCount == 0) return false
         val outputPort = device.openOutputPort(0) ?: return false
-        if (activeDevice != null && activeDevice !== device) disconnect()
+        if ((activeDevice != null && activeDevice !== device) || bleKeyboard != null) disconnect()
         val parser = MidiNoteParser(onNoteOn = ::receiveNoteOn, onNoteOff = ::receiveNoteOff)
         outputPort.connect(object : MidiReceiver() {
             override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
@@ -193,8 +201,21 @@ object MidiInputManager {
         return true
     }
 
-    /** True if [device] is the one currently attached (so [BluetoothMidi] knows whether it's still in use). */
-    internal fun isAttached(device: MidiDevice?): Boolean = device != null && activeDevice === device
+    /** A Bluetooth keyboard [BluetoothMidi] connected (it plays into the app by itself); replaces the current device. */
+    internal fun attachBluetooth(keyboard: BleMidiKeyboard) {
+        if (activeDevice != null || (bleKeyboard != null && bleKeyboard !== keyboard)) disconnect()
+        bleKeyboard = keyboard
+        connectedName = keyboard.name
+        connectedTransport = Transport.Bluetooth
+        isDeviceConnected = true
+        onNewListener()
+    }
+
+    /** That keyboard went away or was disconnected: fall back to another device, if one is plugged in. */
+    internal fun detachBluetooth(keyboard: BleMidiKeyboard) {
+        if (bleKeyboard !== keyboard) return
+        disconnectActive()
+    }
 
     /** Closes the attached device (e.g. "Disconnect" on a Bluetooth keyboard) and falls back to another one. */
     fun disconnectActive() {
@@ -229,6 +250,7 @@ object MidiInputManager {
         activeInputPort = null
         runCatching { activePort?.close() }
         runCatching { activeDevice?.close() }
+        bleKeyboard?.let { bleKeyboard = null; it.close() } // its close sends the note offs above first
         activePort = null
         activeDevice = null
         isDeviceConnected = false
@@ -266,7 +288,7 @@ object MidiInputManager {
         if (!isOutputEnabled || pitch !in 0..127) return
         val message = byteArrayOf(0x90.toByte(), pitch.toByte(), velocity.coerceIn(1, 127).toByte())
         val port = activeInputPort
-        val sentToDevice = port != null && send(port, message)
+        val sentToDevice = (port != null && send(port, message)) or (bleKeyboard?.send(message) == true)
         val sentToComputer = BleMidiPeripheral.send(message)
         if (sentToDevice || sentToComputer) sentPitches.add(pitch)
     }
@@ -275,6 +297,7 @@ object MidiInputManager {
         if (!sentPitches.remove(pitch)) return
         val message = byteArrayOf(0x80.toByte(), pitch.toByte(), 0)
         activeInputPort?.let { send(it, message) }
+        bleKeyboard?.send(message)
         BleMidiPeripheral.send(message)
     }
 

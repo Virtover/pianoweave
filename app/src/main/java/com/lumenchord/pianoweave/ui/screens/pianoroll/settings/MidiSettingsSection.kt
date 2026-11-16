@@ -72,7 +72,8 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
 
     fun goLive() {
         ready = true
-        if (!hasBluetoothConnection()) BluetoothMidi.startScan(context)
+        // Not while a keyboard is connecting: coming back from Android's pairing request lands here too
+        if (!hasBluetoothConnection() && BluetoothMidi.connectingAddress == null) BluetoothMidi.startScan(context)
     }
 
     // Back from the system's Bluetooth or permission screens: pick up where things stand now
@@ -301,6 +302,7 @@ private fun BluetoothList(context: Context, accent: Color) {
                 name = keyboard.name,
                 status = when {
                     isConnected -> "Connected · keyboard"
+                    isConnecting && BluetoothMidi.isPairing -> "Pairing… accept the request"
                     isConnecting -> "Connecting…"
                     else -> "Tap to connect"
                 },

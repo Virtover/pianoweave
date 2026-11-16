@@ -14,8 +14,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.media.midi.MidiDevice
-import android.media.midi.MidiManager
+import android.bluetooth.BluetoothDevice
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -54,15 +53,17 @@ object BluetoothMidiPermissions {
 }
 
 /**
- * Bluetooth MIDI: finding and connecting Bluetooth LE MIDI keyboards (Android's MIDI service does the BLE
- * MIDI protocol; the opened device is handed to [MidiInputManager] like a USB one), reconnecting the last
- * one on start, and stopping [BleMidiPeripheral] (the phone as a device for computers) when Bluetooth
+ * Bluetooth MIDI: finding and connecting Bluetooth LE MIDI keyboards (the app's own LE connection,
+ * [BleMidiKeyboard], handed to [MidiInputManager]), getting the last one back by itself (see [watchLast]), and stopping [BleMidiPeripheral] (the phone as a device for computers) when Bluetooth
  * is switched off.
  */
 @SuppressLint("MissingPermission") // every entry point checks BluetoothMidiPermissions first
 object BluetoothMidi {
     private const val SCAN_MS = 15_000L
     private const val CONNECT_TIMEOUT_MS = 20_000L
+    private const val PAIRING_TIMEOUT_MS = 60_000L
+    /** Before waiting for the remembered keyboard again after the wait itself failed (e.g. Bluetooth hiccup). */
+    private const val WATCH_AGAIN_MS = 10_000L
 
     data class FoundKeyboard(val address: String, val name: String, val rssi: Int)
 
@@ -71,6 +72,9 @@ object BluetoothMidi {
     var isScanning by mutableStateOf(false)
         private set
     var connectingAddress by mutableStateOf<String?>(null)
+        private set
+    /** The keyboard being connected is pairing: the person has to accept Android's request (observable). */
+    var isPairing by mutableStateOf(false)
         private set
     /** The Bluetooth keyboard this app opened, while it's the attached device. */
     var connectedAddress by mutableStateOf<String?>(null)
@@ -87,7 +91,10 @@ object BluetoothMidi {
 
     private val main = Handler(Looper.getMainLooper())
     private var appContext: Context? = null
-    private var openedDevice: MidiDevice? = null
+    /** The keyboard being connected or connected. */
+    private var keyboard: BleMidiKeyboard? = null
+    /** Devices from the last search, kept so a connection uses what the scan saw (incl. the address type). */
+    private val seenDevices = HashMap<String, BluetoothDevice>()
     private var initialized = false
     private var scanCallback: ScanCallback? = null
     /**
@@ -97,6 +104,9 @@ object BluetoothMidi {
      */
     private var activeScanner: BluetoothLeScanner? = null
     private val stopScanLater = Runnable { stopScan(reportNothingFound = true) }
+    /** The background connection waiting for the remembered keyboard to be on and in range. */
+    private var waiter: BleMidiKeyboard? = null
+    private val watchAgain = Runnable { appContext?.let(::watchLast) }
 
     /** Called once at app start, after [MidiInputManager.initialize]. */
     fun initialize(context: Context) {
@@ -111,17 +121,17 @@ object BluetoothMidi {
                     BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> {
                         stopScan()
                         BleMidiPeripheral.stop()
-                        connectedAddress = null
+                        closeConnections()
                     }
                     BluetoothAdapter.STATE_ON -> {
-                        reconnectLast(app) // back on: look for the last keyboard
+                        watchLast(app) // back on: wait for the last keyboard
                         bluetoothRestarts++ // and an open MIDI page searches again
                     }
                 }
             }
         }, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
 
-        reconnectLast(app)
+        watchLast(app)
     }
 
     private fun adapter(context: Context): BluetoothAdapter? =
@@ -154,10 +164,13 @@ object BluetoothMidi {
             return
         }
         if (isScanning) return
-        found.clear()
-        // Keep the one already connected on the list, so it can be disconnected from here
+        // Keep the one connected or connecting on the list, so it can be disconnected or followed from here
+        val keep = setOfNotNull(connectedAddress, connectingAddress)
+        found.removeAll { it.address !in keep }
         connectedAddress?.let { address ->
-            MidiInputManager.connectedName?.let { found.add(FoundKeyboard(address, it, 0)) }
+            if (found.none { it.address == address }) {
+                MidiInputManager.connectedName?.let { found.add(FoundKeyboard(address, it, 0)) }
+            }
         }
         val filter = ScanFilter.Builder().setServiceUuid(ParcelUuid(BleMidiPacket.SERVICE_UUID)).build()
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
@@ -174,6 +187,7 @@ object BluetoothMidi {
                     ?: "Bluetooth MIDI keyboard"
                 main.post {
                     if (scanCallback !== callback) return@post
+                    seenDevices[address] = result.device
                     val keyboard = FoundKeyboard(address, name, result.rssi)
                     val index = found.indexOfFirst { it.address == address }
                     if (index >= 0) found[index] = keyboard else found.add(keyboard)
@@ -208,10 +222,11 @@ object BluetoothMidi {
         AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_BLE_MIDI_ENABLED, enabled).apply()
         if (!enabled) {
             stopScan()
-            disconnect(context)
+            closeConnections() // the keyboard stays remembered for when it's turned back on
             BleMidiPeripheral.setEnabled(context, false)
         } else {
             BleMidiPeripheral.setEnabled(context, true)
+            watchLast(context)
         }
     }
 
@@ -236,58 +251,162 @@ object BluetoothMidi {
         }
     }
 
-    fun connect(context: Context, address: String, quiet: Boolean = false) {
+    /** Connects to a keyboard now (tapped in the list): tries for a while and says what went wrong. */
+    fun connect(context: Context, address: String) {
         if (!isEnabled) return
-        if (!quiet) message = null
+        message = null
         if (connectingAddress != null) return
         if (!BluetoothMidiPermissions.has(context, BluetoothMidiPermissions.forKeyboards())) return
         val adapter = adapter(context)?.takeIf { it.isEnabled } ?: return
-        val midi = context.getSystemService(MidiManager::class.java) ?: return
         stopScan()
-        val device = runCatching { adapter.getRemoteDevice(address) }.getOrNull() ?: return
+        val device = seenDevices[address] ?: runCatching { adapter.getRemoteDevice(address) }.getOrNull() ?: return
+        stopWatching() // this attempt replaces the background wait (one connection per keyboard)
         connectingAddress = address
-        val timeout = Runnable {
+        isPairing = false
+        lateinit var timeout: Runnable
+        val pending = BleMidiKeyboard(
+            device, nameOf(address, device), waitForIt = false,
+            onReady = { ready ->
+                main.removeCallbacks(timeout)
+                connectingAddress = null
+                isPairing = false
+                adopt(context, ready)
+            },
+            onPairing = { on ->
+                if (connectingAddress == address) {
+                    isPairing = on
+                    // Accepting can take a while (Android often asks in a notification): wait for the person
+                    main.removeCallbacks(timeout)
+                    main.postDelayed(timeout, if (on) PAIRING_TIMEOUT_MS else CONNECT_TIMEOUT_MS)
+                }
+            },
+            onClosed = { closed, wasReady, failure ->
+                main.removeCallbacks(timeout)
+                if (connectingAddress == address && !wasReady) {
+                    connectingAddress = null
+                    isPairing = false
+                    message = when (failure) {
+                        BleMidiLink.Failure.Pairing ->
+                            "Pairing didn't finish. Tap the keyboard to try again, and accept the request."
+                        BleMidiLink.Failure.NotMidi -> "That device isn't a MIDI keyboard."
+                        else -> "Couldn't connect. Is it on and close by?"
+                    }
+                }
+                onKeyboardClosed(context, closed, failure)
+            },
+        )
+        timeout = Runnable {
             if (connectingAddress == address) {
                 connectingAddress = null
-                if (!quiet) message = "The keyboard didn't answer. Is it on and close by?"
+                isPairing = false
+                message = "The keyboard didn't answer. Is it on and close by?"
+                pending.close()
             }
         }
         main.postDelayed(timeout, CONNECT_TIMEOUT_MS)
-        midi.openBluetoothDevice(device, { opened ->
-            main.removeCallbacks(timeout)
-            if (connectingAddress != address) { opened?.close(); return@openBluetoothDevice } // gave up already
-            connectingAddress = null
-            if (opened == null || !MidiInputManager.attach(opened)) {
-                opened?.close()
-                if (!quiet) message = "Couldn't connect. Is it on and close by?"
-                return@openBluetoothDevice
-            }
-            openedDevice?.takeIf { it !== opened }?.let { runCatching { it.close() } }
-            openedDevice = opened
-            connectedAddress = address
-            if (!quiet) message = null
-            AppPrefs.get(context).edit().putString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, address).apply()
-        }, main)
+        pending.connect(context)
     }
 
-    /** Disconnects the Bluetooth keyboard and forgets it, so it isn't reconnected on the next start. */
+    /**
+     * Waits in the background for the remembered keyboard: from app start, after Bluetooth (or Bluetooth MIDI)
+     * comes back on, and after the keyboard went away. It connects as soon as the keyboard is on and in range,
+     * so nobody has to tap it again. Quiet: no "Connecting…", no errors.
+     */
+    private fun watchLast(context: Context) {
+        main.removeCallbacks(watchAgain)
+        if (!isEnabled || keyboard != null || waiter != null || connectingAddress != null) return
+        if (!BluetoothMidiPermissions.has(context, BluetoothMidiPermissions.forKeyboards())) return
+        val adapter = adapter(context)?.takeIf { it.isEnabled } ?: return
+        val address = AppPrefs.get(context).getString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, null) ?: return
+        val device = runCatching { adapter.getRemoteDevice(address) }.getOrNull() ?: return
+        val pending = BleMidiKeyboard(
+            device, nameOf(address, device), waitForIt = true,
+            onReady = { ready ->
+                if (waiter === ready) waiter = null
+                adopt(context, ready)
+            },
+            onPairing = {},
+            onClosed = { closed, _, failure -> onKeyboardClosed(context, closed, failure) },
+        )
+        waiter = pending
+        pending.connect(context)
+    }
+
+    private fun stopWatching() {
+        main.removeCallbacks(watchAgain)
+        waiter?.let { waiter = null; it.close() }
+    }
+
+    /** A keyboard is ready: it becomes the one in use, and is remembered for next time. */
+    private fun adopt(context: Context, ready: BleMidiKeyboard) {
+        keyboard?.takeIf { it !== ready }?.close()
+        keyboard = ready
+        connectedAddress = ready.address
+        message = null
+        // Connected by itself (the background wait): show it even if no search has listed it
+        if (found.none { it.address == ready.address }) found.add(0, FoundKeyboard(ready.address, ready.name, 0))
+        MidiInputManager.attachBluetooth(ready)
+        AppPrefs.get(context).edit().putString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, ready.address).apply()
+    }
+
+    private fun onKeyboardClosed(context: Context, closed: BleMidiKeyboard, failure: BleMidiLink.Failure?) {
+        val role = when {
+            keyboard === closed -> KeyboardReconnect.Role.InUse
+            waiter === closed -> KeyboardReconnect.Role.Waiting
+            else -> KeyboardReconnect.Role.Tapped
+        }
+        if (keyboard === closed) {
+            keyboard = null
+            if (connectedAddress == closed.address) connectedAddress = null
+            if (failure == BleMidiLink.Failure.Lost) message = "${closed.name} disconnected. It reconnects when it's back."
+        }
+        if (waiter === closed) waiter = null
+        when (KeyboardReconnect.afterClose(role, failure)) {
+            KeyboardReconnect.Action.WaitNow -> main.post { watchLast(context) }
+            KeyboardReconnect.Action.WaitLater -> main.postDelayed(watchAgain, WATCH_AGAIN_MS)
+            KeyboardReconnect.Action.None -> Unit
+        }
+        MidiInputManager.detachBluetooth(closed)
+    }
+
+    private fun nameOf(address: String, device: BluetoothDevice): String =
+        found.firstOrNull { it.address == address }?.name
+            ?: runCatching { device.name }.getOrNull()?.takeIf(String::isNotBlank)
+            ?: "Bluetooth MIDI keyboard"
+
+    /** Ends the keyboard connection and the background wait (Bluetooth off, Bluetooth MIDI off); remembers it. */
+    private fun closeConnections() {
+        stopWatching()
+        keyboard?.let { MidiInputManager.detachBluetooth(it); it.close() }
+        keyboard = null
+        connectedAddress = null
+    }
+
+    /** Disconnects the Bluetooth keyboard and forgets it, so it isn't reconnected by itself any more. */
     fun disconnect(context: Context) {
         AppPrefs.get(context).edit().remove(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD).apply()
-        if (MidiInputManager.isAttached(openedDevice)) MidiInputManager.disconnectActive()
-        else runCatching { openedDevice?.close() }
-        openedDevice = null
-        connectedAddress = null
+        closeConnections()
     }
 
     /** Whether the Bluetooth keyboard this app opened is still the one in use (it may have been unplugged/replaced). */
     fun isKeyboardConnected(): Boolean =
         connectedAddress != null && MidiInputManager.connectedTransport == MidiInputManager.Transport.Bluetooth
 
-    private fun reconnectLast(context: Context) {
-        if (!isEnabled) return
-        if (MidiInputManager.connectedTransport != null) return // something's connected already (e.g. USB)
-        val last = AppPrefs.get(context).getString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, null) ?: return
-        connect(context, last, quiet = true)
-    }
+}
 
+/** What to do about the remembered keyboard after a connection ended (kept apart from Android so it's tested). */
+internal object KeyboardReconnect {
+    /** The connection that ended: the keyboard in use, the background wait for it, or a tapped attempt. */
+    enum class Role { InUse, Waiting, Tapped }
+    enum class Action { None, WaitNow, WaitLater }
+
+    fun afterClose(role: Role, failure: BleMidiLink.Failure?): Action = when {
+        failure == null -> Action.None // ended on purpose (Disconnect, Bluetooth off, replaced)
+        role == Role.InUse -> Action.WaitNow // switched off or out of range: back as soon as it's on again
+        role == Role.Tapped -> Action.WaitNow // that attempt failed: keep waiting for the remembered one
+        // The wait broke (e.g. a Bluetooth hiccup): again in a bit. A refused pairing or a device without MIDI
+        // would only fail again, so stop there until the person taps it.
+        failure == BleMidiLink.Failure.Connect -> Action.WaitLater
+        else -> Action.None
+    }
 }
