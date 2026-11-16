@@ -49,6 +49,9 @@ import java.util.concurrent.ConcurrentHashMap
 @SuppressLint("MissingPermission") // every entry point checks BluetoothMidiPermissions first
 object BleMidiPeripheral {
     private const val TAG = "BleMidiPeripheral"
+    /** A failed notification goes again this soon, up to this many times (~0.5 s in all). */
+    private const val RETRY_DELAY_MS = 8L
+    private const val MAX_RETRIES = 60
 
     /** How long "Make visible" keeps the phone findable. */
     const val VISIBLE_MS = 2 * 60_000L
@@ -96,6 +99,13 @@ object BleMidiPeripheral {
     private val queue = ArrayDeque<ByteArray>()
     private var inFlight = 0
     private var inFlightSince = 0L
+    /**
+     * A packet a notification failed for (the link busy for a moment), with the devices that still need it.
+     * It goes again before anything newer, so a note off is never lost (a lost one left the note stuck on
+     * the computer) and nothing overtakes it.
+     */
+    private var retry: Pair<ByteArray, Set<BluetoothDevice>>? = null
+    private var retries = 0
     private var payloadSize = 20 // ATT MTU 23 minus 3 until a central negotiates more
 
     /**
@@ -225,7 +235,7 @@ object BleMidiPeripheral {
         advertiser = null
         connected.clear()
         subscribers.clear()
-        synchronized(queue) { queue.clear(); inFlight = 0 }
+        synchronized(queue) { queue.clear(); inFlight = 0; retry = null; retries = 0 }
         isRunning = false
         if (connectedCentralName != null) {
             connectedCentralName = null
@@ -251,24 +261,35 @@ object BleMidiPeripheral {
         val srv = server ?: return
         val ch = characteristic ?: return
         val packet: ByteArray
+        val targets: List<BluetoothDevice>
         synchronized(queue) {
             // A notification that never reported back (link hiccup) mustn't block the queue for good
             if (inFlight > 0 && SystemClock.uptimeMillis() - inFlightSince > 250) inFlight = 0
-            if (inFlight > 0 || queue.isEmpty()) return
-            val messages = ArrayList<ByteArray>()
-            var size = 1 // header
-            while (queue.isNotEmpty() && size + BleMidiPacket.encodedSize(queue.peek()!!) <= payloadSize) {
-                val m = queue.poll()!!
-                messages.add(m)
-                size += BleMidiPacket.encodedSize(m)
+            if (inFlight > 0) return
+            val again = retry
+            if (again != null) {
+                retry = null
+                packet = again.first
+                targets = again.second.filter { it in subscribers } // one that left needs it no more
+                if (targets.isEmpty()) { retries = 0; main.post(::flush); return }
+            } else {
+                if (queue.isEmpty()) return
+                val messages = ArrayList<ByteArray>()
+                var size = 1 // header
+                while (queue.isNotEmpty() && size + BleMidiPacket.encodedSize(queue.peek()!!) <= payloadSize) {
+                    val m = queue.poll()!!
+                    messages.add(m)
+                    size += BleMidiPacket.encodedSize(m)
+                }
+                if (messages.isEmpty()) { queue.poll(); return } // a message too big for any packet
+                packet = BleMidiPacket.encodeAll(messages)
+                targets = subscribers.toList()
             }
-            if (messages.isEmpty()) { queue.poll(); return } // a message too big for any packet
-            packet = BleMidiPacket.encodeAll(messages)
-            inFlight = subscribers.size
+            inFlight = targets.size
             inFlightSince = SystemClock.uptimeMillis()
         }
-        subscribers.forEach { device ->
-            val ok = runCatching {
+        val failed = targets.filterNot { device ->
+            runCatching {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     srv.notifyCharacteristicChanged(device, ch, false, packet) == BluetoothGatt.GATT_SUCCESS
                 } else {
@@ -278,8 +299,20 @@ object BleMidiPeripheral {
                     srv.notifyCharacteristicChanged(device, ch, false)
                 }
             }.getOrDefault(false)
-            if (!ok) synchronized(queue) { inFlight = (inFlight - 1).coerceAtLeast(0) }
         }
+        if (failed.isEmpty()) { retries = 0; return }
+        synchronized(queue) {
+            inFlight = (inFlight - failed.size).coerceAtLeast(0)
+            // Again in a moment; a link that keeps refusing (going away) gives up after a while, so the
+            // queue can't stall on it (when it's gone, its subscription and the queue are cleared anyway)
+            if (retries < MAX_RETRIES) {
+                retries++
+                retry = packet to failed.toSet()
+            } else {
+                retries = 0
+            }
+        }
+        main.postDelayed(::flush, RETRY_DELAY_MS)
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {
