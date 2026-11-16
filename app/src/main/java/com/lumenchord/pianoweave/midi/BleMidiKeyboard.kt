@@ -47,7 +47,14 @@ internal class BleMidiKeyboard(
     private val main = Handler(Looper.getMainLooper())
     private var context: Context? = null
     private var gatt: BluetoothGatt? = null
-    private var characteristic: BluetoothGattCharacteristic? = null
+    /**
+     * The MIDI characteristics, one per MIDI service. Usually one; a Linux computer can offer PipeWire's
+     * next to another app's, and talking only to the first meant notes went to the wrong one. All of them are
+     * subscribed and written to, each request after the last (see [GattSequence]).
+     */
+    private var characteristics: List<BluetoothGattCharacteristic> = emptyList()
+    private var subscribing: GattSequence<BluetoothGattCharacteristic>? = null
+    private var writing: GattSequence<BluetoothGattCharacteristic>? = null
     private var loggedWrite = false
     private val parser = MidiNoteParser(MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff)
 
@@ -67,7 +74,7 @@ internal class BleMidiKeyboard(
         override fun close() {
             gatt?.let { g -> runCatching { g.disconnect() }; runCatching { g.close() } }
             gatt = null
-            characteristic = null
+            forgetCharacteristics()
         }
 
         override fun requestMtu(mtu: Int): Boolean {
@@ -88,46 +95,30 @@ internal class BleMidiKeyboard(
 
         override fun readCharacteristic(): Boolean {
             val g = gatt ?: return false
-            val ch = characteristic ?: return false
+            val ch = characteristics.firstOrNull() ?: return false // one read is enough to start pairing
             return runCatching { g.readCharacteristic(ch) }.getOrDefault(false)
         }
 
         override fun subscribe(): BleMidiGatt.Subscribe {
             val g = gatt ?: return BleMidiGatt.Subscribe.Busy
-            val ch = characteristic ?: return BleMidiGatt.Subscribe.Busy
-            g.setCharacteristicNotification(ch, true)
-            val cccd = ch.getDescriptor(BleMidiPacket.CCCD_UUID) ?: return BleMidiGatt.Subscribe.NoDescriptor
-            val started = runCatching {
-                val value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    g.writeDescriptor(cccd, value) == BluetoothGatt.GATT_SUCCESS
-                } else {
-                    @Suppress("DEPRECATION")
-                    cccd.value = value
-                    @Suppress("DEPRECATION")
-                    g.writeDescriptor(cccd)
-                }
-            }.getOrDefault(false)
-            return if (started) BleMidiGatt.Subscribe.Started else BleMidiGatt.Subscribe.Busy
+            if (characteristics.isEmpty()) return BleMidiGatt.Subscribe.Busy
+            characteristics.forEach { g.setCharacteristicNotification(it, true) }
+            val withCccd = characteristics.filter { it.getDescriptor(BleMidiPacket.CCCD_UUID) != null }
+            if (withCccd.isEmpty()) return BleMidiGatt.Subscribe.NoDescriptor
+            val sequence = GattSequence(withCccd, request = { writeCccd(g, it) }, onDone = { link.onSubscribed(it) })
+            subscribing = sequence
+            return if (sequence.start()) BleMidiGatt.Subscribe.Started else BleMidiGatt.Subscribe.Busy
         }
 
         override fun write(packet: ByteArray, withResponse: Boolean): Boolean {
             val g = gatt ?: return false
-            val ch = characteristic ?: return false
+            if (characteristics.isEmpty()) return false
             val type = if (withResponse) BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
             else BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            val ok = runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    g.writeCharacteristic(ch, packet, type) == BluetoothGatt.GATT_SUCCESS
-                } else {
-                    @Suppress("DEPRECATION")
-                    ch.value = packet
-                    ch.writeType = type
-                    @Suppress("DEPRECATION")
-                    g.writeCharacteristic(ch)
-                }
-            }.getOrDefault(false)
-            if (!loggedWrite) { Log.i(TAG, "first write, ${packet.size} bytes: ${if (ok) "sent" else "busy"}"); loggedWrite = ok }
+            val sequence = GattSequence(characteristics, request = { writeOne(g, it, packet, type) }, onDone = { link.onWriteDone() })
+            writing = sequence
+            val ok = sequence.start()
+            if (!loggedWrite) { Log.i(TAG, "first write, ${packet.size} bytes to ${characteristics.size}: ${if (ok) "sent" else "busy"}"); loggedWrite = ok }
             return ok
         }
 
@@ -169,6 +160,40 @@ internal class BleMidiKeyboard(
         }
     }
 
+    private fun forgetCharacteristics() {
+        characteristics = emptyList()
+        subscribing?.cancel(); subscribing = null
+        writing?.cancel(); writing = null
+    }
+
+    private fun writeCccd(g: BluetoothGatt, ch: BluetoothGattCharacteristic): Boolean {
+        val cccd = ch.getDescriptor(BleMidiPacket.CCCD_UUID) ?: return false
+        val value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                g.writeDescriptor(cccd, value) == BluetoothGatt.GATT_SUCCESS
+            } else {
+                @Suppress("DEPRECATION")
+                cccd.value = value
+                @Suppress("DEPRECATION")
+                g.writeDescriptor(cccd)
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun writeOne(g: BluetoothGatt, ch: BluetoothGattCharacteristic, packet: ByteArray, type: Int): Boolean =
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                g.writeCharacteristic(ch, packet, type) == BluetoothGatt.GATT_SUCCESS
+            } else {
+                @Suppress("DEPRECATION")
+                ch.value = packet
+                ch.writeType = type
+                @Suppress("DEPRECATION")
+                g.writeCharacteristic(ch)
+            }
+        }.getOrDefault(false)
+
     /** The largest SysEx message that fits one packet. */
     fun maxSysExSize(): Int = link.maxSysExSize()
 
@@ -207,7 +232,7 @@ internal class BleMidiKeyboard(
 
         override fun onServiceChanged(g: BluetoothGatt) = on(g) {
             Log.i(TAG, "services changed: subscribing again")
-            characteristic = null
+            forgetCharacteristics()
             link.onServicesChanged()
         }
 
@@ -218,9 +243,10 @@ internal class BleMidiKeyboard(
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) = on(g) {
             val midiServices = g.services.filter { it.uuid == BleMidiPacket.SERVICE_UUID }
             Log.i(TAG, "services: ${g.services.size}, MIDI: ${midiServices.size} (handles ${midiServices.map { it.instanceId }})")
-            val ch = g.getService(BleMidiPacket.SERVICE_UUID)?.getCharacteristic(BleMidiPacket.CHARACTERISTIC_UUID)
+            forgetCharacteristics()
+            characteristics = midiServices.mapNotNull { it.getCharacteristic(BleMidiPacket.CHARACTERISTIC_UUID) }
+            val ch = characteristics.firstOrNull()
             if (ch == null) Log.w(TAG, "no MIDI service (status $status)")
-            characteristic = ch
             link.onServices(
                 ch?.let {
                     BleMidiLink.Characteristic(
@@ -242,12 +268,12 @@ internal class BleMidiKeyboard(
 
         override fun onDescriptorWrite(g: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) = on(g) {
             if (status != BluetoothGatt.GATT_SUCCESS) Log.w(TAG, "subscribing refused ($status)")
-            link.onSubscribed(status == BluetoothGatt.GATT_SUCCESS)
+            subscribing?.onResult(status == BluetoothGatt.GATT_SUCCESS)
         }
 
         override fun onCharacteristicWrite(g: BluetoothGatt, ch: BluetoothGattCharacteristic, status: Int) = on(g) {
             if (status != BluetoothGatt.GATT_SUCCESS) Log.w(TAG, "write failed ($status)")
-            link.onWriteDone()
+            writing?.onResult(status == BluetoothGatt.GATT_SUCCESS)
         }
 
         @Deprecated("Deprecated in Java")
