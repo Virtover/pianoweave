@@ -88,6 +88,8 @@ internal class BleMidiLink(
     private var canRead = false
     private var withResponse = false
     private var afterPairing: (() -> Unit)? = null
+    /** It was ready once: a drop from now on is the keyboard going away, even mid re-setup. */
+    private var wasEverReady = false
 
     /** The largest SysEx message that fits one packet (header, timestamp, message, timestamp before F7). */
     fun maxSysExSize(): Int = payloadSize - 3
@@ -163,6 +165,7 @@ internal class BleMidiLink(
 
     private fun becomeReady() {
         if (step == Step.Closed || step == Step.Ready) return
+        wasEverReady = true
         // (After onServicesChanged this comes a second time, so whoever listens hears the song from the start.)
         step = Step.Ready
         listener.onReady()
@@ -227,7 +230,9 @@ internal class BleMidiLink(
         }
         finish(
             when {
-                step == Step.Ready -> Failure.Lost
+                // Also while subscribing again after "services changed": a keyboard switched off often says
+                // that first (seen with a simulator stopping), and it was gone all the same
+                step == Step.Ready || wasEverReady -> Failure.Lost
                 isPairing || gatt.bond == BleMidiGatt.Bond.Bonding -> Failure.Pairing
                 else -> Failure.Connect
             }

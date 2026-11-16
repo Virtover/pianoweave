@@ -83,9 +83,18 @@ class KeyboardCuesTest {
     }
 
     @Test
-    fun backRisesAndLostFallsAFifthApart() {
-        assertEquals(listOf(ConnectionChime.LOW, ConnectionChime.HIGH), ConnectionChime.notes(rising = true))
-        assertEquals(listOf(ConnectionChime.HIGH, ConnectionChime.LOW), ConnectionChime.notes(rising = false))
-        assertEquals(7, ConnectionChime.HIGH - ConnectionChime.LOW)
+    fun backRisesAndLostSettlesDownwardBothSoftMajorChords() {
+        val back = ConnectionChime.notes(rising = true)
+        val lost = ConnectionChime.notes(rising = false)
+        assertEquals(back.sorted(), back) // rolled upward
+        assertEquals(lost.sortedDescending(), lost) // rolled downward
+        assertEquals(setOf(0, 4, 7), back.map { (it - back.first()) % 12 }.toSet()) // C major
+        assertEquals(setOf(0, 4, 7), lost.map { (it - lost.last()) % 12 }.toSet()) // C major too: never sad
+        back.forEach { assertTrue(ConnectionChime.velocity(it, back) <= 40) }
+        assertEquals(ConnectionChime.TOP_VELOCITY, ConnectionChime.velocity(84, back)) // the top voice carries
+        // Gentler, voice for voice, and it ends on the root at the bottom: the ground stays
+        assertTrue(ConnectionChime.velocity(lost.max(), lost) < ConnectionChime.velocity(back.max(), back))
+        assertTrue(ConnectionChime.velocity(lost.min(), lost) < ConnectionChime.velocity(back.min(), back))
+        assertEquals(0, (lost.last() - back.first()) % 12)
     }
 }

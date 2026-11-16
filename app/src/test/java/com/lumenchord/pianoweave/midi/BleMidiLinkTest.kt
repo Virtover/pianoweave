@@ -366,6 +366,14 @@ class BleMidiLinkTest {
     }
 
     @Test
+    fun droppingWhileSubscribingAgainAfterChangedServicesIsStillLost() {
+        connectReady()
+        link.onServicesChanged()
+        link.onDisconnected(8)
+        assertEquals(listOf(false to Failure.Lost), events.closed)
+    }
+
+    @Test
     fun closingSendsWhatIsQueuedFirstAndReportsOnce() {
         connectReady()
         link.send(noteOn(60))
