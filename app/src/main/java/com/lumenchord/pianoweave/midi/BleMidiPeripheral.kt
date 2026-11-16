@@ -237,6 +237,7 @@ object BleMidiPeripheral {
         advertiser = null
         connected.clear()
         subscribers.clear()
+        skippedWhilePairing.clear()
         synchronized(queue) { queue.clear(); inFlight = 0; retry = null; retries = 0 }
         isRunning = false
         if (connectedCentralName != null) {
@@ -334,8 +335,16 @@ object BleMidiPeripheral {
             }
         }.getOrDefault(BluetoothGatt.GATT_FAILURE)
 
-    private fun isPairing(device: BluetoothDevice): Boolean =
-        runCatching { device.bondState == BluetoothDevice.BOND_BONDING }.getOrDefault(false)
+    /** Computers skipped while pairing; once one is done, it gets the song again from where it is. */
+    private val skippedWhilePairing = ConcurrentHashMap.newKeySet<BluetoothDevice>()
+
+    private fun isPairing(device: BluetoothDevice): Boolean {
+        val pairing = runCatching { device.bondState == BluetoothDevice.BOND_BONDING }.getOrDefault(false)
+        if (pairing) skippedWhilePairing.add(device)
+        // The song's notes are sent once, ahead of time (RollSync): what it missed must come again
+        else if (skippedWhilePairing.remove(device)) MidiInputManager.onNewListener()
+        return pairing
+    }
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
@@ -417,6 +426,7 @@ object BleMidiPeripheral {
             } else {
                 connected.remove(device)
                 subscribers.remove(device)
+                skippedWhilePairing.remove(device)
                 // The page closed earlier and the last computer just left: nothing to keep the server for.
                 // Otherwise it's findable again only if "Make visible" is still counting down.
                 main.post { if (!discoverable && connected.isEmpty()) stop() else updateAdvertising() }
