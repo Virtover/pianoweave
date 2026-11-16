@@ -245,9 +245,17 @@ object MidiInputManager {
         simulateExternalNoteOff(pitch)
     }
 
-    /** Control change from a keyboard or computer: only the sustain pedal (64) means anything here. */
+    /**
+     * Control change from a keyboard or computer: the sustain pedal (64); "all notes off" (123), which lets
+     * go of every key (the pedal still holds the sound, as MIDI asks); and "all sound off" (120), which
+     * silences everything at once.
+     */
     internal fun receiveControlChange(controller: Int, value: Int) {
-        if (controller == 64) sustain.onPedal(value)
+        when (controller) {
+            64 -> sustain.onPedal(value)
+            123 -> externalPresses.toList().forEach(::receiveNoteOff)
+            120 -> releaseExternalNotes()
+        }
     }
 
     /** A computer disconnected from the phone's Bluetooth MIDI: let go of whatever it was holding. */
