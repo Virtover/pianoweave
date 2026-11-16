@@ -324,7 +324,7 @@ internal suspend fun PianoWeaveViewModel.loadUserBalance(context: Context): Int?
         freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
         freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
         isDeveloper = balance.developer == true
-        DeveloperLauncherIcon.request(context, isDeveloper)
+        DeveloperLauncherIcon.request(context, wantsDeveloperIcons)
         startBalanceTicker(context)
         balance.minutes
     } catch (e: Exception) {

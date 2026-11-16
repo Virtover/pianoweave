@@ -274,10 +274,9 @@ private fun PianoWeaveApp(
                 AppPrefs.get(context).edit().putInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, verseOfLightOpens).apply()
             }
         },
-        backdrop = if (viewModel.isDeveloper && viewModel.isDeveloperBackgroundEnabled) {
-            painterResource(R.drawable.developer_background)
-        } else null,
-        logo = if (viewModel.isDeveloper) painterResource(R.drawable.developer_icon) else null
+        // The developer look, or the regular one a developer can pick in Settings: background and icons together
+        backdrop = if (viewModel.wantsDeveloperIcons) painterResource(R.drawable.developer_background) else null,
+        logo = if (viewModel.wantsDeveloperIcons) painterResource(R.drawable.developer_icon) else null
     ) {
         Box(Modifier.fillMaxSize()) {
             HorizontalPager(

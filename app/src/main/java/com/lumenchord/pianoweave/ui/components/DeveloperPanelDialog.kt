@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lumenchord.pianoweave.api.DeveloperServerState
+import com.lumenchord.pianoweave.ui.components.settings.DeveloperLookChoice
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.DeveloperJobSnapshot
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -122,21 +123,11 @@ fun DeveloperPanelDialog(viewModel: PianoWeaveViewModel, context: Context) {
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Developer background", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "Behind the whole app, dimmed",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = viewModel.isDeveloperBackgroundEnabled,
-                            onCheckedChange = { viewModel.setDeveloperBackgroundEnabled(context, it) },
-                            colors = SwitchDefaults.colors(checkedTrackColor = accent)
-                        )
-                    }
+                    DeveloperLookChoice(
+                        developerLook = viewModel.isDeveloperBackgroundEnabled,
+                        onChange = { viewModel.setDeveloperBackgroundEnabled(context, it) },
+                        accent = accent
+                    )
                 }
             }
         }

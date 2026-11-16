@@ -9,13 +9,50 @@ import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import com.lumenchord.pianoweave.ui.theme.AppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+
+/**
+ * Background: Developer (the cat background, logo and launcher icon) or Regular (the usual ones). The developer
+ * extras stay either way. The launcher icon changes once the app goes to the background.
+ */
+@Composable
+fun DeveloperLookChoice(
+    developerLook: Boolean,
+    onChange: (Boolean) -> Unit,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Wallpaper, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Background", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        }
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf(true to "Developer", false to "Regular").forEachIndexed { index, (value, label) ->
+                SegmentedButton(
+                    selected = developerLook == value,
+                    onClick = { if (developerLook != value) onChange(value) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                    colors = SegmentedButtonDefaults.colors(activeContainerColor = accent.copy(alpha = 0.22f))
+                ) { Text(label) }
+            }
+        }
+        Text(
+            text = if (developerLook) "The cat background, logo and app icon"
+            else "The regular background, logo and app icon; developer extras stay on",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
 /** Shown only to an account the server's administrator made a developer's (see PianoWeaveViewModelDeveloper). */
 @Composable
@@ -39,13 +76,11 @@ fun DeveloperSettingsSection(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
         ) {
             Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                SettingToggleRow(
-                    title = "Developer background",
-                    subtitle = "The developer picture behind the app, dimmed",
-                    checked = viewModel.isDeveloperBackgroundEnabled,
-                    onCheckedChange = { viewModel.setDeveloperBackgroundEnabled(context, it) },
-                    icon = Icons.Rounded.Wallpaper,
-                    accent = previewTheme.primaryColor
+                DeveloperLookChoice(
+                    developerLook = viewModel.isDeveloperBackgroundEnabled,
+                    onChange = { viewModel.setDeveloperBackgroundEnabled(context, it) },
+                    accent = previewTheme.primaryColor,
+                    modifier = Modifier.padding(vertical = 6.dp)
                 )
                 OutlinedButton(
                     onClick = onOpenPanel,

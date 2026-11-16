@@ -131,7 +131,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   then says `developer: true` and the server never charges its jobs. The app shows "∞ DEV" instead of the credits pill
   (it opens `DeveloperPanelDialog`: `GET /api/developer/server` every 5 s, and the latest job's `developer` details),
   skips its own balance checks, swaps the round logo for the cat (`developer_icon`) and draws `developer_background`
-  behind everything, dimmed (`AdaptiveNavigation`'s `backdrop`; Settings → Developer turns it off). Signing out or
+  behind everything, dimmed (`AdaptiveNavigation`'s `backdrop`). Background "Regular" (Settings → Developer, or
+  the panel) brings back the regular background, logo and launcher icon together (`wantsDeveloperIcons`). Signing out or
   changing servers clears it with the balance. The launcher icon is the cat too: the manifest's launcher entries
   are two aliases of `MainActivity` (`LauncherDefault`, `LauncherDeveloper`), one enabled; `DeveloperLauncherIcon`
   remembers the wish on a definite answer (balance, sign-out) and swaps them in `onStop`, as a swap can close the app.
