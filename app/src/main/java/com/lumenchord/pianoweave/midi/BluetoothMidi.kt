@@ -59,6 +59,16 @@ object BluetoothMidiPermissions {
  * is switched off.
  */
 @SuppressLint("MissingPermission") // every entry point checks BluetoothMidiPermissions first
+/**
+ * What to say after the [failures]-th pairing failure in a row with one keyboard. Once is usually a request not
+ * accepted; again and again is usually a pairing only one side still remembers (the keyboard or its computer asks
+ * for keys this device no longer has), which only forgetting it there ends.
+ */
+internal fun pairingFailureMessage(failures: Int): String =
+    if (failures < 2) "Pairing didn't finish. Tap the keyboard to try again, and accept the request."
+    else "Pairing failed again. Remove this device from the keyboard's Bluetooth list (or the computer " +
+        "it runs on), and from this device's Bluetooth settings, then tap the keyboard again."
+
 object BluetoothMidi {
     private const val SCAN_MS = 15_000L
     private const val CONNECT_TIMEOUT_MS = 20_000L
@@ -118,6 +128,9 @@ object BluetoothMidi {
     private var keyboard: BleMidiKeyboard? = null
     /** Devices from the last search, kept so a connection uses what the scan saw (incl. the address type). */
     private val seenDevices = HashMap<String, BluetoothDevice>()
+
+    /** Pairing failures in a row, by keyboard address; cleared when it connects. */
+    private val pairingFailures = HashMap<String, Int>()
     private var initialized = false
     private var scanCallback: ScanCallback? = null
     /**
@@ -317,6 +330,7 @@ object BluetoothMidi {
                 main.removeCallbacks(timeout)
                 connectingAddress = null
                 isPairing = false
+                pairingFailures.remove(address)
                 cues.reset() // tapped: the person sees it connect
                 adopt(context, ready)
             },
@@ -334,8 +348,11 @@ object BluetoothMidi {
                     connectingAddress = null
                     isPairing = false
                     message = when (failure) {
-                        BleMidiLink.Failure.Pairing ->
-                            "Pairing didn't finish. Tap the keyboard to try again, and accept the request."
+                        BleMidiLink.Failure.Pairing -> {
+                            val failures = (pairingFailures[address] ?: 0) + 1
+                            pairingFailures[address] = failures
+                            pairingFailureMessage(failures)
+                        }
                         BleMidiLink.Failure.NotMidi -> "That device isn't a MIDI keyboard."
                         else -> "Couldn't connect. Is it on and close by?"
                     }
