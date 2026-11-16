@@ -63,8 +63,10 @@ object BleMidiPacket {
             val b = packet[i].toInt() and 0xFF
             when {
                 expectTimestamp && b and 0x80 != 0 -> expectTimestamp = false // timestamp low byte
-                // A status after its timestamp. F7 ends a SysEx message, so a timestamp comes next again
-                b and 0x80 != 0 -> { out.add(b.toByte()); expectTimestamp = b == 0xF7 }
+                // A status after its timestamp. One that is a whole message by itself (F7 ending a SysEx,
+                // tune request F6, real-time F8-FF such as clock) is followed by a timestamp again; reading
+                // that as a status once swallowed the next note (a clock byte between notes lost C5)
+                b and 0x80 != 0 -> { out.add(b.toByte()); expectTimestamp = b == 0xF7 || b >= 0xF4 }
                 else -> {
                     out.add(b.toByte())
                     // After data, the next byte with the top bit set is a timestamp (then a status, or

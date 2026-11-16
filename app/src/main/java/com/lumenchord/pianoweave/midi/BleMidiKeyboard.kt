@@ -56,7 +56,9 @@ internal class BleMidiKeyboard(
     private var subscribing: GattSequence<BluetoothGattCharacteristic>? = null
     private var writing: GattSequence<BluetoothGattCharacteristic>? = null
     private var loggedWrite = false
-    private val parser = MidiNoteParser(MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff)
+    private val parser = MidiNoteParser(
+        MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff, MidiInputManager::receiveControlChange
+    )
 
     private val clock = object : BleMidiClock {
         override fun now() = SystemClock.uptimeMillis()

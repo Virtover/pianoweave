@@ -86,7 +86,9 @@ object BleMidiPeripheral {
     private val connected = ConcurrentHashMap.newKeySet<BluetoothDevice>()
     private val subscribers = ConcurrentHashMap.newKeySet<BluetoothDevice>()
     private val main = Handler(Looper.getMainLooper())
-    private val parser = MidiNoteParser(MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff)
+    private val parser = MidiNoteParser(
+        MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff, MidiInputManager::receiveControlChange
+    )
 
     // Android sends one notification at a time per connection (the next must wait for onNotificationSent),
     // so messages queue here and go out together: a chord becomes one packet.

@@ -33,6 +33,16 @@ class BleMidiPacketTest {
     }
 
     @Test
+    fun realTimeBytesBetweenNotesDoNotSwallowTheNextOne() {
+        // The simulator's test 13: clock and active sensing, each with its own timestamp, between notes
+        assertEquals(listOf("on 60 100", "on 64 100"),
+            notes(bytes(0xA8, 0x81, 0x90, 0x3C, 0x64, 0x81, 0xF8, 0x81, 0x90, 0x40, 0x64, 0x81, 0xFE)))
+        // ...and running status carried across a clock byte: G4 then C5
+        assertEquals(listOf("on 67 100", "on 72 100"),
+            notes(bytes(0xAA, 0xAE, 0x90, 0x43, 0x64, 0xAE, 0xF8, 0xAE, 0x48, 0x64)))
+    }
+
+    @Test
     fun runningStatusWithAndWithoutTimestamps() {
         // header, ts, note on C, then E with only a timestamp before it, then G with nothing before it
         val packet = bytes(0x80, 0x81, 0x90, 60, 100, 0x82, 64, 100, 67, 100)

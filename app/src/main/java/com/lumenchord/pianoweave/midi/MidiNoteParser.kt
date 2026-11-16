@@ -1,7 +1,7 @@
 package com.lumenchord.pianoweave.midi
 
 /**
- * Streaming parser that turns raw MIDI bytes into note on / off calls.
+ * Streaming parser that turns raw MIDI bytes into note on / off (and control change) calls.
  *
  * Keeps state between [feed] calls, so messages split across packets still parse, and supports running
  * status (a status byte followed by several data pairs), which many keyboards and BLE MIDI use for chords.
@@ -9,7 +9,8 @@ package com.lumenchord.pianoweave.midi
  */
 class MidiNoteParser(
     private val onNoteOn: (pitch: Int, velocity: Int) -> Unit,
-    private val onNoteOff: (pitch: Int) -> Unit
+    private val onNoteOff: (pitch: Int) -> Unit,
+    private val onControlChange: (controller: Int, value: Int) -> Unit = { _, _ -> },
 ) {
     private var runningStatus = 0
     private var inSysEx = false
@@ -47,6 +48,7 @@ class MidiNoteParser(
         when (type) {
             0x90 -> if (data[1] > 0) onNoteOn(data[0], data[1]) else onNoteOff(data[0])
             0x80 -> onNoteOff(data[0])
+            0xB0 -> onControlChange(data[0], data[1])
         }
     }
 }

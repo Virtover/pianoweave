@@ -118,6 +118,12 @@ object MidiInputManager {
     /** Keyboard notes this app is sounding, so a note off (or turning the sound off) stops only those. */
     private val soundingPitches = ConcurrentHashMap.newKeySet<Int>()
 
+    /** The keyboard's sustain pedal, for the sound only; keys on screen follow the fingers. */
+    private val sustain = SustainPedal { pitch -> if (soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch) }
+
+    /** Whether a keyboard note is still ringing on the pedal (the song mustn't cut it when it shares the pitch). */
+    fun isSustaining(pitch: Int): Boolean = sustain.isRinging(pitch)
+
     @Suppress("DEPRECATION")
     fun initialize(context: Context) {
         // Called on every Activity creation; register the device callback only once
@@ -179,7 +185,7 @@ object MidiInputManager {
         if (info.outputPortCount == 0) return false
         val outputPort = device.openOutputPort(0) ?: return false
         if ((activeDevice != null && activeDevice !== device) || bleKeyboard != null) disconnect()
-        val parser = MidiNoteParser(onNoteOn = ::receiveNoteOn, onNoteOff = ::receiveNoteOff)
+        val parser = MidiNoteParser(::receiveNoteOn, ::receiveNoteOff, ::receiveControlChange)
         outputPort.connect(object : MidiReceiver() {
             override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
                 parser.feed(msg, offset, count)
@@ -225,6 +231,7 @@ object MidiInputManager {
 
     /** A note from a keyboard or a connected computer: sounded (if on) and shown as pressed. */
     internal fun receiveNoteOn(pitch: Int, velocity: Int) {
+        sustain.noteOn(pitch)
         if (isSoundEnabled) {
             PianoPlayer.noteOn(pitch, velocity)
             soundingPitches.add(pitch)
@@ -233,8 +240,14 @@ object MidiInputManager {
     }
 
     internal fun receiveNoteOff(pitch: Int) {
-        if (soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch)
+        // With the pedal down the sound rings on; the key on screen lets go either way
+        if (pitch in soundingPitches && sustain.noteOff(pitch) && soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch)
         simulateExternalNoteOff(pitch)
+    }
+
+    /** Control change from a keyboard or computer: only the sustain pedal (64) means anything here. */
+    internal fun receiveControlChange(controller: Int, value: Int) {
+        if (controller == 64) sustain.onPedal(value)
     }
 
     /** A computer disconnected from the phone's Bluetooth MIDI: let go of whatever it was holding. */
@@ -310,6 +323,7 @@ object MidiInputManager {
         runCatching { port.send(bytes, 0, bytes.size) }.isSuccess
 
     private fun releaseSoundingNotes() {
+        sustain.reset()
         soundingPitches.toList().forEach { pitch ->
             if (soundingPitches.remove(pitch)) PianoPlayer.noteOff(pitch)
         }
