@@ -18,6 +18,7 @@ import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.DeveloperLauncherIcon
 import com.lumenchord.pianoweave.util.Connectivity
 import com.lumenchord.pianoweave.util.SecretStore
 import com.lumenchord.pianoweave.util.findActivity
@@ -322,6 +323,8 @@ internal suspend fun PianoWeaveViewModel.loadUserBalance(context: Context): Int?
         freeCredits = balance.monthlyMinutes?.takeIf { balance.paidMinutes != null }
         freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
         freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
+        isDeveloper = balance.developer == true
+        DeveloperLauncherIcon.request(context, isDeveloper)
         startBalanceTicker(context)
         balance.minutes
     } catch (e: Exception) {
@@ -342,6 +345,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     isCountInEnabled = prefs.getBoolean(AppPrefs.IS_COUNT_IN_ENABLED, false)
     isMetronomeLeadInSilent = prefs.getBoolean(AppPrefs.IS_METRONOME_LEAD_IN_SILENT, false)
     loadVoicePreferences(context)
+    loadDeveloperPreferences(context)
     // A theme merged into another resolves to its replacement, so the picker shows it as selected
     selectedThemeId = AppThemeManager.resolveId(prefs.getString(AppPrefs.SELECTED_THEME_ID, null)) ?: AppThemeManager.defaultTheme.id
     topBarSpeed = prefs.getFloat(AppPrefs.TOP_BAR_SPEED, 1.0f)

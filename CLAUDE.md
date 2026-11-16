@@ -126,6 +126,15 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   screen's `AnnouncementBanners`. Links open only `https` in the browser. To test against a local mock on the
   API 37 emulator use `adb reverse tcp:PORT tcp:PORT` + `http://127.0.0.1:PORT/`: `10.0.2.2` is a local-network
   address, which the app can't reach on API 37 without a local-network permission.
+- **Developer accounts** (`ui/viewmodel/PianoWeaveViewModelDeveloper.kt`): the server's administrator makes an
+  account a developer's (admin web page or `python -m app.admin user <who> developer on`); `GET /api/billing/balance`
+  then says `developer: true` and the server never charges its jobs. The app shows "∞ DEV" instead of the credits pill
+  (it opens `DeveloperPanelDialog`: `GET /api/developer/server` every 5 s, and the latest job's `developer` details),
+  skips its own balance checks, swaps the round logo for the cat (`developer_icon`) and draws `developer_background`
+  behind everything, dimmed (`AdaptiveNavigation`'s `backdrop`; Settings → Developer turns it off). Signing out or
+  changing servers clears it with the balance. The launcher icon is the cat too: the manifest's launcher entries
+  are two aliases of `MainActivity` (`LauncherDefault`, `LauncherDeveloper`), one enabled; `DeveloperLauncherIcon`
+  remembers the wish on a definite answer (balance, sign-out) and swaps them in `onStop`, as a swap can close the app.
 - **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a

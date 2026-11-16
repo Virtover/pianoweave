@@ -144,6 +144,7 @@ private fun PianoWeaveViewModel.applyJobStatus(job: TranscriptionStatusResponse)
     ServerMaintenance.onNotice(activeServerUrl, job.maintenance)
     progress = job.progress
     job.minutes?.let { userCredits = it }
+    rememberDeveloperJob(job)
 
     val isArrangement = transcriptionMode == TranscriptionMode.Arrangement
     status = when (job.status) {

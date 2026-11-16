@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The developer cat over the 72 dp of the 108 dp layer that launchers' masks show, a little past it, so a
+     square or rounded-square mask shows no edge of the picture. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/developer_icon"
+    android:inset="12dp" />

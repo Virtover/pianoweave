@@ -102,6 +102,10 @@ object AppPrefs {
     /** Play version code of the last flexible in-app update the user declined, and when (epoch ms). */
     const val DECLINED_UPDATE_VERSION_CODE = "declined_update_version_code"
     const val DECLINED_UPDATE_AT = "declined_update_at"
+    /** Whether a developer's account shows the developer background behind the app (on by default). */
+    const val IS_DEVELOPER_BACKGROUND_ENABLED = "is_developer_background_enabled"
+    /** Whether the launcher should show the developer icon; applied when the app goes to the background. */
+    const val WANTS_DEVELOPER_LAUNCHER_ICON = "wants_developer_launcher_icon"
 
     fun get(context: Context): SharedPreferences =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)

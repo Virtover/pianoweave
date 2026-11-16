@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.ui.components.settings.AboutSettingsSection
 import com.lumenchord.pianoweave.ui.components.settings.AccountSettingsSection
+import com.lumenchord.pianoweave.ui.components.settings.DeveloperSettingsSection
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
@@ -82,6 +83,18 @@ fun AppSettingsDialog(
                             previewTheme = previewTheme,
                             onShowSignOutConfirm = { showSignOutConfirm = true }
                         )
+
+                        if (viewModel.isDeveloper) {
+                            DeveloperSettingsSection(
+                                viewModel = viewModel,
+                                context = context,
+                                previewTheme = previewTheme,
+                                onOpenPanel = {
+                                    onDismiss()
+                                    viewModel.openDeveloperPanel()
+                                }
+                            )
+                        }
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
 

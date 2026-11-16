@@ -278,6 +278,8 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
 private suspend fun PianoWeaveViewModel.hasBalanceForUpload(context: Context, file: SelectedMediaFile): Boolean {
     status = "Checking your balance..."
     val balance = loadUserBalance(context) ?: return true
+    // Read with the balance: a developer's jobs are never charged
+    if (isDeveloper) return true
     val cost = estimatedCostCredits ?: file.durationSeconds?.let { duration ->
         try {
             fetchBillingCost(context, durationSeconds = duration).also { estimatedCostCredits = it }

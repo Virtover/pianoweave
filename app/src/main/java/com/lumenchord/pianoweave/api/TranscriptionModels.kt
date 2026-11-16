@@ -78,7 +78,54 @@ data class TranscriptionStatusResponse(
     @SerializedName("title") val title: String? = null,
     /** [TranscriptionMode.apiValue]; absent on servers without arrangements. */
     @SerializedName("mode") val mode: String? = null,
+    @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null,
+    /** Where the model runs: "local" or "remote" (RunPod). Absent on older servers. */
+    @SerializedName("backend") val backend: String? = null,
+    /** What happened to the job; only for a developer's account ([UserBalanceResponse.developer]). */
+    @SerializedName("developer") val developer: DeveloperJobDetails? = null
+)
+
+/** A developer's view of one job, from the server's records. Times are epoch seconds. */
+data class DeveloperJobDetails(
+    @SerializedName("duration_seconds") val durationSeconds: Float? = null,
+    /** What the job would have cost; a developer is never charged. */
+    @SerializedName("cost_minutes") val costMinutes: Int? = null,
+    @SerializedName("outsourced") val outsourced: Boolean? = null,
+    /** Why a job moved from this server's GPUs to RunPod. */
+    @SerializedName("requeue_reason") val requeueReason: String? = null,
+    @SerializedName("queued_at") val queuedAt: Double? = null,
+    @SerializedName("created_at") val createdAt: Long? = null,
+    @SerializedName("started_at") val startedAt: Long? = null,
+    @SerializedName("finished_at") val finishedAt: Long? = null
+)
+
+/** The server's live state, from GET api/developer/server; only a developer's account may ask. */
+data class DeveloperServerState(
+    @SerializedName("active_jobs") val activeJobs: Int = 0,
+    @SerializedName("max_active_jobs") val maxActiveJobs: Int? = null,
+    /** "local" (this server's GPUs) and "remote" (RunPod). */
+    @SerializedName("backends") val backends: Map<String, DeveloperBackendState>? = null,
+    @SerializedName("outsourcing") val outsourcing: Boolean? = null,
+    /** Null when no local worker has a live heartbeat. */
+    @SerializedName("workers") val workers: DeveloperWorkersState? = null,
+    @SerializedName("arrangement") val arrangement: Boolean? = null,
+    @SerializedName("paused") val paused: Boolean? = null,
+    @SerializedName("links_off") val linksOff: Boolean? = null,
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null
+)
+
+data class DeveloperBackendState(
+    @SerializedName("waiting") val waiting: Int = 0,
+    @SerializedName("running") val running: Int = 0,
+    @SerializedName("oldest_wait_seconds") val oldestWaitSeconds: Float = 0f
+)
+
+data class DeveloperWorkersState(
+    @SerializedName("count") val count: Int = 0,
+    /** Jobs all local workers run at once. */
+    @SerializedName("capacity") val capacity: Int = 0,
+    @SerializedName("arranging") val arranging: Int = 0,
+    @SerializedName("average_job_seconds") val averageJobSeconds: Float? = null
 )
 
 /** Why a failed job failed. The server writes its "error" for users, so it is shown as it is. */
@@ -197,7 +244,12 @@ data class UserBalanceResponse(
     /** Bought or given by hand, never expire; negative after a refund of used minutes. Null on older servers. */
     @SerializedName("paid_minutes") val paidMinutes: Int? = null,
     @SerializedName("free_minutes_seconds_until_next_grant") val freeMinutesSecondsUntilNextGrant: Long? = null,
-    @SerializedName("free_minutes_next_grant_at") val freeMinutesNextGrantAt: Long? = null
+    @SerializedName("free_minutes_next_grant_at") val freeMinutesNextGrantAt: Long? = null,
+    /**
+     * True for an account the server's administrator made a developer's: its jobs are never charged, so the app
+     * shows unlimited credits and the developer extras. Null (false) on older servers.
+     */
+    @SerializedName("developer") val developer: Boolean? = null
 )
 
 data class BillingCostResponse(

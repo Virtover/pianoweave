@@ -10,6 +10,8 @@ import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
 import com.lumenchord.pianoweave.audio.VoiceModelError
 import com.lumenchord.pianoweave.api.ServerOffer
+import com.lumenchord.pianoweave.api.DeveloperJobDetails
+import com.lumenchord.pianoweave.api.DeveloperServerState
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.ExportState
@@ -145,6 +147,8 @@ class PianoWeaveViewModel : ViewModel() {
             val free = freeCredits
             if (value == null) {
                 freeCredits = null
+                // The balance is unknown again (signed out, another server): so is the account's role
+                isDeveloper = false
             } else if (old != null && free != null && value < old) {
                 freeCredits = (free - (old - value)).coerceAtLeast(0)
             }
@@ -173,6 +177,31 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
 
     var freeMinutesNextGrantAt by mutableStateOf<Long?>(null)
+        internal set
+
+    // --- Developer account (an administrator's choice on the server, see PianoWeaveViewModelDeveloper) ---
+    /** The signed-in account is a developer's on the selected server: unlimited credits and the developer extras. */
+    var isDeveloper by mutableStateOf(false)
+        internal set
+
+    /** Whether the developer background is drawn behind the app; a developer can turn it off in Settings. */
+    var isDeveloperBackgroundEnabled by mutableStateOf(true)
+        internal set
+
+    var showDeveloperPanel by mutableStateOf(false)
+        internal set
+
+    var developerServerState by mutableStateOf<DeveloperServerState?>(null)
+        internal set
+
+    var developerServerError by mutableStateOf<String?>(null)
+        internal set
+
+    var isLoadingDeveloperServerState by mutableStateOf(false)
+        internal set
+
+    /** The latest job this run followed, with what the server reported about it. */
+    var developerLastJob by mutableStateOf<DeveloperJobSnapshot?>(null)
         internal set
 
     var serverOffers by mutableStateOf<List<ServerOffer>>(emptyList())
@@ -440,6 +469,10 @@ class PianoWeaveViewModel : ViewModel() {
     fun openSupport() { showSupportDialog = true }
     fun dismissSupport() { showSupportDialog = false }
     fun dismissNotEnoughCredits() { showNotEnoughCreditsDialog = false }
+    fun openDeveloperPanel() { showDeveloperPanel = true }
+    fun dismissDeveloperPanel() { showDeveloperPanel = false }
+    fun refreshDeveloperServerState(context: Context) = refreshDeveloperServerStateImpl(context)
+    fun setDeveloperBackgroundEnabled(context: Context, enabled: Boolean) = setDeveloperBackgroundEnabledImpl(context, enabled)
     fun loadSongs(context: Context) = loadSongsImpl(context)
     fun deleteSong(context: Context, song: StoredMidi) = deleteSongImpl(context, song)
     fun clearImportError() = clearImportErrorImpl()

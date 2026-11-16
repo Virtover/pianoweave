@@ -14,6 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.paint
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -25,6 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.R
 
+/** How much of the theme's background covers a backdrop: enough that text on the cards reads as usual. */
+private const val BACKDROP_DIM = 0.82f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdaptiveNavigation(
@@ -35,15 +41,23 @@ fun AdaptiveNavigation(
     onOpenSettingsDialog: () -> Unit,
     logoHoldMillis: Long,
     onLogoLongHold: () -> Unit,
+    /** Drawn behind everything, under a dimming of the theme's background; a developer account's background. */
+    backdrop: Painter? = null,
+    /** In place of the app icon in the round logo; a developer account's. */
+    logo: Painter? = null,
     content: @Composable () -> Unit
 ) {
+    val logoPainter = logo ?: painterResource(id = R.drawable.app_icon)
     val room = rememberWindowRoom()
     // A rail from tablet width up too, where a bottom bar would stretch two items across the whole screen
     val useRail = room.isLandscape || room.isWide
     // Tablets get a roomier rail: larger mark and labels, items under the header and Settings at the foot
     val isLarge = room.isLarge
     val accent = LocalAppTheme.current.primaryColor
-    val sky = Modifier.lampGlow(background = MaterialTheme.colorScheme.background, accent = accent)
+    val background = MaterialTheme.colorScheme.background
+    // A backdrop is dimmed by the theme's own background, so the screens stay as readable as without it
+    val sky = (backdrop?.let { Modifier.paint(it, contentScale = ContentScale.Crop) } ?: Modifier)
+        .lampGlow(background = if (backdrop != null) background.copy(alpha = BACKDROP_DIM) else background, accent = accent)
     val barColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
 
     if (useRail) {
@@ -71,8 +85,9 @@ fun AdaptiveNavigation(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Image(
-                                    painter = painterResource(id = R.drawable.app_icon),
+                                    painter = logoPainter,
                                     contentDescription = "Piano Weave Settings",
+                                    contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .size(if (isLarge) 44.dp else 38.dp)
                                         .clip(CircleShape)
@@ -180,8 +195,9 @@ fun AdaptiveNavigation(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Image(
-                                        painter = painterResource(id = R.drawable.app_icon),
+                                        painter = logoPainter,
                                         contentDescription = "Piano Weave Settings",
+                                        contentScale = ContentScale.Crop,
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(CircleShape)

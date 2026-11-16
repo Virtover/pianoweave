@@ -215,7 +215,9 @@ fun LearnScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Support follows the official server's billing, so it also shows while a custom server is selected.
-                    if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer) {
+                    if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer && viewModel.isDeveloper) {
+                        DeveloperBalancePill(onClick = { viewModel.openDeveloperPanel() })
+                    } else if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer) {
                         CreditsBalancePill(
                             credits = viewModel.userCredits,
                             onClick = { viewModel.openShop(context) }

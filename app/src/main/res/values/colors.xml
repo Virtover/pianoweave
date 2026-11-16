@@ -2,4 +2,6 @@
 <resources>
     <!-- Lumenchord "warm night" background. -->
     <color name="splash_background">#0F0B09</color>
+    <!-- Behind the developer launcher icon's cat, the grey of the bedsheet around it. -->
+    <color name="ic_launcher_developer_background">#9A9A9A</color>
 </resources>

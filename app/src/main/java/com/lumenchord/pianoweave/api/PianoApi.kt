@@ -93,6 +93,12 @@ interface PianoApi {
         @Header("X-User-Id") userId: String? = null
     ): TranscriptionStatusResponse
 
+    /** The server's queues and workers; 403 unless the signed-in account is a developer's. */
+    @GET("api/developer/server")
+    suspend fun getDeveloperServerState(
+        @Header("Authorization") authHeader: String? = null
+    ): DeveloperServerState
+
     @Streaming
     @GET("api/transcriptions/{jobId}/midi")
     suspend fun downloadMidi(

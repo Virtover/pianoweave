@@ -117,10 +117,10 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context, mode: 
         AppPrefs.get(context).edit().putString(AppPrefs.LAST_TRANSCRIPTION_MODE, mode.apiValue).apply()
     }
 
-    // Client-side pre-check only; the server enforces the balance.
+    // Client-side pre-check only; the server enforces the balance. A developer's jobs are never charged.
     val cost = estimatedCostCredits
     val credits = userCredits
-    if (isBilledServer && cost != null && credits != null && credits < cost) {
+    if (isBilledServer && !isDeveloper && cost != null && credits != null && credits < cost) {
         showNotEnoughCreditsDialog = true
         return
     }

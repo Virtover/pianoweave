@@ -41,6 +41,9 @@ import com.lumenchord.pianoweave.midi.BluetoothMidi
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.AdaptiveNavigation
 import com.lumenchord.pianoweave.ui.components.AppSettingsDialog
+import com.lumenchord.pianoweave.ui.components.DeveloperPanelDialog
+import com.lumenchord.pianoweave.R
+import androidx.compose.ui.res.painterResource
 import com.lumenchord.pianoweave.ui.components.BilledServerGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.NoGoogleAccountDialog
 import com.lumenchord.pianoweave.ui.components.ServerConnectionDialog
@@ -57,6 +60,7 @@ import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.util.DeveloperLauncherIcon
 import com.lumenchord.pianoweave.util.LegalConsent
 import com.lumenchord.pianoweave.update.AppUpdates
 import com.lumenchord.pianoweave.ui.components.AppSnackbar
@@ -188,6 +192,12 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Out of sight: a launcher that closes the app over an icon swap closes nothing the user is looking at
+        if (!isChangingConfigurations) DeveloperLauncherIcon.applyPending(this)
+    }
+
     override fun onDestroy() {
         // Only when leaving for good; a recreated activity (e.g. resized window) keeps the loaded model
         if (isFinishing) AcousticNoteDetector.cleanup()
@@ -263,7 +273,11 @@ private fun PianoWeaveApp(
                 verseOfLightOpens++
                 AppPrefs.get(context).edit().putInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, verseOfLightOpens).apply()
             }
-        }
+        },
+        backdrop = if (viewModel.isDeveloper && viewModel.isDeveloperBackgroundEnabled) {
+            painterResource(R.drawable.developer_background)
+        } else null,
+        logo = if (viewModel.isDeveloper) painterResource(R.drawable.developer_icon) else null
     ) {
         Box(Modifier.fillMaxSize()) {
             HorizontalPager(
@@ -357,6 +371,10 @@ private fun PianoWeaveApp(
 
     if (showVerseOfLight) {
         VerseOfLightScreen(onClose = { showVerseOfLight = false })
+    }
+
+    if (viewModel.showDeveloperPanel && viewModel.isDeveloper) {
+        DeveloperPanelDialog(viewModel = viewModel, context = context)
     }
 
     // Startup permissions and server status notifications

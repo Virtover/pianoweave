@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MonetizationOn
 import androidx.compose.material3.Icon
@@ -137,6 +138,47 @@ fun CreditsBalancePill(
             contentDescription = null,
             tint = accent,
             modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+/**
+ * A developer's balance in place of [CreditsBalancePill]: the server never charges their jobs, so it shows
+ * unlimited credits and opens the developer panel instead of the shop.
+ */
+@Composable
+fun DeveloperBalancePill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val accent = MaterialTheme.colorScheme.secondary
+    val style = MaterialTheme.typography.labelMedium
+    HeaderPill(
+        onClick = onClick,
+        description = "Developer account, unlimited credits. Open the developer panel",
+        accent = accent,
+        modifier = modifier
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Code,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = "∞",
+            style = style.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f),
+            maxLines = 1
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = "DEV",
+            style = style.copy(fontWeight = FontWeight.Bold, letterSpacing = MaterialTheme.typography.labelSmall.letterSpacing),
+            color = accent,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
