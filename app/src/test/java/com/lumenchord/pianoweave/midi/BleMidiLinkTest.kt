@@ -62,9 +62,11 @@ class BleMidiLinkTest {
 
     private class Events : BleMidiLink.Listener {
         var ready = 0
+        var linkUp = 0
         val pairing = mutableListOf<Boolean>()
         val midi = mutableListOf<ByteArray>()
         val closed = mutableListOf<Pair<Boolean, Failure?>>()
+        override fun onLinkUp() { linkUp++ }
         override fun onReady() { ready++ }
         override fun onPairing(on: Boolean) { pairing += on }
         override fun onMidi(bytes: ByteArray) { midi += bytes }
@@ -97,6 +99,8 @@ class BleMidiLinkTest {
         assertEquals(listOf(1, 1, 1, 1, 1), listOf(gatt.opens, gatt.mtuRequests, gatt.discoveries, gatt.reads, gatt.subscribes))
         assertTrue(link.isReady)
         assertEquals(1, events.ready)
+        assertEquals(1, events.linkUp)
+        assertFalse(link.isConnecting)
         assertEquals(200, link.payloadSize) // 247 - 3, capped
         assertEquals(197, link.maxSysExSize())
     }
@@ -160,6 +164,17 @@ class BleMidiLinkTest {
         link.start(); link.onConnected(); link.onMtu(247)
         link.onServices(midiChar)
         assertEquals(1, gatt.subscribes)
+    }
+
+    @Test
+    fun itCountsAsConnectingOnlyUntilTheLinkIsUp() {
+        link.start()
+        assertTrue(link.isConnecting)
+        link.onDisconnected(133) // retrying is still connecting
+        assertTrue(link.isConnecting)
+        clock.advance(BleMidiLink.CONNECT_RETRY_MS)
+        link.onConnected()
+        assertFalse(link.isConnecting)
     }
 
     @Test

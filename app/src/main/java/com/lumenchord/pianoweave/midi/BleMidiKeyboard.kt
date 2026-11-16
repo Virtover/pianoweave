@@ -40,11 +40,16 @@ internal class BleMidiKeyboard(
     private val onReady: (BleMidiKeyboard) -> Unit,
     private val onPairing: (Boolean) -> Unit,
     private val onClosed: (BleMidiKeyboard, wasReady: Boolean, failure: BleMidiLink.Failure?) -> Unit,
+    /** The radio link came up (setup still to do). */
+    private val onLinkUp: () -> Unit = {},
 ) {
     val address: String = device.address
     val isReady: Boolean get() = link.isReady
-    /** Still the slow background wait (not yet connected), which a direct connection can replace. */
-    val isWaitingInBackground: Boolean get() = waitForIt && !link.isReady && !link.isClosed
+    /**
+     * Still the slow background wait and not connected yet, so a direct connection can replace it. Once the
+     * link is up (setting up services), replacing it would only drop a working connection.
+     */
+    val isWaitingInBackground: Boolean get() = waitForIt && link.isConnecting
 
     private val main = Handler(Looper.getMainLooper())
     private var context: Context? = null
@@ -135,6 +140,7 @@ internal class BleMidiKeyboard(
     }
 
     private val link: BleMidiLink = BleMidiLink(port, clock, object : BleMidiLink.Listener {
+        override fun onLinkUp() = onLinkUp.invoke()
         override fun onReady() {
             Log.i(TAG, "ready, payload ${link.payloadSize}")
             onReady(this@BleMidiKeyboard)

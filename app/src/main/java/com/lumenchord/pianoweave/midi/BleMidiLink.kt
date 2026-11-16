@@ -51,6 +51,8 @@ internal class BleMidiLink(
     private val listener: Listener,
 ) {
     interface Listener {
+        /** The radio link is up; the setup steps follow. */
+        fun onLinkUp() {}
         fun onReady()
         fun onPairing(on: Boolean)
         /** Plain MIDI bytes from the keyboard (BLE headers and timestamps removed). */
@@ -71,6 +73,8 @@ internal class BleMidiLink(
     private var step = Step.Connecting
     val isReady: Boolean get() = step == Step.Ready
     val isClosed: Boolean get() = step == Step.Closed
+    /** Not connected yet (still trying, or waiting for the keyboard to show up). */
+    val isConnecting: Boolean get() = step == Step.Connecting
 
     @Volatile
     var payloadSize = 20 // ATT MTU 23 minus 3 until a bigger one is agreed
@@ -97,6 +101,7 @@ internal class BleMidiLink(
     fun onConnected() {
         if (step != Step.Connecting) return
         step = Step.Mtu
+        listener.onLinkUp()
         // Some keyboards never answer the MTU request: go on without it after a while
         if (gatt.requestMtu(MAX_MTU)) clock.schedule(MTU_WAIT_MS) { if (step == Step.Mtu) discover() }
         else discover()

@@ -431,6 +431,8 @@ object BluetoothMidi {
             },
             onPairing = {},
             onClosed = { closed, _, failure -> onKeyboardClosed(context, closed, failure) },
+            // Connected: a search still running would only slow the setup down (one radio)
+            onLinkUp = ::stopQuickFind,
         )
         waiter = pending
         pending.connect(context)
@@ -444,6 +446,7 @@ object BluetoothMidi {
 
     /** A keyboard is ready: it becomes the one in use, and is remembered for next time. */
     private fun adopt(context: Context, ready: BleMidiKeyboard) {
+        stopQuickFind() // found already, however it got here
         keyboard?.takeIf { it !== ready }?.close()
         keyboard = ready
         connectedAddress = ready.address
