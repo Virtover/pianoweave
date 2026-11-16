@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.lumenchord.pianoweave.audio.ConnectionChime
 import com.lumenchord.pianoweave.util.AppPrefs
 
 /** The runtime permissions Bluetooth MIDI needs, which differ before and after Android 12. */
@@ -135,6 +136,17 @@ object BluetoothMidi {
     private var quickScan: ScanCallback? = null
     private var quickScanner: BluetoothLeScanner? = null
     private val stopQuickFindLater = Runnable { stopQuickFind() }
+
+    /** The soft "lost" / "back" bells, only while the app is on screen. */
+    private val cues = KeyboardCues(
+        schedule = { delayMs, task ->
+            val runnable = Runnable(task)
+            main.postDelayed(runnable, delayMs)
+            KeyboardCues.Cancel { main.removeCallbacks(runnable) }
+        },
+        isAudible = { isVisible },
+        play = ConnectionChime::play,
+    )
 
     /** Called once at app start, after [MidiInputManager.initialize]. */
     fun initialize(context: Context) {
@@ -305,6 +317,7 @@ object BluetoothMidi {
                 main.removeCallbacks(timeout)
                 connectingAddress = null
                 isPairing = false
+                cues.reset() // tapped: the person sees it connect
                 adopt(context, ready)
             },
             onPairing = { on ->
@@ -425,6 +438,7 @@ object BluetoothMidi {
             onReady = { ready ->
                 if (waiter === ready) waiter = null
                 adopt(context, ready)
+                cues.onBack()
                 // It connected by itself: say so, as nobody tapped anything
                 announce(if (lostAddress == ready.address) "${ready.name} reconnected" else "${ready.name} connected")
                 lostAddress = null
@@ -470,6 +484,7 @@ object BluetoothMidi {
                 message = "${closed.name} disconnected. It reconnects when it's back."
                 announce(message!!)
                 lostAddress = closed.address
+                cues.onLost()
             }
         }
         if (waiter === closed) waiter = null
@@ -488,6 +503,7 @@ object BluetoothMidi {
 
     /** Ends the keyboard connection and the background wait (Bluetooth off, Bluetooth MIDI off); remembers it. */
     private fun closeConnections() {
+        cues.reset()
         stopWatching()
         keyboard?.let { MidiInputManager.detachBluetooth(it); it.close() }
         keyboard = null

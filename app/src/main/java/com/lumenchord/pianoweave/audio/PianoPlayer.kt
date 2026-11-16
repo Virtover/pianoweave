@@ -24,6 +24,8 @@ object PianoPlayer : AutoCloseable {
     private const val TAG = "PianoPlayer"
     private const val SOUND_FONT = "Full Grand Piano.sf2"
     private const val CHANNEL = 0
+    /** The Bluetooth keyboard's "lost" / "back" notes: the same piano, but never cut by the song or keyboard. */
+    private const val CUE_CHANNEL = 2
     private const val GRAND_PIANO = 0
 
     // Master gain configured to 0.82f to give headroom for polyphonic chords without digital clipping
@@ -95,6 +97,7 @@ object PianoPlayer : AutoCloseable {
                 }
 
                 programChange(CHANNEL, GRAND_PIANO)
+                programChange(CUE_CHANNEL, GRAND_PIANO)
                 programChange(MetronomeClick.CHANNEL, 0)
                 setGain(targetGain)
                 currentGain = targetGain
@@ -224,6 +227,20 @@ object PianoPlayer : AutoCloseable {
         } catch (e: Exception) {
             Log.e(TAG, "Error playing click($key)", e)
         }
+    }
+
+    /** One soft note on the cue channel; it rings until [cueOff]. */
+    @Synchronized
+    fun cueOn(pitch: Int, velocity: Int) {
+        if (player == null || !isInitialized.get()) {
+            appContext?.let { initialize(it) }
+        }
+        runCatching { player?.noteOn(CUE_CHANNEL, pitch, velocity.coerceIn(1, 127)) }
+    }
+
+    @Synchronized
+    fun cueOff(pitch: Int) {
+        runCatching { player?.noteOff(CUE_CHANNEL, pitch) }
     }
 
     @Synchronized
