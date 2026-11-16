@@ -103,7 +103,11 @@ internal fun MidiSettingsSection(viewModel: PianoWeaveViewModel, context: Contex
                     title = "Bluetooth MIDI",
                     subtitle = "Connect BLE MIDI keyboards and computers",
                     checked = BluetoothMidi.isEnabled,
-                    onCheckedChange = { enabled -> BluetoothMidi.setEnabled(context, enabled) },
+                    onCheckedChange = { enabled ->
+                        BluetoothMidi.setEnabled(context, enabled)
+                        // Turned on: ask for what's missing (permission, Bluetooth) and start looking right away
+                        if (enabled) gate.run(BluetoothMidiPermissions.forAll(), ::goLive)
+                    },
                     accent = accent
                 )
                 if (BluetoothMidi.isEnabled) {

@@ -57,7 +57,7 @@ object BleMidiPeripheral {
     var isRunning by mutableStateOf(false)
         private set
     /** Whether the phone may expose itself as a Bluetooth MIDI device for computers. */
-    var isEnabled by mutableStateOf(true)
+    var isEnabled by mutableStateOf(false) // follows BluetoothMidi.isEnabled (see initialize)
         private set
     /** [SystemClock.elapsedRealtime] when the requested visibility ends, or 0 when not requested (observable). */
     var visibleUntil by mutableStateOf(0L)

@@ -104,8 +104,11 @@ object BluetoothMidi {
     /** The keyboard that went away, so its return reads "reconnected". */
     private var lostAddress: String? = null
 
-    /** Whether Bluetooth MIDI keyboard and computer connections are enabled. */
-    var isEnabled by mutableStateOf(true)
+    /**
+     * Whether Bluetooth MIDI keyboard and computer connections are enabled. Off until the person turns it on
+     * (on the MIDI & Bluetooth page): no Bluetooth searching or connecting for people who never use it.
+     */
+    var isEnabled by mutableStateOf(false)
         private set
 
     private val main = Handler(Looper.getMainLooper())
@@ -139,7 +142,13 @@ object BluetoothMidi {
         initialized = true
         val app = context.applicationContext
         appContext = app
-        isEnabled = AppPrefs.get(app).getBoolean(AppPrefs.IS_BLE_MIDI_ENABLED, true)
+        val prefs = AppPrefs.get(app)
+        // Off by default. Someone who already connected a keyboard (when it was on by default) keeps it on,
+        // so their keyboard still comes back by itself.
+        isEnabled = prefs.getBoolean(
+            AppPrefs.IS_BLE_MIDI_ENABLED,
+            prefs.getString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, null) != null
+        )
         ContextCompat.registerReceiver(app, object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
