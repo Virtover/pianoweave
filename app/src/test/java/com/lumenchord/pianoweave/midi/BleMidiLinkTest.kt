@@ -210,6 +210,27 @@ class BleMidiLinkTest {
         assertTrue(link.isReady)
     }
 
+    @Test
+    fun changedServicesAreFoundAndSubscribedAgainAndReadyIsReportedAgain() {
+        gatt.bond = Bond.Bonded
+        connectReady()
+        link.onServicesChanged()
+        assertFalse(link.isReady)
+        assertFalse(link.send(noteOn(60)))
+        assertEquals(2, gatt.discoveries)
+        assertEquals(2, gatt.refreshes)
+        link.onServices(midiChar); link.onRead(); link.onSubscribed(true)
+        assertEquals(2, events.ready)
+        assertTrue(link.send(noteOn(60)))
+    }
+
+    @Test
+    fun changedServicesBeforeDiscoveryChangeNothing() {
+        link.start(); link.onConnected()
+        link.onServicesChanged()
+        assertEquals(0, gatt.discoveries)
+    }
+
     // ------------------------------------------------------------------ pairing
 
     @Test

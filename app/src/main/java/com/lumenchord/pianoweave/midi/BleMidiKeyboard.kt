@@ -205,6 +205,12 @@ internal class BleMidiKeyboard(
             }
         }
 
+        override fun onServiceChanged(g: BluetoothGatt) = on(g) {
+            Log.i(TAG, "services changed: subscribing again")
+            characteristic = null
+            link.onServicesChanged()
+        }
+
         override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) = on(g) {
             link.onMtu(if (status == BluetoothGatt.GATT_SUCCESS) mtu else null)
         }

@@ -39,7 +39,8 @@ internal interface BleMidiClock {
  * - **Pairing:** while Android pairs, requests wait and [Listener.onPairing] says so; a refusal or failure
  *   ends with [Failure.Pairing]. A subscription refused right after pairing is tried again.
  * - **Stale services:** a paired keyboard's cached service list is dropped before discovery; reusing it
- *   once made every write "succeed" into the wrong place.
+ *   once made every write "succeed" into the wrong place. A "services changed" from the keyboard redoes
+ *   discovery and the subscription.
  * - **Sending:** messages queue in a [BleMidiOutbox] and go out one write at a time, a chord in one packet.
  *
  * Everything but [send] (and [maxSysExSize]) runs on the [clock]'s thread.
@@ -157,8 +158,22 @@ internal class BleMidiLink(
 
     private fun becomeReady() {
         if (step == Step.Closed || step == Step.Ready) return
+        // (After onServicesChanged this comes a second time, so whoever listens hears the song from the start.)
         step = Step.Ready
         listener.onReady()
+    }
+
+    /**
+     * The keyboard says its services changed (firmware update, or a simulator restarted). Android may even
+     * have reconnected underneath without a disconnect: the old subscription is gone either way, so find the
+     * service and subscribe again. Sending pauses meanwhile; ready is reported again at the end.
+     */
+    fun onServicesChanged() {
+        if (step == Step.Closed || step == Step.Connecting || step == Step.Mtu) return
+        outbox.clear()
+        subscribeRetries = SUBSCRIBE_RETRIES
+        afterPairing = null
+        discover()
     }
 
     // ---------------------------------------------------------------- pairing
