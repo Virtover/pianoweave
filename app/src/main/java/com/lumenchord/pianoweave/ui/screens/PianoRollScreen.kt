@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,14 @@ fun PianoRollScreen(
     // System back leaves the song like the toolbar's back arrow instead of closing the app. While the
     // UI bars are hidden, the player's own handler (registered later, so it wins) shows them first.
     BackHandler(onBack = onBack)
+
+    // Hands are on the piano, not the screen: keep it awake for as long as the roll is open (also while
+    // paused or waiting for a note in wait mode). Cleared on leaving, so other screens sleep normally.
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
 
     LaunchedEffect(song.file.absolutePath) {
         viewModel.isWaitModeEnabled = false
