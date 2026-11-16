@@ -20,16 +20,41 @@ object DeveloperLauncherIcon {
         AppPrefs.get(context).edit().putBoolean(AppPrefs.WANTS_DEVELOPER_LAUNCHER_ICON, developer).apply()
     }
 
+    /**
+     * Brings both aliases to the wish, whatever state they are in: also after the process died between the two
+     * changes (two icons, or with the new one first never none). Never throws: an icon is not worth a crash.
+     */
     fun applyPending(context: Context) {
-        val developer = AppPrefs.get(context).getBoolean(AppPrefs.WANTS_DEVELOPER_LAUNCHER_ICON, false)
-        val packageManager = context.packageManager
-        val developerAlias = ComponentName(context.packageName, DEVELOPER_ALIAS)
-        if (isEnabled(packageManager, developerAlias, enabledByDefault = false) == developer) return
-        val defaultAlias = ComponentName(context.packageName, DEFAULT_ALIAS)
-        // The new one first, so there is never a moment without a launcher entry
-        val (on, off) = if (developer) developerAlias to defaultAlias else defaultAlias to developerAlias
-        setEnabled(packageManager, on, true)
-        setEnabled(packageManager, off, false)
+        try {
+            val developer = AppPrefs.get(context).getBoolean(AppPrefs.WANTS_DEVELOPER_LAUNCHER_ICON, false)
+            val packageManager = context.packageManager
+            val developerAlias = ComponentName(context.packageName, DEVELOPER_ALIAS)
+            val defaultAlias = ComponentName(context.packageName, DEFAULT_ALIAS)
+            // The wanted one first, so there is never a moment without a launcher entry
+            val changes = changes(
+                wantDeveloper = developer,
+                defaultEnabled = isEnabled(packageManager, defaultAlias, enabledByDefault = true),
+                developerEnabled = isEnabled(packageManager, developerAlias, enabledByDefault = false)
+            )
+            for ((isDeveloperAlias, enable) in changes) {
+                setEnabled(packageManager, if (isDeveloperAlias) developerAlias else defaultAlias, enable)
+            }
+        } catch (e: RuntimeException) {
+            android.util.Log.w("DeveloperLauncherIcon", "Couldn't switch the launcher icon", e)
+        }
+    }
+
+    /**
+     * The changes, in order, that leave exactly the wanted alias enabled: (is the developer alias, enable). The
+     * wanted one is enabled before the other is disabled, so no step leaves the app without a launcher entry.
+     */
+    internal fun changes(wantDeveloper: Boolean, defaultEnabled: Boolean, developerEnabled: Boolean): List<Pair<Boolean, Boolean>> {
+        val wantedEnabled = if (wantDeveloper) developerEnabled else defaultEnabled
+        val otherEnabled = if (wantDeveloper) defaultEnabled else developerEnabled
+        return buildList {
+            if (!wantedEnabled) add(wantDeveloper to true)
+            if (otherEnabled) add(!wantDeveloper to false)
+        }
     }
 
     private fun isEnabled(packageManager: PackageManager, component: ComponentName, enabledByDefault: Boolean): Boolean =
