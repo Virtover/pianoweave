@@ -52,6 +52,8 @@ object BleMidiPeripheral {
     /** A failed notification goes again this soon, up to this many times (~0.5 s in all). */
     private const val RETRY_DELAY_MS = 8L
     private const val MAX_RETRIES = 60
+    /** BluetoothStatusCodes.ERROR_GATT_WRITE_REQUEST_BUSY: a notification is still going out. */
+    private const val STATUS_BUSY = 201
 
     /** How long "Make visible" keeps the phone findable. */
     const val VISIBLE_MS = 2 * 60_000L
@@ -270,7 +272,8 @@ object BleMidiPeripheral {
             if (again != null) {
                 retry = null
                 packet = again.first
-                targets = again.second.filter { it in subscribers } // one that left needs it no more
+                // One that left needs it no more; one pairing gets nothing (see below)
+                targets = again.second.filter { it in subscribers && !isPairing(it) }
                 if (targets.isEmpty()) { retries = 0; main.post(::flush); return }
             } else {
                 if (queue.isEmpty()) return
@@ -283,37 +286,56 @@ object BleMidiPeripheral {
                 }
                 if (messages.isEmpty()) { queue.poll(); return } // a message too big for any packet
                 packet = BleMidiPacket.encodeAll(messages)
-                targets = subscribers.toList()
+                // A computer pairing with the phone gets nothing meanwhile: notifications fail then, and
+                // sending (let alone retrying) during it kept the link so busy that pairing timed out and
+                // the computer asked to pair again, endlessly. What it misses is dropped, as before retries.
+                targets = subscribers.filterNot(::isPairing)
+                if (targets.isEmpty()) return
             }
             inFlight = targets.size
             inFlightSince = SystemClock.uptimeMillis()
         }
-        val failed = targets.filterNot { device ->
-            runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    srv.notifyCharacteristicChanged(device, ch, false, packet) == BluetoothGatt.GATT_SUCCESS
-                } else {
-                    @Suppress("DEPRECATION")
-                    ch.value = packet
-                    @Suppress("DEPRECATION")
-                    srv.notifyCharacteristicChanged(device, ch, false)
-                }
-            }.getOrDefault(false)
+        var failed = 0
+        val busy = targets.filter { device ->
+            val status = notify(srv, ch, device, packet)
+            if (status != BluetoothGatt.GATT_SUCCESS) failed++
+            status == STATUS_BUSY
         }
-        if (failed.isEmpty()) { retries = 0; return }
-        synchronized(queue) {
-            inFlight = (inFlight - failed.size).coerceAtLeast(0)
-            // Again in a moment; a link that keeps refusing (going away) gives up after a while, so the
-            // queue can't stall on it (when it's gone, its subscription and the queue are cleared anyway)
-            if (retries < MAX_RETRIES) {
+        if (failed == 0) { retries = 0; return }
+        val again = synchronized(queue) {
+            inFlight = (inFlight - failed).coerceAtLeast(0)
+            // Only a busy stack is worth trying again in a moment; any other refusal (not connected, not
+            // encrypted yet) drops the packet. A link that stays busy gives up after a while, so the queue
+            // can't stall on it.
+            if (busy.isNotEmpty() && retries < MAX_RETRIES) {
                 retries++
-                retry = packet to failed.toSet()
+                retry = packet to busy.toSet()
+                true
             } else {
                 retries = 0
+                false
             }
         }
-        main.postDelayed(::flush, RETRY_DELAY_MS)
+        // Given up: the next send or finished notification goes on, not another round of tries right away
+        if (again) main.postDelayed(::flush, RETRY_DELAY_MS)
     }
+
+    /** Sends one notification; the stack's status ([STATUS_BUSY] when it can't take one right now). */
+    private fun notify(srv: BluetoothGattServer, ch: BluetoothGattCharacteristic, device: BluetoothDevice, packet: ByteArray): Int =
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                srv.notifyCharacteristicChanged(device, ch, false, packet)
+            } else {
+                @Suppress("DEPRECATION")
+                ch.value = packet
+                // Older Android only says yes or no; a no there is most often a busy stack
+                @Suppress("DEPRECATION")
+                if (srv.notifyCharacteristicChanged(device, ch, false)) BluetoothGatt.GATT_SUCCESS else STATUS_BUSY
+            }
+        }.getOrDefault(BluetoothGatt.GATT_FAILURE)
+
+    private fun isPairing(device: BluetoothDevice): Boolean =
+        runCatching { device.bondState == BluetoothDevice.BOND_BONDING }.getOrDefault(false)
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
