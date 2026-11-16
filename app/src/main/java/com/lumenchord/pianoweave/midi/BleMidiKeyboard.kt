@@ -216,6 +216,8 @@ internal class BleMidiKeyboard(
         }
 
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) = on(g) {
+            val midiServices = g.services.filter { it.uuid == BleMidiPacket.SERVICE_UUID }
+            Log.i(TAG, "services: ${g.services.size}, MIDI: ${midiServices.size} (handles ${midiServices.map { it.instanceId }})")
             val ch = g.getService(BleMidiPacket.SERVICE_UUID)?.getCharacteristic(BleMidiPacket.CHARACTERISTIC_UUID)
             if (ch == null) Log.w(TAG, "no MIDI service (status $status)")
             characteristic = ch
