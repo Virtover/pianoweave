@@ -43,6 +43,8 @@ internal class BleMidiKeyboard(
 ) {
     val address: String = device.address
     val isReady: Boolean get() = link.isReady
+    /** Still the slow background wait (not yet connected), which a direct connection can replace. */
+    val isWaitingInBackground: Boolean get() = waitForIt && !link.isReady && !link.isClosed
 
     private val main = Handler(Looper.getMainLooper())
     private var context: Context? = null

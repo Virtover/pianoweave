@@ -177,9 +177,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        BluetoothMidi.onAppVisible(this)
         AppUpdates.onResume(this, updateFlowLauncher)
         // Announcements may say how to keep using the app; asked again on every return (throttled)
         viewModel.refreshAnnouncements(this)
+    }
+
+    override fun onPause() {
+        BluetoothMidi.onAppHidden()
+        super.onPause()
     }
 
     override fun onDestroy() {

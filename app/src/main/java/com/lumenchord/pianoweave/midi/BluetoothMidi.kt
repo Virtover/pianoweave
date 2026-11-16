@@ -62,6 +62,8 @@ object BluetoothMidi {
     private const val SCAN_MS = 15_000L
     private const val CONNECT_TIMEOUT_MS = 20_000L
     private const val PAIRING_TIMEOUT_MS = 60_000L
+    /** How long a quick search for the remembered keyboard runs while the app is open (see [quickFind]). */
+    private const val QUICK_FIND_MS = 20_000L
     /** Before waiting for the remembered keyboard again after the wait itself failed (e.g. Bluetooth hiccup). */
     private const val WATCH_AGAIN_MS = 10_000L
 
@@ -124,6 +126,12 @@ object BluetoothMidi {
     /** The background connection waiting for the remembered keyboard to be on and in range. */
     private var waiter: BleMidiKeyboard? = null
     private val watchAgain = Runnable { appContext?.let(::watchLast) }
+
+    /** Whether the app is on screen; only then is a full-power search worth its battery. */
+    private var isVisible = false
+    private var quickScan: ScanCallback? = null
+    private var quickScanner: BluetoothLeScanner? = null
+    private val stopQuickFindLater = Runnable { stopQuickFind() }
 
     /** Called once at app start, after [MidiInputManager.initialize]. */
     fun initialize(context: Context) {
@@ -205,6 +213,7 @@ object BluetoothMidi {
                 main.post {
                     if (scanCallback !== callback) return@post
                     seenDevices[address] = result.device
+                    if (waiter?.address == address) appContext?.let { connectNow(it, result.device) }
                     val keyboard = FoundKeyboard(address, name, result.rssi)
                     val index = found.indexOfFirst { it.address == address }
                     if (index >= 0) found[index] = keyboard else found.add(keyboard)
@@ -336,8 +345,74 @@ object BluetoothMidi {
         val adapter = adapter(context)?.takeIf { it.isEnabled } ?: return
         val address = AppPrefs.get(context).getString(AppPrefs.BLUETOOTH_MIDI_LAST_KEYBOARD, null) ?: return
         val device = runCatching { adapter.getRemoteDevice(address) }.getOrNull() ?: return
+        startWaiter(context, device, inBackground = true)
+        if (isVisible) quickFind(context, address)
+    }
+
+    /**
+     * The app came on screen: if the remembered keyboard is only being waited for in the background, look for
+     * it properly for a while (Android's background wait listens in short slices to save battery, which took
+     * 7-25 s; a full search finds a keyboard that's on in about a second). Called from the activity.
+     */
+    fun onAppVisible(context: Context) {
+        isVisible = true
+        val address = waiter?.takeIf { it.isWaitingInBackground }?.address ?: return
+        quickFind(context, address)
+    }
+
+    fun onAppHidden() {
+        isVisible = false
+        stopQuickFind()
+    }
+
+    private fun quickFind(context: Context, address: String) {
+        if (quickScan != null) return
+        val scanner = adapter(context)?.takeIf { it.isEnabled }?.bluetoothLeScanner ?: return
+        lateinit var callback: ScanCallback
+        callback = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult) {
+                main.post {
+                    if (quickScan !== callback) return@post
+                    stopQuickFind()
+                    seenDevices[address] = result.device
+                    connectNow(context, result.device)
+                }
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                main.post { if (quickScan === callback) { quickScan = null; quickScanner = null } }
+            }
+        }
+        val filter = ScanFilter.Builder().setDeviceAddress(address).build()
+        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
+        quickScan = callback
+        quickScanner = scanner
+        runCatching { scanner.startScan(listOf(filter), settings, callback) }
+            .onSuccess { main.postDelayed(stopQuickFindLater, QUICK_FIND_MS) }
+            .onFailure { quickScan = null; quickScanner = null }
+    }
+
+    private fun stopQuickFind() {
+        main.removeCallbacks(stopQuickFindLater)
+        val callback = quickScan ?: return
+        runCatching { quickScanner?.stopScan(callback) }
+        quickScan = null
+        quickScanner = null
+    }
+
+    /** The remembered keyboard was just seen: replace the slow background wait by connecting right now. */
+    private fun connectNow(context: Context, device: BluetoothDevice) {
+        val slow = waiter?.takeIf { it.isWaitingInBackground && it.address == device.address } ?: return
+        waiter = null
+        slow.close() // ends quietly (no failure), so nothing else reacts to it
+        startWaiter(context, device, inBackground = false)
+    }
+
+    /** The quiet connection to the remembered keyboard: in the background (no time limit), or right now. */
+    private fun startWaiter(context: Context, device: BluetoothDevice, inBackground: Boolean) {
+        val address = device.address
         val pending = BleMidiKeyboard(
-            device, nameOf(address, device), waitForIt = true,
+            device, nameOf(address, device), waitForIt = inBackground,
             onReady = { ready ->
                 if (waiter === ready) waiter = null
                 adopt(context, ready)
@@ -354,6 +429,7 @@ object BluetoothMidi {
 
     private fun stopWatching() {
         main.removeCallbacks(watchAgain)
+        stopQuickFind()
         waiter?.let { waiter = null; it.close() }
     }
 
