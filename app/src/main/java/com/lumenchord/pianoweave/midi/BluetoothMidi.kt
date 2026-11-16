@@ -145,7 +145,7 @@ object BluetoothMidi {
             KeyboardCues.Cancel { main.removeCallbacks(runnable) }
         },
         isAudible = { isVisible },
-        play = ConnectionChime::play,
+        play = { rising -> appContext?.let { ConnectionChime.play(it, rising) } },
     )
 
     /** Called once at app start, after [MidiInputManager.initialize]. */
@@ -484,6 +484,7 @@ object BluetoothMidi {
                 message = "${closed.name} disconnected. It reconnects when it's back."
                 announce(message!!)
                 lostAddress = closed.address
+                if (isVisible) ConnectionChime.prepare(context) // ready by the time "lost" may sound
                 cues.onLost()
             }
         }

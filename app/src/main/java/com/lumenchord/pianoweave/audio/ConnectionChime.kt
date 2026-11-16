@@ -1,20 +1,30 @@
 package com.lumenchord.pianoweave.audio
 
+import android.content.Context
+import android.media.AudioManager
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
+import android.util.Log
+import dev.kotlinds.fluidsynthkmp.AudioConfig
+import dev.kotlinds.fluidsynthkmp.FluidSynthPlayer
+import dev.kotlinds.fluidsynthkmp.Interpolation
 
 /**
- * The Bluetooth keyboard coming and going, heard as soft chords rolled upward like a harp on the app's own
- * grand piano (a channel of its own, so the song never cuts it), in open, hymn-like spacing:
+ * The Bluetooth keyboard coming and going, heard as chords rolled upward like a harp, in open, hymn-like
+ * spacing, on the same grand piano the app plays:
  * - back: one C-major chord spread wide (C4 G4 E5 C6): a quiet "here it is";
  * - lost: a whole "Amen", the plagal cadence that closes hymns (F major opening into a wide C major).
  *   Never falling, never sad: when the keyboard goes, the music rises and widens, "I am with you always"
  *   (Matthew 28:20), more than ever.
- * Played lightly, the top voice carrying, and left to ring like a held pedal in a church. Everything else
- * the app plays is turned down meanwhile ([PianoPlayer.duckForCue]) and swells back after; the touch is
- * firmer than it sounds to make up for the synth being turned down with it (one synth, one volume).
+ *
+ * It has a synth of its own, so the app's music can be turned well down underneath it
+ * ([PianoPlayer.duckForCue]) without turning the cue down too: it has to be heard over a playing song.
+ * That synth (the piano SoundFont, ~17 MB) is made when a cue may come ([prepare], at the start of the
+ * 3 s wait before "lost") and let go a minute after the last cue.
  */
 object ConnectionChime {
+    private const val TAG = "ConnectionChime"
+
     /** Notes rolled upward from [atMs] on. */
     internal class Chord(val notes: List<Int>, val atMs: Long)
 
@@ -27,37 +37,90 @@ object ConnectionChime {
     internal const val ROLL_MS = 85L
     /** How long the last chord rings before it's let go (it then fades as released keys do). */
     internal const val RING_MS = 2_600L
-    internal const val TOP_VELOCITY = 56
-    internal const val INNER_VELOCITY = 42
+    /** A clear but gentle touch: the top voice carries, the rest sit under it. */
+    internal const val TOP_VELOCITY = 64
+    internal const val INNER_VELOCITY = 50
     /** The music is down before the first note sounds. */
-    internal const val DUCK_LEAD_MS = 60L
+    internal const val DUCK_LEAD_MS = 80L
+    private const val GAIN = 0.9f
+    private const val IDLE_CLOSE_MS = 60_000L
 
-    private val main by lazy { Handler(Looper.getMainLooper()) }
+    private val thread by lazy { HandlerThread("ConnectionChime").apply { start() } }
+    private val handler by lazy { Handler(thread.looper) }
+    private var synth: FluidSynthPlayer? = null
+    private var appContext: Context? = null
     /** Cues still sounding; the music comes back only when the last one ends. */
     private var playing = 0
+    private val closeIdle = Runnable {
+        if (playing == 0) {
+            runCatching { synth?.close() }
+            synth = null
+        }
+    }
 
     internal fun phrase(rising: Boolean): List<Chord> = if (rising) BACK else LOST
 
     internal fun velocity(pitch: Int, chord: Chord): Int =
         if (pitch == chord.notes.max()) TOP_VELOCITY else INNER_VELOCITY
 
-    fun play(rising: Boolean) {
-        val chords = phrase(rising)
-        playing++
-        PianoPlayer.duckForCue(true)
-        chords.forEachIndexed { index, chord ->
-            chord.notes.forEachIndexed { i, pitch ->
-                main.postDelayed({ PianoPlayer.cueOn(pitch, velocity(pitch, chord)) }, DUCK_LEAD_MS + chord.atMs + i * ROLL_MS)
-            }
-            // Each chord gives way to the next (or rings out at the end), like changing harmony under the pedal
-            val endMs = chords.getOrNull(index + 1)?.atMs?.plus(ROLL_MS * 2)
-                ?: (chord.atMs + chord.notes.size * ROLL_MS + RING_MS)
-            main.postDelayed({ chord.notes.forEach(PianoPlayer::cueOff) }, DUCK_LEAD_MS + endMs)
-        }
-        main.postDelayed({ if (--playing == 0) PianoPlayer.duckForCue(false) }, DUCK_LEAD_MS + totalMs(chords))
-    }
-
     /** From the first note until the last chord is let go. */
     internal fun totalMs(chords: List<Chord>): Long =
         chords.last().let { it.atMs + it.notes.size * ROLL_MS + RING_MS }
+
+    /** Gets the synth ready in the background, so a cue soon after plays at once. */
+    fun prepare(context: Context) {
+        appContext = context.applicationContext
+        handler.post { ensureSynth() }
+    }
+
+    fun play(context: Context, rising: Boolean) {
+        appContext = context.applicationContext
+        handler.post {
+            val player = ensureSynth() ?: return@post
+            handler.removeCallbacks(closeIdle)
+            val chords = phrase(rising)
+            playing++
+            PianoPlayer.duckForCue(true)
+            chords.forEachIndexed { index, chord ->
+                chord.notes.forEachIndexed { i, pitch ->
+                    handler.postDelayed({
+                        runCatching { player.noteOn(0, pitch, velocity(pitch, chord)) }
+                    }, DUCK_LEAD_MS + chord.atMs + i * ROLL_MS)
+                }
+                // Each chord gives way to the next (or rings out at the end), like changing harmony under the pedal
+                val endMs = chords.getOrNull(index + 1)?.atMs?.plus(ROLL_MS * 2)
+                    ?: (chord.atMs + chord.notes.size * ROLL_MS + RING_MS)
+                handler.postDelayed({
+                    chord.notes.forEach { runCatching { player.noteOff(0, it) } }
+                }, DUCK_LEAD_MS + endMs)
+            }
+            handler.postDelayed({
+                if (--playing == 0) {
+                    PianoPlayer.duckForCue(false)
+                    handler.postDelayed(closeIdle, IDLE_CLOSE_MS)
+                }
+            }, DUCK_LEAD_MS + totalMs(chords))
+        }
+    }
+
+    /** On the chime thread. Null if the synth couldn't be made (then no cue; the app goes on as before). */
+    private fun ensureSynth(): FluidSynthPlayer? {
+        synth?.let { return it }
+        val context = appContext ?: return null
+        return runCatching {
+            val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            val rate = audio?.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull() ?: 48_000
+            val period = (audio?.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER)?.toIntOrNull() ?: 256)
+                .coerceIn(128, 512)
+            FluidSynthPlayer(
+                AudioConfig(sampleRate = rate, interpolation = Interpolation.HIGH, periodSize = period, periods = 4)
+            ).apply {
+                check(loadSoundFont(PianoPlayer.copySoundFont(context)) >= 0) { "SoundFont did not load" }
+                programChange(0, 0)
+                setGain(GAIN)
+                // More space than the practice piano: it should sound like it fills a church
+                setReverb(roomSize = 0.85, damping = 0.30, width = 1.0, level = 0.45)
+            }
+        }.onFailure { Log.w(TAG, "no chime synth", it) }.getOrNull().also { synth = it }
+    }
 }

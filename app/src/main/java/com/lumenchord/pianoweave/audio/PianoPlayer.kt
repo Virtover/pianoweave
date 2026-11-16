@@ -24,8 +24,6 @@ object PianoPlayer : AutoCloseable {
     private const val TAG = "PianoPlayer"
     private const val SOUND_FONT = "Full Grand Piano.sf2"
     private const val CHANNEL = 0
-    /** The Bluetooth keyboard's "lost" / "back" notes: the same piano, but never cut by the song or keyboard. */
-    private const val CUE_CHANNEL = 2
     private const val GRAND_PIANO = 0
 
     // Master gain configured to 0.82f to give headroom for polyphonic chords without digital clipping
@@ -39,9 +37,9 @@ object PianoPlayer : AutoCloseable {
     private const val DUCK_RAMP_STEP_MS = 8L
     private const val DUCK_RESTORE_DELAY_MS = 400L
 
-    // While a Bluetooth keyboard cue plays (ConnectionChime), everything else is 12 dB down so the cue is
-    // heard clearly; afterwards the music swells back slowly instead of jumping.
-    private const val CUE_DUCK_GAIN = MASTER_GAIN * 0.25f
+    // While a Bluetooth keyboard cue plays (ConnectionChime, a synth of its own), everything here is about
+    // 15 dB down so the cue stands out even over a loud song; afterwards it swells back slowly.
+    private const val CUE_DUCK_GAIN = MASTER_GAIN * 0.18f
     private const val CUE_RESTORE_STEPS = 25
     private const val CUE_RESTORE_STEP_MS = 20L
     @Volatile private var voiceDucked = false
@@ -105,7 +103,6 @@ object PianoPlayer : AutoCloseable {
                 }
 
                 programChange(CHANNEL, GRAND_PIANO)
-                programChange(CUE_CHANNEL, GRAND_PIANO)
                 programChange(MetronomeClick.CHANNEL, 0)
                 setGain(targetGain)
                 currentGain = targetGain
@@ -255,20 +252,6 @@ object PianoPlayer : AutoCloseable {
         }
     }
 
-    /** One soft note on the cue channel; it rings until [cueOff]. */
-    @Synchronized
-    fun cueOn(pitch: Int, velocity: Int) {
-        if (player == null || !isInitialized.get()) {
-            appContext?.let { initialize(it) }
-        }
-        runCatching { player?.noteOn(CUE_CHANNEL, pitch, velocity.coerceIn(1, 127)) }
-    }
-
-    @Synchronized
-    fun cueOff(pitch: Int) {
-        runCatching { player?.noteOff(CUE_CHANNEL, pitch) }
-    }
-
     @Synchronized
     fun noteOff(pitch: Int) {
         if (pitch !in 0..127) return
@@ -303,7 +286,8 @@ object PianoPlayer : AutoCloseable {
         isInitialized.set(false)
     }
 
-    private fun copySoundFont(context: Context): String {
+    /** The piano SoundFont as a file (copied out of the assets once); also loaded by [ConnectionChime]. */
+    internal fun copySoundFont(context: Context): String {
         val destination = File(context.filesDir, SOUND_FONT)
         if (!destination.exists() || destination.length() == 0L) {
             context.assets.open(SOUND_FONT).use { input ->
