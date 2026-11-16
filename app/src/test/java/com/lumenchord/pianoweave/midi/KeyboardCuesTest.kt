@@ -83,18 +83,21 @@ class KeyboardCuesTest {
     }
 
     @Test
-    fun backRisesAndLostSettlesDownwardBothSoftMajorChords() {
-        val back = ConnectionChime.notes(rising = true)
-        val lost = ConnectionChime.notes(rising = false)
-        assertEquals(back.sorted(), back) // rolled upward
-        assertEquals(lost.sortedDescending(), lost) // rolled downward
-        assertEquals(setOf(0, 4, 7), back.map { (it - back.first()) % 12 }.toSet()) // C major
-        assertEquals(setOf(0, 4, 7), lost.map { (it - lost.last()) % 12 }.toSet()) // C major too: never sad
-        back.forEach { assertTrue(ConnectionChime.velocity(it, back) <= 40) }
-        assertEquals(ConnectionChime.TOP_VELOCITY, ConnectionChime.velocity(84, back)) // the top voice carries
-        // Gentler, voice for voice, and it ends on the root at the bottom: the ground stays
-        assertTrue(ConnectionChime.velocity(lost.max(), lost) < ConnectionChime.velocity(back.max(), back))
-        assertTrue(ConnectionChime.velocity(lost.min(), lost) < ConnectionChime.velocity(back.min(), back))
-        assertEquals(0, (lost.last() - back.first()) % 12)
+    fun backIsOneRisingMajorChordAndLostAWholeAmenNeverFalling() {
+        fun classes(chord: ConnectionChime.Chord) = chord.notes.map { (it - chord.notes.first()) % 12 }.toSet()
+        val back = ConnectionChime.phrase(rising = true)
+        val lost = ConnectionChime.phrase(rising = false)
+        (back + lost).forEach { chord ->
+            assertEquals(chord.notes.sorted(), chord.notes) // every chord rolls upward
+            chord.notes.forEach { assertTrue(ConnectionChime.velocity(it, chord) <= 64) } // and stays gentle
+        }
+        assertEquals(1, back.size)
+        assertEquals(setOf(0, 7, 4), classes(back.single())) // C major
+        assertEquals(setOf(0, 7, 4), classes(lost[0])) // F major...
+        assertEquals(5, (lost[0].notes.first() - lost[1].notes.first()) % 12) // ...a fourth above the C: IV
+        assertEquals(setOf(0, 7, 4), classes(lost[1])) // ...into C major: "Amen"
+        assertTrue(lost[1].atMs > lost[0].atMs)
+        assertTrue(lost[1].notes.max() >= lost[0].notes.max()) // it rises, never falls
+        assertTrue(lost[1].notes.size > lost[0].notes.size) // and widens
     }
 }

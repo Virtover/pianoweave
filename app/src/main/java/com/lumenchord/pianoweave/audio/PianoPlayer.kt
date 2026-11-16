@@ -39,6 +39,14 @@ object PianoPlayer : AutoCloseable {
     private const val DUCK_RAMP_STEP_MS = 8L
     private const val DUCK_RESTORE_DELAY_MS = 400L
 
+    // While a Bluetooth keyboard cue plays (ConnectionChime), everything else is 12 dB down so the cue is
+    // heard clearly; afterwards the music swells back slowly instead of jumping.
+    private const val CUE_DUCK_GAIN = MASTER_GAIN * 0.25f
+    private const val CUE_RESTORE_STEPS = 25
+    private const val CUE_RESTORE_STEP_MS = 20L
+    @Volatile private var voiceDucked = false
+    @Volatile private var cueDucked = false
+
     private val gainExecutor = Executors.newSingleThreadScheduledExecutor { Thread(it, "PianoGain").apply { isDaemon = true } }
     private var pendingRestore: ScheduledFuture<*>? = null
     @Volatile private var currentGain = MASTER_GAIN
@@ -176,27 +184,45 @@ object PianoPlayer : AutoCloseable {
             pendingRestore?.cancel(false)
             pendingRestore = null
             if (on) {
-                rampTo(VOICE_DUCK_GAIN)
-            } else if (targetGain != MASTER_GAIN) {
-                pendingRestore = gainExecutor.schedule({ rampTo(MASTER_GAIN) }, DUCK_RESTORE_DELAY_MS, TimeUnit.MILLISECONDS)
+                voiceDucked = true
+                rampTo(duckTarget())
+            } else if (voiceDucked) {
+                pendingRestore = gainExecutor.schedule({
+                    synchronized(gainExecutor) { voiceDucked = false; rampTo(duckTarget()) }
+                }, DUCK_RESTORE_DELAY_MS, TimeUnit.MILLISECONDS)
             }
         }
     }
 
-    private fun rampTo(gain: Float) {
+    /** Everything else down while a keyboard cue plays ([on]), slowly back up after. Any thread. */
+    fun duckForCue(on: Boolean) {
+        synchronized(gainExecutor) {
+            cueDucked = on
+            if (on) rampTo(duckTarget()) else rampTo(duckTarget(), CUE_RESTORE_STEPS, CUE_RESTORE_STEP_MS)
+        }
+    }
+
+    /** The deepest duck asked for: the cue's, then a voice command's, else full level. */
+    private fun duckTarget(): Float = when {
+        cueDucked -> CUE_DUCK_GAIN
+        voiceDucked -> VOICE_DUCK_GAIN
+        else -> MASTER_GAIN
+    }
+
+    private fun rampTo(gain: Float, steps: Int = DUCK_RAMP_STEPS, stepMs: Long = DUCK_RAMP_STEP_MS) {
         if (targetGain == gain) return
         targetGain = gain
         gainExecutor.execute {
             val from = currentGain
-            for (step in 1..DUCK_RAMP_STEPS) {
+            for (step in 1..steps) {
                 // A newer ramp took over
                 if (targetGain != gain) return@execute
-                val g = from + (gain - from) * step / DUCK_RAMP_STEPS
+                val g = from + (gain - from) * step / steps
                 try {
                     player?.setGain(g)
                 } catch (_: Exception) {}
                 currentGain = g
-                Thread.sleep(DUCK_RAMP_STEP_MS)
+                Thread.sleep(stepMs)
             }
         }
     }
