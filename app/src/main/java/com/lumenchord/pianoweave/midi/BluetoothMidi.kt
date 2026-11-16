@@ -85,6 +85,23 @@ object BluetoothMidi {
     /** Goes up each time Bluetooth comes back on, so an open MIDI page can start over (observable). */
     var bluetoothRestarts by mutableStateOf(0)
         private set
+    /** Something to tell the person wherever they are: the remembered keyboard came back or went away. */
+    class Notice(val id: Int, val text: String)
+
+    /** The latest [Notice] (observable); shown once, by whichever screen claims it ([claimNotice]). */
+    var notice by mutableStateOf<Notice?>(null)
+        private set
+    private var noticeCount = 0
+    private var claimedNotice = 0
+
+    /** True the first time a screen asks to show notice [id]. */
+    fun claimNotice(id: Int): Boolean = (id > claimedNotice).also { if (it) claimedNotice = id }
+
+    private fun announce(text: String) { notice = Notice(++noticeCount, text) }
+
+    /** The keyboard that went away, so its return reads "reconnected". */
+    private var lostAddress: String? = null
+
     /** Whether Bluetooth MIDI keyboard and computer connections are enabled. */
     var isEnabled by mutableStateOf(true)
         private set
@@ -324,6 +341,9 @@ object BluetoothMidi {
             onReady = { ready ->
                 if (waiter === ready) waiter = null
                 adopt(context, ready)
+                // It connected by itself: say so, as nobody tapped anything
+                announce(if (lostAddress == ready.address) "${ready.name} reconnected" else "${ready.name} connected")
+                lostAddress = null
             },
             onPairing = {},
             onClosed = { closed, _, failure -> onKeyboardClosed(context, closed, failure) },
@@ -358,7 +378,11 @@ object BluetoothMidi {
         if (keyboard === closed) {
             keyboard = null
             if (connectedAddress == closed.address) connectedAddress = null
-            if (failure == BleMidiLink.Failure.Lost) message = "${closed.name} disconnected. It reconnects when it's back."
+            if (failure == BleMidiLink.Failure.Lost) {
+                message = "${closed.name} disconnected. It reconnects when it's back."
+                announce(message!!)
+                lostAddress = closed.address
+            }
         }
         if (waiter === closed) waiter = null
         when (KeyboardReconnect.afterClose(role, failure)) {

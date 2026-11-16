@@ -65,6 +65,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
+import com.lumenchord.pianoweave.ui.components.KeyboardNotices
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
@@ -311,6 +312,8 @@ private fun PianoWeaveApp(
             }
         }
     }
+
+    KeyboardNotices(snackbarHost)
 
     val updateState = AppUpdates.state
     LaunchedEffect(updateState) {

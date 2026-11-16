@@ -66,6 +66,7 @@ import com.lumenchord.pianoweave.midi.RollSync
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.SustainPedalSpan
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
+import com.lumenchord.pianoweave.ui.components.KeyboardNotices
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
@@ -516,6 +517,8 @@ internal fun ModernPianoPlayerContent(
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    KeyboardNotices(snackbarHostState)
 
     // A voice model download that fails while practicing says so (the toolbar mic alone is easy to miss)
     var lastVoiceModelState by remember { mutableStateOf(viewModel.voiceModelState) }
