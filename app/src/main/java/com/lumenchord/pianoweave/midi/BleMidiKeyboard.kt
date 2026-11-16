@@ -64,7 +64,9 @@ internal class BleMidiKeyboard(
     private var writing: GattSequence<BluetoothGattCharacteristic>? = null
     private var loggedWrite = false
     private val parser = MidiNoteParser(
-        MidiInputManager::receiveNoteOn, MidiInputManager::receiveNoteOff, MidiInputManager::receiveControlChange
+        // "Keyboard" variants: also passed on to a computer on the phone's Bluetooth MIDI (the website)
+        MidiInputManager::receiveKeyboardNoteOn, MidiInputManager::receiveKeyboardNoteOff,
+        MidiInputManager::receiveKeyboardControlChange
     )
 
     private val clock = object : BleMidiClock {

@@ -76,14 +76,18 @@ object MidiInputManager {
 
     /**
      * Whether the song being played is also sent to the connected MIDI device or computer (e.g. a computer the
-     * phone is plugged into in USB "MIDI" mode), which can then show and play it. Only the song's notes are sent, never
-     * notes received from the device, so nothing echoes back.
+     * phone is plugged into in USB "MIDI" mode), which can then show and play it. A device's notes never go back
+     * to it, so nothing echoes; a Bluetooth keyboard's notes do go on to a computer on the phone's own Bluetooth
+     * MIDI (see [receiveKeyboardNoteOn]).
      */
     @Volatile
     var isOutputEnabled = true
         set(value) {
             field = value
-            if (!value) sendAllNotesOff()
+            if (!value) {
+                sendAllNotesOff()
+                releaseForwarded()
+            }
         }
 
     /**
@@ -247,6 +251,52 @@ object MidiInputManager {
         simulateExternalNoteOff(pitch)
     }
 
+    // A Bluetooth keyboard connected to the phone plays into the app, and is passed on to a computer
+    // connected to the phone's own Bluetooth MIDI ([BleMidiPeripheral]), so the website's piano shows and
+    // plays it too. Only to that computer: never back to the keyboard, and a computer's own notes (which
+    // come in through [receiveNoteOn]) never go back to it. Follows [isOutputEnabled], like the song.
+
+    /** Keyboard notes passed on and not yet released, so a disconnect lets go of exactly those over there. */
+    private val forwardedPitches = ConcurrentHashMap.newKeySet<Int>()
+    @Volatile
+    private var forwardedPedal = false
+
+    internal fun receiveKeyboardNoteOn(pitch: Int, velocity: Int) {
+        receiveNoteOn(pitch, velocity)
+        if (!isOutputEnabled || pitch !in 0..127) return
+        val message = byteArrayOf(0x90.toByte(), pitch.toByte(), velocity.coerceIn(1, 127).toByte())
+        if (BleMidiPeripheral.send(message)) forwardedPitches.add(pitch)
+    }
+
+    internal fun receiveKeyboardNoteOff(pitch: Int) {
+        receiveNoteOff(pitch)
+        if (forwardedPitches.remove(pitch)) BleMidiPeripheral.send(byteArrayOf(0x80.toByte(), pitch.toByte(), 0))
+    }
+
+    internal fun receiveKeyboardControlChange(controller: Int, value: Int) {
+        receiveControlChange(controller, value)
+        when (controller) {
+            64 -> {
+                val down = value >= 64
+                if (down == forwardedPedal || (down && !isOutputEnabled)) return
+                forwardedPedal = down
+                BleMidiPeripheral.send(byteArrayOf(0xB0.toByte(), 64, if (down) 127 else 0))
+            }
+            120, 123 -> releaseForwarded()
+        }
+    }
+
+    /** Lets go of every keyboard note (and the pedal) passed on to the computer. */
+    private fun releaseForwarded() {
+        forwardedPitches.toList().forEach { pitch ->
+            if (forwardedPitches.remove(pitch)) BleMidiPeripheral.send(byteArrayOf(0x80.toByte(), pitch.toByte(), 0))
+        }
+        if (forwardedPedal) {
+            forwardedPedal = false
+            BleMidiPeripheral.send(byteArrayOf(0xB0.toByte(), 64, 0))
+        }
+    }
+
     /**
      * Control change from a keyboard or computer: the sustain pedal (64), and "all notes off" (123) / "all
      * sound off" (120), which silence everything the keyboard plays, pedal-held notes too. (MIDI lets the
@@ -269,6 +319,7 @@ object MidiInputManager {
 
     private fun disconnect() {
         sendAllNotesOff()
+        releaseForwarded()
         runCatching { activeInputPort?.close() }
         activeInputPort = null
         runCatching { activePort?.close() }
