@@ -16,6 +16,10 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -45,6 +49,11 @@ fun DeveloperPanelDialog(viewModel: PianoWeaveViewModel, context: Context) {
     val accent = LocalAppTheme.current.primaryColor
     val slate = MaterialTheme.colorScheme.tertiaryContainer
     val close = { viewModel.dismissDeveloperPanel() }
+    // Set by a tap on Refresh, cleared when that load ends
+    var manualRefresh by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel.isLoadingDeveloperServerState) {
+        if (!viewModel.isLoadingDeveloperServerState) manualRefresh = false
+    }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -89,11 +98,21 @@ fun DeveloperPanelDialog(viewModel: PianoWeaveViewModel, context: Context) {
                     PanelSection(
                         title = "SERVER",
                         trailing = {
-                            if (viewModel.isLoadingDeveloperServerState) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = accent)
-                            } else {
-                                IconButton(onClick = { viewModel.refreshDeveloperServerState(context) }, modifier = Modifier.size(24.dp)) {
-                                    Icon(Icons.Rounded.Refresh, contentDescription = "Refresh", tint = accent, modifier = Modifier.size(18.dp))
+                            // The 5 s refresh is silent; only a tap shows the spinner, so nothing blinks while open.
+                            // A fixed box keeps the header still when it swaps.
+                            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                                if (manualRefresh && viewModel.isLoadingDeveloperServerState) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = accent)
+                                } else {
+                                    IconButton(
+                                        onClick = {
+                                            manualRefresh = true
+                                            viewModel.refreshDeveloperServerState(context)
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Rounded.Refresh, contentDescription = "Refresh", tint = accent, modifier = Modifier.size(18.dp))
+                                    }
                                 }
                             }
                         }
