@@ -13,9 +13,8 @@ import dev.kotlinds.fluidsynthkmp.Interpolation
  * The Bluetooth keyboard coming and going, heard as chords rolled upward like a harp, in open, hymn-like
  * spacing, on the same grand piano the app plays:
  * - back: one C-major chord spread wide (C4 G4 E5 C6): a quiet "here it is";
- * - lost: a whole "Amen", the plagal cadence that closes hymns (F major opening into a wide C major).
- *   Never falling, never sad: when the keyboard goes, the music rises and widens, "I am with you always"
- *   (Matthew 28:20), more than ever.
+ * - lost: one F-major chord, spread wide and rolled upward the same way: warm and open, the "A-" of an
+ *   "Amen" left hanging in the air. Never falling, never sad: "I am with you always" (Matthew 28:20).
  *
  * It has a synth of its own, so the app's music can be turned well down underneath it
  * ([PianoPlayer.duckForCue]) without turning the cue down too: it has to be heard over a playing song.
@@ -25,14 +24,11 @@ import dev.kotlinds.fluidsynthkmp.Interpolation
 object ConnectionChime {
     private const val TAG = "ConnectionChime"
 
-    /** Notes rolled upward from [atMs] on. */
+    /** Notes rolled upward from [atMs] on; each chord gives way to the next, the last rings out. */
     internal class Chord(val notes: List<Int>, val atMs: Long)
 
     internal val BACK = listOf(Chord(listOf(60, 67, 76, 84), 0))
-    internal val LOST = listOf(
-        Chord(listOf(53, 60, 65, 69, 77), 0),        // "A-": F major (F3 C4 F4 A4 F5)
-        Chord(listOf(48, 55, 64, 72, 79, 84), 900),  // "-men": C major, wider and higher (C3 G3 E4 C5 G5 C6)
-    )
+    internal val LOST = listOf(Chord(listOf(53, 60, 65, 69, 77), 0)) // F major: F3 C4 F4 A4 F5
     /** Between the notes of a roll. */
     internal const val ROLL_MS = 85L
     /** How long the last chord rings before it's let go (it then fades as released keys do). */
@@ -87,9 +83,8 @@ object ConnectionChime {
                         runCatching { player.noteOn(0, pitch, velocity(pitch, chord)) }
                     }, DUCK_LEAD_MS + chord.atMs + i * ROLL_MS)
                 }
-                // Each chord gives way to the next (or rings out at the end), like changing harmony under the pedal
-                val endMs = chords.getOrNull(index + 1)?.atMs?.plus(ROLL_MS * 2)
-                    ?: (chord.atMs + chord.notes.size * ROLL_MS + RING_MS)
+                // Each gives way to the next (or rings out at the end), like changing harmony under the pedal
+                val endMs = chords.getOrNull(index + 1)?.atMs?.plus(ROLL_MS * 2) ?: totalMs(chords)
                 handler.postDelayed({
                     chord.notes.forEach { runCatching { player.noteOff(0, it) } }
                 }, DUCK_LEAD_MS + endMs)

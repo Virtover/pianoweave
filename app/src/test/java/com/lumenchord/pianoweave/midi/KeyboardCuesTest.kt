@@ -83,21 +83,17 @@ class KeyboardCuesTest {
     }
 
     @Test
-    fun backIsOneRisingMajorChordAndLostAWholeAmenNeverFalling() {
+    fun backIsARolledCMajorChordAndLostARolledFMajorOne() {
         fun classes(chord: ConnectionChime.Chord) = chord.notes.map { (it - chord.notes.first()) % 12 }.toSet()
-        val back = ConnectionChime.phrase(rising = true)
-        val lost = ConnectionChime.phrase(rising = false)
-        (back + lost).forEach { chord ->
-            assertEquals(chord.notes.sorted(), chord.notes) // every chord rolls upward
-            chord.notes.forEach { assertTrue(ConnectionChime.velocity(it, chord) <= 64) } // and stays gentle
+        val back = ConnectionChime.phrase(rising = true).single()
+        val lost = ConnectionChime.phrase(rising = false).single()
+        listOf(back, lost).forEach { chord ->
+            assertEquals(chord.notes.sorted(), chord.notes) // rolled upward
+            chord.notes.forEach { assertTrue(ConnectionChime.velocity(it, chord) <= 64) } // and gentle
         }
-        assertEquals(1, back.size)
-        assertEquals(setOf(0, 7, 4), classes(back.single())) // C major
-        assertEquals(setOf(0, 7, 4), classes(lost[0])) // F major...
-        assertEquals(5, (lost[0].notes.first() - lost[1].notes.first()) % 12) // ...a fourth above the C: IV
-        assertEquals(setOf(0, 7, 4), classes(lost[1])) // ...into C major: "Amen"
-        assertTrue(lost[1].atMs > lost[0].atMs)
-        assertTrue(lost[1].notes.max() >= lost[0].notes.max()) // it rises, never falls
-        assertTrue(lost[1].notes.size > lost[0].notes.size) // and widens
+        assertEquals(0, back.notes.first() % 12) // C...
+        assertEquals(setOf(0, 4, 7), classes(back)) // ...major
+        assertEquals(5, lost.notes.first() % 12) // F...
+        assertEquals(setOf(0, 4, 7), classes(lost)) // ...major: never sad
     }
 }
