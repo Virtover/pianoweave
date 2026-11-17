@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.billing
 
 import com.android.billingclient.api.BillingFlowParams.ProductDetailsParams.SubscriptionProductReplacementParams.ReplacementMode
+import com.android.billingclient.api.BillingClient.BillingResponseCode
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.lumenchord.pianoweave.api.ActiveSubscription
@@ -15,7 +16,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 
 class SubscriptionsTest {
 
@@ -149,23 +152,70 @@ class SubscriptionsTest {
 
     @Test
     fun fairUseNote() {
-        assertEquals("Fair use: up to 300 minutes of transcription a day", fairUseText(300))
+        assertEquals("Fair use: up to 300 minutes a day", fairUseText(300))
         assertNull(fairUseText(null))
         assertNull(fairUseText(0))
     }
 
     @Test
     fun statusTextsByState() {
-        val date = { _: Long -> "17 Dec 2026" }
+        val phrase = { _: Long -> "on Dec 17, 2026" }
         val active = ActiveSubscription(productId = "p", periodEndsAt = 1, autoRenewing = true, state = "ACTIVE")
-        assertEquals("Renews on 17 Dec 2026", subscriptionStatusText(active, date))
-        assertEquals("Ends on 17 Dec 2026", subscriptionStatusText(active.copy(state = "CANCELED", autoRenewing = false), date))
+        assertEquals("Renews on Dec 17, 2026", subscriptionStatusText(active, phrase))
+        assertEquals("Ends on Dec 17, 2026", subscriptionStatusText(active.copy(state = "CANCELED", autoRenewing = false), phrase))
+        assertEquals("Ends today at 21:14", subscriptionStatusText(active.copy(state = "CANCELED"), { "today at 21:14" }))
         assertEquals(SubscriptionState.GracePeriod, active.copy(state = "IN_GRACE_PERIOD").subscriptionState)
-        assertEquals("Payment issue — update it in Google Play", subscriptionStatusText(active.copy(state = "IN_GRACE_PERIOD"), date))
+        assertEquals("Payment issue — update it in Google Play", subscriptionStatusText(active.copy(state = "IN_GRACE_PERIOD"), phrase))
         // Not renewing without a state from the server still reads as ending
         assertEquals(SubscriptionState.Canceled, active.copy(state = null, autoRenewing = false).subscriptionState)
-        assertNull(subscriptionStatusText(active.copy(periodEndsAt = null), date))
-        assertEquals("Won't renew", subscriptionStatusText(active.copy(state = "CANCELED", periodEndsAt = null), date))
+        assertNull(subscriptionStatusText(active.copy(periodEndsAt = null), phrase))
+        assertEquals("Won't renew", subscriptionStatusText(active.copy(state = "CANCELED", periodEndsAt = null), phrase))
+    }
+
+    private val warsaw = TimeZone.getTimeZone("Europe/Warsaw")
+
+    /** Epoch seconds of a Warsaw wall-clock time. */
+    private fun warsawAt(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long =
+        Calendar.getInstance(warsaw).apply {
+            clear()
+            set(year, month - 1, day, hour, minute)
+        }.timeInMillis / 1000
+
+    @Test
+    fun periodEndsUseTheAppsLanguageNotThePhones() {
+        val saved = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.forLanguageTag("pl-PL"))
+            val now = warsawAt(2026, 11, 10, 12, 0) * 1000
+            val end = warsawAt(2026, 11, 17, 21, 14)
+            assertEquals("on Nov 17, 2026", periodEndPhrase(end, now, is24Hour = true, zone = warsaw))
+            // Within a day: today or tomorrow, with the time, still in English
+            val evening = warsawAt(2026, 11, 10, 21, 14)
+            assertEquals("today at 21:14", periodEndPhrase(evening, now, is24Hour = true, zone = warsaw))
+            assertEquals("today at 9:14 PM", periodEndPhrase(evening, now, is24Hour = false, zone = warsaw))
+            val nextMorning = warsawAt(2026, 11, 11, 9, 5)
+            assertEquals("tomorrow at 9:05", periodEndPhrase(nextMorning, now, is24Hour = true, zone = warsaw))
+            assertEquals("tomorrow at 9:05 AM", periodEndPhrase(nextMorning, now, is24Hour = false, zone = warsaw))
+            // A test subscription five minutes away
+            assertEquals("today at 12:05", periodEndPhrase(warsawAt(2026, 11, 10, 12, 5), now, is24Hour = true, zone = warsaw))
+            // More than a day away, or already past: the date
+            assertEquals("on Nov 11, 2026", periodEndPhrase(warsawAt(2026, 11, 11, 12, 30), now, is24Hour = true, zone = warsaw))
+            assertEquals("on Nov 10, 2026", periodEndPhrase(warsawAt(2026, 11, 10, 11, 0), now, is24Hour = true, zone = warsaw))
+        } finally {
+            Locale.setDefault(saved)
+        }
+    }
+
+    @Test
+    fun playAnswersWithoutAPurchaseAreNotErrors() {
+        assertEquals(PurchaseUpdateAction.Handle, purchaseUpdateAction(BillingResponseCode.OK, hasPurchases = true))
+        // A subscription cancelled in Play comes back as OK with no purchases
+        assertEquals(PurchaseUpdateAction.Recover, purchaseUpdateAction(BillingResponseCode.OK, hasPurchases = false))
+        assertEquals(PurchaseUpdateAction.Recover, purchaseUpdateAction(BillingResponseCode.ITEM_ALREADY_OWNED, hasPurchases = false))
+        assertEquals(PurchaseUpdateAction.Ignore, purchaseUpdateAction(BillingResponseCode.USER_CANCELED, hasPurchases = false))
+        for (code in listOf(BillingResponseCode.ERROR, BillingResponseCode.SERVICE_UNAVAILABLE, BillingResponseCode.BILLING_UNAVAILABLE, BillingResponseCode.DEVELOPER_ERROR)) {
+            assertEquals("$code", PurchaseUpdateAction.Error, purchaseUpdateAction(code, hasPurchases = false))
+        }
     }
 
     @Test

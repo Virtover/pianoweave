@@ -493,8 +493,9 @@ class PianoWeaveViewModel : ViewModel() {
     fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) = updateServerSettingsImpl(context, useCustom, customUrl, customClientId)
     fun updateServerPassword(context: Context, password: String) = updateServerPasswordImpl(context, password)
     suspend fun verifyGooglePlayPurchase(context: Context, productId: String, purchaseToken: String): Boolean = verifyGooglePlayPurchaseImpl(context, productId, purchaseToken)
-    suspend fun verifyGooglePlaySubscription(context: Context, productId: String, purchaseToken: String, fromRecovery: Boolean = false) =
-        verifyGooglePlaySubscriptionImpl(context, productId, purchaseToken, fromRecovery)
+    suspend fun verifyGooglePlaySubscription(
+        context: Context, productId: String, purchaseToken: String, fromRecovery: Boolean = false, recheck: Boolean = false
+    ) = verifyGooglePlaySubscriptionImpl(context, productId, purchaseToken, fromRecovery, recheck)
     fun dismissBillingNotice() { billingNotice = null }
 
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)

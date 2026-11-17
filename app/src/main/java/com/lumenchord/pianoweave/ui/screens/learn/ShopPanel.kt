@@ -68,6 +68,13 @@ import com.lumenchord.pianoweave.ui.components.DialogSurface
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.Moods
 import com.lumenchord.pianoweave.ui.theme.PillShape
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 
 /** Test tags of the shop's parts. */
@@ -78,15 +85,20 @@ object ShopTags {
     const val LOADING = "shop_loading"
     const val UNAVAILABLE = "shop_unavailable"
     const val MANAGE = "shop_manage"
+    const val TABS = "shop_tabs"
 }
+
 
 /** Plans sit side by side from this width; narrower, they stack. */
 private val SIDE_BY_SIDE_MIN_WIDTH = 520.dp
 
+/** The shop's two lists; one is shown at a time. */
+enum class ShopTab { Plans, Packs }
+
 /**
- * The shop: the balance, then plans, then credit packs, then a quiet footer. Calm on purpose: no countdowns, no
- * badges shouting a deal, nothing that opens on its own. Sections without anything to offer are left out, and
- * with nothing at all there is one tidy note instead of empty headers.
+ * The shop: the balance, then one list at a time (plans or credit packs, switched by a segmented control when
+ * both are offered), one quiet line about it, and a footer. Calm on purpose: no countdowns, no badges shouting a
+ * deal, nothing that opens on its own. With nothing on offer there is one tidy note instead of empty lists.
  */
 @Composable
 fun ShopPanel(
@@ -99,6 +111,14 @@ fun ShopPanel(
 ) {
     val gold = LocalAppTheme.current.primaryColor
     val slate = MaterialTheme.colorScheme.tertiaryContainer
+    // Chosen afresh on every opening: a subscriber most likely came for credits, anyone else for a plan
+    var chosenTab by remember { mutableStateOf(state.defaultTab) }
+    val tab = when {
+        state.plans.isEmpty() -> ShopTab.Packs
+        state.packs.isEmpty() -> ShopTab.Plans
+        else -> chosenTab
+    }
+    val showsLists = state.unavailableMessage == null && !state.isLoading && !state.isEmpty
     DialogSurface(
         light = gold,
         modifier = modifier,
@@ -111,8 +131,8 @@ fun ShopPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             DialogHeader(title = "Credits Shop", icon = Icons.Default.ShoppingCart, onClose = onClose, titleColor = gold)
 
@@ -138,34 +158,60 @@ fun ShopPanel(
                     modifier = Modifier.testTag(ShopTags.EMPTY)
                 )
                 else -> {
-                    if (state.plans.isNotEmpty()) PlansSection(state, onPlan)
-                    if (state.packs.isNotEmpty()) PacksSection(state, onPack)
+                    if (state.plans.isNotEmpty() && state.packs.isNotEmpty()) {
+                        ShopTabs(selected = tab, onSelect = { chosenTab = it })
+                    }
+                    when (tab) {
+                        ShopTab.Plans -> PlansList(state, onPlan)
+                        ShopTab.Packs -> PacksList(state, onPack)
+                    }
                 }
             }
 
-            ShopFooter(state, onManage)
+            ShopFooter(state, plansShown = showsLists && tab == ShopTab.Plans, onManage = onManage)
         }
     }
 }
 
+/** "Plans | Credit packs", in the accent, quiet when not chosen. */
 @Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.tertiary,
-        modifier = Modifier.padding(top = 6.dp).semantics { heading() }
+private fun ShopTabs(selected: ShopTab, onSelect: (ShopTab) -> Unit) {
+    val gold = LocalAppTheme.current.primaryColor
+    val slate = MaterialTheme.colorScheme.tertiaryContainer
+    val colors = SegmentedButtonDefaults.colors(
+        activeContainerColor = gold.copy(alpha = 0.16f),
+        activeContentColor = gold,
+        activeBorderColor = gold.copy(alpha = 0.6f),
+        inactiveContainerColor = Color.Transparent,
+        inactiveContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+        inactiveBorderColor = slate
     )
+    val tabs = listOf(ShopTab.Plans to "Plans", ShopTab.Packs to "Credit packs")
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().testTag(ShopTags.TABS)) {
+        tabs.forEachIndexed { index, (tab, label) ->
+            SegmentedButton(
+                selected = selected == tab,
+                onClick = { onSelect(tab) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                colors = colors,
+                icon = {}
+            ) {
+                Text(label, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
+        }
+    }
 }
 
+/** The one quiet line under a list. */
 @Composable
-private fun SectionNote(text: String) {
+private fun ListNote(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.tertiary,
-        lineHeight = 18.sp
+        lineHeight = 17.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
     )
 }
 
@@ -385,20 +431,13 @@ private fun SmallInfoRow(icon: ImageVector, text: String, tint: Color, textColor
     }
 }
 
+
 // --- Plans ---
 
 @Composable
-private fun PlansSection(state: ShopUiState, onPlan: (ShopPlan) -> Unit) {
-    Column(modifier = Modifier.testTag(ShopTags.PLANS), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader("PLANS")
-        SectionNote(
-            if (state.freeMinutes > 0) {
-                "A plan's credits replace the ${state.freeMinutes} free credits each period. Unused plan credits don't carry over."
-            } else {
-                "A plan gives you credits each period. Unused plan credits don't carry over."
-            }
-        )
-        val locked = state.busyProductId != null
+private fun PlansList(state: ShopUiState, onPlan: (ShopPlan) -> Unit) {
+    val locked = state.busyProductId != null
+    Column(modifier = Modifier.testTag(ShopTags.PLANS), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (maxWidth >= SIDE_BY_SIDE_MIN_WIDTH && state.plans.size in 2..3) {
                 Row(
@@ -406,45 +445,44 @@ private fun PlansSection(state: ShopUiState, onPlan: (ShopPlan) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     state.plans.forEach { plan ->
-                        PlanCard(
-                            plan = plan,
-                            busy = state.busyProductId == plan.productId,
-                            locked = locked,
-                            onClick = { onPlan(plan) },
-                            modifier = Modifier.weight(1f).fillMaxHeight()
-                        )
+                        PlanCard(plan, state.busyProductId == plan.productId, locked, { onPlan(plan) }, Modifier.weight(1f).fillMaxHeight())
                     }
                 }
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.plans.forEach { plan ->
-                        PlanCard(
-                            plan = plan,
-                            busy = state.busyProductId == plan.productId,
-                            locked = locked,
-                            onClick = { onPlan(plan) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        PlanCard(plan, state.busyProductId == plan.productId, locked, { onPlan(plan) }, Modifier.fillMaxWidth())
                     }
                 }
             }
         }
-        state.switchNote?.let { SectionNote(it) }
+        state.switchNote?.let { ListNote(it) }
+        ListNote(
+            if (state.freeMinutes > 0) "Replaces the ${state.freeMinutes} free credits each period. Unused plan credits don't carry over."
+            else "Unused plan credits don't carry over."
+        )
     }
 }
 
-/** What a plan's button says and does; null shows no button (the current, running plan). */
-private fun planButtonText(plan: ShopPlan): String? = when (plan.action) {
+/**
+ * What a plan's button says. The running plan's card opens Google Play's page for it: to manage or cancel it,
+ * resubscribe once cancelled, or fix a failed payment.
+ */
+internal fun planButtonText(plan: ShopPlan): String = when (plan.action) {
     PlanAction.Subscribe -> "Subscribe"
     PlanAction.Upgrade -> "Upgrade"
     PlanAction.Switch -> "Switch"
     PlanAction.Current -> when (plan.state) {
         SubscriptionState.Canceled -> "Resubscribe"
         SubscriptionState.GracePeriod -> "Fix payment"
-        else -> null
+        else -> "Manage or cancel"
     }
 }
 
+/**
+ * A plan: its name (and the current badge), what it gives, then its price per period, or for the current plan
+ * how it stands, and its one action.
+ */
 @Composable
 private fun PlanCard(plan: ShopPlan, busy: Boolean, locked: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val gold = LocalAppTheme.current.primaryColor
@@ -457,8 +495,11 @@ private fun PlanCard(plan: ShopPlan, busy: Boolean, locked: Boolean, onClick: ()
         contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(if (isCurrent) 1.5.dp else 1.dp, if (isCurrent) gold.copy(alpha = 0.8f) else slate)
     ) {
-        // Full height side by side, so the price rows of neighbouring cards line up
-        Column(modifier = Modifier.fillMaxHeight().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Full height side by side, so the bottom rows of neighbouring cards line up
+        Column(
+            modifier = Modifier.fillMaxHeight().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (plan.isUnlimited) {
                     Icon(Icons.Rounded.AllInclusive, contentDescription = null, tint = gold, modifier = Modifier.size(18.dp))
@@ -479,43 +520,46 @@ private fun PlanCard(plan: ShopPlan, busy: Boolean, locked: Boolean, onClick: ()
             plan.note?.let {
                 Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             }
-            plan.status?.let { status ->
-                val warn = plan.state == SubscriptionState.GracePeriod
-                Row(
-                    modifier = Modifier.padding(top = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (warn) Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = Moods.Watch.core, modifier = Modifier.size(16.dp))
-                    Text(
-                        text = status,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = if (warn) Moods.Watch.light else MaterialTheme.colorScheme.secondary
-                    )
-                }
-            }
             Spacer(Modifier.weight(1f))
-            val button = planButtonText(plan)
-            if (plan.price != null || button != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+            val status = if (isCurrent) plan.status else null
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (status != null) {
+                    val warn = plan.state == SubscriptionState.GracePeriod
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (warn) Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = Moods.Watch.core, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = status,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = if (warn) Moods.Watch.light else MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                } else {
                     Text(
                         text = plan.price.orEmpty(),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isCurrent) 0.7f else 0.95f),
                         modifier = Modifier.weight(1f)
                     )
-                    if (button != null) {
-                        // Fixing payment or resubscribing happens in Google Play, so those always work
-                        val enabled = !locked && (plan.action == PlanAction.Current || plan.canBuy)
-                        ActionPill(text = button, enabled = enabled, busy = busy, onClick = onClick)
-                    }
                 }
+                // Managing, resubscribing and fixing payment happen in Google Play, so they always work
+                val enabled = !locked && (isCurrent || plan.canBuy)
+                ActionPill(
+                    text = planButtonText(plan),
+                    enabled = enabled,
+                    busy = busy,
+                    // Managing a running plan is a quiet outlined action; buying and repairing are filled
+                    outlined = isCurrent && plan.state != SubscriptionState.Canceled && plan.state != SubscriptionState.GracePeriod,
+                    onClick = onClick
+                )
             }
         }
     }
@@ -532,27 +576,32 @@ private fun CurrentPlanChip() {
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = gold, modifier = Modifier.size(12.dp))
-        Text("Current plan", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = gold, maxLines = 1)
+        Text("CURRENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = gold, maxLines = 1)
     }
 }
 
-/** The accent pill that buys; a spinner while its purchase is being confirmed. */
+/** The pill that acts on a plan; a spinner while its purchase is being confirmed. */
 @Composable
-private fun ActionPill(text: String, enabled: Boolean, busy: Boolean, onClick: () -> Unit) {
-    val appTheme = LocalAppTheme.current
-    val gold = appTheme.primaryColor
+private fun ActionPill(text: String, enabled: Boolean, busy: Boolean, outlined: Boolean, onClick: () -> Unit) {
+    val gold = LocalAppTheme.current.primaryColor
     val onAccent = MaterialTheme.colorScheme.onSecondary
+    val content = if (outlined) gold else onAccent
     Surface(
         onClick = onClick,
         enabled = enabled && !busy,
         shape = PillShape,
-        color = if (enabled || busy) gold else gold.copy(alpha = 0.3f),
-        contentColor = onAccent,
+        color = when {
+            outlined -> Color.Transparent
+            enabled || busy -> gold
+            else -> gold.copy(alpha = 0.3f)
+        },
+        contentColor = content,
+        border = if (outlined) BorderStroke(1.dp, gold.copy(alpha = 0.7f)) else null,
         modifier = Modifier.heightIn(min = 36.dp)
     ) {
-        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
             if (busy) {
-                CircularProgressIndicator(color = onAccent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                CircularProgressIndicator(color = content, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
             } else {
                 Text(text, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
             }
@@ -563,16 +612,11 @@ private fun ActionPill(text: String, enabled: Boolean, busy: Boolean, onClick: (
 // --- Credit packs ---
 
 @Composable
-private fun PacksSection(state: ShopUiState, onPack: (ShopPack) -> Unit) {
+private fun PacksList(state: ShopUiState, onPack: (ShopPack) -> Unit) {
     val slate = MaterialTheme.colorScheme.tertiaryContainer
     val gold = LocalAppTheme.current.primaryColor
     val locked = state.busyProductId != null
-    Column(modifier = Modifier.testTag(ShopTags.PACKS), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader("CREDIT PACKS")
-        SectionNote(
-            if (state.plans.isNotEmpty()) "Purchased credits never expire. They're used after plan or free credits."
-            else "Purchased credits never expire."
-        )
+    Column(modifier = Modifier.testTag(ShopTags.PACKS), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         state.packs.forEach { pack ->
             val busy = state.busyProductId == pack.productId
             // Locked while a purchase is being credited, so nobody buys twice by accident
@@ -588,16 +632,12 @@ private fun PacksSection(state: ShopUiState, onPack: (ShopPack) -> Unit) {
                 border = BorderStroke(1.dp, slate)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "${pack.credits} Credits",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(text = "${pack.credits} Credits", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
                             text = "${pack.credits} minutes of AI transcription",
                             style = MaterialTheme.typography.bodySmall,
@@ -621,12 +661,13 @@ private fun PacksSection(state: ShopUiState, onPack: (ShopPack) -> Unit) {
                 }
             }
         }
+        ListNote("Purchased credits never expire; used after plan or free credits.")
     }
 }
 
 // --- Notes and footer ---
 
-/** One calm note in place of the sections: nothing on offer, or Play can't sell. */
+/** One calm note in place of the lists: nothing on offer, or Play can't sell. */
 @Composable
 private fun QuietNote(icon: ImageVector, title: String, text: String, modifier: Modifier = Modifier) {
     Column(
@@ -646,27 +687,18 @@ private fun QuietNote(icon: ImageVector, title: String, text: String, modifier: 
     }
 }
 
+/**
+ * Under the plans, for someone without one: that plans can be cancelled anytime. A subscriber manages the plan
+ * from its card; only where that card isn't shown (the credit packs, or no list at all) is there a link instead.
+ */
 @Composable
-private fun ShopFooter(state: ShopUiState, onManage: () -> Unit) {
-    val subscribed = state.subscribedProductId != null
-    val offersPlans = state.plans.isNotEmpty() && state.unavailableMessage == null && !state.isLoading
-    if (!subscribed && !offersPlans) return
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        if (offersPlans) {
-            Text(
-                text = "Cancel anytime in Google Play.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.tertiary,
-                textAlign = TextAlign.Center
-            )
-        }
-        if (subscribed) {
+private fun ShopFooter(state: ShopUiState, plansShown: Boolean, onManage: () -> Unit) {
+    when {
+        state.subscribedProductId != null && !plansShown -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             TextButton(onClick = onManage, modifier = Modifier.testTag(ShopTags.MANAGE)) {
-                Text("Manage subscription", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
+                Text("Manage in Google Play", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
             }
         }
+        state.subscribedProductId == null && plansShown -> ListNote("Cancel anytime in Google Play.")
     }
 }

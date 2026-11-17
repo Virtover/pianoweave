@@ -28,6 +28,9 @@ data class ShopUiState(
     val switchNote: String? = null
 ) {
     val isEmpty: Boolean get() = !isLoading && plans.isEmpty() && packs.isEmpty()
+
+    /** The tab the shop opens on: credit packs for a subscriber, plans for anyone else. */
+    val defaultTab: ShopTab get() = if (subscribedProductId != null) ShopTab.Packs else ShopTab.Plans
 }
 
 @Immutable

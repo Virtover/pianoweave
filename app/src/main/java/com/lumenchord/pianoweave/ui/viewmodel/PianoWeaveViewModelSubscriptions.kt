@@ -43,19 +43,21 @@ private const val RECOVERY_RECHECK_MS = 10 * 60_000L
 /**
  * Sends subscription [purchaseToken] to the server, which records the plan (or its renewal) and acknowledges it
  * with Play. Safe to repeat. [fromRecovery] marks a purchase found again rather than just bought: it is skipped when
- * it was refused or verified a moment ago, since both verify endpoints are rate limited per account.
+ * it was refused or verified a moment ago (unless [recheck]: Play said it changed), since both verify endpoints are
+ * rate limited per account.
  */
 internal suspend fun PianoWeaveViewModel.verifyGooglePlaySubscriptionImpl(
     context: Context,
     productId: String,
     purchaseToken: String,
-    fromRecovery: Boolean
+    fromRecovery: Boolean,
+    recheck: Boolean = false
 ): SubscriptionVerification {
     val refusedKey = billingAccountId?.let { "${accountTag(it)}:$purchaseToken" }
     if (fromRecovery) {
         if (refusedKey != null && refusedKey in refusedSubscriptions(context)) return SubscriptionVerification.Skipped
         val last = subscriptionVerifiedAt[purchaseToken]
-        if (last != null && SystemClock.elapsedRealtime() - last < RECOVERY_RECHECK_MS) return SubscriptionVerification.Skipped
+        if (!recheck && last != null && SystemClock.elapsedRealtime() - last < RECOVERY_RECHECK_MS) return SubscriptionVerification.Skipped
     }
     if (!subscriptionVerificationsInFlight.add(purchaseToken)) return SubscriptionVerification.Skipped
 

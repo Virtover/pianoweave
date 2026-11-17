@@ -6,7 +6,12 @@ import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.ServerSubscriptionPlan
 import retrofit2.HttpException
 import java.security.MessageDigest
+import java.text.DateFormat
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.TimeZone
 import java.util.Currency
 import java.util.Locale
 import kotlin.math.ceil
@@ -126,7 +131,7 @@ fun planAllowanceText(minutesPerPeriod: Int?, unlimited: Boolean, period: String
 
 /** The fair-use note under an unlimited plan; null when the server doesn't say its cap. */
 fun fairUseText(dailyMinutes: Int?): String? =
-    dailyMinutes?.takeIf { it > 0 }?.let { "Fair use: up to $it minutes of transcription a day" }
+    dailyMinutes?.takeIf { it > 0 }?.let { "Fair use: up to $it minutes a day" }
 
 /** How a subscription stands, for the shop. */
 enum class SubscriptionState { Active, Canceled, GracePeriod }
@@ -138,13 +143,46 @@ val ActiveSubscription.subscriptionState: SubscriptionState
         else -> if (autoRenewing == false) SubscriptionState.Canceled else SubscriptionState.Active
     }
 
-/** "Renews on 17 Dec", "Ends on 17 Dec", or the grace-period request; null when there's nothing to say. */
-fun subscriptionStatusText(sub: ActiveSubscription, formatDate: (Long) -> String): String? {
-    val end = sub.periodEndsAt?.takeIf { it > 0 }?.let(formatDate)
+/**
+ * The app's language for dates and times. The app ships English only, so a phone set to another language must
+ * not get "17 lis 2026" between English words.
+ */
+val APP_LOCALE: Locale = Locale.ENGLISH
+
+/**
+ * When a period ends, to follow "Renews" or "Ends": "today at 21:14" or "tomorrow at 9:05 PM" within a day (test
+ * subscriptions renew every few minutes, real ones may be weekly), otherwise "on Dec 17, 2026". The time follows
+ * the device's 12/24-hour choice ([is24Hour]); the words and month are in [locale].
+ */
+fun periodEndPhrase(
+    endSeconds: Long,
+    nowMillis: Long,
+    is24Hour: Boolean,
+    zone: TimeZone = TimeZone.getDefault(),
+    locale: Locale = APP_LOCALE
+): String {
+    val endMillis = endSeconds * 1000
+    val untilEnd = endMillis - nowMillis
+    if (untilEnd in 0 until 86_400_000L) {
+        val now = Calendar.getInstance(zone, locale).apply { timeInMillis = nowMillis }
+        val end = Calendar.getInstance(zone, locale).apply { timeInMillis = endMillis }
+        val sameDay = now.get(Calendar.YEAR) == end.get(Calendar.YEAR) &&
+            now.get(Calendar.DAY_OF_YEAR) == end.get(Calendar.DAY_OF_YEAR)
+        val time = SimpleDateFormat(if (is24Hour) "H:mm" else "h:mm a", locale).apply { timeZone = zone }
+            .format(Date(endMillis))
+        return "${if (sameDay) "today" else "tomorrow"} at $time"
+    }
+    val date = DateFormat.getDateInstance(DateFormat.MEDIUM, locale).apply { timeZone = zone }.format(Date(endMillis))
+    return "on $date"
+}
+
+/** "Renews on Dec 17, 2026", "Ends today at 21:14", or the grace-period request; null when there's nothing to say. */
+fun subscriptionStatusText(sub: ActiveSubscription, endPhrase: (Long) -> String): String? {
+    val end = sub.periodEndsAt?.takeIf { it > 0 }?.let(endPhrase)
     return when (sub.subscriptionState) {
         SubscriptionState.GracePeriod -> "Payment issue — update it in Google Play"
-        SubscriptionState.Canceled -> end?.let { "Ends on $it" } ?: "Won't renew"
-        SubscriptionState.Active -> end?.let { "Renews on $it" }
+        SubscriptionState.Canceled -> end?.let { "Ends $it" } ?: "Won't renew"
+        SubscriptionState.Active -> end?.let { "Renews $it" }
     }
 }
 

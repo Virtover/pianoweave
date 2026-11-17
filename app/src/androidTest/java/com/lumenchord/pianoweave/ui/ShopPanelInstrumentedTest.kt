@@ -47,7 +47,7 @@ class ShopPanelInstrumentedTest {
 
     private fun unlimited(action: PlanAction = PlanAction.Subscribe, canBuy: Boolean = true) = ShopPlan(
         productId = "sub_unlimited", name = "Unlimited", allowance = "Unlimited transcriptions", price = "49.99 PLN / month",
-        action = action, isUnlimited = true, note = "Fair use: up to 300 minutes of transcription a day", canBuy = canBuy
+        action = action, isUnlimited = true, note = "Fair use: up to 300 minutes a day", canBuy = canBuy
     )
 
     private val pack = ShopPack("credits_100", 100, "16.99 PLN", canBuy = true)
@@ -76,87 +76,125 @@ class ShopPanelInstrumentedTest {
     }
 
     @Test
-    fun onlyPlans() {
+    fun onlyPlansHasNoSwitch() {
         show(ShopUiState(balance = freeBalance, plans = listOf(pro(), unlimited()), freeMinutes = 30))
+        rule.onNodeWithTag(ShopTags.TABS).assertDoesNotExist()
         rule.onNodeWithTag(ShopTags.PLANS).assertExists()
         rule.onNodeWithTag(ShopTags.PACKS).assertDoesNotExist()
-        rule.onNodeWithText("replace the 30 free credits", substring = true).assertExists()
-        rule.onNodeWithText("Fair use: up to 300 minutes of transcription a day").assertExists()
+        rule.onNodeWithText("Replaces the 30 free credits each period. Unused plan credits don't carry over.").assertExists()
+        rule.onNodeWithText("Fair use: up to 300 minutes a day").assertExists()
         rule.onNodeWithText("Cancel anytime in Google Play.").performScrollTo().assertExists()
         rule.onNodeWithTag(ShopTags.MANAGE).assertDoesNotExist()
         rule.onNodeWithText("10 free · 24 purchased").assertExists()
     }
 
     @Test
-    fun onlyPacks() {
+    fun withoutFreeCreditsThePlanLineSaysOnlyWhatMatters() {
+        show(ShopUiState(balance = freeBalance, plans = listOf(pro())))
+        rule.onNodeWithText("Unused plan credits don't carry over.").assertExists()
+        rule.onNodeWithText("free credits", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun onlyPacksHasNoSwitch() {
         show(ShopUiState(balance = freeBalance, packs = listOf(pack), freeMinutes = 30))
+        rule.onNodeWithTag(ShopTags.TABS).assertDoesNotExist()
         rule.onNodeWithTag(ShopTags.PACKS).assertExists()
         rule.onNodeWithTag(ShopTags.PLANS).assertDoesNotExist()
+        rule.onNodeWithText("Purchased credits never expire; used after plan or free credits.").assertExists()
         rule.onNodeWithText("Cancel anytime in Google Play.").assertDoesNotExist()
         rule.onNodeWithText("16.99 PLN").performClick()
         assertEquals(listOf("credits_100"), packsChosen)
     }
 
     @Test
-    fun plansAndPacks() {
+    fun bothOpenOnPlansAndSwitchToPacks() {
         show(ShopUiState(balance = freeBalance, plans = listOf(pro(), unlimited()), packs = listOf(pack), freeMinutes = 30))
+        rule.onNodeWithTag(ShopTags.TABS).assertExists()
+        // One list at a time, plans first for someone without a plan
         rule.onNodeWithTag(ShopTags.PLANS).assertExists()
-        rule.onNodeWithTag(ShopTags.PACKS).assertExists()
+        rule.onNodeWithTag(ShopTags.PACKS).assertDoesNotExist()
         rule.onNodeWithText("19.99 PLN / month").assertExists()
-        rule.onNodeWithText("They're used after plan or free credits.", substring = true).assertExists()
         rule.onAllSubscribe().first().performScrollTo().performClick()
         assertEquals(listOf("sub_pro"), plansChosen)
+
+        rule.onNodeWithText("Credit packs").performClick()
+        rule.onNodeWithTag(ShopTags.PACKS).assertExists()
+        rule.onNodeWithTag(ShopTags.PLANS).assertDoesNotExist()
+        rule.onNodeWithText("Cancel anytime in Google Play.").assertDoesNotExist()
+        rule.onNodeWithText("16.99 PLN").performClick()
+        assertEquals(listOf("credits_100"), packsChosen)
+
+        rule.onNodeWithText("Plans").performClick()
+        rule.onNodeWithTag(ShopTags.PLANS).assertExists()
     }
 
     @Test
     fun nothingOnOffer() {
         show(ShopUiState(balance = freeBalance, freeMinutes = 30))
         rule.onNodeWithTag(ShopTags.EMPTY).assertExists()
-        rule.onNodeWithText("PLANS").assertDoesNotExist()
-        rule.onNodeWithText("CREDIT PACKS").assertDoesNotExist()
+        rule.onNodeWithTag(ShopTags.TABS).assertDoesNotExist()
+        rule.onNodeWithTag(ShopTags.PLANS).assertDoesNotExist()
+        rule.onNodeWithTag(ShopTags.PACKS).assertDoesNotExist()
         rule.onNodeWithText("Cancel anytime in Google Play.").assertDoesNotExist()
     }
 
     @Test
-    fun loadingAndUnavailable() {
-        show(ShopUiState(balance = ShopBalance(total = null), isLoading = true))
+    fun loading() {
+        show(ShopUiState(balance = ShopBalance(total = null), plans = listOf(pro()), packs = listOf(pack), isLoading = true))
         rule.onNodeWithTag(ShopTags.LOADING).assertExists()
-        rule.onNodeWithTag(ShopTags.EMPTY).assertDoesNotExist()
+        rule.onNodeWithTag(ShopTags.TABS).assertDoesNotExist()
         rule.onNodeWithText("— Credits").assertExists()
     }
 
     @Test
     fun billingUnavailable() {
-        show(ShopUiState(balance = freeBalance, plans = listOf(pro()), unavailableMessage = "Google Play Billing isn't available."))
+        show(ShopUiState(balance = freeBalance, plans = listOf(pro()), packs = listOf(pack), unavailableMessage = "Google Play Billing isn't available."))
         rule.onNodeWithTag(ShopTags.UNAVAILABLE).assertExists()
+        rule.onNodeWithTag(ShopTags.TABS).assertDoesNotExist()
         rule.onNodeWithTag(ShopTags.PLANS).assertDoesNotExist()
     }
 
+    private fun unlimitedSubscriber() = ShopUiState(
+        balance = ShopBalance(
+            total = 24, paidCredits = 24, planName = "Unlimited", unlimited = true,
+            unlimitedMinutesLeft = 250, unlimitedDailyMinutes = 300
+        ),
+        plans = listOf(
+            pro(PlanAction.Switch),
+            unlimited(PlanAction.Current).copy(status = "Renews on Dec 17, 2026", state = SubscriptionState.Active)
+        ),
+        packs = listOf(pack),
+        freeMinutes = 30,
+        subscribedProductId = "sub_unlimited"
+    )
+
     @Test
-    fun currentUnlimitedPlan() {
-        show(
-            ShopUiState(
-                balance = ShopBalance(
-                    total = 24, paidCredits = 24, planName = "Unlimited", unlimited = true,
-                    unlimitedMinutesLeft = 250, unlimitedDailyMinutes = 300
-                ),
-                plans = listOf(
-                    pro(PlanAction.Switch),
-                    unlimited(PlanAction.Current).copy(status = "Renews on Dec 17, 2026", state = SubscriptionState.Active)
-                ),
-                packs = listOf(pack),
-                freeMinutes = 30,
-                subscribedProductId = "sub_unlimited"
-            )
-        )
-        // The balance and the plan's name
-        rule.onAllNodesWithText("Unlimited").assertCountEquals(2)
+    fun subscriberOpensOnPacksWithAManageLink() {
+        show(unlimitedSubscriber())
+        rule.onNodeWithTag(ShopTags.TABS).assertExists()
+        rule.onNodeWithTag(ShopTags.PACKS).assertExists()
+        rule.onNodeWithTag(ShopTags.PLANS).assertDoesNotExist()
         rule.onNodeWithText("250 of 300 minutes left today · 24 purchased credits kept for later").assertExists()
-        rule.onNodeWithText("Current plan").assertExists()
-        rule.onNodeWithText("Renews on Dec 17, 2026").assertExists()
-        rule.onNodeWithText("Switch").assertIsEnabled()
+        // The plan's card isn't shown here, so the footer links to Google Play
         rule.onNodeWithTag(ShopTags.MANAGE).performScrollTo().performClick()
         assertEquals(1, manageOpened)
+    }
+
+    @Test
+    fun currentPlanIsManagedOrCancelledFromItsCard() {
+        show(unlimitedSubscriber())
+        rule.onNodeWithText("Plans").performClick()
+        // The balance and the plan's name
+        rule.onAllNodesWithText("Unlimited").assertCountEquals(2)
+        rule.onNodeWithText("CURRENT").assertExists()
+        rule.onNodeWithText("Renews on Dec 17, 2026").assertExists()
+        rule.onNodeWithText("Switch").assertIsEnabled()
+        // On the card itself, so the footer doesn't repeat it
+        rule.onNodeWithTag(ShopTags.MANAGE).assertDoesNotExist()
+        rule.onNodeWithText("Manage or cancel").assertIsEnabled().performClick()
+        assertEquals(listOf("sub_unlimited"), plansChosen)
+        rule.onNodeWithText("Cancel anytime in Google Play.").assertDoesNotExist()
     }
 
     @Test
@@ -165,14 +203,15 @@ class ShopPanelInstrumentedTest {
             ShopUiState(
                 balance = ShopBalance(total = 60, periodCredits = 60, paidCredits = 0, planName = "Pro", planMinutes = 100),
                 plans = listOf(
-                    pro(PlanAction.Current).copy(status = "Ends on Dec 17, 2026", state = SubscriptionState.Canceled),
+                    pro(PlanAction.Current).copy(status = "Ends today at 21:14", state = SubscriptionState.Canceled),
                     unlimited(PlanAction.Upgrade)
                 ),
                 subscribedProductId = "sub_pro"
             )
         )
-        rule.onNodeWithText("Ends on Dec 17, 2026").assertExists()
+        rule.onNodeWithText("Ends today at 21:14").assertExists()
         rule.onNodeWithText("60 from Pro · 0 purchased").assertExists()
+        rule.onNodeWithText("Manage or cancel").assertDoesNotExist()
         rule.onNodeWithText("Resubscribe").performClick()
         rule.onNodeWithText("Upgrade").assertIsEnabled()
         assertEquals(listOf("sub_pro"), plansChosen)
@@ -219,6 +258,7 @@ class ShopPanelInstrumentedTest {
         )
         rule.onNodeWithText("19.99 PLN / month").performScrollTo().assertExists()
         rule.onAllSubscribe().first().performScrollTo().assertIsEnabled()
+        rule.onNodeWithText("Credit packs").performScrollTo().performClick()
         rule.onNodeWithText("16.99 PLN").performScrollTo().assertExists()
     }
 

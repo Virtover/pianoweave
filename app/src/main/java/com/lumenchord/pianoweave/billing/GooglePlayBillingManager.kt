@@ -25,7 +25,12 @@ class GooglePlayBillingManager(
     private val onPurchaseCompleted: (purchaseToken: String, productId: String, isSubscription: Boolean) -> Unit,
     private val onPurchaseError: (errorMessage: String) -> Unit = {},
     /** A payment Play hasn't confirmed yet (e.g. cash at a store); it is credited once it clears. */
-    private val onPurchasePending: () -> Unit = {}
+    private val onPurchasePending: () -> Unit = {},
+    /**
+     * Play reported a change without a purchase to hand over (e.g. a subscription cancelled in Play), or an item
+     * owned already: the caller looks at the subscriptions again.
+     */
+    private val onPurchasesChanged: () -> Unit = {}
 ) : PurchasesUpdatedListener {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main)
@@ -199,17 +204,21 @@ class GooglePlayBillingManager(
 
     private fun launch(activity: Activity, params: BillingFlowParams): Boolean {
         val result = billingClient.launchBillingFlow(activity, params)
-        if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-            val msg = if (result.debugMessage.isNotBlank()) result.debugMessage else "Failed to launch purchase flow (code: ${result.responseCode})"
-            onPurchaseError(msg)
-            return false
+        return when (purchaseUpdateAction(result.responseCode, hasPurchases = false)) {
+            PurchaseUpdateAction.Handle, PurchaseUpdateAction.Recover ->
+                // OK starts the flow; already owned means it was bought before and only needs crediting
+                (result.responseCode == BillingClient.BillingResponseCode.OK).also { if (!it) recoverAfterOutsideChange() }
+            PurchaseUpdateAction.Ignore -> false
+            PurchaseUpdateAction.Error -> {
+                onPurchaseError(purchaseErrorText(result))
+                false
+            }
         }
-        return true
     }
 
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: MutableList<Purchase>?) {
-        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
-            for (purchase in purchases) {
+        when (purchaseUpdateAction(billingResult.responseCode, !purchases.isNullOrEmpty())) {
+            PurchaseUpdateAction.Handle -> for (purchase in purchases.orEmpty()) {
                 val productId = purchase.products.firstOrNull() ?: ""
                 when (purchase.purchaseState) {
                     Purchase.PurchaseState.PURCHASED -> {
@@ -220,12 +229,19 @@ class GooglePlayBillingManager(
                     Purchase.PurchaseState.PENDING -> coroutineScope.launch { onPurchasePending() }
                 }
             }
-        } else if (billingResult.responseCode != BillingClient.BillingResponseCode.USER_CANCELED) {
-            val msg = if (billingResult.debugMessage.isNotBlank()) billingResult.debugMessage else "Purchase failed (code: ${billingResult.responseCode})"
-            coroutineScope.launch {
-                onPurchaseError(msg)
+            PurchaseUpdateAction.Recover -> recoverAfterOutsideChange()
+            PurchaseUpdateAction.Ignore -> Unit
+            PurchaseUpdateAction.Error -> {
+                val msg = purchaseErrorText(billingResult)
+                coroutineScope.launch { onPurchaseError(msg) }
             }
         }
+    }
+
+    /** Something changed in Play outside this flow, or the item is owned already: look again, quietly. */
+    private fun recoverAfterOutsideChange() {
+        recoverUncreditedPurchases(includeSubscriptions = false)
+        coroutineScope.launch { onPurchasesChanged() }
     }
 
     fun destroy() {
@@ -255,3 +271,30 @@ fun ProductDetails.packPrice(): String? {
     val offer = oneTimePurchaseOfferDetails ?: return null
     return formatMoney(offer.priceAmountMicros, offer.priceCurrencyCode) ?: offer.formattedPrice
 }
+
+/** What to do with Play's answer to a purchase. */
+enum class PurchaseUpdateAction {
+    /** Purchases to hand to the server. */
+    Handle,
+    /** No purchase in the answer, or it is owned already: look at the purchases again, without a message. */
+    Recover,
+    /** The user closed the purchase: nothing to say. */
+    Ignore,
+    /** A real failure to show. */
+    Error
+}
+
+/**
+ * Classifies Play's [responseCode]. OK without purchases is not an error: Play sends it when a subscription
+ * changed outside the app, e.g. was cancelled in Play.
+ */
+fun purchaseUpdateAction(responseCode: Int, hasPurchases: Boolean): PurchaseUpdateAction = when (responseCode) {
+    BillingClient.BillingResponseCode.OK -> if (hasPurchases) PurchaseUpdateAction.Handle else PurchaseUpdateAction.Recover
+    BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> PurchaseUpdateAction.Recover
+    BillingClient.BillingResponseCode.USER_CANCELED -> PurchaseUpdateAction.Ignore
+    else -> PurchaseUpdateAction.Error
+}
+
+private fun purchaseErrorText(result: BillingResult): String =
+    result.debugMessage.takeIf { it.isNotBlank() }
+        ?: "Google Play couldn't complete the purchase (code: ${result.responseCode})."

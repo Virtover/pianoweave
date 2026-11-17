@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.lumenchord.pianoweave.billing.GooglePlayBillingManager
@@ -47,6 +49,7 @@ import com.lumenchord.pianoweave.billing.freeCreditsPeriodText
 import com.lumenchord.pianoweave.billing.isUnlimited
 import com.lumenchord.pianoweave.billing.manageSubscriptionUrl
 import com.lumenchord.pianoweave.billing.packPrice
+import com.lumenchord.pianoweave.billing.periodEndPhrase
 import com.lumenchord.pianoweave.billing.pickBasePlanOffer
 import com.lumenchord.pianoweave.billing.planAction
 import com.lumenchord.pianoweave.billing.planAllowanceText
@@ -64,8 +67,6 @@ import com.lumenchord.pianoweave.ui.viewmodel.SubscriptionVerification
 import com.lumenchord.pianoweave.util.findActivity
 import com.lumenchord.pianoweave.util.openUrl
 import kotlinx.coroutines.launch
-import java.text.DateFormat
-import java.util.Date
 
 /** A message the shop shows over itself: a failed purchase, or what happens next with one. */
 private data class ShopMessage(val title: String, val text: String)
@@ -93,17 +94,19 @@ internal fun ShopDialog(
     var ownedSubscriptions by remember { mutableStateOf<List<Purchase>?>(null) }
     // The last plan change started here, to explain a switch that waits for the renewal
     var launchedPlan by remember { mutableStateOf<Pair<PlanAction, String>?>(null) }
+    // Google Play's page or purchase sheet was opened: what happened there is looked at on the way back
+    var awayInPlay by remember { mutableStateOf(false) }
 
     lateinit var billingManager: GooglePlayBillingManager
 
     /** Asks Play for the plans this device holds and sends each to the server: renewals, restores, lost answers. */
-    fun refreshOwnedSubscriptions() {
+    fun refreshOwnedSubscriptions(recheck: Boolean = false) {
         billingManager.queryOwnedSubscriptions(onFailed = { ownedSubscriptions = emptyList() }) { purchases ->
             ownedSubscriptions = purchases
             purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }.forEach { purchase ->
                 val productId = purchase.products.firstOrNull() ?: return@forEach
                 coroutineScope.launch {
-                    viewModel.verifyGooglePlaySubscription(context, productId, purchase.purchaseToken, fromRecovery = true)
+                    viewModel.verifyGooglePlaySubscription(context, productId, purchase.purchaseToken, fromRecovery = true, recheck = recheck)
                 }
             }
         }
@@ -163,6 +166,11 @@ internal fun ShopDialog(
                 launchedPlan = null
                 message = ShopMessage("Purchase Failed", errorMsg)
             },
+            onPurchasesChanged = {
+                // e.g. the plan was cancelled in Google Play: show how it stands now
+                refreshOwnedSubscriptions(recheck = true)
+                viewModel.refreshUserBalance(context)
+            },
             onPurchasePending = {
                 message = ShopMessage(
                     "Payment pending",
@@ -187,6 +195,17 @@ internal fun ShopDialog(
         onDispose { billingManager.destroy() }
     }
 
+    // Back from Google Play (a cancel, a resubscribe, a closed purchase sheet): the plan may have changed there, so
+    // it is checked again now, past the few minutes recovered plans otherwise rest. Once per return; a plan that
+    // ended is gone from Play's list, and the balance then says so.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (awayInPlay && isBillingConnected) {
+            awayInPlay = false
+            refreshOwnedSubscriptions(recheck = true)
+            viewModel.refreshUserBalance(context)
+        }
+    }
+
     // Job and purchase answers carry only the total, so the free/purchased split may be an estimate
     LaunchedEffect(Unit) { viewModel.refreshUserBalance(context) }
 
@@ -205,7 +224,7 @@ internal fun ShopDialog(
         }
     }
 
-    val dateFormat = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
     val state = shopState(
         viewModel = viewModel,
         details = productDetailsMap,
@@ -214,10 +233,11 @@ internal fun ShopDialog(
         isLoading = isLoadingProducts,
         unavailable = isBillingUnavailable,
         busyProductId = verifyingProductId,
-        formatDate = { dateFormat.format(Date(it * 1000)) }
+        endPhrase = { periodEndPhrase(it, System.currentTimeMillis(), is24Hour) }
     )
 
     fun openManage(productId: String?) {
+        awayInPlay = true
         context.openUrl(manageSubscriptionUrl(productId, context.packageName))
     }
 
@@ -239,6 +259,7 @@ internal fun ShopDialog(
         val replacing = if (plan.action == PlanAction.Subscribe) null
         else ownedSubscriptions?.firstOrNull { current != null && current in it.products } ?: return
         launchedPlan = plan.action to plan.name
+        awayInPlay = true
         billingManager.launchSubscriptionFlow(
             activity = act,
             productDetails = details,
@@ -261,7 +282,10 @@ internal fun ShopDialog(
                 onPlan = ::onPlan,
                 onPack = { pack ->
                     val details = productDetailsMap[pack.productId]
-                    if (activity != null && details != null) billingManager.launchPurchaseFlow(activity, details)
+                    if (activity != null && details != null) {
+                        awayInPlay = true
+                        billingManager.launchPurchaseFlow(activity, details)
+                    }
                 },
                 onManage = { openManage(state.subscribedProductId) },
                 onClose = onDismiss,
@@ -288,7 +312,7 @@ private fun shopState(
     isLoading: Boolean,
     unavailable: Boolean,
     busyProductId: String?,
-    formatDate: (Long) -> String
+    endPhrase: (Long) -> String
 ): ShopUiState {
     val current = viewModel.activeSubscription
     // Switching needs the running plan's purchase on this device's Play account
@@ -307,7 +331,7 @@ private fun shopState(
             action = action,
             isUnlimited = plan.isUnlimited,
             note = if (plan.isUnlimited) fairUseText(viewModel.unlimitedDailyMinutes) else null,
-            status = if (isCurrent && current != null) subscriptionStatusText(current, formatDate) else null,
+            status = if (isCurrent && current != null) subscriptionStatusText(current, endPhrase) else null,
             state = if (isCurrent) current?.subscriptionState else null,
             canBuy = canLaunch && offer != null && (action == PlanAction.Subscribe || canSwitch)
         )
@@ -325,7 +349,7 @@ private fun shopState(
                 action = PlanAction.Current,
                 isUnlimited = unlimited,
                 note = if (unlimited) fairUseText(viewModel.unlimitedDailyMinutes) else null,
-                status = subscriptionStatusText(current, formatDate),
+                status = subscriptionStatusText(current, endPhrase),
                 state = current.subscriptionState
             )
         )
