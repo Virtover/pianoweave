@@ -246,13 +246,39 @@ enum class VerificationOutcome {
     OwnedByAnotherAccount
 }
 
-fun verificationOutcome(code: Int, errorCode: String?): VerificationOutcome = when {
-    code >= 500 || code in setOf(401, 408, 429) -> VerificationOutcome.Retry
+/** The server's words for a subscription token Google doesn't know (expired or never valid). */
+const val UNKNOWN_SUBSCRIPTION_PURCHASE = "Unknown subscription purchase"
+
+/**
+ * What to do with a subscription the server didn't record. Only two answers are final: another account owns it
+ * (409 subscription_owned), or Google doesn't know the token (400 "Unknown subscription purchase"). Everything
+ * else, a 409 "billing is disabled" (also briefly without the auth header), a 400 for a plan missing from the
+ * server's settings for a moment, a 5xx, is kept and tried again: dropping a paid purchase the server never recorded
+ * would get it refunded by Google after three days.
+ */
+fun verificationOutcome(code: Int, errorCode: String?, detail: String? = null): VerificationOutcome = when {
     code == 409 && errorCode == SUBSCRIPTION_OWNED -> VerificationOutcome.OwnedByAnotherAccount
-    else -> VerificationOutcome.Drop
+    code == 400 && detail == UNKNOWN_SUBSCRIPTION_PURCHASE -> VerificationOutcome.Drop
+    else -> VerificationOutcome.Retry
 }
 
-fun verificationOutcome(e: HttpException): VerificationOutcome = verificationOutcome(e.code(), ServerErrors.errorCode(e))
+fun verificationOutcome(e: HttpException): VerificationOutcome {
+    val body = ServerErrors.errorBody(e)
+    return verificationOutcome(e.code(), ServerErrors.errorCode(body), ServerErrors.detailMessage(body))
+}
+
+/** The server's final refusals of a credit pack: a product it doesn't sell, or a purchase Google says isn't done. */
+val FINAL_PACK_REFUSALS = setOf("Unknown product", "Purchase is not completed")
+
+/**
+ * What to do with a credit pack the server didn't credit: forgotten (and never sent again) only after a 400 with
+ * one of [FINAL_PACK_REFUSALS]; any other answer keeps it for another try, for the same reason as subscriptions.
+ */
+fun packVerificationOutcome(code: Int, detail: String?): VerificationOutcome =
+    if (code == 400 && detail in FINAL_PACK_REFUSALS) VerificationOutcome.Drop else VerificationOutcome.Retry
+
+fun packVerificationOutcome(e: HttpException): VerificationOutcome =
+    packVerificationOutcome(e.code(), ServerErrors.detailMessage(ServerErrors.errorBody(e)))
 
 /** What a refused subscription says to the user. */
 const val SUBSCRIPTION_OWNED_MESSAGE =

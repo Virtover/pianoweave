@@ -53,6 +53,7 @@ class PackRecoveryTest {
         assertEquals(0L, retryDelaySeconds(httpError(503)))
         assertTrue(isVerificationRetryable(httpError(429)))
         assertFalse(isVerificationRetryable(httpError(400, """{"detail": "Unknown product"}""")))
+        assertTrue(isVerificationRetryable(httpError(400, """{"detail": "Something else"}""")))
     }
 
     @Test

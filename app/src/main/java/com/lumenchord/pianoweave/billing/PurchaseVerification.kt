@@ -29,12 +29,10 @@ suspend fun PianoApi.verifySubscription(purchase: PendingPurchase, authHeader: S
     )
 
 /**
- * True if [e] is not a real answer about the purchase, so it must stay pending and be verified again
- * later: the server is restarting or failing (5xx), busy (408, 429), or turned the request away before
- * looking at the purchase (401: an expired Google sign-in, or a server password the app lacks). Dropping
- * the purchase then would leave it paid for and never credited.
+ * True if [e] is not a final answer about a credit pack's purchase, so it must stay pending and be verified again
+ * later (see [packVerificationOutcome]). Dropping it then would leave it paid for and never credited.
  */
-fun isVerificationRetryable(e: HttpException): Boolean = verificationOutcome(e.code(), null) == VerificationOutcome.Retry
+fun isVerificationRetryable(e: HttpException): Boolean = packVerificationOutcome(e) == VerificationOutcome.Retry
 
 /** A recovered purchase verified this recently isn't sent again (the server credits and consumes it once). */
 const val RECOVERY_RECHECK_MS = 10 * 60_000L

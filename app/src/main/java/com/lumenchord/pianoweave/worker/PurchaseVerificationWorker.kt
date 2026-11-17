@@ -15,6 +15,7 @@ import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.billing.VerificationOutcome
+import com.lumenchord.pianoweave.billing.packVerificationOutcome
 import com.lumenchord.pianoweave.billing.verificationOutcome
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.billing.verifySubscription
@@ -51,7 +52,8 @@ class PurchaseVerificationWorker(
             Result.success()
         } catch (e: HttpException) {
             // No answer about the purchase yet (see verificationOutcome): try again later
-            if (verificationOutcome(e) == VerificationOutcome.Retry) return Result.retry()
+            val outcome = if (purchase.isSubscription) verificationOutcome(e) else packVerificationOutcome(e)
+            if (outcome == VerificationOutcome.Retry) return Result.retry()
             // Any other HTTP status counts as an answer from the server. A subscription another account owns
             // is told to the user when the app finds it again (on start or in the shop), not from here.
             PendingPurchaseStore.removePendingPurchase(applicationContext, purchase.purchaseToken)

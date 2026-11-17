@@ -227,21 +227,25 @@ class SubscriptionsTest {
 
     @Test
     fun verificationOutcomes() {
-        for (code in listOf(401, 408, 429, 500, 502, 503)) assertEquals("$code", VerificationOutcome.Retry, verificationOutcome(code, null))
-        assertEquals(VerificationOutcome.Drop, verificationOutcome(400, null))
-        assertEquals(VerificationOutcome.Drop, verificationOutcome(409, null))
-        assertEquals(VerificationOutcome.Drop, verificationOutcome(404, null))
+        for (code in listOf(400, 401, 403, 404, 408, 409, 422, 429, 500, 502, 503)) {
+            assertEquals("$code", VerificationOutcome.Retry, verificationOutcome(code, null, null))
+        }
+        // Only two final answers
+        assertEquals(VerificationOutcome.Drop, verificationOutcome(400, null, UNKNOWN_SUBSCRIPTION_PURCHASE))
         assertEquals(VerificationOutcome.OwnedByAnotherAccount, verificationOutcome(409, SUBSCRIPTION_OWNED))
+        // A plan missing from the server's settings for a moment is not final
+        assertEquals(VerificationOutcome.Retry, verificationOutcome(400, null, "Unknown subscription"))
     }
 
     @Test
     fun verificationOutcomeReadsTheErrorCode() {
         val owned = """{"detail": {"message": "This subscription belongs to another account", "error_code": "subscription_owned"}}"""
         assertEquals(VerificationOutcome.OwnedByAnotherAccount, verificationOutcome(httpError(409, owned)))
-        assertEquals(VerificationOutcome.Drop, verificationOutcome(httpError(400, """{"detail": "Unknown subscription"}""")))
-        assertEquals(VerificationOutcome.Drop, verificationOutcome(httpError(409, """{"detail": "Google Play billing is disabled"}""")))
+        assertEquals(VerificationOutcome.Drop, verificationOutcome(httpError(400, """{"detail": "Unknown subscription purchase"}""")))
+        // Not final: the purchase is kept and tried again, never lost
+        assertEquals(VerificationOutcome.Retry, verificationOutcome(httpError(400, """{"detail": "Unknown subscription"}""")))
+        assertEquals(VerificationOutcome.Retry, verificationOutcome(httpError(409, """{"detail": "Google Play billing is disabled"}""")))
         assertEquals(VerificationOutcome.Retry, verificationOutcome(httpError(429, "", "Retry-After", "30")))
-        assertFalse(isVerificationRetryable(httpError(409, owned)))
     }
 
     // --- Parsing ---
