@@ -27,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,7 +72,31 @@ import com.lumenchord.pianoweave.util.openUrl
 import kotlinx.coroutines.launch
 
 /** A message the shop shows over itself: a failed purchase, or what happens next with one. */
-private data class ShopMessage(val title: String, val text: String)
+internal data class ShopMessage(val title: String, val text: String)
+
+/** Keeps an undismissed message through a rotation; a dismissed one (null) stays dismissed. */
+internal val ShopMessageSaver = listSaver<ShopMessage?, String>(
+    save = { message -> if (message == null) emptyList() else listOf(message.title, message.text) },
+    restore = { saved -> if (saved.size == 2) ShopMessage(saved[0], saved[1]) else null }
+)
+
+/** The plan change started in Play, kept through a rotation while Play's sheet is open. */
+private val LaunchedPlanSaver = listSaver<Pair<PlanAction, String>?, String>(
+    save = { plan -> if (plan == null) emptyList() else listOf(plan.first.name, plan.second) },
+    restore = { saved ->
+        if (saved.size == 2) PlanAction.entries.firstOrNull { it.name == saved[0] }?.let { it to saved[1] } else null
+    }
+)
+
+/** Shown when the server couldn't be reached to confirm a purchase: it is kept and confirmed later, never "failed". */
+private val SUBSCRIPTION_LATER = ShopMessage(
+    "Almost there",
+    "Your subscription is paid and saved. We'll confirm it as soon as the server is back; there's nothing more to do."
+)
+private val PACK_LATER = ShopMessage(
+    "Almost there",
+    "Your purchase is paid and saved. We'll add the credits as soon as the server is back; there's nothing more to do."
+)
 
 /**
  * The shop with Play Billing behind it: loads prices for the server's plans and packs, buys them, and hands each
@@ -88,7 +114,8 @@ internal fun ShopDialog(
     var isLoadingProducts by remember { mutableStateOf(true) }
     var isBillingConnected by remember { mutableStateOf(false) }
     var isBillingUnavailable by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<ShopMessage?>(null) }
+    // Saveable: a rotation keeps a message not yet dismissed, and never brings back a dismissed one
+    var message by rememberSaveable(stateSaver = ShopMessageSaver) { mutableStateOf(null) }
     // From Google confirming a purchase until the server has credited it
     var verifyingProductId by remember { mutableStateOf<String?>(null) }
     // Pack purchase tokens being sent to the server now (main thread only)
@@ -96,9 +123,9 @@ internal fun ShopDialog(
     // The subscriptions this device's Play account holds: null until Play has answered
     var ownedSubscriptions by remember { mutableStateOf<List<Purchase>?>(null) }
     // The last plan change started here, to explain a switch that waits for the renewal
-    var launchedPlan by remember { mutableStateOf<Pair<PlanAction, String>?>(null) }
+    var launchedPlan by rememberSaveable(stateSaver = LaunchedPlanSaver) { mutableStateOf(null) }
     // Google Play's page or purchase sheet was opened: what happened there is looked at on the way back
-    var awayInPlay by remember { mutableStateOf(false) }
+    var awayInPlay by rememberSaveable { mutableStateOf(false) }
 
     lateinit var billingManager: GooglePlayBillingManager
 
@@ -136,10 +163,8 @@ internal fun ShopDialog(
                 refreshOwnedSubscriptions()
                 if (launched?.first == PlanAction.Switch) confirmScheduledChange(launched.second)
             }
-            SubscriptionVerification.Pending -> message = ShopMessage(
-                "Almost there",
-                "Your subscription is saved but couldn't be confirmed yet. It will start automatically as soon as the server confirms it."
-            )
+            // Kept and retried in the background; said once per purchase, not again on every recovery
+            SubscriptionVerification.Pending -> if (viewModel.purchaseNoticesShown.add(token)) message = SUBSCRIPTION_LATER
             SubscriptionVerification.Refused -> message = ShopMessage(
                 "Subscription not confirmed",
                 "The server couldn't confirm this subscription. If you were charged, Google Play refunds a subscription that isn't confirmed."
@@ -170,11 +195,9 @@ internal fun ShopDialog(
                     verifyingProductId = null
                     if (success) {
                         viewModel.refreshUserBalance(context)
-                    } else {
-                        message = ShopMessage(
-                            "Purchase Failed",
-                            "Your purchase is saved but couldn't be credited yet. It will be credited automatically as soon as the server confirms it."
-                        )
+                    } else if (viewModel.purchaseNoticesShown.add(token)) {
+                        // Paid, and kept for the server: not a failure, and said once per purchase
+                        message = PACK_LATER
                     }
                 }
             },
@@ -222,6 +245,8 @@ internal fun ShopDialog(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (awayInPlay && isBillingConnected) {
             awayInPlay = false
+            // A pack bought while the shop was re-created reached no listener: recovered here
+            billingManager.recoverUncreditedPurchases(includeSubscriptions = false)
             refreshOwnedSubscriptions(recheck = true)
             viewModel.refreshUserBalance(context)
         }

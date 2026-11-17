@@ -171,6 +171,9 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     val api = PianoApiFactory.getApi(url)
                     val info = api.getServerInfo()
                     ServerMaintenance.onNotice(url, info.maintenance)
+                    serverInfoUrl = url
+                    isServerInfoStale = false
+                    serverInfoRetryJob?.cancel()
                     billingProvider = info.billingProvider ?: "none"
                     serverOffers = info.offers ?: emptyList()
                     subscriptionPlans = usablePlans(info.subscriptions)
@@ -204,11 +207,19 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    billingProvider = "none"
-                    subscriptionPlans = emptyList()
-                    maxUploadSizeMb = null
-                    supportsArrangement = false
-                    if (PianoApiFactory.isServerPasswordRequired(e)) serverStatus = ServerStatus.PASSWORD_REQUIRED
+                    val passwordRequired = PianoApiFactory.isServerPasswordRequired(e)
+                    if (keepsServerInfoOnFailure(sameServer = serverInfoUrl == url, passwordRequired = passwordRequired)) {
+                        // A restart or a proxy error, not a different server: the plans, packs, balance and
+                        // subscription it showed stay, and server-info is asked for again shortly
+                        isServerInfoStale = true
+                        retryServerInfoSoon(targetContext)
+                    } else {
+                        billingProvider = "none"
+                        subscriptionPlans = emptyList()
+                        maxUploadSizeMb = null
+                        supportsArrangement = false
+                    }
+                    if (passwordRequired) serverStatus = ServerStatus.PASSWORD_REQUIRED
                 }
             }
         } else if (serverStatus.isUnreachable) {
@@ -393,7 +404,45 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
 }
 
 internal fun PianoWeaveViewModel.openShopImpl(context: Context) {
+    // A refresh that failed earlier (e.g. during a restart) is tried again, so the shop shows current plans
+    if (isServerInfoStale) checkServerHealthAndInfoImpl(context)
     withEnsuredSignInImpl(context) { showShopDialog = true }
+}
+
+/**
+ * True if a failed server-info read should keep what the same server said last time: a restart, a timeout or a
+ * proxy error says nothing about its plans or billing. A different server, or one that now wants a password, starts
+ * from nothing.
+ */
+internal fun keepsServerInfoOnFailure(sameServer: Boolean, passwordRequired: Boolean): Boolean = sameServer && !passwordRequired
+
+/** How long to wait before asking for server-info again after a failed read. */
+private const val SERVER_INFO_RETRY_MS = 15_000L
+
+/** Asks for server-info again in a while, until it is read (the server is back after a restart). */
+private fun PianoWeaveViewModel.retryServerInfoSoon(context: Context?) {
+    if (serverInfoRetryJob?.isActive == true) return
+    serverInfoRetryJob = viewModelScope.launch {
+        delay(SERVER_INFO_RETRY_MS)
+        if (isServerInfoStale) checkServerHealthAndInfoImpl(context ?: appContext)
+    }
+}
+
+/** Throttle of [refreshServerStateOnResumeImpl], so switching apps back and forth doesn't flood the server. */
+private const val RESUME_REFRESH_MS = 30_000L
+
+/**
+ * On returning to the app: server-info if the last read failed, else the balance, so a plan changed or a server
+ * restarted meanwhile shows as it is now.
+ */
+internal fun PianoWeaveViewModel.refreshServerStateOnResumeImpl(context: Context) {
+    val now = android.os.SystemClock.elapsedRealtime()
+    if (lastResumeRefreshAt != 0L && now - lastResumeRefreshAt < RESUME_REFRESH_MS) return
+    lastResumeRefreshAt = now
+    when {
+        isServerInfoStale -> checkServerHealthAndInfoImpl(context)
+        serverStatus == ServerStatus.ONLINE && isBilledServer && isGoogleSignedIn -> refreshUserBalanceImpl(context)
+    }
 }
 
 /** Saves the custom server's password (blank removes it) and checks the server again with it. */

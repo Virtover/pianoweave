@@ -185,6 +185,8 @@ class MainActivity : ComponentActivity() {
         AppUpdates.onResume(this, updateFlowLauncher)
         // Announcements may say how to keep using the app; asked again on every return (throttled)
         viewModel.refreshAnnouncements(this)
+        // A plan changed in Google Play, or a server that restarted meanwhile (throttled)
+        viewModel.refreshServerStateOnResume(this)
     }
 
     override fun onPause() {

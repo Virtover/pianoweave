@@ -73,9 +73,13 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.launch
 
 /** Test tags of the shop's parts. */
@@ -113,7 +117,8 @@ fun ShopPanel(
     val gold = LocalAppTheme.current.primaryColor
     val slate = MaterialTheme.colorScheme.tertiaryContainer
     // Chosen afresh on every opening: a subscriber most likely came for credits, anyone else for a plan
-    var chosenTab by remember { mutableStateOf(state.defaultTab) }
+    // Saveable, so a rotation keeps the tab; the default applies only when the shop opens
+    var chosenTab by rememberSaveable { mutableStateOf(state.defaultTab) }
     val tab = when {
         state.plans.isEmpty() -> ShopTab.Packs
         state.packs.isEmpty() -> ShopTab.Plans
@@ -276,11 +281,19 @@ private fun BalanceDetails(balance: ShopBalance) {
     when {
         balance.developer -> SmallText("Developer account: your transcriptions are free.")
         balance.unlimited -> {
-            val saved = paid?.takeIf { it > 0 }?.let { "$it purchased ${if (it == 1) "credit" else "credits"} kept" }
-            val line = listOfNotNull(balance.planName?.let { "$it plan" }, balance.planStatus, saved).joinToString(" · ")
-            if (line.isNotEmpty()) {
+            val (long, short) = unlimitedBalanceLines(balance.planName, balance.planStatus, paid)
+            if (short.isNotEmpty()) {
+                // The renewal is on the plan's card; here it is added only where the line still fits on one row
+                val style = MaterialTheme.typography.bodySmall
+                val measurer = rememberTextMeasurer()
+                val density = LocalDensity.current
+                var room by remember { mutableIntStateOf(Int.MAX_VALUE) }
+                val longFits = measurer.measure(long, style, maxLines = 1).size.width +
+                    with(density) { 18.dp.roundToPx() } <= room
                 ExplainedLine(
-                    text = line,
+                    text = if (longFits) long else short,
+                    singleLine = true,
+                    onWidth = { room = it },
                     title = balance.planName ?: "Unlimited",
                     explanation = "Transcriptions don't use credits while your plan runs. " +
                         "Purchased credits never expire and wait for when you need them."
@@ -320,7 +333,15 @@ private fun SmallText(text: String, color: Color = MaterialTheme.colorScheme.ter
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExplainedLine(text: String, title: String, explanation: String, warn: Boolean = false) {
+private fun ExplainedLine(
+    text: String,
+    title: String,
+    explanation: String,
+    warn: Boolean = false,
+    singleLine: Boolean = false,
+    /** The width the line may take, in pixels, for a caller choosing between a long and a short text. */
+    onWidth: ((Int) -> Unit)? = null
+) {
     val tooltipState = rememberTooltipState(isPersistent = true)
     val scope = rememberCoroutineScope()
     val dim = MaterialTheme.colorScheme.tertiary
@@ -337,6 +358,7 @@ private fun ExplainedLine(text: String, title: String, explanation: String, warn
         Row(
             modifier = Modifier
                 .padding(top = 2.dp)
+                .then(if (onWidth != null) Modifier.fillMaxWidth().onSizeChanged { onWidth(it.width) } else Modifier)
                 // Not a pill: the line can wrap to two, and a pill would clip its corners
                 .clip(RoundedCornerShape(6.dp))
                 .clickable(onClickLabel = "Explain credits", role = Role.Button) { scope.launch { tooltipState.show() } }
@@ -348,6 +370,8 @@ private fun ExplainedLine(text: String, title: String, explanation: String, warn
                 text = text,
                 style = MaterialTheme.typography.bodySmall,
                 color = if (warn) Moods.Watch.light else dim,
+                maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+                overflow = if (singleLine) TextOverflow.Ellipsis else TextOverflow.Clip,
                 modifier = Modifier.weight(1f, fill = false)
             )
             Icon(imageVector = Icons.Outlined.Info, contentDescription = null, tint = dim, modifier = Modifier.size(14.dp))
@@ -711,4 +735,18 @@ private fun ShopFooter(state: ShopUiState, plansShown: Boolean, onManage: () -> 
         }
         state.subscribedProductId == null && plansShown -> ListNote("Cancel anytime in Google Play.")
     }
+}
+
+/**
+ * An unlimited plan's line under "Unlimited": the long one with the renewal ("Unlimited plan · Renews on … · 1830
+ * purchased credits kept") for wide screens, and the short one ("Unlimited plan · 1830 credits kept") that fits a
+ * phone. Empty when there's nothing to say.
+ */
+internal fun unlimitedBalanceLines(planName: String?, planStatus: String?, paid: Int?): Pair<String, String> {
+    val plan = planName?.takeIf { it.isNotBlank() }?.let { "$it plan" }
+    val kept = paid?.takeIf { it > 0 }
+    val credits = kept?.let { if (it == 1) "credit" else "credits" }
+    val long = listOfNotNull(plan, planStatus, kept?.let { "$it purchased $credits kept" }).joinToString(" · ")
+    val short = listOfNotNull(plan, kept?.let { "$it $credits kept" }).joinToString(" · ")
+    return long to short.ifEmpty { long }
 }

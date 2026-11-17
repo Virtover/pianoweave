@@ -234,6 +234,23 @@ class PianoWeaveViewModel : ViewModel() {
     var billingAccountId by mutableStateOf<String?>(null)
         internal set
 
+    /**
+     * The last server-info could not be refreshed (the server restarting, a proxy error): what it said before is
+     * still shown, and it is asked again soon, on resume and when the shop opens.
+     */
+    var isServerInfoStale by mutableStateOf(false)
+        internal set
+
+    /** The server whose server-info was last read successfully: its billing state is kept through failures. */
+    internal var serverInfoUrl = ""
+    internal var serverInfoRetryJob: Job? = null
+
+    /** When the app last refreshed the server state on returning to the foreground (elapsedRealtime). */
+    internal var lastResumeRefreshAt = 0L
+
+    /** Purchase tokens whose "we'll confirm it later" note was shown: said once, not on every recovery. */
+    internal val purchaseNoticesShown = mutableSetOf<String>()
+
     /** A billing problem to tell the user plainly, e.g. a subscription another account owns. */
     var billingNotice by mutableStateOf<String?>(null)
         internal set
@@ -493,6 +510,7 @@ class PianoWeaveViewModel : ViewModel() {
         context: Context, productId: String, purchaseToken: String, fromRecovery: Boolean = false, recheck: Boolean = false
     ) = verifyGooglePlaySubscriptionImpl(context, productId, purchaseToken, fromRecovery, recheck)
     fun dismissBillingNotice() { billingNotice = null }
+    fun refreshServerStateOnResume(context: Context) = refreshServerStateOnResumeImpl(context)
 
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)
     fun clearTranscriptionError() = clearTranscriptionErrorImpl()

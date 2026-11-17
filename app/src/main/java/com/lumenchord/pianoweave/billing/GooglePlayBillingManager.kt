@@ -223,7 +223,9 @@ class GooglePlayBillingManager(
                 when (purchase.purchaseState) {
                     Purchase.PurchaseState.PURCHASED -> {
                         val token = purchase.purchaseToken
-                        val isSubscription = productId in subscriptionProductIds
+                        // The purchase itself says so too: a shop opened while the server's plans were unknown
+                        // (or re-created since the flow started) hasn't learnt the subscription ids
+                        val isSubscription = productId in subscriptionProductIds || isSubscriptionPurchaseJson(purchase.originalJson)
                         coroutineScope.launch { onPurchaseCompleted(token, productId, isSubscription) }
                     }
                     Purchase.PurchaseState.PENDING -> coroutineScope.launch { onPurchasePending() }
@@ -298,3 +300,13 @@ fun purchaseUpdateAction(responseCode: Int, hasPurchases: Boolean): PurchaseUpda
 private fun purchaseErrorText(result: BillingResult): String =
     result.debugMessage.takeIf { it.isNotBlank() }
         ?: "Google Play couldn't complete the purchase (code: ${result.responseCode})."
+
+/**
+ * True if Play's purchase JSON is a subscription's: only those carry "autoRenewing". Credit packs must never be
+ * sent to the subscription endpoint, nor subscriptions to the pack one, where they would be refused.
+ */
+fun isSubscriptionPurchaseJson(json: String?): Boolean = try {
+    json != null && com.google.gson.JsonParser.parseString(json).let { it.isJsonObject && it.asJsonObject.has("autoRenewing") }
+} catch (_: Exception) {
+    false
+}

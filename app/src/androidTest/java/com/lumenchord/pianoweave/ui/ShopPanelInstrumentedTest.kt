@@ -1,6 +1,17 @@
 package com.lumenchord.pianoweave.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.test.hasText
+import com.lumenchord.pianoweave.ui.screens.learn.ShopMessage
+import com.lumenchord.pianoweave.ui.screens.learn.ShopMessageSaver
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -175,7 +186,10 @@ class ShopPanelInstrumentedTest {
         rule.onNodeWithTag(ShopTags.TABS).assertExists()
         rule.onNodeWithTag(ShopTags.PACKS).assertExists()
         rule.onNodeWithTag(ShopTags.PLANS).assertDoesNotExist()
-        rule.onNodeWithText("Unlimited plan · Renews on Dec 17, 2026 · 24 purchased credits kept").assertExists()
+        // Long with the renewal where it fits on one row, short otherwise; never wrapped
+        rule.onNode(
+            hasText("Unlimited plan · Renews on Dec 17, 2026 · 24 purchased credits kept") or hasText("Unlimited plan · 24 credits kept")
+        ).assertExists()
         rule.onNodeWithText("minutes left", substring = true).assertDoesNotExist()
         rule.onNodeWithText("Busy day", substring = true).assertDoesNotExist()
         // The plan's card isn't shown here, so the footer links to Google Play
@@ -229,6 +243,45 @@ class ShopPanelInstrumentedTest {
         rule.onNodeWithText("Switch").assertDoesNotExist()
         // A higher plan can still be chosen
         rule.onNodeWithText("Upgrade").performScrollTo().assertIsEnabled()
+    }
+
+    @Test
+    fun aPhoneGetsTheShortUnlimitedLine() {
+        show(unlimitedSubscriber(), widthDp = 360)
+        rule.onNodeWithText("Unlimited plan · 24 credits kept").assertExists()
+    }
+
+    @Test
+    fun chosenTabSurvivesRecreation() {
+        val tester = StateRestorationTester(rule)
+        tester.setContent { PianoWeaveTheme { ShopPanel(unlimitedSubscriber(), {}, {}, {}, {}) } }
+        // A subscriber opens on the packs, then picks the plans
+        rule.onNodeWithTag(ShopTags.PACKS).assertExists()
+        rule.onNodeWithText("Plans").performClick()
+        tester.emulateSavedInstanceStateRestore()
+        rule.onNodeWithTag(ShopTags.PLANS).assertExists()
+        rule.onNodeWithTag(ShopTags.PACKS).assertDoesNotExist()
+    }
+
+    @Test
+    fun aDismissedMessageStaysDismissedThroughRecreation() {
+        val tester = StateRestorationTester(rule)
+        tester.setContent {
+            PianoWeaveTheme {
+                var message by rememberSaveable(stateSaver = ShopMessageSaver) { mutableStateOf(null) }
+                Column {
+                    Text("Show", Modifier.clickable { message = ShopMessage("Almost there", "Kept for the server.") })
+                    message?.let { Text(it.title, Modifier.clickable { message = null }) }
+                }
+            }
+        }
+        rule.onNodeWithText("Show").performClick()
+        // Not dismissed yet: it stays through a rotation
+        tester.emulateSavedInstanceStateRestore()
+        rule.onNodeWithText("Almost there").assertExists().performClick()
+        // Dismissed: it never comes back
+        tester.emulateSavedInstanceStateRestore()
+        rule.onNodeWithText("Almost there").assertDoesNotExist()
     }
 
     @Test
