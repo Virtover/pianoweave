@@ -215,6 +215,21 @@ data class ServerOffer(
     @SerializedName("transcription_minutes") val transcriptionMinutes: Int
 )
 
+/**
+ * A subscription plan the server sells, lowest [level] first. Its period's minutes replace the free credits while
+ * it runs; [minutesPerPeriod] is null for an unlimited plan, which has a fair-use cap instead.
+ */
+data class ServerSubscriptionPlan(
+    @SerializedName("product_id") val productId: String? = null,
+    /** The Play base plan to buy; null means the product's first base plan. */
+    @SerializedName("base_plan") val basePlan: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("minutes_per_period") val minutesPerPeriod: Int? = null,
+    @SerializedName("unlimited") val unlimited: Boolean? = null,
+    /** 1 is the lowest; a higher level is an upgrade. */
+    @SerializedName("level") val level: Int? = null
+)
+
 data class ServerInfoResponse(
     @SerializedName("billing_provider") val billingProvider: String? = "none",
     @SerializedName("offers") val offers: List<ServerOffer>? = emptyList(),
@@ -227,6 +242,12 @@ data class ServerInfoResponse(
     @SerializedName("arrangement") val arrangement: Boolean? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
     @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
+    /** Subscription plans, lowest level first; absent on older servers and when billing is off. */
+    @SerializedName("subscriptions") val subscriptions: List<ServerSubscriptionPlan>? = null,
+    /** Minutes given once to each new account. */
+    @SerializedName("welcome_minutes") val welcomeMinutes: Int? = null,
+    /** An unlimited plan's fair-use cap: minutes of jobs per rolling 24 hours. */
+    @SerializedName("unlimited_daily_minutes") val unlimitedDailyMinutes: Int? = null,
     @SerializedName("google_oauth_client_ids", alternate = ["google_client_ids", "oauth_client_ids", "client_ids", "google_oauth_clients"]) val googleClientIds: List<String>? = null,
     /** A planned restart or shutdown; null when nothing is planned or on older servers. */
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null,
@@ -249,7 +270,27 @@ data class UserBalanceResponse(
      * True for an account the server's administrator made a developer's: its jobs are never charged, so the app
      * shows unlimited credits and the developer extras. Null (false) on older servers.
      */
-    @SerializedName("developer") val developer: Boolean? = null
+    @SerializedName("developer") val developer: Boolean? = null,
+    /** The account's running subscription; null without one and on older servers. */
+    @SerializedName("subscription") val subscription: ActiveSubscription? = null,
+    /** True while an unlimited plan runs: jobs aren't charged, up to a daily fair-use cap. */
+    @SerializedName("unlimited") val unlimited: Boolean? = null,
+    /** What's left of the unlimited plan's cap in the last 24 hours. */
+    @SerializedName("unlimited_minutes_left") val unlimitedMinutesLeft: Int? = null
+)
+
+/** A subscription as the server knows it. While its period runs, its minutes are the balance's monthly_minutes. */
+data class ActiveSubscription(
+    @SerializedName("product_id") val productId: String? = null,
+    @SerializedName("name") val name: String? = null,
+    /** Null for an unlimited plan. */
+    @SerializedName("minutes_per_period") val minutesPerPeriod: Int? = null,
+    @SerializedName("level") val level: Int? = null,
+    /** Epoch seconds: renewal, or the end of a canceled plan. */
+    @SerializedName("period_ends_at") val periodEndsAt: Long? = null,
+    @SerializedName("auto_renewing") val autoRenewing: Boolean? = null,
+    /** "ACTIVE", "CANCELED" (ends at [periodEndsAt]) or "IN_GRACE_PERIOD" (a payment failed and is retried). */
+    @SerializedName("state") val state: String? = null
 )
 
 data class BillingCostResponse(
@@ -260,6 +301,15 @@ data class BillingCostResponse(
 data class VerifyPurchaseRequest(
     @SerializedName("product_id") val productId: String,
     @SerializedName("purchase_token") val purchaseToken: String
+)
+
+data class VerifySubscriptionResponse(
+    @SerializedName("user_id") val userId: String? = null,
+    /** "started" when a paid period began with this call; "recorded" when it was known, pending or ended. */
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("granted_minutes") val grantedMinutes: Int? = null,
+    @SerializedName("acknowledged") val acknowledged: Boolean? = null,
+    @SerializedName("balance") val balance: UserBalanceResponse? = null
 )
 
 data class VerifyPurchaseResponse(

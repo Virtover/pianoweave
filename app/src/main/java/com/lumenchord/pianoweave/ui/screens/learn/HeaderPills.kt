@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MonetizationOn
@@ -177,6 +178,39 @@ fun DeveloperBalancePill(
             text = "DEV",
             style = style.copy(fontWeight = FontWeight.Bold, letterSpacing = MaterialTheme.typography.labelSmall.letterSpacing),
             color = accent,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
+/**
+ * An unlimited plan's balance in place of [CreditsBalancePill]: its jobs use no credits (up to the server's daily
+ * fair-use cap), so the pill says so and opens the shop, where the plan and what's left today are shown.
+ */
+@Composable
+fun UnlimitedBalancePill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val accent = MaterialTheme.colorScheme.secondary
+    HeaderPill(
+        onClick = onClick,
+        description = "Unlimited plan. Open the shop",
+        accent = accent,
+        modifier = modifier
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.AllInclusive,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = "Unlimited",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f),
             maxLines = 1,
             softWrap = false
         )

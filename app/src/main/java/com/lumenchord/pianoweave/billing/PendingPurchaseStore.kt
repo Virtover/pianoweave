@@ -9,8 +9,16 @@ data class PendingPurchase(
     val purchaseToken: String,
     val serverUrl: String,
     val userId: String,
-    val timestamp: Long = System.currentTimeMillis()
-)
+    val timestamp: Long = System.currentTimeMillis(),
+    /** [TYPE_SUBSCRIPTION] for a subscription; null (entries stored before subscriptions) for a credit pack. */
+    val type: String? = null
+) {
+    val isSubscription: Boolean get() = type == TYPE_SUBSCRIPTION
+
+    companion object {
+        const val TYPE_SUBSCRIPTION = "subs"
+    }
+}
 
 object PendingPurchaseStore {
     private const val PREFS_NAME = "piano_weave_pending_purchases"

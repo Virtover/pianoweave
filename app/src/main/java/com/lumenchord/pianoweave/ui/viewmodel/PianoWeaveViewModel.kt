@@ -10,6 +10,8 @@ import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
 import com.lumenchord.pianoweave.audio.VoiceModelError
 import com.lumenchord.pianoweave.api.ServerOffer
+import com.lumenchord.pianoweave.api.ServerSubscriptionPlan
+import com.lumenchord.pianoweave.api.ActiveSubscription
 import com.lumenchord.pianoweave.api.DeveloperJobDetails
 import com.lumenchord.pianoweave.api.DeveloperServerState
 import com.lumenchord.pianoweave.api.config.AppConfig
@@ -147,8 +149,12 @@ class PianoWeaveViewModel : ViewModel() {
             val free = freeCredits
             if (value == null) {
                 freeCredits = null
-                // The balance is unknown again (signed out, another server): so is the account's role
+                // The balance is unknown again (signed out, another server): so is the account's role and plan
                 isDeveloper = false
+                activeSubscription = null
+                isUnlimitedPlan = false
+                unlimitedMinutesLeft = null
+                billingAccountId = null
             } else if (old != null && free != null && value < old) {
                 freeCredits = (free - (old - value)).coerceAtLeast(0)
             }
@@ -206,6 +212,47 @@ class PianoWeaveViewModel : ViewModel() {
 
     var serverOffers by mutableStateOf<List<ServerOffer>>(emptyList())
         internal set
+
+    // --- Subscriptions (see PianoWeaveViewModelSubscriptions) ---
+    /** The server's plans, lowest level first; empty on older servers and when billing is off. */
+    var subscriptionPlans by mutableStateOf<List<ServerSubscriptionPlan>>(emptyList())
+        internal set
+
+    /** An unlimited plan's fair-use cap in minutes per 24 hours; null if the server doesn't say. */
+    var unlimitedDailyMinutes by mutableStateOf<Int?>(null)
+        internal set
+
+    /** The account's plan, as the last balance said; null without one. */
+    var activeSubscription by mutableStateOf<ActiveSubscription?>(null)
+        internal set
+
+    /** An unlimited plan runs: jobs aren't charged (up to the fair-use cap), so the app skips its balance checks. */
+    var isUnlimitedPlan by mutableStateOf(false)
+        internal set
+
+    /** What's left of the unlimited plan's cap in the last 24 hours. */
+    var unlimitedMinutesLeft by mutableStateOf<Int?>(null)
+        internal set
+
+    /** The server's id for the signed-in account (balance `user_id`); subscriptions are bound to its hash. */
+    var billingAccountId by mutableStateOf<String?>(null)
+        internal set
+
+    /** A billing problem to tell the user plainly, e.g. a subscription another account owns. */
+    var billingNotice by mutableStateOf<String?>(null)
+        internal set
+
+    /** Subscription purchase tokens being verified now, so a token found twice at once is sent once. */
+    internal val subscriptionVerificationsInFlight = mutableSetOf<String>()
+
+    /** When each subscription token was last verified (elapsedRealtime), so reopening the shop doesn't resend it. */
+    internal val subscriptionVerifiedAt = mutableMapOf<String, Long>()
+
+    /** The account whose subscriptions were recovered this run after its first balance; the shop recovers them again. */
+    internal var subscriptionsRecoveredFor: String? = null
+
+    /** The server never charges this account's jobs: a developer's, or an unlimited plan's (fair use aside). */
+    val hasUnlimitedCredits: Boolean get() = isDeveloper || isUnlimitedPlan
 
     var resultRetentionSeconds by mutableStateOf<Long?>(null)
         internal set
@@ -446,6 +493,9 @@ class PianoWeaveViewModel : ViewModel() {
     fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) = updateServerSettingsImpl(context, useCustom, customUrl, customClientId)
     fun updateServerPassword(context: Context, password: String) = updateServerPasswordImpl(context, password)
     suspend fun verifyGooglePlayPurchase(context: Context, productId: String, purchaseToken: String): Boolean = verifyGooglePlayPurchaseImpl(context, productId, purchaseToken)
+    suspend fun verifyGooglePlaySubscription(context: Context, productId: String, purchaseToken: String, fromRecovery: Boolean = false) =
+        verifyGooglePlaySubscriptionImpl(context, productId, purchaseToken, fromRecovery)
+    fun dismissBillingNotice() { billingNotice = null }
 
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)
     fun clearTranscriptionError() = clearTranscriptionErrorImpl()

@@ -12,6 +12,9 @@ import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.api.libraryKey
+import com.lumenchord.pianoweave.billing.FAIR_USE_LIMIT
+import com.lumenchord.pianoweave.billing.fairUseMessage
+import com.lumenchord.pianoweave.billing.fairUseRetryAfter
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.api.retryWhenBusy
 import com.google.gson.Gson
@@ -117,10 +120,11 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context, mode: 
         AppPrefs.get(context).edit().putString(AppPrefs.LAST_TRANSCRIPTION_MODE, mode.apiValue).apply()
     }
 
-    // Client-side pre-check only; the server enforces the balance. A developer's jobs are never charged.
+    // Client-side pre-check only; the server enforces the balance. A developer's jobs are never charged, nor
+    // an unlimited plan's, whose daily fair-use cap only the server knows the state of.
     val cost = estimatedCostCredits
     val credits = userCredits
-    if (isBilledServer && !isDeveloper && cost != null && credits != null && credits < cost) {
+    if (isBilledServer && !hasUnlimitedCredits && cost != null && credits != null && credits < cost) {
         showNotEnoughCreditsDialog = true
         return
     }
@@ -200,6 +204,11 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
                 showNotEnoughCreditsDialog = true
             }
             (e as? HttpException)?.let { serverErrorDetail(context, it) } ?: InsufficientBalanceException().message!!
+        }
+        // An unlimited plan's daily cap: said kindly, with when it lifts, not as an error
+        errorCode == FAIR_USE_LIMIT -> {
+            refreshUserBalanceImpl(context)
+            fairUseMessage(unlimitedDailyMinutes, fairUseRetryAfter(e as HttpException))
         }
         ServerErrors.isAlreadyProcessed(e) ->
             "This was already transcribed, but the result has expired on the server. Tap Transcribe to start it again."

@@ -27,6 +27,8 @@ internal fun NotEnoughCreditsDialog(
     /** Null when the cost isn't known yet (the server measures an upload after receiving it). */
     requiredCredits: Int?,
     availableCredits: Int?,
+    /** The server sells plans the user doesn't have: one quiet line says the shop has them too. */
+    plansAvailable: Boolean = false,
     onBuyCredits: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -66,7 +68,7 @@ internal fun NotEnoughCreditsDialog(
                     )
 
                     Text(
-                        text = notEnoughCreditsText(requiredCredits, availableCredits),
+                        text = notEnoughCreditsText(requiredCredits, availableCredits, plansAvailable),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.9f),
                         lineHeight = 22.sp
@@ -111,7 +113,7 @@ internal fun NotEnoughCreditsDialog(
                             )
                         ) {
                             Text(
-                                text = "Buy credits",
+                                text = if (plansAvailable) "Open shop" else "Buy credits",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp
                             )
@@ -124,7 +126,7 @@ internal fun NotEnoughCreditsDialog(
 }
 
 /** What the transcription needs against what the user has, which can be minutes owed after a refund. */
-internal fun notEnoughCreditsText(required: Int?, available: Int?): String {
+internal fun notEnoughCreditsText(required: Int?, available: Int?, plansAvailable: Boolean = false): String {
     val needs = if (required != null) "This transcription requires $required ${credits(required)} (1 credit = 1 minute)"
     else "A transcription needs at least $MIN_BALANCE_TO_TRANSCRIBE credit (1 credit = 1 minute)"
     val owed = owedMinutes(available)
@@ -136,7 +138,9 @@ internal fun notEnoughCreditsText(required: Int?, available: Int?): String {
     } else {
         "but you only have $available ${credits(available)} remaining."
     }
-    return "$needs, $has\n\nWould you like to buy more credits in the shop?"
+    val offer = if (plansAvailable) "The shop has credit packs, and plans that give you credits every period."
+    else "Would you like to buy more credits in the shop?"
+    return "$needs, $has\n\n$offer"
 }
 
 private fun credits(n: Int) = if (n == 1) "credit" else "credits"

@@ -259,7 +259,7 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
             }
             // A connection broken mid-upload may be the server's refusal of a low balance (402) in disguise
             val balance = if (isBilledServer && ServerErrors.isBrokenUpload(e)) loadUserBalance(context) else null
-            if (balance != null && !canAfford(balance, estimatedCostCredits)) {
+            if (balance != null && !hasUnlimitedCredits && !canAfford(balance, estimatedCostCredits)) {
                 failTranscriptionStart(context, InsufficientBalanceException())
             } else {
                 failTranscriptionStart(context, e)
@@ -278,8 +278,8 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
 private suspend fun PianoWeaveViewModel.hasBalanceForUpload(context: Context, file: SelectedMediaFile): Boolean {
     status = "Checking your balance..."
     val balance = loadUserBalance(context) ?: return true
-    // Read with the balance: a developer's jobs are never charged
-    if (isDeveloper) return true
+    // Read with the balance: a developer's jobs are never charged, nor an unlimited plan's (fair use aside)
+    if (hasUnlimitedCredits) return true
     val cost = estimatedCostCredits ?: file.durationSeconds?.let { duration ->
         try {
             fetchBillingCost(context, durationSeconds = duration).also { estimatedCostCredits = it }

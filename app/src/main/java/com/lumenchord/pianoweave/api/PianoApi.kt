@@ -52,6 +52,13 @@ interface PianoApi {
         @Body request: VerifyPurchaseRequest
     ): VerifyPurchaseResponse
 
+    /** Records a subscription purchase for the signed-in account; safe to repeat (renewals, restores). */
+    @POST("api/billing/google-play/subscriptions/verify")
+    suspend fun verifySubscription(
+        @Header("Authorization") authHeader: String? = null,
+        @Body request: VerifyPurchaseRequest
+    ): VerifySubscriptionResponse
+
     /**
      * Queues a link. The same [idempotencyKey] on a retry answers with the job it already queued (202) instead
      * of a second one; see PendingSubmissionStore.

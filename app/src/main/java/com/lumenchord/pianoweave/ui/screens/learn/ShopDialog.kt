@@ -1,90 +1,173 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
-import com.lumenchord.pianoweave.billing.creditsLabel
-import com.lumenchord.pianoweave.billing.freeCreditsPeriodText
-import com.lumenchord.pianoweave.billing.owedMinutes
-import com.lumenchord.pianoweave.ui.components.DialogHeader
-import com.lumenchord.pianoweave.ui.theme.Moods
-import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
-import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.android.billingclient.api.ProductDetails
+import com.android.billingclient.api.Purchase
 import com.lumenchord.pianoweave.billing.GooglePlayBillingManager
+import com.lumenchord.pianoweave.billing.PlanAction
+import com.lumenchord.pianoweave.billing.accountTag
+import com.lumenchord.pianoweave.billing.fairUseText
+import com.lumenchord.pianoweave.billing.freeCreditsPeriodText
+import com.lumenchord.pianoweave.billing.isUnlimited
+import com.lumenchord.pianoweave.billing.manageSubscriptionUrl
+import com.lumenchord.pianoweave.billing.packPrice
+import com.lumenchord.pianoweave.billing.pickBasePlanOffer
+import com.lumenchord.pianoweave.billing.planAction
+import com.lumenchord.pianoweave.billing.planAllowanceText
+import com.lumenchord.pianoweave.billing.planOffers
+import com.lumenchord.pianoweave.billing.planPriceText
+import com.lumenchord.pianoweave.billing.replacementModeFor
+import com.lumenchord.pianoweave.billing.subscriptionState
+import com.lumenchord.pianoweave.billing.subscriptionStatusText
+import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.components.DialogSurface
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
+import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.ui.viewmodel.SubscriptionVerification
 import com.lumenchord.pianoweave.util.findActivity
+import com.lumenchord.pianoweave.util.openUrl
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Currency
-import java.util.Locale
+import java.text.DateFormat
+import java.util.Date
 
+/** A message the shop shows over itself: a failed purchase, or what happens next with one. */
+private data class ShopMessage(val title: String, val text: String)
+
+/**
+ * The shop with Play Billing behind it: loads prices for the server's plans and packs, buys them, and hands each
+ * purchase to the server. What it shows is drawn by [ShopPanel] from a [ShopUiState].
+ */
 @Composable
 internal fun ShopDialog(
     viewModel: PianoWeaveViewModel,
     context: Context,
     onDismiss: () -> Unit
 ) {
-    val appTheme = LocalAppTheme.current
     val coroutineScope = rememberCoroutineScope()
-    val ColorSurface = MaterialTheme.colorScheme.surface
-    val ColorGold = appTheme.primaryColor
-    val ColorSlate = MaterialTheme.colorScheme.tertiaryContainer
-    val ColorTextDim = MaterialTheme.colorScheme.tertiary
-
-    val currentContext = LocalContext.current
-    val activity = currentContext.findActivity() ?: context.findActivity()
+    val activity = LocalContext.current.findActivity() ?: context.findActivity()
     var productDetailsMap by remember { mutableStateOf<Map<String, ProductDetails>>(emptyMap()) }
     var isLoadingProducts by remember { mutableStateOf(true) }
     var isBillingConnected by remember { mutableStateOf(false) }
-    var purchaseErrorMessage by remember { mutableStateOf<String?>(null) }
+    var isBillingUnavailable by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<ShopMessage?>(null) }
     // From Google confirming a purchase until the server has credited it
     var verifyingProductId by remember { mutableStateOf<String?>(null) }
+    // The subscriptions this device's Play account holds: null until Play has answered
+    var ownedSubscriptions by remember { mutableStateOf<List<Purchase>?>(null) }
+    // The last plan change started here, to explain a switch that waits for the renewal
+    var launchedPlan by remember { mutableStateOf<Pair<PlanAction, String>?>(null) }
 
-    val billingManager = remember {
+    lateinit var billingManager: GooglePlayBillingManager
+
+    /** Asks Play for the plans this device holds and sends each to the server: renewals, restores, lost answers. */
+    fun refreshOwnedSubscriptions() {
+        billingManager.queryOwnedSubscriptions(onFailed = { ownedSubscriptions = emptyList() }) { purchases ->
+            ownedSubscriptions = purchases
+            purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }.forEach { purchase ->
+                val productId = purchase.products.firstOrNull() ?: return@forEach
+                coroutineScope.launch {
+                    viewModel.verifyGooglePlaySubscription(context, productId, purchase.purchaseToken, fromRecovery = true)
+                }
+            }
+        }
+    }
+
+    suspend fun creditSubscription(productId: String, token: String) {
+        verifyingProductId = productId
+        val result = viewModel.verifyGooglePlaySubscription(context, productId, token)
+        verifyingProductId = null
+        val launched = launchedPlan
+        launchedPlan = null
+        when (result) {
+            SubscriptionVerification.Started -> refreshOwnedSubscriptions()
+            SubscriptionVerification.Recorded -> {
+                refreshOwnedSubscriptions()
+                if (launched?.first == PlanAction.Switch) {
+                    message = ShopMessage("Plan change scheduled", "You'll move to ${launched.second} when your current period ends. Until then, your plan stays as it is.")
+                }
+            }
+            SubscriptionVerification.Pending -> message = ShopMessage(
+                "Almost there",
+                "Your subscription is saved but couldn't be confirmed yet. It will start automatically as soon as the server confirms it."
+            )
+            SubscriptionVerification.Refused -> message = ShopMessage(
+                "Subscription not confirmed",
+                "The server couldn't confirm this subscription. If you were charged, Google Play refunds a subscription that isn't confirmed."
+            )
+            // The view model tells the user (billingNotice); a recheck in flight has nothing to add
+            SubscriptionVerification.OwnedByAnotherAccount, SubscriptionVerification.Skipped -> Unit
+        }
+    }
+
+    billingManager = remember {
         GooglePlayBillingManager(
             context = context,
-            onPurchaseCompleted = { token, productId ->
+            onPurchaseCompleted = { token, productId, isSubscription ->
                 coroutineScope.launch {
+                    if (isSubscription) {
+                        creditSubscription(productId, token)
+                        return@launch
+                    }
                     verifyingProductId = productId
                     val success = viewModel.verifyGooglePlayPurchase(context, productId, token)
                     verifyingProductId = null
                     if (success) {
                         viewModel.refreshUserBalance(context)
                     } else {
-                        purchaseErrorMessage = "Your purchase is saved but couldn't be credited yet. It will be credited automatically as soon as the server confirms it."
+                        message = ShopMessage(
+                            "Purchase Failed",
+                            "Your purchase is saved but couldn't be credited yet. It will be credited automatically as soon as the server confirms it."
+                        )
                     }
                 }
             },
             onPurchaseError = { errorMsg ->
                 verifyingProductId = null
-                purchaseErrorMessage = errorMsg
+                launchedPlan = null
+                message = ShopMessage("Purchase Failed", errorMsg)
+            },
+            onPurchasePending = {
+                message = ShopMessage(
+                    "Payment pending",
+                    "Google Play is still waiting for your payment. Your purchase is added once it goes through."
+                )
             }
         )
     }
@@ -93,12 +176,13 @@ internal fun ShopDialog(
         billingManager.startConnection(
             onFailed = {
                 isLoadingProducts = false
-                purchaseErrorMessage = "Google Play Billing isn't available. Check that you're signed in to the Play Store."
+                isBillingUnavailable = true
             }
         ) {
             isBillingConnected = true
-            // Credits any earlier purchase that was paid for but never reached the server
-            billingManager.recoverUncreditedPurchases()
+            // Credits any earlier pack that was paid for but never reached the server; plans come next
+            billingManager.recoverUncreditedPurchases(includeSubscriptions = false)
+            refreshOwnedSubscriptions()
         }
         onDispose { billingManager.destroy() }
     }
@@ -106,35 +190,221 @@ internal fun ShopDialog(
     // Job and purchase answers carry only the total, so the free/purchased split may be an estimate
     LaunchedEffect(Unit) { viewModel.refreshUserBalance(context) }
 
-    LaunchedEffect(isBillingConnected, viewModel.serverOffers) {
+    LaunchedEffect(isBillingConnected, viewModel.serverOffers, viewModel.subscriptionPlans) {
         if (!isBillingConnected) return@LaunchedEffect
-        val productIds = viewModel.serverOffers.map { it.productId }
-        if (productIds.isEmpty()) {
+        val packIds = viewModel.serverOffers.map { it.productId }
+        val planIds = viewModel.subscriptionPlans.mapNotNull { it.productId }
+        if (packIds.isEmpty() && planIds.isEmpty()) {
             isLoadingProducts = false
             return@LaunchedEffect
         }
         isLoadingProducts = true
-        billingManager.queryProductDetails(productIds) { detailsList ->
+        billingManager.queryProductDetails(packIds, planIds) { detailsList ->
             productDetailsMap = detailsList.associateBy { it.productId }
             isLoadingProducts = false
         }
     }
 
-    fun formatRenewalTime(seconds: Long?): String {
-        if (seconds == null) return "Free credits active"
-        if (seconds <= 0) return "Free credits ready"
-        val days = seconds / 86400
-        val hours = (seconds % 86400) / 3600
-        val mins = (seconds % 3600) / 60
-        val secs = seconds % 60
-        return when {
-            days > 0 -> "$days day${if (days > 1) "s" else ""}, $hours hr${if (hours > 1) "s" else ""}"
-            hours > 0 -> "$hours hr${if (hours > 1) "s" else ""}, $mins min${if (mins > 1) "s" else ""}"
-            mins > 0 -> "$mins min${if (mins > 1) "s" else ""}, $secs sec"
-            else -> "$secs second${if (secs != 1L) "s" else ""}"
+    val dateFormat = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
+    val state = shopState(
+        viewModel = viewModel,
+        details = productDetailsMap,
+        owned = ownedSubscriptions,
+        canLaunch = activity != null,
+        isLoading = isLoadingProducts,
+        unavailable = isBillingUnavailable,
+        busyProductId = verifyingProductId,
+        formatDate = { dateFormat.format(Date(it * 1000)) }
+    )
+
+    fun openManage(productId: String?) {
+        context.openUrl(manageSubscriptionUrl(productId, context.packageName))
+    }
+
+    fun onPlan(plan: ShopPlan) {
+        // Resubscribing and fixing a payment happen on Google Play's own page
+        if (plan.action == PlanAction.Current) return openManage(plan.productId)
+        val act = activity ?: return
+        val details = productDetailsMap[plan.productId] ?: return
+        val serverPlan = viewModel.subscriptionPlans.firstOrNull { it.productId == plan.productId } ?: return
+        val offer = pickBasePlanOffer(details.planOffers(), serverPlan.basePlan) ?: return
+        val account = viewModel.billingAccountId
+        if (account == null) {
+            // The plan is bound to the account the balance names; without it, the server couldn't tell whose it is
+            viewModel.refreshUserBalance(context)
+            message = ShopMessage("One moment", "Your account is still loading. Try again in a moment.")
+            return
+        }
+        val current = viewModel.activeSubscription?.productId
+        val replacing = if (plan.action == PlanAction.Subscribe) null
+        else ownedSubscriptions?.firstOrNull { current != null && current in it.products } ?: return
+        launchedPlan = plan.action to plan.name
+        billingManager.launchSubscriptionFlow(
+            activity = act,
+            productDetails = details,
+            offerToken = offer.offerToken,
+            accountTag = accountTag(account),
+            replacing = replacing,
+            replacementMode = replacementModeFor(plan.action)
+        )
+    }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            ShopPanel(
+                state = state,
+                onPlan = ::onPlan,
+                onPack = { pack ->
+                    val details = productDetailsMap[pack.productId]
+                    if (activity != null && details != null) billingManager.launchPurchaseFlow(activity, details)
+                },
+                onManage = { openManage(state.subscribedProductId) },
+                onClose = onDismiss,
+                modifier = Modifier
+                    .widthIn(max = 640.dp)
+                    .fillMaxWidth()
+                    .heightIn(max = 720.dp)
+                    .wrapContentHeight()
+            )
         }
     }
 
+    message?.let { shown ->
+        BillingMessageDialog(title = shown.title, text = shown.text, onDismiss = { message = null })
+    }
+}
+
+/** The shop's content from the view model's billing state and Play's product details. */
+private fun shopState(
+    viewModel: PianoWeaveViewModel,
+    details: Map<String, ProductDetails>,
+    owned: List<Purchase>?,
+    canLaunch: Boolean,
+    isLoading: Boolean,
+    unavailable: Boolean,
+    busyProductId: String?,
+    formatDate: (Long) -> String
+): ShopUiState {
+    val current = viewModel.activeSubscription
+    // Switching needs the running plan's purchase on this device's Play account
+    val currentPurchase = current?.productId?.let { id -> owned?.firstOrNull { id in it.products } }
+    val canSwitch = currentPurchase != null
+    val plans = viewModel.subscriptionPlans.map { plan ->
+        val id = plan.productId.orEmpty()
+        val offer = details[id]?.let { pickBasePlanOffer(it.planOffers(), plan.basePlan) }
+        val action = planAction(current, id, plan.level ?: 0)
+        val isCurrent = action == PlanAction.Current
+        ShopPlan(
+            productId = id,
+            name = plan.name?.takeIf { it.isNotBlank() } ?: id,
+            allowance = planAllowanceText(plan.minutesPerPeriod, plan.isUnlimited, offer?.billingPeriod),
+            price = planPriceText(offer),
+            action = action,
+            isUnlimited = plan.isUnlimited,
+            note = if (plan.isUnlimited) fairUseText(viewModel.unlimitedDailyMinutes) else null,
+            status = if (isCurrent && current != null) subscriptionStatusText(current, formatDate) else null,
+            state = if (isCurrent) current?.subscriptionState else null,
+            canBuy = canLaunch && offer != null && (action == PlanAction.Subscribe || canSwitch)
+        )
+    }.toMutableList()
+    // A running plan the server no longer offers is still shown, so its state and the way to manage it stay
+    if (current != null && plans.none { it.action == PlanAction.Current }) {
+        val unlimited = current.minutesPerPeriod == null
+        plans.add(
+            0,
+            ShopPlan(
+                productId = current.productId.orEmpty(),
+                name = current.name?.takeIf { it.isNotBlank() } ?: "Your plan",
+                allowance = planAllowanceText(current.minutesPerPeriod, unlimited, null),
+                price = null,
+                action = PlanAction.Current,
+                isUnlimited = unlimited,
+                note = if (unlimited) fairUseText(viewModel.unlimitedDailyMinutes) else null,
+                status = subscriptionStatusText(current, formatDate),
+                state = current.subscriptionState
+            )
+        )
+    }
+    val packs = viewModel.serverOffers.map { offer ->
+        val pack = details[offer.productId]
+        ShopPack(offer.productId, offer.transcriptionMinutes, pack?.packPrice(), canBuy = canLaunch && pack != null)
+    }
+
+    val fm = viewModel.freeMinutes
+    val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
+    val paid = viewModel.paidCredits
+    val credits = viewModel.userCredits
+    val renewal = when {
+        // The server waits with the renewal until a refund is paid back
+        paid != null && paid < 0 -> "They reset once nothing is owed."
+        grantSec == null -> ""
+        grantSec <= 0 -> "They're resetting now."
+        else -> "They reset in ${formatRenewalTime(grantSec)}."
+    }
+    // Servers from before monthly minutes top one balance up to fm
+    val legacyRenewal = if (viewModel.freeCredits == null && grantSec != null && credits != null && credits <= fm && fm > 0) {
+        if (grantSec <= 0) "Free $fm credits renewal ready" else "Free $fm credits renewal in: ${formatRenewalTime(grantSec)}"
+    } else null
+    val planMinutes = current?.minutesPerPeriod
+    val balance = ShopBalance(
+        total = credits,
+        periodCredits = viewModel.freeCredits,
+        paidCredits = paid,
+        planName = current?.name?.takeIf { it.isNotBlank() } ?: current?.let { "your plan" },
+        planMinutes = planMinutes,
+        unlimited = viewModel.isUnlimitedPlan,
+        unlimitedMinutesLeft = viewModel.unlimitedMinutesLeft,
+        unlimitedDailyMinutes = viewModel.unlimitedDailyMinutes,
+        developer = viewModel.isDeveloper,
+        freeMinutes = fm,
+        freeEvery = freeCreditsPeriodText(viewModel.freeMinutesPeriod),
+        renewal = renewal,
+        legacyRenewal = legacyRenewal
+    )
+    return ShopUiState(
+        balance = balance,
+        plans = plans,
+        packs = packs,
+        isLoading = isLoading,
+        unavailableMessage = if (unavailable) "Google Play Billing isn't available. Check that you're signed in to the Play Store." else null,
+        busyProductId = busyProductId,
+        freeMinutes = fm,
+        subscribedProductId = current?.productId,
+        switchNote = if (current != null && owned != null && !canSwitch && plans.any { it.action == PlanAction.Upgrade || it.action == PlanAction.Switch }) {
+            "Your plan was bought with another Google Play account. To change it, use Google Play on that account."
+        } else null
+    )
+}
+
+private fun formatRenewalTime(seconds: Long): String {
+    val days = seconds / 86400
+    val hours = (seconds % 86400) / 3600
+    val mins = (seconds % 3600) / 60
+    val secs = seconds % 60
+    return when {
+        days > 0 -> "$days day${if (days > 1) "s" else ""}, $hours hr${if (hours > 1) "s" else ""}"
+        hours > 0 -> "$hours hr${if (hours > 1) "s" else ""}, $mins min${if (mins > 1) "s" else ""}"
+        mins > 0 -> "$mins min${if (mins > 1) "s" else ""}, $secs sec"
+        else -> "$secs second${if (secs != 1L) "s" else ""}"
+    }
+}
+
+/** A short billing message with one OK: a failed purchase, a scheduled plan change, a subscription refused. */
+@Composable
+internal fun BillingMessageDialog(
+    title: String,
+    text: String,
+    onDismiss: () -> Unit,
+    icon: ImageVector = Icons.Default.ShoppingCart
+) {
+    val appTheme = LocalAppTheme.current
+    val gold = appTheme.primaryColor
+    val slate = MaterialTheme.colorScheme.tertiaryContainer
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
@@ -143,446 +413,38 @@ internal fun ShopDialog(
             contentAlignment = Alignment.Center
         ) {
             DialogSurface(
-                light = ColorGold,
-                modifier = Modifier
-                    .fillMaxWidth(0.98f)
-                    .heightIn(max = 620.dp),
+                light = gold,
+                modifier = Modifier.fillMaxWidth(0.98f).wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
-                color = ColorSurface,
-                contentColor = Color.White,
-                border = BorderStroke(1.dp, ColorSlate)
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                border = BorderStroke(1.dp, slate)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    DialogHeader(title = title, icon = icon, onClose = onDismiss, titleColor = gold)
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                        lineHeight = 22.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp),
+                        shape = PillShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = gold,
+                            contentColor = MaterialTheme.colorScheme.onSecondary
+                        )
                     ) {
-                        DialogHeader(
-                            title = "Credits Shop",
-                            icon = Icons.Default.ShoppingCart,
-                            onClose = onDismiss,
-                            titleColor = ColorGold
-                        )
-
-                        // Compact Combined Balance & Renewal Card
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            color = ColorSlate.copy(alpha = 0.3f),
-                            border = BorderStroke(1.dp, ColorGold)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                val grantSec = viewModel.freeMinutesSecondsUntilNextGrant
-                                val fm = viewModel.freeMinutes
-                                val free = viewModel.freeCredits.takeIf { fm > 0 }
-                                val paid = viewModel.paidCredits
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.MonetizationOn,
-                                        contentDescription = null,
-                                        tint = ColorGold,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                    Column(
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(
-                                            text = "AVAILABLE BALANCE",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = ColorTextDim,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        BalanceLine(viewModel.userCredits)
-                                        if (free != null && paid != null) {
-                                            val renewal = when {
-                                                // The server waits with the renewal until a refund is paid back
-                                                paid < 0 -> "They reset once nothing is owed."
-                                                grantSec == null -> ""
-                                                grantSec <= 0 -> "They're resetting now."
-                                                else -> "They reset in ${formatRenewalTime(grantSec)}."
-                                            }
-                                            BalanceSplit(free, paid, fm, freeCreditsPeriodText(viewModel.freeMinutesPeriod), renewal)
-                                        }
-                                    }
-                                }
-
-                                val owed = owedMinutes(viewModel.userCredits)
-                                if (owed > 0) {
-                                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.4f))
-                                    OwedNote(owed)
-                                }
-
-                                val currentCredits = viewModel.userCredits
-                                if (free == null && grantSec != null && currentCredits != null && currentCredits <= fm && fm > 0) {
-                                    // Servers from before monthly minutes top one balance up to fm
-                                    HorizontalDivider(color = ColorSlate.copy(alpha = 0.4f))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Info,
-                                            contentDescription = null,
-                                            tint = ColorGold,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        val infoText = if (grantSec <= 0) {
-                                            "Free $fm credits renewal ready"
-                                        } else {
-                                            "Free $fm credits renewal in: ${formatRenewalTime(grantSec)}"
-                                        }
-                                        Text(
-                                            text = infoText,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = ColorTextDim
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Offers / Credit packages list
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "BUY MORE CREDITS",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = ColorTextDim
-                        )
-
-                        if (isLoadingProducts) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(100.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(color = ColorGold, modifier = Modifier.size(28.dp))
-                            }
-                        } else if (viewModel.serverOffers.isEmpty()) {
-                            Text(
-                                text = "No credit packages available at this time.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = ColorTextDim
-                            )
-                        } else {
-                            viewModel.serverOffers.forEach { offer ->
-                                val details = productDetailsMap[offer.productId]
-                                val priceText = details?.let(::formatPrice) ?: "Buy"
-                                val isVerifying = verifyingProductId == offer.productId
-                                // Locked while a purchase is being credited, so nobody buys twice by accident
-                                val canBuy = details != null && activity != null && verifyingProductId == null
-                                val onAccent = if (appTheme.isLightAccent) Color.Black else Color.White
-
-                                // The whole row buys the pack, not just its price
-                                Surface(
-                                    onClick = {
-                                        if (activity != null && details != null) {
-                                            billingManager.launchPurchaseFlow(activity, details)
-                                        }
-                                    },
-                                    enabled = canBuy,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = ColorSlate.copy(alpha = 0.3f),
-                                    border = BorderStroke(1.dp, ColorSlate)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(14.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "${offer.transcriptionMinutes} Credits",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                text = "${offer.transcriptionMinutes} minutes of AI transcription",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = ColorTextDim
-                                            )
-                                        }
-
-                                        Spacer(Modifier.width(12.dp))
-
-                                        Box(
-                                            modifier = Modifier
-                                                .heightIn(min = 32.dp)
-                                                .background(if (canBuy || isVerifying) ColorGold else ColorGold.copy(alpha = 0.3f), PillShape)
-                                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isVerifying) {
-                                                CircularProgressIndicator(color = onAccent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                                            } else {
-                                                Text(priceText, color = onAccent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        Text(text = "OK", fontWeight = FontWeight.Black, fontSize = 13.sp)
                     }
                 }
             }
         }
-    }
-
-    if (purchaseErrorMessage != null) {
-        Dialog(onDismissRequest = { purchaseErrorMessage = null }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 12.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth(0.98f)
-                        .wrapContentHeight(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = ColorSurface,
-                    contentColor = Color.White,
-                    border = BorderStroke(1.dp, ColorSlate)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Purchase Failed",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = ColorGold
-                            )
-                            IconButton(
-                                onClick = { purchaseErrorMessage = null },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = ColorTextDim
-                                )
-                            }
-                        }
-
-                        HorizontalDivider(color = ColorSlate.copy(alpha = 0.6f))
-
-                        Text(
-                            text = purchaseErrorMessage ?: "An unknown error occurred during purchase.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f),
-                            lineHeight = 22.sp
-                        )
-
-                        Spacer(Modifier.height(4.dp))
-
-                        Button(
-                            onClick = { purchaseErrorMessage = null },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp),
-                            shape = PillShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ColorGold,
-                                contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
-                            )
-                        ) {
-                            Text(
-                                text = "OK",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * "10 free · 64 purchased" under the total, kept quiet on purpose; tapping it explains the two kinds
- * in a tooltip, so the shop stays as simple as with a single balance. The period comes from the server, never
- * a fixed "monthly", so it can be changed there.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BalanceSplit(free: Int, paid: Int, freeMinutes: Int, every: String?, renewal: String) {
-    val tooltipState = rememberTooltipState(isPersistent = true)
-    val scope = rememberCoroutineScope()
-    val dim = MaterialTheme.colorScheme.tertiary
-
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
-        tooltip = {
-            RichTooltip(title = { Text("Two kinds of credits") }) {
-                Text(
-                    text = "Free: $freeMinutes credits ${every ?: "renewed regularly"}, used first. Unused ones don't carry over. " +
-                        "$renewal\n\nPurchased: yours to keep, they never expire.",
-                    lineHeight = 18.sp
-                )
-            }
-        },
-        state = tooltipState
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .clip(PillShape)
-                .clickable(onClickLabel = "Explain credits") { scope.launch { tooltipState.show() } }
-                .padding(vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = "$free free · $paid purchased",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (paid < 0) Moods.Watch.light else dim
-            )
-            Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = null,
-                tint = dim,
-                modifier = Modifier.size(14.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun BalanceLine(credits: Int?) {
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-
-    val creditsStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black)
-    val rateStyle = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
-    val creditsText = creditsLabel(credits)
-    val creditsColor = if (owedMinutes(credits) > 0) Moods.Watch.light else Color.White
-    val rateText = "1 Min = 1 Credit"
-    val rateColor = MaterialTheme.colorScheme.secondary
-    val gap = 12.dp
-
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val creditsWidth = measurer.measure(creditsText, creditsStyle, maxLines = 1).size.width
-        val rateWidth = measurer.measure(rateText, rateStyle, maxLines = 1).size.width
-        val fitsOnOneLine =
-            creditsWidth + rateWidth + with(density) { gap.toPx() } <= constraints.maxWidth
-
-        if (fitsOnOneLine) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = creditsText,
-                    style = creditsStyle,
-                    color = creditsColor,
-                    maxLines = 1
-                )
-                Text(
-                    text = rateText,
-                    style = rateStyle,
-                    color = rateColor,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = creditsText,
-                    style = creditsStyle,
-                    color = creditsColor,
-                    maxLines = 1
-                )
-                Text(
-                    text = rateText,
-                    style = rateStyle,
-                    color = rateColor,
-                    maxLines = 1,
-                    softWrap = false,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
-}
-/**
- * The pack's price as "16.99 PLN": the amount in the phone's number format, then the currency code.
- * Built here from Google Play's amount and currency rather than its own text, which can mix decimal
- * commas and dots between packs.
- */
-private fun formatPrice(details: ProductDetails): String? {
-    val offer = details.oneTimePurchaseOfferDetails ?: return null
-    return try {
-        val currency = Currency.getInstance(offer.priceCurrencyCode)
-        val digits = currency.defaultFractionDigits.coerceAtLeast(0)
-        val amount = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
-            minimumFractionDigits = digits
-            maximumFractionDigits = digits
-        }.format(offer.priceAmountMicros / 1_000_000.0)
-        "$amount ${currency.currencyCode}"
-    } catch (_: IllegalArgumentException) {
-        offer.formattedPrice
-    }
-}
-
-
-/**
- * Minutes owed after a refund of minutes already used. Said plainly and kindly: "Let no debt remain
- * outstanding, except the continuing debt to love one another" (Romans 13:8).
- */
-@Composable
-private fun OwedNote(owed: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = null,
-            tint = Moods.Watch.core,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text = "A refunded purchase had already been used, so $owed ${if (owed == 1) "credit is" else "credits are"} owed. " +
-                "New credits cover that first.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Moods.Watch.light
-        )
     }
 }

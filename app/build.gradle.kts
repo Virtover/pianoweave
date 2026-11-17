@@ -27,7 +27,7 @@ android {
         minSdk = 26
         targetSdk = 37
 
-        versionCode = 51
+        versionCode = 52
         versionName = "1.1"
 
         testInstrumentationRunner =
@@ -131,11 +131,15 @@ dependencies {
     implementation(libs.play.services.auth)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+    // The empty activity Compose UI tests draw into
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }
 
 tasks.register("downloadModel") {

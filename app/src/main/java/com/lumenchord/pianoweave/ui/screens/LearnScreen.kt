@@ -154,6 +154,10 @@ fun LearnScreen(
         )
     }
 
+    viewModel.billingNotice?.let { notice ->
+        BillingMessageDialog(title = "Subscription", text = notice, onDismiss = { viewModel.dismissBillingNotice() })
+    }
+
     songBeingEdited?.let { song ->
         EditSongDetailsDialog(
             song = song,
@@ -177,6 +181,7 @@ fun LearnScreen(
         NotEnoughCreditsDialog(
             requiredCredits = viewModel.estimatedCostCredits,
             availableCredits = viewModel.userCredits,
+            plansAvailable = viewModel.subscriptionPlans.isNotEmpty() && viewModel.activeSubscription == null,
             onBuyCredits = { viewModel.openShop(context) },
             onDismiss = { viewModel.dismissNotEnoughCredits() }
         )
@@ -217,6 +222,8 @@ fun LearnScreen(
                     // Support follows the official server's billing, so it also shows while a custom server is selected.
                     if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer && viewModel.isDeveloper) {
                         DeveloperBalancePill(onClick = { viewModel.openDeveloperPanel() })
+                    } else if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer && viewModel.isUnlimitedPlan) {
+                        UnlimitedBalancePill(onClick = { viewModel.openShop(context) })
                     } else if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer) {
                         CreditsBalancePill(
                             credits = viewModel.userCredits,

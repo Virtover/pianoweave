@@ -8,12 +8,14 @@ import com.lumenchord.pianoweave.api.ConnectionErrors
 import com.lumenchord.pianoweave.api.MaintenanceNotice
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerMaintenance
+import com.lumenchord.pianoweave.api.UserBalanceResponse
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.billing.isVerificationRetryable
+import com.lumenchord.pianoweave.billing.usablePlans
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.midi.MidiInputManager
@@ -171,6 +173,8 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     ServerMaintenance.onNotice(url, info.maintenance)
                     billingProvider = info.billingProvider ?: "none"
                     serverOffers = info.offers ?: emptyList()
+                    subscriptionPlans = usablePlans(info.subscriptions)
+                    unlimitedDailyMinutes = info.unlimitedDailyMinutes
                     resultRetentionSeconds = info.resultRetentionSeconds
                     maxUploadSizeMb = info.maxUploadSizeMb
                     supportsArrangement = info.arrangement == true
@@ -202,6 +206,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     billingProvider = "none"
+                    subscriptionPlans = emptyList()
                     maxUploadSizeMb = null
                     supportsArrangement = false
                     if (PianoApiFactory.isServerPasswordRequired(e)) serverStatus = ServerStatus.PASSWORD_REQUIRED
@@ -318,19 +323,29 @@ internal suspend fun PianoWeaveViewModel.loadUserBalance(context: Context): Int?
                 userId = if (authHeader == null) uId else null
             )
         }
-        userCredits = balance.minutes
-        // After the total, whose setter would otherwise take a drop out of this exact value
-        freeCredits = balance.monthlyMinutes?.takeIf { balance.paidMinutes != null }
-        freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
-        freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
-        isDeveloper = balance.developer == true
-        DeveloperLauncherIcon.request(context, wantsDeveloperIcons)
-        startBalanceTicker(context)
+        applyBalance(context, balance)
+        recoverSubscriptionsOnce(context)
         balance.minutes
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         null
     }
+}
+
+/** Shows [balance], the whole answer of the balance endpoint (also part of a subscription's verification). */
+internal fun PianoWeaveViewModel.applyBalance(context: Context, balance: UserBalanceResponse) {
+    userCredits = balance.minutes
+    // After the total, whose setter would otherwise take a drop out of this exact value
+    freeCredits = balance.monthlyMinutes?.takeIf { balance.paidMinutes != null }
+    freeMinutesSecondsUntilNextGrant = balance.freeMinutesSecondsUntilNextGrant
+    freeMinutesNextGrantAt = balance.freeMinutesNextGrantAt
+    isDeveloper = balance.developer == true
+    activeSubscription = balance.subscription?.takeIf { !it.productId.isNullOrBlank() }
+    isUnlimitedPlan = balance.unlimited == true
+    unlimitedMinutesLeft = balance.unlimitedMinutesLeft
+    billingAccountId = balance.userId.takeIf { (it as String?)?.isNotBlank() == true }
+    DeveloperLauncherIcon.request(context, wantsDeveloperIcons)
+    startBalanceTicker(context)
 }
 
 internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
@@ -408,6 +423,7 @@ internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useC
     showShopDialog = false
     userCredits = null
     serverOffers = emptyList()
+    subscriptionPlans = emptyList()
     billingProvider = "none"
 
     AppPrefs.get(context).edit()

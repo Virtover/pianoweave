@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.billing
 import com.lumenchord.pianoweave.api.PianoApi
 import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
+import com.lumenchord.pianoweave.api.VerifySubscriptionResponse
 import retrofit2.HttpException
 
 /**
@@ -17,9 +18,19 @@ suspend fun PianoApi.verify(purchase: PendingPurchase, authHeader: String?): Ver
     )
 
 /**
+ * Asks the server to record subscription [purchase] for the signed-in account; the server acknowledges it with
+ * Play itself. Subscriptions need a signed-in account, so there is no anonymous fallback.
+ */
+suspend fun PianoApi.verifySubscription(purchase: PendingPurchase, authHeader: String?): VerifySubscriptionResponse =
+    verifySubscription(
+        authHeader = authHeader,
+        request = VerifyPurchaseRequest(purchase.productId, purchase.purchaseToken)
+    )
+
+/**
  * True if [e] is not a real answer about the purchase, so it must stay pending and be verified again
  * later: the server is restarting or failing (5xx), busy (408, 429), or turned the request away before
  * looking at the purchase (401: an expired Google sign-in, or a server password the app lacks). Dropping
  * the purchase then would leave it paid for and never credited.
  */
-fun isVerificationRetryable(e: HttpException): Boolean = e.code() >= 500 || e.code() in setOf(401, 408, 429)
+fun isVerificationRetryable(e: HttpException): Boolean = verificationOutcome(e.code(), null) == VerificationOutcome.Retry

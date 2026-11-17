@@ -22,6 +22,11 @@ object AppPrefs {
     /** Optional password of the custom server, encrypted (read via [SecretStore]); only ever sent to [CUSTOM_SERVER_URL]. */
     const val CUSTOM_SERVER_PASSWORD = "custom_server_password"
     const val USER_CREDITS = "user_credits"
+    /**
+     * Subscriptions the server refused for good ("<account tag>:<purchase token>"): another account owns it, or the
+     * server doesn't know it. Not sent again for that account on each start, and the user is told only once.
+     */
+    const val REFUSED_SUBSCRIPTIONS = "refused_subscriptions"
     /** Each followed server's last good announcement list, as JSON: {server base URL: [announcements]}. */
     const val ANNOUNCEMENTS_CACHE = "announcements_cache"
     /** Announcement keys ("server id") the user dismissed; dropped once the server stops listing them. */
