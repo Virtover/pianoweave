@@ -248,6 +248,10 @@ class PianoWeaveViewModel : ViewModel() {
     /** When the app last refreshed the server state on returning to the foreground (elapsedRealtime). */
     internal var lastResumeRefreshAt = 0L
 
+    /** Credit-pack tokens being verified now, and when each was last verified (elapsedRealtime). */
+    internal val packVerificationsInFlight = mutableSetOf<String>()
+    internal val packVerifiedAt = mutableMapOf<String, Long>()
+
     /** Purchase tokens whose "we'll confirm it later" note was shown: said once, not on every recovery. */
     internal val purchaseNoticesShown = mutableSetOf<String>()
 
@@ -505,7 +509,8 @@ class PianoWeaveViewModel : ViewModel() {
     fun loadPreferences(context: Context) = loadPreferencesImpl(context)
     fun updateServerSettings(context: Context, useCustom: Boolean, customUrl: String, customClientId: String = customGoogleClientId) = updateServerSettingsImpl(context, useCustom, customUrl, customClientId)
     fun updateServerPassword(context: Context, password: String) = updateServerPasswordImpl(context, password)
-    suspend fun verifyGooglePlayPurchase(context: Context, productId: String, purchaseToken: String): Boolean = verifyGooglePlayPurchaseImpl(context, productId, purchaseToken)
+    suspend fun verifyGooglePlayPurchase(context: Context, productId: String, purchaseToken: String, fromRecovery: Boolean = false): PackVerification =
+        verifyGooglePlayPurchaseImpl(context, productId, purchaseToken, fromRecovery)
     suspend fun verifyGooglePlaySubscription(
         context: Context, productId: String, purchaseToken: String, fromRecovery: Boolean = false, recheck: Boolean = false
     ) = verifyGooglePlaySubscriptionImpl(context, productId, purchaseToken, fromRecovery, recheck)

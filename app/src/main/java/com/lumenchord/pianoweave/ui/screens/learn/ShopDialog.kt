@@ -66,6 +66,7 @@ import com.lumenchord.pianoweave.ui.components.DialogSurface
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.ui.viewmodel.PackVerification
 import com.lumenchord.pianoweave.ui.viewmodel.SubscriptionVerification
 import com.lumenchord.pianoweave.util.findActivity
 import com.lumenchord.pianoweave.util.openUrl
@@ -118,8 +119,6 @@ internal fun ShopDialog(
     var message by rememberSaveable(stateSaver = ShopMessageSaver) { mutableStateOf(null) }
     // From Google confirming a purchase until the server has credited it
     var verifyingProductId by remember { mutableStateOf<String?>(null) }
-    // Pack purchase tokens being sent to the server now (main thread only)
-    val packsInFlight = remember { mutableSetOf<String>() }
     // The subscriptions this device's Play account holds: null until Play has answered
     var ownedSubscriptions by remember { mutableStateOf<List<Purchase>?>(null) }
     // The last plan change started here, to explain a switch that waits for the renewal
@@ -177,27 +176,22 @@ internal fun ShopDialog(
     billingManager = remember {
         GooglePlayBillingManager(
             context = context,
-            onPurchaseCompleted = { token, productId, isSubscription ->
+            onPurchaseCompleted = { token, productId, isSubscription, fromRecovery ->
                 coroutineScope.launch {
                     if (isSubscription) {
                         creditSubscription(productId, token)
                         return@launch
                     }
-                    // The purchase listener and a recovery can hand over the same pack at once; one
-                    // request credits and consumes it, a second would only race it at Google
-                    if (!packsInFlight.add(token)) return@launch
-                    verifyingProductId = productId
-                    val success = try {
-                        viewModel.verifyGooglePlayPurchase(context, productId, token)
-                    } finally {
-                        packsInFlight.remove(token)
-                    }
-                    verifyingProductId = null
-                    if (success) {
-                        viewModel.refreshUserBalance(context)
-                    } else if (viewModel.purchaseNoticesShown.add(token)) {
+                    // The view model sends a token once at a time, and leaves out recovered packs this server
+                    // refused before, doesn't sell, or verified a moment ago
+                    if (!fromRecovery) verifyingProductId = productId
+                    val result = viewModel.verifyGooglePlayPurchase(context, productId, token, fromRecovery)
+                    if (!fromRecovery) verifyingProductId = null
+                    when (result) {
+                        PackVerification.Done -> viewModel.refreshUserBalance(context)
                         // Paid, and kept for the server: not a failure, and said once per purchase
-                        message = PACK_LATER
+                        PackVerification.Pending -> if (viewModel.purchaseNoticesShown.add(token)) message = PACK_LATER
+                        PackVerification.Skipped -> Unit
                     }
                 }
             },

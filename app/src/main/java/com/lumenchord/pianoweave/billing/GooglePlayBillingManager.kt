@@ -22,7 +22,8 @@ import kotlinx.coroutines.launch
  */
 class GooglePlayBillingManager(
     private val context: Context,
-    private val onPurchaseCompleted: (purchaseToken: String, productId: String, isSubscription: Boolean) -> Unit,
+    /** [fromRecovery]: found again by a query of Play's purchases rather than just bought. */
+    private val onPurchaseCompleted: (purchaseToken: String, productId: String, isSubscription: Boolean, fromRecovery: Boolean) -> Unit,
     private val onPurchaseError: (errorMessage: String) -> Unit = {},
     /** A payment Play hasn't confirmed yet (e.g. cash at a store); it is credited once it clears. */
     private val onPurchasePending: () -> Unit = {},
@@ -146,7 +147,7 @@ class GooglePlayBillingManager(
         purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }.forEach { purchase ->
             val productId = purchase.products.firstOrNull() ?: return@forEach
             if (isSubscription) subscriptionProductIds += productId
-            coroutineScope.launch { onPurchaseCompleted(purchase.purchaseToken, productId, isSubscription) }
+            coroutineScope.launch { onPurchaseCompleted(purchase.purchaseToken, productId, isSubscription, true) }
         }
     }
 
@@ -226,7 +227,7 @@ class GooglePlayBillingManager(
                         // The purchase itself says so too: a shop opened while the server's plans were unknown
                         // (or re-created since the flow started) hasn't learnt the subscription ids
                         val isSubscription = productId in subscriptionProductIds || isSubscriptionPurchaseJson(purchase.originalJson)
-                        coroutineScope.launch { onPurchaseCompleted(token, productId, isSubscription) }
+                        coroutineScope.launch { onPurchaseCompleted(token, productId, isSubscription, false) }
                     }
                     Purchase.PurchaseState.PENDING -> coroutineScope.launch { onPurchasePending() }
                 }

@@ -4,6 +4,7 @@ import com.lumenchord.pianoweave.api.PianoApi
 import com.lumenchord.pianoweave.api.VerifyPurchaseRequest
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.VerifySubscriptionResponse
+import com.lumenchord.pianoweave.api.ServerErrors
 import retrofit2.HttpException
 
 /**
@@ -34,3 +35,27 @@ suspend fun PianoApi.verifySubscription(purchase: PendingPurchase, authHeader: S
  * the purchase then would leave it paid for and never credited.
  */
 fun isVerificationRetryable(e: HttpException): Boolean = verificationOutcome(e.code(), null) == VerificationOutcome.Retry
+
+/** A recovered purchase verified this recently isn't sent again (the server credits and consumes it once). */
+const val RECOVERY_RECHECK_MS = 10 * 60_000L
+
+/**
+ * Whether a credit pack found again in Play's purchases is worth sending to the server. Not if the server refused
+ * its token before, nor if it was verified a moment ago, nor (when the server's offers are known, [offered]
+ * non-null) if the server doesn't sell that product at all: old purchases of products another server sold would
+ * otherwise be refused on every recovery and use up the per-account verify limit.
+ */
+fun shouldRecoverPack(productId: String, offered: Set<String>?, refusedBefore: Boolean, verifiedAgoMs: Long?): Boolean = when {
+    refusedBefore -> false
+    verifiedAgoMs != null && verifiedAgoMs in 0 until RECOVERY_RECHECK_MS -> false
+    offered != null && productId !in offered -> false
+    else -> true
+}
+
+/** How long to wait before verifying again after [e]: a 429's Retry-After (at least a minute), else no wait. */
+fun retryDelaySeconds(e: HttpException): Long =
+    if (e.code() == 429) (ServerErrors.retryAfterSeconds(e.response()?.headers()) ?: 60L).coerceIn(60L, 3_600L) else 0L
+
+/** The key a refused purchase is remembered by: the server, the account and the token. */
+fun refusedPurchaseKey(serverUrl: String, account: String, purchaseToken: String): String =
+    "${serverUrl.trimEnd('/')}|${accountTag(account)}|$purchaseToken"

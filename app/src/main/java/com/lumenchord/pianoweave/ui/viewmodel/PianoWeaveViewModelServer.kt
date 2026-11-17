@@ -15,6 +15,10 @@ import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.billing.isVerificationRetryable
+import com.lumenchord.pianoweave.billing.refusedPurchaseKey
+import com.lumenchord.pianoweave.billing.retryDelaySeconds
+import com.lumenchord.pianoweave.billing.shouldRecoverPack
+import android.os.SystemClock
 import com.lumenchord.pianoweave.billing.usablePlans
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
@@ -483,31 +487,75 @@ internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useC
     checkServerHealthAndInfoImpl(context, isUserAction = true)
 }
 
+/** How a credit pack's verification ended. */
+enum class PackVerification {
+    /** The server answered: credited, or refused for good. */
+    Done,
+    /** No answer yet: kept, and retried in the background. */
+    Pending,
+    /** Not sent: refused before, verified a moment ago, in flight, or a product this server doesn't sell. */
+    Skipped
+}
+
+/**
+ * Sends credit pack [purchaseToken] to the server, which credits and consumes it. [fromRecovery] marks one found
+ * again in Play's purchases rather than just bought; such a pack is sent only when [shouldRecoverPack] says so.
+ */
 internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
     context: Context,
     productId: String,
-    purchaseToken: String
-): Boolean = withContext(Dispatchers.IO) {
+    purchaseToken: String,
+    fromRecovery: Boolean = false
+): PackVerification {
+    val serverUrl = activeServerUrl
+    val account = billingAccountId ?: getOrCreateUserIdImpl(context)
+    val refusedKey = refusedPurchaseKey(serverUrl, account, purchaseToken)
+    if (fromRecovery) {
+        // The offers are trusted only when read from this server and current
+        val offered = serverOffers.map { it.productId }.toSet()
+            .takeIf { !isServerInfoStale && serverInfoUrl == serverUrl }
+        val verifiedAgo = packVerifiedAt[purchaseToken]?.let { SystemClock.elapsedRealtime() - it }
+        val refused = refusedKey in AppPrefs.get(context).getStringSet(AppPrefs.REFUSED_PURCHASES, null).orEmpty()
+        if (!shouldRecoverPack(productId, offered, refused, verifiedAgo)) return PackVerification.Skipped
+    }
+    // The purchase listener and a recovery can hand over the same pack at once; one request is enough
+    if (!packVerificationsInFlight.add(purchaseToken)) return PackVerification.Skipped
+    try {
+        return withContext(Dispatchers.IO) { sendPack(context, productId, purchaseToken, serverUrl, fromRecovery, refusedKey) }
+    } finally {
+        packVerificationsInFlight.remove(purchaseToken)
+    }
+}
+
+private suspend fun PianoWeaveViewModel.sendPack(
+    context: Context,
+    productId: String,
+    purchaseToken: String,
+    serverUrl: String,
+    fromRecovery: Boolean,
+    refusedKey: String
+): PackVerification {
     val purchase = PendingPurchase(
         productId = productId,
         purchaseToken = purchaseToken,
-        serverUrl = activeServerUrl,
+        serverUrl = serverUrl,
         userId = getOrCreateUserIdImpl(context)
     )
-
-    // Persist first so PurchaseVerificationWorker keeps retrying if the server can't answer now
-    PurchaseVerificationWorker.scheduleVerification(context, purchase)
+    // A new purchase is kept first, so a process killed meanwhile still sends it on the next start. The worker
+    // starts only when the server can't answer now, so it doesn't send the same token in parallel.
+    if (!fromRecovery) PendingPurchaseStore.addPendingPurchase(context, purchase)
 
     suspend fun callVerify(): VerifyPurchaseResponse = executeServerCallImpl(context, purchase.serverUrl) { authHeader ->
         PianoApiFactory.getApi(purchase.serverUrl).verify(purchase, authHeader)
     }
 
-    try {
+    return try {
         var resp = callVerify()
-        // Server answered! Remove from pending store.
         PendingPurchaseStore.removePendingPurchase(context, purchaseToken)
-
-        withContext(Dispatchers.Main) { userCredits = resp.minutes }
+        withContext(Dispatchers.Main) {
+            packVerifiedAt[purchaseToken] = SystemClock.elapsedRealtime()
+            userCredits = resp.minutes
+        }
         var retries = 0
         while (!resp.consumed && retries < 2) {
             retries++
@@ -515,18 +563,33 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlayPurchaseImpl(
             try {
                 resp = callVerify()
                 withContext(Dispatchers.Main) { userCredits = resp.minutes }
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+            }
         }
-        true
+        PackVerification.Done
     } catch (e: HttpException) {
-        // No answer about the purchase yet: keep it pending, PurchaseVerificationWorker retries in the background
-        if (isVerificationRetryable(e)) return@withContext false
-        // Any other HTTP status code from the server counts as an answer.
+        if (isVerificationRetryable(e)) {
+            // No answer about the purchase yet: kept, and the worker tries again, after the wait a 429 asks for
+            PurchaseVerificationWorker.scheduleVerification(context, purchase, retryDelaySeconds(e))
+            return PackVerification.Pending
+        }
+        // Any other status is an answer. A 400 (e.g. a product this server doesn't sell) is remembered, so recovery
+        // doesn't send it again on every shop opening
         PendingPurchaseStore.removePendingPurchase(context, purchaseToken)
-        true
-    } catch (_: Exception) {
-        // Network error / server unreachable (no answer from server).
-        // The purchase stays saved in PendingPurchaseStore and PurchaseVerificationWorker will retry in the background.
-        false
+        if (e.code() == 400) rememberRefusedPurchase(context, refusedKey)
+        PackVerification.Done
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        // No answer at all (offline, server restarting): the worker keeps trying in the background
+        PurchaseVerificationWorker.scheduleVerification(context, purchase)
+        PackVerification.Pending
     }
+}
+
+private fun rememberRefusedPurchase(context: Context, key: String) {
+    val prefs = AppPrefs.get(context)
+    // A copy: the set SharedPreferences returns must not be changed
+    val keys = prefs.getStringSet(AppPrefs.REFUSED_PURCHASES, null).orEmpty().toMutableSet().apply { add(key) }
+    prefs.edit().putStringSet(AppPrefs.REFUSED_PURCHASES, keys).apply()
 }

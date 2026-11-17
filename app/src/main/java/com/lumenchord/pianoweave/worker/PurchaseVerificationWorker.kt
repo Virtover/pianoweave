@@ -71,7 +71,8 @@ class PurchaseVerificationWorker(
 
         private const val DEFAULT_SERVER_URL = "http://localhost:8000/"
 
-        fun scheduleVerification(context: Context, purchase: PendingPurchase) {
+        /** [initialDelaySeconds]: wait before the first try, e.g. after a 429 (the per-account verify limit). */
+        fun scheduleVerification(context: Context, purchase: PendingPurchase, initialDelaySeconds: Long = 0) {
             PendingPurchaseStore.addPendingPurchase(context, purchase)
             val workData = workDataOf(
                 KEY_PRODUCT_ID to purchase.productId,
@@ -88,6 +89,7 @@ class PurchaseVerificationWorker(
                 .setInputData(workData)
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)
+                .setInitialDelay(initialDelaySeconds.coerceAtLeast(0), TimeUnit.SECONDS)
                 .build()
 
             WorkManager.getInstance(context).enqueueUniqueWork(

@@ -27,6 +27,11 @@ object AppPrefs {
      * server doesn't know it. Not sent again for that account on each start, and the user is told only once.
      */
     const val REFUSED_SUBSCRIPTIONS = "refused_subscriptions"
+    /**
+     * Credit-pack purchases the server refused with 400 (e.g. a product it doesn't sell), as
+     * "<server>|<account tag>|<purchase token>": never sent again by recovery.
+     */
+    const val REFUSED_PURCHASES = "refused_purchases"
     /** Each followed server's last good announcement list, as JSON: {server base URL: [announcements]}. */
     const val ANNOUNCEMENTS_CACHE = "announcements_cache"
     /** Announcement keys ("server id") the user dismissed; dropped once the server stops listing them. */

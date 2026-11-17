@@ -11,6 +11,7 @@ import com.lumenchord.pianoweave.billing.PendingPurchaseStore
 import com.lumenchord.pianoweave.billing.SUBSCRIPTION_OWNED_MESSAGE
 import com.lumenchord.pianoweave.billing.VerificationOutcome
 import com.lumenchord.pianoweave.billing.accountTag
+import com.lumenchord.pianoweave.billing.retryDelaySeconds
 import com.lumenchord.pianoweave.billing.verificationOutcome
 import com.lumenchord.pianoweave.billing.verifySubscription
 import com.lumenchord.pianoweave.util.AppPrefs
@@ -85,7 +86,7 @@ internal suspend fun PianoWeaveViewModel.verifyGooglePlaySubscriptionImpl(
     } catch (e: HttpException) {
         when (verificationOutcome(e)) {
             VerificationOutcome.Retry -> {
-                PurchaseVerificationWorker.scheduleVerification(context, purchase)
+                PurchaseVerificationWorker.scheduleVerification(context, purchase, retryDelaySeconds(e))
                 SubscriptionVerification.Pending
             }
             VerificationOutcome.Drop -> {
@@ -120,7 +121,7 @@ internal fun PianoWeaveViewModel.recoverSubscriptionsOnce(context: Context) {
     if (!isBilledServer || subscriptionsRecoveredFor == account) return
     subscriptionsRecoveredFor = account
     val appContext = context.applicationContext
-    val manager = GooglePlayBillingManager(appContext, onPurchaseCompleted = { _, _, _ -> })
+    val manager = GooglePlayBillingManager(appContext, onPurchaseCompleted = { _, _, _, _ -> })
     manager.queryOwnedSubscriptions(onFailed = { manager.destroy() }) { purchases ->
         manager.destroy()
         for (purchase in purchases) {
