@@ -291,7 +291,13 @@ data class ActiveSubscription(
     @SerializedName("period_ends_at") val periodEndsAt: Long? = null,
     @SerializedName("auto_renewing") val autoRenewing: Boolean? = null,
     /** "ACTIVE", "CANCELED" (ends at [periodEndsAt]) or "IN_GRACE_PERIOD" (a payment failed and is retried). */
-    @SerializedName("state") val state: String? = null
+    @SerializedName("state") val state: String? = null,
+    /**
+     * A plan change waiting for the renewal (a move to a lower plan): the plan that then follows. Null when nothing
+     * is scheduled, and on older servers.
+     */
+    @SerializedName("next_product_id") val nextProductId: String? = null,
+    @SerializedName("next_name") val nextName: String? = null
 )
 
 data class BillingCostResponse(

@@ -56,6 +56,8 @@ import com.lumenchord.pianoweave.billing.planOffers
 import com.lumenchord.pianoweave.billing.planPriceText
 import com.lumenchord.pianoweave.billing.replacementModeFor
 import com.lumenchord.pianoweave.billing.subscriptionState
+import com.lumenchord.pianoweave.billing.scheduledChangeMessage
+import com.lumenchord.pianoweave.billing.scheduledStartText
 import com.lumenchord.pianoweave.billing.subscriptionStatusText
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
@@ -111,6 +113,16 @@ internal fun ShopDialog(
         }
     }
 
+    /** Says once, calmly, that a move to a lower plan waits for the renewal; the balance then shows it on the cards. */
+    fun confirmScheduledChange(newPlan: String) {
+        val current = viewModel.activeSubscription
+        val end = current?.periodEndsAt?.takeIf { it > 0 }?.let {
+            periodEndPhrase(it, System.currentTimeMillis(), android.text.format.DateFormat.is24HourFormat(context))
+        }
+        val keep = current?.name?.takeIf { current.productId != null && it.isNotBlank() && it != newPlan }
+        message = ShopMessage("Plan change scheduled", scheduledChangeMessage(newPlan, keep, end))
+    }
+
     suspend fun creditSubscription(productId: String, token: String) {
         verifyingProductId = productId
         val result = viewModel.verifyGooglePlaySubscription(context, productId, token)
@@ -118,12 +130,9 @@ internal fun ShopDialog(
         val launched = launchedPlan
         launchedPlan = null
         when (result) {
-            SubscriptionVerification.Started -> refreshOwnedSubscriptions()
-            SubscriptionVerification.Recorded -> {
+            SubscriptionVerification.Started, SubscriptionVerification.Recorded -> {
                 refreshOwnedSubscriptions()
-                if (launched?.first == PlanAction.Switch) {
-                    message = ShopMessage("Plan change scheduled", "You'll move to ${launched.second} when your current period ends. Until then, your plan stays as it is.")
-                }
+                if (launched?.first == PlanAction.Switch) confirmScheduledChange(launched.second)
             }
             SubscriptionVerification.Pending -> message = ShopMessage(
                 "Almost there",
@@ -169,6 +178,10 @@ internal fun ShopDialog(
                 // e.g. the plan was cancelled in Google Play: show how it stands now
                 refreshOwnedSubscriptions(recheck = true)
                 viewModel.refreshUserBalance(context)
+                // A deferred change Play accepted without handing back a purchase: the recheck above sends its token
+                val launched = launchedPlan
+                launchedPlan = null
+                if (launched?.first == PlanAction.Switch) confirmScheduledChange(launched.second)
             },
             onPurchasePending = {
                 message = ShopMessage(
@@ -329,7 +342,12 @@ private fun shopState(
             price = planPriceText(offer),
             action = action,
             isUnlimited = plan.isUnlimited,
-            status = if (isCurrent && current != null) subscriptionStatusText(current, endPhrase) else null,
+            status = when {
+                current == null -> null
+                isCurrent -> subscriptionStatusText(current, endPhrase)
+                action == PlanAction.Scheduled -> scheduledStartText(current, endPhrase)
+                else -> null
+            },
             state = if (isCurrent) current?.subscriptionState else null,
             canBuy = canLaunch && offer != null && (action == PlanAction.Subscribe || canSwitch)
         )

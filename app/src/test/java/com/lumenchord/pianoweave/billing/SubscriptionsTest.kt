@@ -322,6 +322,61 @@ class SubscriptionsTest {
     }
 
     @Test
+    fun aScheduledChangeIsReadAndOlderServersHaveNone() {
+        val balance = gson.fromJson(
+            """{"user_id": "u1", "minutes": 0, "unlimited": true,
+               "subscription": {"product_id": "sub_unlimited", "name": "Unlimited", "level": 2, "period_ends_at": 1797465600,
+                                "auto_renewing": true, "state": "ACTIVE", "next_product_id": "sub_pro", "next_name": "Pro"}}""",
+            UserBalanceResponse::class.java
+        )
+        val sub = balance.subscription!!
+        assertEquals("sub_pro", sub.scheduledProductId)
+        assertEquals("Pro", sub.nextName)
+        val none = gson.fromJson(
+            """{"user_id": "u1", "minutes": 0, "subscription": {"product_id": "sub_pro", "next_product_id": null, "next_name": null}}""",
+            UserBalanceResponse::class.java
+        )
+        assertNull(none.subscription!!.scheduledProductId)
+        val old = gson.fromJson("""{"user_id": "u1", "minutes": 0, "subscription": {"product_id": "sub_pro"}}""", UserBalanceResponse::class.java)
+        assertNull(old.subscription!!.scheduledProductId)
+        assertNull(old.subscription!!.nextName)
+    }
+
+    @Test
+    fun aScheduledChangeReadsAsASwitchAtTheRenewal() {
+        val unlimited = ActiveSubscription(
+            productId = "sub_unlimited", name = "Unlimited", level = 2, periodEndsAt = 1, autoRenewing = true,
+            state = "ACTIVE", nextProductId = "sub_pro", nextName = "Pro"
+        )
+        assertEquals("Switches to Pro today at 21:36", subscriptionStatusText(unlimited) { "today at 21:36" })
+        assertEquals("Switches to Pro on Dec 17, 2026", subscriptionStatusText(unlimited) { "on Dec 17, 2026" })
+        assertEquals("Switches to your new plan on Dec 17, 2026", subscriptionStatusText(unlimited.copy(nextName = null)) { "on Dec 17, 2026" })
+        // A failed payment comes first
+        assertEquals(
+            "Payment issue — update it in Google Play",
+            subscriptionStatusText(unlimited.copy(state = "IN_GRACE_PERIOD")) { "on Dec 17, 2026" }
+        )
+        // Nothing scheduled: as before
+        assertEquals("Renews on Dec 17, 2026", subscriptionStatusText(unlimited.copy(nextProductId = null)) { "on Dec 17, 2026" })
+
+        assertEquals(PlanAction.Scheduled, planAction(unlimited, "sub_pro", 1))
+        assertEquals(PlanAction.Current, planAction(unlimited, "sub_unlimited", 2))
+        assertEquals(PlanAction.Upgrade, planAction(unlimited, "sub_max", 3))
+        assertNull(replacementModeFor(PlanAction.Scheduled))
+        assertEquals("Starts today at 21:36", scheduledStartText(unlimited) { "today at 21:36" })
+        assertEquals("Starts at the next renewal", scheduledStartText(unlimited.copy(periodEndsAt = null)) { "x" })
+    }
+
+    @Test
+    fun scheduledChangeConfirmation() {
+        assertEquals(
+            "Pro starts at your next renewal (today at 21:36). Until then you keep Unlimited.",
+            scheduledChangeMessage("Pro", "Unlimited", "today at 21:36")
+        )
+        assertEquals("Pro starts at your next renewal.", scheduledChangeMessage("Pro", null, null))
+    }
+
+    @Test
     fun verifyResponseCarriesTheBalance() {
         val response = gson.fromJson(
             """{"user_id": "u1", "status": "started", "granted_minutes": 100, "acknowledged": true,

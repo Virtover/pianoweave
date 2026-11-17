@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -464,7 +465,8 @@ private fun PlansList(state: ShopUiState, onPlan: (ShopPlan) -> Unit) {
  * What a plan's button says. The running plan's card opens Google Play's page for it: to manage or cancel it,
  * resubscribe once cancelled, or fix a failed payment.
  */
-internal fun planButtonText(plan: ShopPlan): String = when (plan.action) {
+internal fun planButtonText(plan: ShopPlan): String? = when (plan.action) {
+    PlanAction.Scheduled -> null
     PlanAction.Subscribe -> "Subscribe"
     PlanAction.Upgrade -> "Upgrade"
     PlanAction.Switch -> "Switch"
@@ -484,6 +486,7 @@ private fun PlanCard(plan: ShopPlan, busy: Boolean, locked: Boolean, onClick: ()
     val gold = LocalAppTheme.current.primaryColor
     val slate = MaterialTheme.colorScheme.tertiaryContainer
     val isCurrent = plan.action == PlanAction.Current
+    val isScheduled = plan.action == PlanAction.Scheduled
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
@@ -506,7 +509,8 @@ private fun PlanCard(plan: ShopPlan, busy: Boolean, locked: Boolean, onClick: ()
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                if (isCurrent) CurrentPlanChip()
+                if (isCurrent) PlanChip("CURRENT")
+                if (isScheduled) PlanChip("SCHEDULED", scheduled = true)
             }
             Text(
                 text = plan.allowance,
@@ -517,7 +521,7 @@ private fun PlanCard(plan: ShopPlan, busy: Boolean, locked: Boolean, onClick: ()
                 Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             }
             Spacer(Modifier.weight(1f))
-            val status = if (isCurrent) plan.status else null
+            val status = if (isCurrent || isScheduled) plan.status else null
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -548,31 +552,41 @@ private fun PlanCard(plan: ShopPlan, busy: Boolean, locked: Boolean, onClick: ()
                 }
                 // Managing, resubscribing and fixing payment happen in Google Play, so they always work
                 val enabled = !locked && (isCurrent || plan.canBuy)
-                ActionPill(
-                    text = planButtonText(plan),
-                    enabled = enabled,
-                    busy = busy,
-                    // Managing a running plan is a quiet outlined action; buying and repairing are filled
-                    outlined = isCurrent && plan.state != SubscriptionState.Canceled && plan.state != SubscriptionState.GracePeriod,
-                    onClick = onClick
-                )
+                // A scheduled plan has nothing left to do: its badge says it all
+                planButtonText(plan)?.let { text ->
+                    ActionPill(
+                        text = text,
+                        enabled = enabled,
+                        busy = busy,
+                        // Managing a running plan is a quiet outlined action; buying and repairing are filled
+                        outlined = isCurrent && plan.state != SubscriptionState.Canceled && plan.state != SubscriptionState.GracePeriod,
+                        onClick = onClick
+                    )
+                }
             }
         }
     }
 }
 
+/** "CURRENT" on the running plan; "SCHEDULED", quieter, on the plan a change moves to at the renewal. */
 @Composable
-private fun CurrentPlanChip() {
+private fun PlanChip(text: String, scheduled: Boolean = false) {
     val gold = LocalAppTheme.current.primaryColor
+    val tint = if (scheduled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f) else gold
     Row(
         modifier = Modifier
-            .background(gold.copy(alpha = 0.15f), PillShape)
+            .background(if (scheduled) MaterialTheme.colorScheme.tertiaryContainer else gold.copy(alpha = 0.15f), PillShape)
             .padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = gold, modifier = Modifier.size(12.dp))
-        Text("CURRENT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = gold, maxLines = 1)
+        Icon(
+            if (scheduled) Icons.Rounded.Schedule else Icons.Rounded.CheckCircle,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(12.dp)
+        )
+        Text(text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = tint, maxLines = 1)
     }
 }
 

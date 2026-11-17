@@ -208,6 +208,30 @@ class ShopPanelInstrumentedTest {
     }
 
     @Test
+    fun scheduledMoveToALowerPlan() {
+        show(
+            ShopUiState(
+                balance = ShopBalance(total = 0, planName = "Unlimited", unlimited = true, planStatus = "Switches to Pro today at 21:36"),
+                plans = listOf(
+                    pro(PlanAction.Scheduled).copy(status = "Starts today at 21:36"),
+                    unlimited(PlanAction.Current).copy(status = "Switches to Pro today at 21:36", state = SubscriptionState.Active),
+                    ShopPlan("sub_max", "Max", "Unlimited transcriptions", "99.99 PLN / month", PlanAction.Upgrade, canBuy = true)
+                ),
+                packs = listOf(pack),
+                subscribedProductId = "sub_unlimited"
+            )
+        )
+        rule.onNodeWithText("Plans").performClick()
+        rule.onNodeWithText("Switches to Pro today at 21:36").assertExists()
+        rule.onNodeWithText("Manage or cancel").assertIsEnabled()
+        rule.onNodeWithText("SCHEDULED").assertExists()
+        rule.onNodeWithText("Starts today at 21:36").assertExists()
+        rule.onNodeWithText("Switch").assertDoesNotExist()
+        // A higher plan can still be chosen
+        rule.onNodeWithText("Upgrade").performScrollTo().assertIsEnabled()
+    }
+
+    @Test
     fun canceledPlan() {
         show(
             ShopUiState(
