@@ -91,6 +91,8 @@ internal fun ShopDialog(
     var message by remember { mutableStateOf<ShopMessage?>(null) }
     // From Google confirming a purchase until the server has credited it
     var verifyingProductId by remember { mutableStateOf<String?>(null) }
+    // Pack purchase tokens being sent to the server now (main thread only)
+    val packsInFlight = remember { mutableSetOf<String>() }
     // The subscriptions this device's Play account holds: null until Play has answered
     var ownedSubscriptions by remember { mutableStateOf<List<Purchase>?>(null) }
     // The last plan change started here, to explain a switch that waits for the renewal
@@ -156,8 +158,15 @@ internal fun ShopDialog(
                         creditSubscription(productId, token)
                         return@launch
                     }
+                    // The purchase listener and a recovery can hand over the same pack at once; one
+                    // request credits and consumes it, a second would only race it at Google
+                    if (!packsInFlight.add(token)) return@launch
                     verifyingProductId = productId
-                    val success = viewModel.verifyGooglePlayPurchase(context, productId, token)
+                    val success = try {
+                        viewModel.verifyGooglePlayPurchase(context, productId, token)
+                    } finally {
+                        packsInFlight.remove(token)
+                    }
                     verifyingProductId = null
                     if (success) {
                         viewModel.refreshUserBalance(context)
