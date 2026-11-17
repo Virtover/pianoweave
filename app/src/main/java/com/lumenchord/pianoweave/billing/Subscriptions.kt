@@ -60,7 +60,8 @@ enum class PlanAction { Subscribe, Current, Upgrade, Switch, Scheduled }
 fun planAction(current: ActiveSubscription?, productId: String, level: Int): PlanAction = when {
     current?.productId == null -> PlanAction.Subscribe
     current.productId == productId -> PlanAction.Current
-    current.nextProductId == productId -> PlanAction.Scheduled
+    // Only while the plan renews into it: a cancelled plan's scheduled change never starts
+    current.scheduledProductId == productId && current.subscriptionState != SubscriptionState.Canceled -> PlanAction.Scheduled
     level > (current.level ?: 0) -> PlanAction.Upgrade
     else -> PlanAction.Switch
 }
@@ -176,7 +177,29 @@ fun periodEndPhrase(
 }
 
 /** The plan a deferred change moves to at the renewal; null when nothing is scheduled. */
-val ActiveSubscription.scheduledProductId: String? get() = nextProductId?.takeIf { it.isNotBlank() }
+val ActiveSubscription.scheduledProductId: String? get() = nextProductId?.takeIf { it.isNotBlank() && it != productId }
+
+/** What the running plan's card offers. */
+enum class CurrentPlanAction {
+    /** Google Play's page for it: manage or cancel. */
+    Manage,
+    /**
+     * A move to another plan is scheduled (also after cancelling it): buy the current plan again over it, which
+     * Play treats as an upgrade from the scheduled plan. Its own page would only offer the scheduled plan.
+     */
+    Keep,
+    /** Cancelled with nothing scheduled: Play's page resubscribes it. */
+    Resubscribe,
+    /** A payment failed: Play's page fixes it. */
+    FixPayment
+}
+
+fun currentPlanAction(sub: ActiveSubscription): CurrentPlanAction = when {
+    sub.subscriptionState == SubscriptionState.GracePeriod -> CurrentPlanAction.FixPayment
+    sub.scheduledProductId != null -> CurrentPlanAction.Keep
+    sub.subscriptionState == SubscriptionState.Canceled -> CurrentPlanAction.Resubscribe
+    else -> CurrentPlanAction.Manage
+}
 
 /**
  * "Renews on Dec 17, 2026", "Ends today at 21:14", "Switches to Pro on Dec 17, 2026" (a change waiting for the
@@ -184,7 +207,7 @@ val ActiveSubscription.scheduledProductId: String? get() = nextProductId?.takeIf
  */
 fun subscriptionStatusText(sub: ActiveSubscription, endPhrase: (Long) -> String): String? {
     val end = sub.periodEndsAt?.takeIf { it > 0 }?.let(endPhrase)
-    if (sub.scheduledProductId != null && sub.subscriptionState != SubscriptionState.GracePeriod && end != null) {
+    if (sub.scheduledProductId != null && sub.subscriptionState == SubscriptionState.Active && end != null) {
         return "Switches to ${sub.nextName?.takeIf { it.isNotBlank() } ?: "your new plan"} $end"
     }
     return when (sub.subscriptionState) {

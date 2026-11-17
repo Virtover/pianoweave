@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import androidx.compose.runtime.Immutable
+import com.lumenchord.pianoweave.billing.CurrentPlanAction
 import com.lumenchord.pianoweave.billing.PlanAction
 import com.lumenchord.pianoweave.billing.SubscriptionState
 
@@ -74,6 +75,8 @@ data class ShopPlan(
     /** For the current plan: "Renews on …", "Ends on …" or the payment issue. */
     val status: String? = null,
     val state: SubscriptionState? = null,
+    /** For the current plan: what its card offers; null falls back to what [state] implies. */
+    val currentAction: CurrentPlanAction? = null,
     /** Play can sell it now (details and an offer loaded, nothing else in progress). */
     val canBuy: Boolean = false
 )

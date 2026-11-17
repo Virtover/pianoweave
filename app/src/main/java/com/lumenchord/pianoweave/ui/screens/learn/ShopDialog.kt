@@ -44,7 +44,9 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.lumenchord.pianoweave.billing.GooglePlayBillingManager
+import com.lumenchord.pianoweave.billing.CurrentPlanAction
 import com.lumenchord.pianoweave.billing.PlanAction
+import com.lumenchord.pianoweave.billing.currentPlanAction
 import com.lumenchord.pianoweave.billing.accountTag
 import com.lumenchord.pianoweave.billing.freeCreditsPeriodText
 import com.lumenchord.pianoweave.billing.isUnlimited
@@ -282,8 +284,9 @@ internal fun ShopDialog(
     }
 
     fun onPlan(plan: ShopPlan) {
-        // Resubscribing and fixing a payment happen on Google Play's own page
-        if (plan.action == PlanAction.Current) return openManage(plan.productId)
+        val keeping = plan.action == PlanAction.Current && plan.currentActionOrDefault == CurrentPlanAction.Keep
+        // Managing, resubscribing and fixing a payment happen on Google Play's own page
+        if (plan.action == PlanAction.Current && !keeping) return openManage(plan.productId)
         val act = activity ?: return
         val details = productDetailsMap[plan.productId] ?: return
         val serverPlan = viewModel.subscriptionPlans.firstOrNull { it.productId == plan.productId } ?: return
@@ -295,10 +298,11 @@ internal fun ShopDialog(
             message = ShopMessage("One moment", "Your account is still loading. Try again in a moment.")
             return
         }
-        val current = viewModel.activeSubscription?.productId
-        val replacing = if (plan.action == PlanAction.Subscribe) null
-        else ownedSubscriptions?.firstOrNull { current != null && current in it.products } ?: return
-        launchedPlan = plan.action to plan.name
+        // The running purchase in Play: after a scheduled change it already names the coming plan
+        val replacing = if (plan.action == PlanAction.Subscribe) null else runningPurchase(ownedSubscriptions) ?: return
+        // Keeping the current plan over a scheduled lower one is an upgrade from it in Play's eyes
+        val action = if (keeping) PlanAction.Upgrade else plan.action
+        launchedPlan = action to plan.name
         awayInPlay = true
         billingManager.launchSubscriptionFlow(
             activity = act,
@@ -306,7 +310,7 @@ internal fun ShopDialog(
             offerToken = offer.offerToken,
             accountTag = accountTag(account),
             replacing = replacing,
-            replacementMode = replacementModeFor(plan.action)
+            replacementMode = replacementModeFor(action)
         )
     }
 
@@ -356,7 +360,7 @@ private fun shopState(
 ): ShopUiState {
     val current = viewModel.activeSubscription
     // Switching needs the running plan's purchase on this device's Play account
-    val currentPurchase = current?.productId?.let { id -> owned?.firstOrNull { id in it.products } }
+    val currentPurchase = current?.let { runningPurchase(owned) }
     val canSwitch = currentPurchase != null
     val plans = viewModel.subscriptionPlans.map { plan ->
         val id = plan.productId.orEmpty()
@@ -377,6 +381,7 @@ private fun shopState(
                 else -> null
             },
             state = if (isCurrent) current?.subscriptionState else null,
+            currentAction = if (isCurrent && current != null) currentPlanAction(current) else null,
             canBuy = canLaunch && offer != null && (action == PlanAction.Subscribe || canSwitch)
         )
     }.toMutableList()
@@ -393,7 +398,9 @@ private fun shopState(
                 action = PlanAction.Current,
                 isUnlimited = unlimited,
                 status = subscriptionStatusText(current, endPhrase),
-                state = current.subscriptionState
+                state = current.subscriptionState,
+                // Not sold here any more, so it can't be bought again over a scheduled change: Play's page instead
+                currentAction = currentPlanAction(current).takeIf { it != CurrentPlanAction.Keep } ?: CurrentPlanAction.Manage
             )
         )
     }
@@ -515,3 +522,10 @@ internal fun BillingMessageDialog(
         }
     }
 }
+
+/**
+ * The subscription purchase Play holds now: the newest paid one. After a scheduled change it is the token Play
+ * replaced the plan with, and names the coming plan, so it can't be found by the current plan's product id.
+ */
+private fun runningPurchase(owned: List<Purchase>?): Purchase? =
+    owned?.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }?.maxByOrNull { it.purchaseTime }
