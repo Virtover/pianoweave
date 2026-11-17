@@ -47,7 +47,7 @@ class ShopPanelInstrumentedTest {
 
     private fun unlimited(action: PlanAction = PlanAction.Subscribe, canBuy: Boolean = true) = ShopPlan(
         productId = "sub_unlimited", name = "Unlimited", allowance = "Unlimited transcriptions", price = "49.99 PLN / month",
-        action = action, isUnlimited = true, note = "Fair use: up to 300 minutes a day", canBuy = canBuy
+        action = action, isUnlimited = true, canBuy = canBuy
     )
 
     private val pack = ShopPack("credits_100", 100, "16.99 PLN", canBuy = true)
@@ -82,7 +82,7 @@ class ShopPanelInstrumentedTest {
         rule.onNodeWithTag(ShopTags.PLANS).assertExists()
         rule.onNodeWithTag(ShopTags.PACKS).assertDoesNotExist()
         rule.onNodeWithText("Replaces the 30 free credits each period. Unused plan credits don't carry over.").assertExists()
-        rule.onNodeWithText("Fair use: up to 300 minutes a day").assertExists()
+        rule.onNodeWithText("Fair use", substring = true).assertDoesNotExist()
         rule.onNodeWithText("Cancel anytime in Google Play.").performScrollTo().assertExists()
         rule.onNodeWithTag(ShopTags.MANAGE).assertDoesNotExist()
         rule.onNodeWithText("10 free · 24 purchased").assertExists()
@@ -158,7 +158,7 @@ class ShopPanelInstrumentedTest {
     private fun unlimitedSubscriber() = ShopUiState(
         balance = ShopBalance(
             total = 24, paidCredits = 24, planName = "Unlimited", unlimited = true,
-            unlimitedMinutesLeft = 250, unlimitedDailyMinutes = 300
+            planStatus = "Renews on Dec 17, 2026"
         ),
         plans = listOf(
             pro(PlanAction.Switch),
@@ -175,7 +175,9 @@ class ShopPanelInstrumentedTest {
         rule.onNodeWithTag(ShopTags.TABS).assertExists()
         rule.onNodeWithTag(ShopTags.PACKS).assertExists()
         rule.onNodeWithTag(ShopTags.PLANS).assertDoesNotExist()
-        rule.onNodeWithText("250 of 300 minutes left today · 24 purchased credits kept for later").assertExists()
+        rule.onNodeWithText("Unlimited plan · Renews on Dec 17, 2026 · 24 purchased credits kept").assertExists()
+        rule.onNodeWithText("minutes left", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("Busy day", substring = true).assertDoesNotExist()
         // The plan's card isn't shown here, so the footer links to Google Play
         rule.onNodeWithTag(ShopTags.MANAGE).performScrollTo().performClick()
         assertEquals(1, manageOpened)
@@ -195,6 +197,14 @@ class ShopPanelInstrumentedTest {
         rule.onNodeWithText("Manage or cancel").assertIsEnabled().performClick()
         assertEquals(listOf("sub_unlimited"), plansChosen)
         rule.onNodeWithText("Cancel anytime in Google Play.").assertDoesNotExist()
+    }
+
+    @Test
+    fun busyDayOfAnUnlimitedPlan() {
+        val state = unlimitedSubscriber()
+        show(state.copy(balance = state.balance.copy(heavyUse = true)))
+        rule.onNodeWithText("Busy day — your transcriptions run one at a time for now.").assertExists()
+        rule.onAllNodesWithText("Unlimited").assertCountEquals(1)
     }
 
     @Test

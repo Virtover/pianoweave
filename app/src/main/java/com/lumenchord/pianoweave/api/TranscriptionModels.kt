@@ -246,8 +246,6 @@ data class ServerInfoResponse(
     @SerializedName("subscriptions") val subscriptions: List<ServerSubscriptionPlan>? = null,
     /** Minutes given once to each new account. */
     @SerializedName("welcome_minutes") val welcomeMinutes: Int? = null,
-    /** An unlimited plan's fair-use cap: minutes of jobs per rolling 24 hours. */
-    @SerializedName("unlimited_daily_minutes") val unlimitedDailyMinutes: Int? = null,
     @SerializedName("google_oauth_client_ids", alternate = ["google_client_ids", "oauth_client_ids", "client_ids", "google_oauth_clients"]) val googleClientIds: List<String>? = null,
     /** A planned restart or shutdown; null when nothing is planned or on older servers. */
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null,
@@ -273,10 +271,13 @@ data class UserBalanceResponse(
     @SerializedName("developer") val developer: Boolean? = null,
     /** The account's running subscription; null without one and on older servers. */
     @SerializedName("subscription") val subscription: ActiveSubscription? = null,
-    /** True while an unlimited plan runs: jobs aren't charged, up to a daily fair-use cap. */
+    /** True while an unlimited plan runs: jobs aren't charged. */
     @SerializedName("unlimited") val unlimited: Boolean? = null,
-    /** What's left of the unlimited plan's cap in the last 24 hours. */
-    @SerializedName("unlimited_minutes_left") val unlimitedMinutesLeft: Int? = null
+    /**
+     * An unlimited account that started a lot of transcription in the last 24 hours: its jobs run one at a time for
+     * now (never refused). Older servers sent a daily cap instead (`unlimited_minutes_left`), which is ignored.
+     */
+    @SerializedName("unlimited_heavy_use") val unlimitedHeavyUse: Boolean? = null
 )
 
 /** A subscription as the server knows it. While its period runs, its minutes are the balance's monthly_minutes. */

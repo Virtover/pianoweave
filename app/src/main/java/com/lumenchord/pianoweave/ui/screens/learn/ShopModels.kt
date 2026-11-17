@@ -45,8 +45,10 @@ data class ShopBalance(
     /** Credits a plan gives each period; for the explanation. */
     val planMinutes: Int? = null,
     val unlimited: Boolean = false,
-    val unlimitedMinutesLeft: Int? = null,
-    val unlimitedDailyMinutes: Int? = null,
+    /** The plan's renewal or end ("Renews on …"), for the balance of an unlimited plan. */
+    val planStatus: String? = null,
+    /** An unlimited account's busy day: its jobs run one at a time for now. */
+    val heavyUse: Boolean = false,
     val developer: Boolean = false,
     val freeMinutes: Int = 0,
     /** "every 30 days", from the server's period. */

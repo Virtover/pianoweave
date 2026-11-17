@@ -151,13 +151,6 @@ class SubscriptionsTest {
     }
 
     @Test
-    fun fairUseNote() {
-        assertEquals("Fair use: up to 300 minutes a day", fairUseText(300))
-        assertNull(fairUseText(null))
-        assertNull(fairUseText(0))
-    }
-
-    @Test
     fun statusTextsByState() {
         val phrase = { _: Long -> "on Dec 17, 2026" }
         val active = ActiveSubscription(productId = "p", periodEndsAt = 1, autoRenewing = true, state = "ACTIVE")
@@ -230,21 +223,6 @@ class SubscriptionsTest {
         )
     }
 
-    @Test
-    fun fairUseRefusalIsKind() {
-        val body = """{"detail": {"message": "x", "error_code": "fair_use_limit", "required_minutes": 5, "retry_after": 7200}}"""
-        assertEquals(7200L, fairUseRetryAfter(httpError(429, body)))
-        assertEquals(60L, fairUseRetryAfter(httpError(429, body, "Retry-After", "60")))
-        assertNull(fairUseRetryAfter(httpError(429, "")))
-        val text = fairUseMessage(300, 7200)
-        assertTrue(text, text.startsWith("Unlimited includes up to 300 minutes of transcription a day"))
-        assertTrue(text, text.endsWith("You can start this one in about 2 hours."))
-        assertTrue(fairUseMessage(null, null).endsWith("Try again a little later."))
-        assertEquals("a minute", approximateWait(30))
-        assertEquals("about 20 minutes", approximateWait(1_150))
-        assertEquals("about an hour", approximateWait(3_700))
-    }
-
     // --- Verification answers ---
 
     @Test
@@ -287,12 +265,11 @@ class SubscriptionsTest {
         assertFalse(plans[0].isUnlimited)
         assertTrue(plans[1].isUnlimited)
         assertNull(plans[1].basePlan)
+        // A cap from an older server is read past, not trusted
         assertEquals(20, info.welcomeMinutes)
-        assertEquals(300, info.unlimitedDailyMinutes)
 
         val old = gson.fromJson("""{"billing_provider": "google_play", "offers": []}""", ServerInfoResponse::class.java)
         assertTrue(usablePlans(old.subscriptions).isEmpty())
-        assertNull(old.unlimitedDailyMinutes)
         assertNull(old.welcomeMinutes)
     }
 
@@ -314,7 +291,7 @@ class SubscriptionsTest {
         val old = gson.fromJson("""{"user_id": "u1", "minutes": 5}""", UserBalanceResponse::class.java)
         assertNull(old.subscription)
         assertNull(old.unlimited)
-        assertNull(old.unlimitedMinutesLeft)
+        assertNull(old.unlimitedHeavyUse)
     }
 
     @Test
@@ -326,9 +303,22 @@ class SubscriptionsTest {
             UserBalanceResponse::class.java
         )
         assertEquals(true, balance.unlimited)
-        assertEquals(250, balance.unlimitedMinutesLeft)
+        // An older server's cap is ignored; heavy use is unknown there
+        assertNull(balance.unlimitedHeavyUse)
         assertNull(balance.subscription!!.minutesPerPeriod)
         assertEquals(SubscriptionState.GracePeriod, balance.subscription!!.subscriptionState)
+    }
+
+    @Test
+    fun heavyUseOfAnUnlimitedPlan() {
+        val balance = gson.fromJson(
+            """{"user_id": "u1", "minutes": 0, "unlimited": true, "unlimited_heavy_use": true,
+               "subscription": {"product_id": "sub_unlimited", "minutes_per_period": null, "level": 2}}""",
+            UserBalanceResponse::class.java
+        )
+        assertEquals(true, balance.unlimitedHeavyUse)
+        val calm = gson.fromJson("""{"user_id": "u1", "minutes": 0, "unlimited": true, "unlimited_heavy_use": false}""", UserBalanceResponse::class.java)
+        assertEquals(false, calm.unlimitedHeavyUse)
     }
 
     @Test

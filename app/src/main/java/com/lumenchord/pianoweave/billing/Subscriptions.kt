@@ -14,7 +14,6 @@ import java.util.Date
 import java.util.TimeZone
 import java.util.Currency
 import java.util.Locale
-import kotlin.math.ceil
 
 /**
  * Subscriptions: the pure rules the shop and the billing manager share, kept apart from Play Billing so they can
@@ -129,10 +128,6 @@ fun planAllowanceText(minutesPerPeriod: Int?, unlimited: Boolean, period: String
     return "$minutesPerPeriod $credits $every"
 }
 
-/** The fair-use note under an unlimited plan; null when the server doesn't say its cap. */
-fun fairUseText(dailyMinutes: Int?): String? =
-    dailyMinutes?.takeIf { it > 0 }?.let { "Fair use: up to $it minutes a day" }
-
 /** How a subscription stands, for the shop. */
 enum class SubscriptionState { Active, Canceled, GracePeriod }
 
@@ -216,30 +211,3 @@ fun verificationOutcome(e: HttpException): VerificationOutcome = verificationOut
 const val SUBSCRIPTION_OWNED_MESSAGE =
     "This Google Play subscription belongs to another account of Piano Weave. Sign in with that account to use it, " +
         "or manage the subscription in Google Play."
-
-/** The server's code for an unlimited plan's daily fair-use cap reached. */
-const val FAIR_USE_LIMIT = "fair_use_limit"
-
-/** "about 3 hours", "about 20 minutes", "a minute"; for when a limit lifts. */
-fun approximateWait(seconds: Long): String = when {
-    seconds <= 90 -> "a minute"
-    seconds < 3_600 -> "about ${ceil(seconds / 60.0).toLong()} minutes"
-    seconds < 5_400 -> "about an hour"
-    else -> "about ${ceil(seconds / 3_600.0).toLong()} hours"
-}
-
-/** When a fair-use refusal lifts, in seconds: its Retry-After header, else the detail's `retry_after`. */
-fun fairUseRetryAfter(e: HttpException): Long? =
-    ServerErrors.retryAfterSeconds(e.response()?.headers())
-        ?: ServerErrors.detail(ServerErrors.errorBody(e))?.takeIf { it.isJsonObject }?.asJsonObject
-            ?.get("retry_after")?.takeIf { it.isJsonPrimitive }
-            ?.let { runCatching { it.asLong }.getOrNull() }?.takeIf { it >= 0 }
-
-/** The kind answer to a job refused by the fair-use cap. */
-fun fairUseMessage(dailyMinutes: Int?, retryAfterSeconds: Long?): String {
-    val cap = dailyMinutes?.takeIf { it > 0 }?.let { "up to $it minutes of transcription a day" }
-        ?: "a daily amount of transcription"
-    val wait = retryAfterSeconds?.takeIf { it > 0 }?.let { " You can start this one in ${approximateWait(it)}." }
-        ?: " Try again a little later."
-    return "Unlimited includes $cap, and today's is used up.$wait"
-}

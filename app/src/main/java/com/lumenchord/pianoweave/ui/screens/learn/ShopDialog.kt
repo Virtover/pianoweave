@@ -44,7 +44,6 @@ import com.android.billingclient.api.Purchase
 import com.lumenchord.pianoweave.billing.GooglePlayBillingManager
 import com.lumenchord.pianoweave.billing.PlanAction
 import com.lumenchord.pianoweave.billing.accountTag
-import com.lumenchord.pianoweave.billing.fairUseText
 import com.lumenchord.pianoweave.billing.freeCreditsPeriodText
 import com.lumenchord.pianoweave.billing.isUnlimited
 import com.lumenchord.pianoweave.billing.manageSubscriptionUrl
@@ -330,7 +329,6 @@ private fun shopState(
             price = planPriceText(offer),
             action = action,
             isUnlimited = plan.isUnlimited,
-            note = if (plan.isUnlimited) fairUseText(viewModel.unlimitedDailyMinutes) else null,
             status = if (isCurrent && current != null) subscriptionStatusText(current, endPhrase) else null,
             state = if (isCurrent) current?.subscriptionState else null,
             canBuy = canLaunch && offer != null && (action == PlanAction.Subscribe || canSwitch)
@@ -348,7 +346,6 @@ private fun shopState(
                 price = null,
                 action = PlanAction.Current,
                 isUnlimited = unlimited,
-                note = if (unlimited) fairUseText(viewModel.unlimitedDailyMinutes) else null,
                 status = subscriptionStatusText(current, endPhrase),
                 state = current.subscriptionState
             )
@@ -382,8 +379,8 @@ private fun shopState(
         planName = current?.name?.takeIf { it.isNotBlank() } ?: current?.let { "your plan" },
         planMinutes = planMinutes,
         unlimited = viewModel.isUnlimitedPlan,
-        unlimitedMinutesLeft = viewModel.unlimitedMinutesLeft,
-        unlimitedDailyMinutes = viewModel.unlimitedDailyMinutes,
+        planStatus = current?.let { subscriptionStatusText(it, endPhrase) },
+        heavyUse = viewModel.isUnlimitedHeavyUse,
         developer = viewModel.isDeveloper,
         freeMinutes = fm,
         freeEvery = freeCreditsPeriodText(viewModel.freeMinutesPeriod),

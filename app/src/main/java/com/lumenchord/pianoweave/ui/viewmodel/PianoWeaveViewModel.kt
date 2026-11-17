@@ -153,7 +153,7 @@ class PianoWeaveViewModel : ViewModel() {
                 isDeveloper = false
                 activeSubscription = null
                 isUnlimitedPlan = false
-                unlimitedMinutesLeft = null
+                isUnlimitedHeavyUse = false
                 billingAccountId = null
             } else if (old != null && free != null && value < old) {
                 freeCredits = (free - (old - value)).coerceAtLeast(0)
@@ -218,20 +218,16 @@ class PianoWeaveViewModel : ViewModel() {
     var subscriptionPlans by mutableStateOf<List<ServerSubscriptionPlan>>(emptyList())
         internal set
 
-    /** An unlimited plan's fair-use cap in minutes per 24 hours; null if the server doesn't say. */
-    var unlimitedDailyMinutes by mutableStateOf<Int?>(null)
-        internal set
-
     /** The account's plan, as the last balance said; null without one. */
     var activeSubscription by mutableStateOf<ActiveSubscription?>(null)
         internal set
 
-    /** An unlimited plan runs: jobs aren't charged (up to the fair-use cap), so the app skips its balance checks. */
+    /** An unlimited plan runs: jobs aren't charged, so the app skips its balance checks. */
     var isUnlimitedPlan by mutableStateOf(false)
         internal set
 
-    /** What's left of the unlimited plan's cap in the last 24 hours. */
-    var unlimitedMinutesLeft by mutableStateOf<Int?>(null)
+    /** An unlimited account had a busy day: its jobs run one at a time for now. */
+    var isUnlimitedHeavyUse by mutableStateOf(false)
         internal set
 
     /** The server's id for the signed-in account (balance `user_id`); subscriptions are bound to its hash. */
@@ -251,7 +247,7 @@ class PianoWeaveViewModel : ViewModel() {
     /** The account whose subscriptions were recovered this run after its first balance; the shop recovers them again. */
     internal var subscriptionsRecoveredFor: String? = null
 
-    /** The server never charges this account's jobs: a developer's, or an unlimited plan's (fair use aside). */
+    /** The server never charges this account's jobs: a developer's, or an unlimited plan's. */
     val hasUnlimitedCredits: Boolean get() = isDeveloper || isUnlimitedPlan
 
     var resultRetentionSeconds by mutableStateOf<Long?>(null)

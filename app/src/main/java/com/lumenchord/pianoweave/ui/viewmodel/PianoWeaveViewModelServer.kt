@@ -174,7 +174,6 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     billingProvider = info.billingProvider ?: "none"
                     serverOffers = info.offers ?: emptyList()
                     subscriptionPlans = usablePlans(info.subscriptions)
-                    unlimitedDailyMinutes = info.unlimitedDailyMinutes
                     resultRetentionSeconds = info.resultRetentionSeconds
                     maxUploadSizeMb = info.maxUploadSizeMb
                     supportsArrangement = info.arrangement == true
@@ -342,7 +341,7 @@ internal fun PianoWeaveViewModel.applyBalance(context: Context, balance: UserBal
     isDeveloper = balance.developer == true
     activeSubscription = balance.subscription?.takeIf { !it.productId.isNullOrBlank() }
     isUnlimitedPlan = balance.unlimited == true
-    unlimitedMinutesLeft = balance.unlimitedMinutesLeft
+    isUnlimitedHeavyUse = balance.unlimitedHeavyUse == true
     billingAccountId = balance.userId.takeIf { (it as String?)?.isNotBlank() == true }
     DeveloperLauncherIcon.request(context, wantsDeveloperIcons)
     startBalanceTicker(context)

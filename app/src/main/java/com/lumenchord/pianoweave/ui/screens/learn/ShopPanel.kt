@@ -275,23 +275,19 @@ private fun BalanceDetails(balance: ShopBalance) {
     when {
         balance.developer -> SmallText("Developer account: your transcriptions are free.")
         balance.unlimited -> {
-            val left = balance.unlimitedMinutesLeft
-            val cap = balance.unlimitedDailyMinutes
-            val today = when {
-                left != null && cap != null -> "$left of $cap minutes left today"
-                left != null -> "$left minutes left today"
-                else -> null
-            }
-            val saved = paid?.takeIf { it > 0 }?.let { "$it purchased ${if (it == 1) "credit" else "credits"} kept for later" }
-            val line = listOfNotNull(today, saved).joinToString(" · ")
+            val saved = paid?.takeIf { it > 0 }?.let { "$it purchased ${if (it == 1) "credit" else "credits"} kept" }
+            val line = listOfNotNull(balance.planName?.let { "$it plan" }, balance.planStatus, saved).joinToString(" · ")
             if (line.isNotEmpty()) {
                 ExplainedLine(
                     text = line,
                     title = balance.planName ?: "Unlimited",
-                    explanation = "Transcriptions don't use credits while your plan runs" +
-                        (cap?.let { ", up to $it minutes a day (fair use). " } ?: ". ") +
+                    explanation = "Transcriptions don't use credits while your plan runs. " +
                         "Purchased credits never expire and wait for when you need them."
                 )
+            }
+            if (balance.heavyUse) {
+                // Never a refusal, only a slower pace: said plainly, without alarm
+                SmallText("Busy day — your transcriptions run one at a time for now.", color = MaterialTheme.colorScheme.secondary)
             }
         }
         balance.periodCredits != null && paid != null && balance.planName != null -> ExplainedLine(

@@ -12,9 +12,6 @@ import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.api.libraryKey
-import com.lumenchord.pianoweave.billing.FAIR_USE_LIMIT
-import com.lumenchord.pianoweave.billing.fairUseMessage
-import com.lumenchord.pianoweave.billing.fairUseRetryAfter
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.api.retryWhenBusy
 import com.google.gson.Gson
@@ -204,11 +201,6 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
                 showNotEnoughCreditsDialog = true
             }
             (e as? HttpException)?.let { serverErrorDetail(context, it) } ?: InsufficientBalanceException().message!!
-        }
-        // An unlimited plan's daily cap: said kindly, with when it lifts, not as an error
-        errorCode == FAIR_USE_LIMIT -> {
-            refreshUserBalanceImpl(context)
-            fairUseMessage(unlimitedDailyMinutes, fairUseRetryAfter(e as HttpException))
         }
         ServerErrors.isAlreadyProcessed(e) ->
             "This was already transcribed, but the result has expired on the server. Tap Transcribe to start it again."
