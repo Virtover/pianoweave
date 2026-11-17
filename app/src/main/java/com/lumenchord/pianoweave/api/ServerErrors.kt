@@ -21,6 +21,28 @@ object ServerErrors {
      */
     const val ARRANGEMENT_UNAVAILABLE = "arrangement_unavailable"
 
+    /** 413: the video is longer than this user may send. */
+    const val VIDEO_TOO_LONG = "video_too_long"
+
+    /**
+     * The words for a too-long video (413): the server's own message ("Videos can be up to 60 minutes long"), or,
+     * for older servers' plain "Video exceeds the configured maximum length", the same sentence with the limit the
+     * app knows. Null for any other 413 (e.g. a file too large to upload).
+     */
+    fun videoTooLongMessage(code: Int, body: String, knownLimitMinutes: Float?): String? {
+        if (code != 413) return null
+        val detail = detailMessage(body)
+        if (errorCode(body) == VIDEO_TOO_LONG) {
+            return detail ?: knownLimitMinutes?.let { "Videos can be up to ${minutesText(it)} minutes long." }
+                ?: "This video is too long for the server."
+        }
+        if (detail == null || !detail.contains("maximum length", ignoreCase = true)) return null
+        return knownLimitMinutes?.let { "Videos can be up to ${minutesText(it)} minutes long." } ?: "This video is too long for the server."
+    }
+
+    private fun minutesText(minutes: Float): String =
+        if (minutes % 1f == 0f) minutes.toInt().toString() else "%.1f".format(java.util.Locale.ENGLISH, minutes)
+
     /** Codes about the link itself, for which uploading the file instead may work. */
     private val UPLOAD_MAY_WORK = setOf(
         SOURCE_TEMPORARILY_UNAVAILABLE, "source_video_unavailable", "source_unsupported", "source_failed"

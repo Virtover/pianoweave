@@ -44,6 +44,15 @@ class GooglePlayBillingManager(
 
     private var isConnected = false
 
+    /** A purchase flow's error was reported: Play can report one failure both at launch and in the listener. */
+    private var flowErrorReported = false
+
+    private fun reportFlowError(message: String) {
+        if (flowErrorReported) return
+        flowErrorReported = true
+        coroutineScope.launch { onPurchaseError(message) }
+    }
+
     /** Products known to be subscriptions, so a purchase coming back from Play goes to the right verification. */
     private val subscriptionProductIds = mutableSetOf<String>()
 
@@ -204,6 +213,7 @@ class GooglePlayBillingManager(
     }
 
     private fun launch(activity: Activity, params: BillingFlowParams): Boolean {
+        flowErrorReported = false
         val result = billingClient.launchBillingFlow(activity, params)
         return when (purchaseUpdateAction(result.responseCode, hasPurchases = false)) {
             PurchaseUpdateAction.Handle, PurchaseUpdateAction.Recover ->
@@ -211,7 +221,7 @@ class GooglePlayBillingManager(
                 (result.responseCode == BillingClient.BillingResponseCode.OK).also { if (!it) recoverAfterOutsideChange() }
             PurchaseUpdateAction.Ignore -> false
             PurchaseUpdateAction.Error -> {
-                onPurchaseError(purchaseErrorText(result))
+                reportFlowError(purchaseErrorText(result))
                 false
             }
         }
@@ -235,8 +245,7 @@ class GooglePlayBillingManager(
             PurchaseUpdateAction.Recover -> recoverAfterOutsideChange()
             PurchaseUpdateAction.Ignore -> Unit
             PurchaseUpdateAction.Error -> {
-                val msg = purchaseErrorText(billingResult)
-                coroutineScope.launch { onPurchaseError(msg) }
+                reportFlowError(purchaseErrorText(billingResult))
             }
         }
     }

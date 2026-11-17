@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -170,7 +169,7 @@ fun ShopPanel(
                         ShopTabs(selected = tab, onSelect = { chosenTab = it })
                     }
                     when (tab) {
-                        ShopTab.Plans -> PlansList(state, onPlan, onManage)
+                        ShopTab.Plans -> PlansList(state, onPlan)
                         ShopTab.Packs -> PacksList(state, onPack)
                     }
                 }
@@ -458,7 +457,7 @@ private fun SmallInfoRow(icon: ImageVector, text: String, tint: Color, textColor
 // --- Plans ---
 
 @Composable
-private fun PlansList(state: ShopUiState, onPlan: (ShopPlan) -> Unit, onManage: () -> Unit) {
+private fun PlansList(state: ShopUiState, onPlan: (ShopPlan) -> Unit) {
     val locked = state.busyProductId != null
     Column(modifier = Modifier.testTag(ShopTags.PLANS), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -468,13 +467,13 @@ private fun PlansList(state: ShopUiState, onPlan: (ShopPlan) -> Unit, onManage: 
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     state.plans.forEach { plan ->
-                        PlanCard(plan, state.busyProductId == plan.productId, locked, { onPlan(plan) }, onManage, Modifier.weight(1f).fillMaxHeight())
+                        PlanCard(plan, state.busyProductId == plan.productId, locked, { onPlan(plan) }, Modifier.weight(1f).fillMaxHeight())
                     }
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.plans.forEach { plan ->
-                        PlanCard(plan, state.busyProductId == plan.productId, locked, { onPlan(plan) }, onManage, Modifier.fillMaxWidth())
+                        PlanCard(plan, state.busyProductId == plan.productId, locked, { onPlan(plan) }, Modifier.fillMaxWidth())
                     }
                 }
             }
@@ -497,7 +496,6 @@ internal fun planButtonText(plan: ShopPlan): String? = when (plan.action) {
     PlanAction.Upgrade -> "Upgrade"
     PlanAction.Switch -> "Switch"
     PlanAction.Current -> when (plan.currentActionOrDefault) {
-        CurrentPlanAction.Keep -> "Keep ${plan.name}"
         CurrentPlanAction.Resubscribe -> "Resubscribe"
         CurrentPlanAction.FixPayment -> "Fix payment"
         CurrentPlanAction.Manage -> "Manage or cancel"
@@ -522,7 +520,6 @@ private fun PlanCard(
     busy: Boolean,
     locked: Boolean,
     onClick: () -> Unit,
-    onManage: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val gold = LocalAppTheme.current.primaryColor
@@ -592,10 +589,8 @@ private fun PlanCard(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                // Managing, resubscribing and fixing payment happen in Google Play, so they always work; keeping the
-                // plan is a purchase, which needs Play's offer and the running purchase
-                val keeps = isCurrent && plan.currentActionOrDefault == CurrentPlanAction.Keep
-                val enabled = !locked && ((isCurrent && !keeps) || plan.canBuy)
+                // Managing, resubscribing and fixing payment happen in Google Play, so they always work
+                val enabled = !locked && (isCurrent || plan.canBuy)
                 // A scheduled plan has nothing left to do: its badge says it all
                 planButtonText(plan)?.let { text ->
                     ActionPill(
@@ -608,16 +603,13 @@ private fun PlanCard(
                     )
                 }
             }
-            if (isCurrent && plan.currentActionOrDefault == CurrentPlanAction.Keep) {
-                // Keeping comes first; managing or cancelling stays within reach, quieter
-                TextButton(
-                    onClick = onManage,
-                    enabled = !locked,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-                    modifier = Modifier.align(Alignment.End).heightIn(min = 32.dp)
-                ) {
-                    Text("Manage or cancel", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                }
+            plan.hint?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }

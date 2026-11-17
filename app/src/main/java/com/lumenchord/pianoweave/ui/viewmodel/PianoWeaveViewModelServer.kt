@@ -9,6 +9,7 @@ import com.lumenchord.pianoweave.api.MaintenanceNotice
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.api.UserBalanceResponse
+import com.lumenchord.pianoweave.api.videoLimit
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
@@ -185,7 +186,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     maxUploadSizeMb = info.maxUploadSizeMb
                     supportsArrangement = info.arrangement == true
                     arrangementInfoServerUrl = url
-                    maxVideoLengthMinutes = info.maxVideoLengthMinutes
+                    serverMaxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0
                     freeMinutesPeriod = info.freeMinutesPeriod
                     if (PianoApiFactory.isOfficialServer(url)) isOfficialServerBilled = isBilledServer
@@ -357,6 +358,7 @@ internal fun PianoWeaveViewModel.applyBalance(context: Context, balance: UserBal
     activeSubscription = balance.subscription?.takeIf { !it.productId.isNullOrBlank() }
     isUnlimitedPlan = balance.unlimited == true
     isUnlimitedHeavyUse = balance.unlimitedHeavyUse == true
+    userVideoLimit = balance.videoLimit
     billingAccountId = balance.userId.takeIf { (it as String?)?.isNotBlank() == true }
     DeveloperLauncherIcon.request(context, wantsDeveloperIcons)
     startBalanceTicker(context)

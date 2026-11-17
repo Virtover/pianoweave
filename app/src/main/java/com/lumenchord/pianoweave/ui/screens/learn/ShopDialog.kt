@@ -47,6 +47,10 @@ import com.lumenchord.pianoweave.billing.GooglePlayBillingManager
 import com.lumenchord.pianoweave.billing.CurrentPlanAction
 import com.lumenchord.pianoweave.billing.PlanAction
 import com.lumenchord.pianoweave.billing.currentPlanAction
+import com.lumenchord.pianoweave.billing.SCHEDULED_CHANGE_HINT
+import com.lumenchord.pianoweave.billing.scheduledProductId
+import com.lumenchord.pianoweave.billing.SubscriptionState
+import com.lumenchord.pianoweave.billing.longerVideosText
 import com.lumenchord.pianoweave.billing.accountTag
 import com.lumenchord.pianoweave.billing.freeCreditsPeriodText
 import com.lumenchord.pianoweave.billing.isUnlimited
@@ -89,6 +93,12 @@ private val LaunchedPlanSaver = listSaver<Pair<PlanAction, String>?, String>(
     restore = { saved ->
         if (saved.size == 2) PlanAction.entries.firstOrNull { it.name == saved[0] }?.let { it to saved[1] } else null
     }
+)
+
+/** After Play's own error in a purchase flow. */
+private val PURCHASE_NOT_COMPLETED = ShopMessage(
+    "Purchase not completed",
+    "Google Play couldn't complete the purchase. You can try again later."
 )
 
 /** Shown when the server couldn't be reached to confirm a purchase: it is kept and confirmed later, never "failed". */
@@ -197,10 +207,11 @@ internal fun ShopDialog(
                     }
                 }
             },
-            onPurchaseError = { errorMsg ->
+            onPurchaseError = { _ ->
                 verifyingProductId = null
                 launchedPlan = null
-                message = ShopMessage("Purchase Failed", errorMsg)
+                // Play has usually shown its own error already: said once, calmly, without its technical details
+                message = PURCHASE_NOT_COMPLETED
             },
             onPurchasesChanged = {
                 // e.g. the plan was cancelled in Google Play: show how it stands now
@@ -284,9 +295,8 @@ internal fun ShopDialog(
     }
 
     fun onPlan(plan: ShopPlan) {
-        val keeping = plan.action == PlanAction.Current && plan.currentActionOrDefault == CurrentPlanAction.Keep
         // Managing, resubscribing and fixing a payment happen on Google Play's own page
-        if (plan.action == PlanAction.Current && !keeping) return openManage(plan.productId)
+        if (plan.action == PlanAction.Current) return openManage(plan.productId)
         val act = activity ?: return
         val details = productDetailsMap[plan.productId] ?: return
         val serverPlan = viewModel.subscriptionPlans.firstOrNull { it.productId == plan.productId } ?: return
@@ -300,8 +310,7 @@ internal fun ShopDialog(
         }
         // The running purchase in Play: after a scheduled change it already names the coming plan
         val replacing = if (plan.action == PlanAction.Subscribe) null else runningPurchase(ownedSubscriptions) ?: return
-        // Keeping the current plan over a scheduled lower one is an upgrade from it in Play's eyes
-        val action = if (keeping) PlanAction.Upgrade else plan.action
+        val action = plan.action
         launchedPlan = action to plan.name
         awayInPlay = true
         billingManager.launchSubscriptionFlow(
@@ -382,6 +391,11 @@ private fun shopState(
             },
             state = if (isCurrent) current?.subscriptionState else null,
             currentAction = if (isCurrent && current != null) currentPlanAction(current) else null,
+            hint = if (isCurrent && current != null && current.scheduledProductId != null &&
+                current.subscriptionState == SubscriptionState.Active
+            ) SCHEDULED_CHANGE_HINT else null,
+            // A plan that allows longer videos than the server's general limit says so
+            note = longerVideosText(plan.maxVideoLengthMinutes, viewModel.serverMaxVideoLengthMinutes),
             canBuy = canLaunch && offer != null && (action == PlanAction.Subscribe || canSwitch)
         )
     }.toMutableList()
@@ -399,8 +413,7 @@ private fun shopState(
                 isUnlimited = unlimited,
                 status = subscriptionStatusText(current, endPhrase),
                 state = current.subscriptionState,
-                // Not sold here any more, so it can't be bought again over a scheduled change: Play's page instead
-                currentAction = currentPlanAction(current).takeIf { it != CurrentPlanAction.Keep } ?: CurrentPlanAction.Manage
+                currentAction = currentPlanAction(current)
             )
         )
     }

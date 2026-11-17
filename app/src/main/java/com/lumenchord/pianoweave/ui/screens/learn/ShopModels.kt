@@ -75,6 +75,8 @@ data class ShopPlan(
     /** For the current plan: "Renews on …", "Ends on …" or the payment issue. */
     val status: String? = null,
     val state: SubscriptionState? = null,
+    /** One quiet line at the bottom of the card, e.g. that a scheduled change can be undone later. */
+    val hint: String? = null,
     /** For the current plan: what its card offers; null falls back to what [state] implies. */
     val currentAction: CurrentPlanAction? = null,
     /** Play can sell it now (details and an offer loaded, nothing else in progress). */

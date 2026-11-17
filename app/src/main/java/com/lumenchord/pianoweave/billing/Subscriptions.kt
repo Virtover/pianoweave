@@ -183,11 +183,6 @@ val ActiveSubscription.scheduledProductId: String? get() = nextProductId?.takeIf
 enum class CurrentPlanAction {
     /** Google Play's page for it: manage or cancel. */
     Manage,
-    /**
-     * A move to another plan is scheduled (also after cancelling it): buy the current plan again over it, which
-     * Play treats as an upgrade from the scheduled plan. Its own page would only offer the scheduled plan.
-     */
-    Keep,
     /** Cancelled with nothing scheduled: Play's page resubscribes it. */
     Resubscribe,
     /** A payment failed: Play's page fixes it. */
@@ -196,7 +191,9 @@ enum class CurrentPlanAction {
 
 fun currentPlanAction(sub: ActiveSubscription): CurrentPlanAction = when {
     sub.subscriptionState == SubscriptionState.GracePeriod -> CurrentPlanAction.FixPayment
-    sub.scheduledProductId != null -> CurrentPlanAction.Keep
+    // After a scheduled change Play's page only offers the coming plan, and Play refuses to buy the running plan
+    // as a replacement of itself: the card can only manage it, and says the plan can be upgraded after the switch
+    sub.scheduledProductId != null -> CurrentPlanAction.Manage
     sub.subscriptionState == SubscriptionState.Canceled -> CurrentPlanAction.Resubscribe
     else -> CurrentPlanAction.Manage
 }
@@ -216,6 +213,9 @@ fun subscriptionStatusText(sub: ActiveSubscription, endPhrase: (Long) -> String)
         SubscriptionState.Active -> end?.let { "Renews $it" }
     }
 }
+
+/** Under the current plan while it renews into a scheduled lower plan. */
+const val SCHEDULED_CHANGE_HINT = "Changed your mind? You can upgrade again after the switch."
 
 /** The scheduled plan's own line: "Starts today at 21:36", "Starts on Dec 17, 2026". */
 fun scheduledStartText(sub: ActiveSubscription, endPhrase: (Long) -> String): String =
@@ -258,3 +258,10 @@ fun verificationOutcome(e: HttpException): VerificationOutcome = verificationOut
 const val SUBSCRIPTION_OWNED_MESSAGE =
     "This Google Play subscription belongs to another account of Piano Weave. Sign in with that account to use it, " +
         "or manage the subscription in Google Play."
+
+/** "Videos up to 120 min" on a plan that allows longer videos than the server's general limit; else null. */
+fun longerVideosText(planMinutes: Int?, generalMinutes: Float?): String? {
+    val minutes = planMinutes?.takeIf { it > 0 } ?: return null
+    if (generalMinutes != null && minutes <= generalMinutes) return null
+    return "Videos up to $minutes min"
+}

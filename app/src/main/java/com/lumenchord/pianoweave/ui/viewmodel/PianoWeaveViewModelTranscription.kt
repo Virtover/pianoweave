@@ -215,6 +215,8 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
         }
         e is HttpException && e.code() == 401 && !isUsingDefaultServer ->
             "This server requires Google sign-in. Your Google account is only shared with the official server."
+        e is HttpException && ServerErrors.videoTooLongMessage(e.code(), ServerErrors.errorBody(e), maxVideoLengthMinutes) != null ->
+            ServerErrors.videoTooLongMessage(e.code(), ServerErrors.errorBody(e), maxVideoLengthMinutes)!!
         e is HttpException -> serverErrorDetail(context, e) ?: "Server error (HTTP ${e.code()})"
         else -> connectionMessage(e) ?: e.localizedMessage ?: "Connection error"
     }

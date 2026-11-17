@@ -12,6 +12,8 @@ import com.lumenchord.pianoweave.audio.VoiceModelError
 import com.lumenchord.pianoweave.api.ServerOffer
 import com.lumenchord.pianoweave.api.ServerSubscriptionPlan
 import com.lumenchord.pianoweave.api.ActiveSubscription
+import com.lumenchord.pianoweave.api.VideoLimit
+import com.lumenchord.pianoweave.api.effectiveMaxVideoMinutes
 import com.lumenchord.pianoweave.api.DeveloperJobDetails
 import com.lumenchord.pianoweave.api.DeveloperServerState
 import com.lumenchord.pianoweave.api.config.AppConfig
@@ -154,6 +156,7 @@ class PianoWeaveViewModel : ViewModel() {
                 activeSubscription = null
                 isUnlimitedPlan = false
                 isUnlimitedHeavyUse = false
+                userVideoLimit = null
                 billingAccountId = null
             } else if (old != null && free != null && value < old) {
                 freeCredits = (free - (old - value)).coerceAtLeast(0)
@@ -316,8 +319,17 @@ class PianoWeaveViewModel : ViewModel() {
     var maxUploadSizeMb by mutableStateOf<Float?>(null)
         internal set
 
-    var maxVideoLengthMinutes by mutableStateOf<Float?>(null)
+    /** The server's general limit, from server-info. */
+    var serverMaxVideoLengthMinutes by mutableStateOf<Float?>(null)
         internal set
+
+    /** This user's limit from the balance (a plan may allow longer videos); null when not known. */
+    var userVideoLimit by mutableStateOf<VideoLimit?>(null)
+        internal set
+
+    /** The longest video to accept before sending: the user's limit, else the server's general one; null = none. */
+    val maxVideoLengthMinutes: Float?
+        get() = effectiveMaxVideoMinutes(userVideoLimit, serverMaxVideoLengthMinutes)
 
     val supportsFileUpload: Boolean
         get() = maxUploadSizeMb != null

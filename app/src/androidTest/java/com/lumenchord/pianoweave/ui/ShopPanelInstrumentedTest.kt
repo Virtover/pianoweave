@@ -286,47 +286,42 @@ class ShopPanelInstrumentedTest {
     }
 
     @Test
-    fun keepTheCurrentPlanOverAScheduledChange() {
-        show(
-            ShopUiState(
-                balance = ShopBalance(total = 0, planName = "Unlimited", unlimited = true),
-                plans = listOf(
-                    // Cancelled after scheduling Pro: Pro won't start, and Unlimited can be kept
-                    pro(PlanAction.Switch),
-                    unlimited(PlanAction.Current).copy(
-                        status = "Ends today at 21:36", state = SubscriptionState.Canceled, currentAction = CurrentPlanAction.Keep
-                    )
-                ),
-                subscribedProductId = "sub_unlimited"
-            )
-        )
-        rule.onNodeWithText("Ends today at 21:36").assertExists()
-        rule.onNodeWithText("Resubscribe").assertDoesNotExist()
-        rule.onNodeWithText("SCHEDULED").assertDoesNotExist()
-        rule.onNodeWithText("Keep Unlimited").assertIsEnabled().performClick()
-        assertEquals(listOf("sub_unlimited"), plansChosen)
-        // Managing or cancelling stays on the card, as the quieter action
-        rule.onNodeWithText("Manage or cancel").performClick()
-        assertEquals(1, manageOpened)
-    }
-
-    @Test
-    fun keepingNeedsTheOfferFromPlay() {
+    fun aScheduledChangeIsManagedInPlay() {
         show(
             ShopUiState(
                 balance = ShopBalance(total = 0, planName = "Unlimited", unlimited = true),
                 plans = listOf(
                     pro(PlanAction.Scheduled).copy(status = "Starts today at 21:36"),
-                    unlimited(PlanAction.Current, canBuy = false).copy(
-                        status = "Switches to Pro today at 21:36", state = SubscriptionState.Active, currentAction = CurrentPlanAction.Keep
+                    unlimited(PlanAction.Current).copy(
+                        status = "Switches to Pro today at 21:36", state = SubscriptionState.Active,
+                        currentAction = CurrentPlanAction.Manage,
+                        hint = "Changed your mind? You can upgrade again after the switch."
                     )
                 ),
                 subscribedProductId = "sub_unlimited"
             )
         )
+        rule.onNodeWithText("Switches to Pro today at 21:36").assertExists()
+        rule.onNodeWithText("Changed your mind? You can upgrade again after the switch.").assertExists()
         rule.onNodeWithText("SCHEDULED").assertExists()
-        rule.onNodeWithText("Keep Unlimited").assertIsNotEnabled()
-        rule.onNodeWithText("Manage or cancel").assertIsEnabled()
+        rule.onNodeWithText("Keep", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("Resubscribe").assertDoesNotExist()
+        rule.onNodeWithText("Manage or cancel").assertIsEnabled().performClick()
+        assertEquals(listOf("sub_unlimited"), plansChosen)
+    }
+
+    @Test
+    fun aPlanWithLongerVideosSaysSo() {
+        show(
+            ShopUiState(
+                balance = freeBalance,
+                plans = listOf(pro(), unlimited().copy(note = "Videos up to 120 min")),
+                freeMinutes = 30
+            )
+        )
+        rule.onNodeWithText("Videos up to 120 min").assertExists()
+        // Only on the plan that has it
+        rule.onAllNodesWithText("Videos up to", substring = true).assertCountEquals(1)
     }
 
     @Test

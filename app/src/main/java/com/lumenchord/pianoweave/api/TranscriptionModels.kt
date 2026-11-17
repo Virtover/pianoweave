@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.api
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 
 data class CreateTranscriptionRequest(
@@ -227,7 +228,9 @@ data class ServerSubscriptionPlan(
     @SerializedName("minutes_per_period") val minutesPerPeriod: Int? = null,
     @SerializedName("unlimited") val unlimited: Boolean? = null,
     /** 1 is the lowest; a higher level is an upgrade. */
-    @SerializedName("level") val level: Int? = null
+    @SerializedName("level") val level: Int? = null,
+    /** The longest video this plan allows; null for the server's general limit. */
+    @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Int? = null
 )
 
 data class ServerInfoResponse(
@@ -277,7 +280,12 @@ data class UserBalanceResponse(
      * An unlimited account that started a lot of transcription in the last 24 hours: its jobs run one at a time for
      * now (never refused). Older servers sent a daily cap instead (`unlimited_minutes_left`), which is ignored.
      */
-    @SerializedName("unlimited_heavy_use") val unlimitedHeavyUse: Boolean? = null
+    @SerializedName("unlimited_heavy_use") val unlimitedHeavyUse: Boolean? = null,
+    /**
+     * The longest video this user may send now (a plan's if longer): a number, JSON null for no limit, or absent on
+     * older servers (the general server-info limit then applies). Kept raw to tell null from absent; see [videoLimit].
+     */
+    @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: JsonElement? = null
 )
 
 /** A subscription as the server knows it. While its period runs, its minutes are the balance's monthly_minutes. */
@@ -297,7 +305,8 @@ data class ActiveSubscription(
      * is scheduled, and on older servers.
      */
     @SerializedName("next_product_id") val nextProductId: String? = null,
-    @SerializedName("next_name") val nextName: String? = null
+    @SerializedName("next_name") val nextName: String? = null,
+    @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Float? = null
 )
 
 data class BillingCostResponse(
@@ -336,3 +345,25 @@ fun uploadSourceKey(jobId: String): String = UPLOAD_KEY_PREFIX + jobId
 
 val String.isUploadSourceKey: Boolean
     get() = startsWith(UPLOAD_KEY_PREFIX)
+
+/** A user's video length limit as the balance gives it. */
+sealed interface VideoLimit {
+    data class Minutes(val minutes: Float) : VideoLimit
+    /** No limit for this user. */
+    data object None : VideoLimit
+}
+
+/** The balance's limit; null when the server doesn't say (older servers), so the general one applies. */
+val UserBalanceResponse.videoLimit: VideoLimit?
+    get() {
+        val raw = maxVideoLengthMinutes ?: return null
+        if (raw.isJsonNull) return VideoLimit.None
+        return runCatching { raw.asFloat }.getOrNull()?.takeIf { it > 0 && it.isFinite() }?.let { VideoLimit.Minutes(it) }
+    }
+
+/** The limit to check and show before sending: the user's from the balance, else the server's general one. */
+fun effectiveMaxVideoMinutes(user: VideoLimit?, general: Float?): Float? = when (user) {
+    is VideoLimit.Minutes -> user.minutes
+    VideoLimit.None -> null
+    null -> general
+}

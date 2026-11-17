@@ -373,9 +373,10 @@ class SubscriptionsTest {
         val scheduled = unlimited.copy(nextProductId = "sub_pro", nextName = "Pro")
         val cancelledAfterScheduling = scheduled.copy(state = "CANCELED", autoRenewing = false)
         assertEquals(CurrentPlanAction.Manage, currentPlanAction(unlimited))
-        assertEquals(CurrentPlanAction.Keep, currentPlanAction(scheduled))
-        // Cancelled after a scheduled change: Play's page would only offer the scheduled plan, so keep, never resubscribe
-        assertEquals(CurrentPlanAction.Keep, currentPlanAction(cancelledAfterScheduling))
+        // Play can't buy the running plan as a replacement of itself: a scheduled change is only managed in Play
+        assertEquals(CurrentPlanAction.Manage, currentPlanAction(scheduled))
+        // Cancelled after a scheduled change: Play's page would only offer the scheduled plan, so never "Resubscribe"
+        assertEquals(CurrentPlanAction.Manage, currentPlanAction(cancelledAfterScheduling))
         assertEquals(CurrentPlanAction.Resubscribe, currentPlanAction(unlimited.copy(state = "CANCELED", autoRenewing = false)))
         assertEquals(CurrentPlanAction.FixPayment, currentPlanAction(scheduled.copy(state = "IN_GRACE_PERIOD")))
         // A next plan equal to the current one is nothing scheduled
