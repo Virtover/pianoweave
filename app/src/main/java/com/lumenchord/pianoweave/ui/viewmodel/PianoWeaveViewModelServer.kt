@@ -576,7 +576,7 @@ private suspend fun PianoWeaveViewModel.sendPack(
             PurchaseVerificationWorker.scheduleVerification(context, purchase, retryDelaySeconds(e))
             return PackVerification.Pending
         }
-        // A final refusal (a product this server doesn't sell, a purchase Google says isn't done) is remembered, so
+        // A final refusal (a product this server doesn't sell) is remembered, so
         // recovery doesn't send it again on every shop opening
         PendingPurchaseStore.removePendingPurchase(context, purchaseToken)
         rememberRefusedPurchase(context, refusedKey)

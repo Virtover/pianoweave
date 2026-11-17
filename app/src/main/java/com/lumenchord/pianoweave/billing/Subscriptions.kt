@@ -267,8 +267,11 @@ fun verificationOutcome(e: HttpException): VerificationOutcome {
     return verificationOutcome(e.code(), ServerErrors.errorCode(body), ServerErrors.detailMessage(body))
 }
 
-/** The server's final refusals of a credit pack: a product it doesn't sell, or a purchase Google says isn't done. */
-val FINAL_PACK_REFUSALS = setOf("Unknown product", "Purchase is not completed")
+/**
+ * The server's final refusal of a credit pack: a product it doesn't sell. Not "Purchase is not completed": that is a
+ * payment still pending at Google, credited once it completes, so it is kept and tried again.
+ */
+val FINAL_PACK_REFUSALS = setOf("Unknown product")
 
 /**
  * What to do with a credit pack the server didn't credit: forgotten (and never sent again) only after a 400 with

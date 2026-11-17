@@ -24,9 +24,8 @@ class PurchaseVerificationTest {
 
     @Test
     fun onlyFinalRefusalsEndIt() {
-        // A product the server doesn't sell, or a purchase Google says isn't done
+        // A product the server doesn't sell
         assertFalse(isVerificationRetryable(httpError(400, """{"detail": "Unknown product"}""")))
-        assertFalse(isVerificationRetryable(httpError(400, """{"detail": "Purchase is not completed"}""")))
         assertEquals(VerificationOutcome.Drop, packVerificationOutcome(400, "Unknown product"))
     }
 
@@ -36,5 +35,8 @@ class PurchaseVerificationTest {
         assertTrue(isVerificationRetryable(httpError(409, """{"detail": "Google Play billing is disabled"}""")))
         for (code in listOf(400, 403, 404, 409, 422)) assertTrue("$code", isVerificationRetryable(httpError(code)))
         assertEquals(VerificationOutcome.Retry, packVerificationOutcome(400, "Something else"))
+        // A payment still pending at Google: kept and tried again, credited once it completes
+        assertTrue(isVerificationRetryable(httpError(400, """{"detail": "Purchase is not completed"}""")))
+        assertEquals(VerificationOutcome.Retry, packVerificationOutcome(400, "Purchase is not completed"))
     }
 }
