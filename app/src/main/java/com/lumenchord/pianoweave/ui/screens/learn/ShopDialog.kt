@@ -342,6 +342,8 @@ internal fun ShopDialog(
                 },
                 onManage = { openManage(state.subscribedProductId) },
                 onClose = onDismiss,
+                selectedTab = viewModel.shopSelectedTab,
+                onSelectedTab = { viewModel.shopSelectedTab = it },
                 modifier = Modifier
                     .widthIn(max = 640.dp)
                     .fillMaxWidth()

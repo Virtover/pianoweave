@@ -21,6 +21,7 @@ import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
+import com.lumenchord.pianoweave.ui.screens.learn.ShopTab
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.Job
 
@@ -446,6 +447,9 @@ class PianoWeaveViewModel : ViewModel() {
 
     // Dialog flags
     var showShopDialog by mutableStateOf(false)
+    /** Kept for the lifetime of this view model so the shop tab survives Activity/Dialog recreation. */
+    var shopSelectedTab by mutableStateOf<ShopTab?>(null)
+        internal set
     var showSupportDialog by mutableStateOf(false)
     var showNotEnoughCreditsDialog by mutableStateOf(false)
 
@@ -547,7 +551,10 @@ class PianoWeaveViewModel : ViewModel() {
     fun setVoiceMicMode(context: Context, mode: com.lumenchord.pianoweave.audio.VoiceMicMode) = setVoiceMicModeImpl(context, mode)
     fun openPracticeSession(context: Context, song: StoredMidi) = openPracticeSessionImpl(context, song)
     fun openShop(context: Context) = openShopImpl(context)
-    fun dismissShop() { showShopDialog = false }
+    fun dismissShop() {
+        showShopDialog = false
+        shopSelectedTab = null
+    }
     fun openSupport() { showSupportDialog = true }
     fun dismissSupport() { showSupportDialog = false }
     fun dismissNotEnoughCredits() { showNotEnoughCreditsDialog = false }

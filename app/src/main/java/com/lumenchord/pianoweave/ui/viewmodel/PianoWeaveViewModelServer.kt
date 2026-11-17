@@ -412,6 +412,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
 internal fun PianoWeaveViewModel.openShopImpl(context: Context) {
     // A refresh that failed earlier (e.g. during a restart) is tried again, so the shop shows current plans
     if (isServerInfoStale) checkServerHealthAndInfoImpl(context)
+    shopSelectedTab = null
     withEnsuredSignInImpl(context) { showShopDialog = true }
 }
 

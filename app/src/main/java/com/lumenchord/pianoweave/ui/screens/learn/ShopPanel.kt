@@ -81,6 +81,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import kotlinx.coroutines.launch
 
 /** Test tags of the shop's parts. */
@@ -101,6 +102,13 @@ private val SIDE_BY_SIDE_MIN_WIDTH = 520.dp
 /** The shop's two lists; one is shown at a time. */
 enum class ShopTab { Plans, Packs }
 
+private val ShopTabSaver = listSaver<ShopTab?, String>(
+    save = { tab -> tab?.let { listOf(it.name) } ?: emptyList() },
+    restore = { saved ->
+        saved.firstOrNull()?.let { name -> ShopTab.entries.firstOrNull { it.name == name } }
+    }
+)
+
 /**
  * The shop: the balance, then one list at a time (plans or credit packs, switched by a segmented control when
  * both are offered), one quiet line about it, and a footer. Calm on purpose: no countdowns, no badges shouting a
@@ -113,17 +121,19 @@ fun ShopPanel(
     onPack: (ShopPack) -> Unit,
     onManage: () -> Unit,
     onClose: () -> Unit,
+    selectedTab: ShopTab? = null,
+    onSelectedTab: ((ShopTab) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val gold = LocalAppTheme.current.primaryColor
     val slate = MaterialTheme.colorScheme.tertiaryContainer
     // Chosen afresh on every opening: a subscriber most likely came for credits, anyone else for a plan
     // Saveable, so a rotation keeps the tab; the default applies only when the shop opens
-    var chosenTab by rememberSaveable { mutableStateOf(state.defaultTab) }
+    var chosenTab by rememberSaveable(stateSaver = ShopTabSaver) { mutableStateOf(state.defaultTab) }
     val tab = when {
         state.plans.isEmpty() -> ShopTab.Packs
         state.packs.isEmpty() -> ShopTab.Plans
-        else -> chosenTab
+        else -> selectedTab ?: chosenTab ?: state.defaultTab
     }
     val showsLists = state.unavailableMessage == null && !state.isLoading && !state.isEmpty
     DialogSurface(
@@ -166,7 +176,10 @@ fun ShopPanel(
                 )
                 else -> {
                     if (state.plans.isNotEmpty() && state.packs.isNotEmpty()) {
-                        ShopTabs(selected = tab, onSelect = { chosenTab = it })
+                        ShopTabs(selected = tab, onSelect = {
+                            chosenTab = it
+                            onSelectedTab?.invoke(it)
+                        })
                     }
                     when (tab) {
                         ShopTab.Plans -> PlansList(state, onPlan)
