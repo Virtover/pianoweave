@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import android.content.Context
 import android.media.MediaRecorder
@@ -342,6 +343,30 @@ class PianoWeaveViewModel : ViewModel() {
     /** The server [supportsArrangement] was read from. */
     internal var arrangementInfoServerUrl = ""
 
+    /** From server-info: a submission may ask for only a part of its song, so the card offers Trim. */
+    var supportsTrimming by mutableStateOf(false)
+        internal set
+
+    /** The part chosen with Trim and the source it was chosen for; see [activeClip]. */
+    internal var trimChoice by mutableStateOf<TrimChoice?>(null)
+
+    /** Lengths of links as the server read them (for the cost or for Trim), by link. */
+    internal var linkDurations by mutableStateOf<Map<String, Float>>(emptyMap())
+
+    /** The Trim dialog is open; kept here, as the mode choice is, so a rotation doesn't close it. */
+    var showTrimDialog by mutableStateOf(false)
+
+    /** Parts already in the library that the part about to be sent overlaps; the warning shows while set. */
+    var overlapWarning by mutableStateOf<OverlapWarning?>(null)
+
+    /** Trim waits for the server to read the link's length. */
+    var isReadingTrimLength by mutableStateOf(false)
+        internal set
+
+    /** Why the link's length couldn't be read for Trim; null otherwise. */
+    var trimLengthError by mutableStateOf<String?>(null)
+        internal set
+
     /**
      * The Transcribe flow's open dialogs: the mode choice, and the Terms with the mode waiting on them. Kept
      * here rather than in the card, which portrait and landscape build in different places, so a rotation
@@ -504,9 +529,14 @@ class PianoWeaveViewModel : ViewModel() {
     fun updateUrl(url: String) = updateUrlImpl(url)
     fun resumeActiveJobIfAny(context: Context) = resumeActiveJobIfAnyImpl(context)
     fun cancelTranscription(context: Context) = cancelTranscriptionImpl(context)
-    fun startTranscription(context: Context, mode: TranscriptionMode = TranscriptionMode.Transcription) =
-        startTranscriptionImpl(context, mode)
+    fun startTranscription(
+        context: Context,
+        mode: TranscriptionMode = TranscriptionMode.Transcription,
+        overlapConfirmed: Boolean = false
+    ) = startTranscriptionImpl(context, mode, overlapConfirmed)
     fun lastChosenMode(context: Context): TranscriptionMode = lastChosenModeImpl(context)
+    fun openTrim(context: Context) = openTrimImpl(context)
+    fun applyTrim(clip: Clip?) = applyTrimImpl(clip)
     fun selectMediaFile(context: Context, uri: Uri) = selectMediaFileImpl(context, uri)
     fun clearSelectedMediaFile() = clearSelectedMediaFileImpl()
     fun selectTranscriptionSource(source: TranscriptionSource) = selectTranscriptionSourceImpl(source)

@@ -11,7 +11,10 @@ data class CreateTranscriptionRequest(
      */
     @SerializedName("mode") val mode: String? = null,
     /** Only sent with an arrangement; the server refuses a style on a transcription. */
-    @SerializedName("style") val style: String? = null
+    @SerializedName("style") val style: String? = null,
+    /** A part of the video ([Clip]); left out (null) for the whole of it, and always for servers without `trimming`. */
+    @SerializedName("start_seconds") val startSeconds: Int? = null,
+    @SerializedName("end_seconds") val endSeconds: Int? = null
 )
 
 /**
@@ -50,9 +53,13 @@ fun libraryKey(sourceKey: String, mode: TranscriptionMode): String =
 val String.isArrangementKey: Boolean
     get() = endsWith(ARRANGEMENT_KEY_SUFFIX)
 
-/** The source a library key was made from: the link or upload key, without the arrangement mark. */
+/** The source a library key was made from: the link or upload key, without the arrangement and part marks. */
 val String.sourceOfLibraryKey: String
-    get() = removeSuffix(ARRANGEMENT_KEY_SUFFIX)
+    get() = removeSuffix(ARRANGEMENT_KEY_SUFFIX).withoutClip
+
+/** The part of its source a library key's song is (see [clipSourceKey]); null for the whole song. */
+val String.libraryKeyClip: Clip?
+    get() = removeSuffix(ARRANGEMENT_KEY_SUFFIX).clipOfSourceKey
 
 val String.libraryKeyMode: TranscriptionMode
     get() = if (isArrangementKey) TranscriptionMode.Arrangement else TranscriptionMode.Transcription
@@ -80,6 +87,9 @@ data class TranscriptionStatusResponse(
     /** [TranscriptionMode.apiValue]; absent on servers without arrangements. */
     @SerializedName("mode") val mode: String? = null,
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null,
+    /** The part transcribed, for a job of a part ([Clip]); end null runs to the end. Absent on older servers. */
+    @SerializedName("start_seconds") val startSeconds: Float? = null,
+    @SerializedName("end_seconds") val endSeconds: Float? = null,
     /** Where the model runs: "local" or "remote" (RunPod). Absent on older servers. */
     @SerializedName("backend") val backend: String? = null,
     /** What happened to the job; only for a developer's account ([UserBalanceResponse.developer]). */
@@ -243,6 +253,8 @@ data class ServerInfoResponse(
     @SerializedName("max_upload_size_mb") val maxUploadSizeMb: Float? = null,
     /** Whether the server makes piano arrangements; absent (false) on servers that can't. */
     @SerializedName("arrangement") val arrangement: Boolean? = null,
+    /** Whether a submission may ask for only a part ([Clip]); absent (false) on servers that would transcribe it all. */
+    @SerializedName("trimming") val trimming: Boolean? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
     @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
     /** Subscription plans, lowest level first; absent on older servers and when billing is off. */
@@ -310,6 +322,7 @@ data class ActiveSubscription(
 )
 
 data class BillingCostResponse(
+    /** The whole video's or file's length, also when the cost is of a part. */
     @SerializedName("duration_seconds") val durationSeconds: Float,
     @SerializedName("cost_minutes") val costMinutes: Int
 )

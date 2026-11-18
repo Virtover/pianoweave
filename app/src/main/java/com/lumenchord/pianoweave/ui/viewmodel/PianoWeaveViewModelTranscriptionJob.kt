@@ -16,6 +16,7 @@ import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.api.failureMessage
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.api.isUploadSourceKey
+import com.lumenchord.pianoweave.api.libraryKeyClip
 import com.lumenchord.pianoweave.api.libraryKeyMode
 import com.lumenchord.pianoweave.api.sourceOfLibraryKey
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
@@ -73,6 +74,8 @@ internal fun PianoWeaveViewModel.resumeActiveJobIfAnyImpl(context: Context) {
     transcriptionMode = savedUrl.libraryKeyMode
     val source = savedUrl.sourceOfLibraryKey
     if (source.isUploadSourceKey) transcriptionSource = TranscriptionSource.File else videoUrl = source
+    // The card shows the part being transcribed, as when it was started
+    savedUrl.libraryKeyClip?.let { clip -> if (!source.isUploadSourceKey) trimChoice = TrimChoice(source, clip) }
     currentJobId = savedJobId
     isLoading = true
     status = "Resuming transcription job..."

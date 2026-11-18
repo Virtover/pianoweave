@@ -82,6 +82,9 @@ interface PianoApi {
         /** [TranscriptionMode.apiValue]; null (a transcription) keeps the request what older servers know. */
         @Query("mode") mode: String? = null,
         @Query("style") style: String? = null,
+        /** A part of the file ([Clip]); only to servers with `trimming`, which would otherwise transcribe it all. */
+        @Query("start_seconds") startSeconds: Int? = null,
+        @Query("end_seconds") endSeconds: Int? = null,
         @Header("Authorization") authHeader: String? = null,
         @Header("X-User-Id") userId: String? = null,
         @Header("Idempotency-Key") idempotencyKey: String? = null

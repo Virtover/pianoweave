@@ -70,6 +70,13 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Brush
 import com.lumenchord.pianoweave.ui.theme.Moods
+import com.lumenchord.pianoweave.api.Clip
+import com.lumenchord.pianoweave.api.describe
+import com.lumenchord.pianoweave.ui.screens.learn.PartOverlapDialog
+import com.lumenchord.pianoweave.ui.screens.learn.TrimDialog
+import com.lumenchord.pianoweave.ui.viewmodel.activeClip
+import com.lumenchord.pianoweave.ui.viewmodel.canTrim
+import com.lumenchord.pianoweave.ui.viewmodel.trimSourceSeconds
 
 @Composable
 fun TranscriptionInputCard(
@@ -179,6 +186,28 @@ fun TranscriptionInputCard(
                 transcribe(mode)
             },
             onDismiss = { viewModel.termsPendingMode = null }
+        )
+    }
+
+    if (viewModel.showTrimDialog) {
+        TrimDialog(
+            totalSeconds = viewModel.trimSourceSeconds,
+            initial = viewModel.activeClip,
+            isBilled = viewModel.isBilledServer,
+            error = viewModel.trimLengthError,
+            onRetry = { viewModel.openTrim(context) },
+            onApply = { viewModel.applyTrim(it) },
+            onDismiss = { viewModel.showTrimDialog = false }
+        )
+    }
+    viewModel.overlapWarning?.let { warning ->
+        PartOverlapDialog(
+            warning = warning,
+            onConfirm = {
+                viewModel.overlapWarning = null
+                viewModel.startTranscription(context, warning.mode, overlapConfirmed = true)
+            },
+            onDismiss = { viewModel.overlapWarning = null }
         )
     }
 
@@ -392,69 +421,88 @@ fun TranscriptionInputCard(
                     val interaction = remember { MutableInteractionSource() }
                     val pressed by interaction.collectIsPressedAsState()
                     val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "transcribePress")
+                    val buttonHeight = if (isShort) 44.dp else if (isLarge) 54.dp else 50.dp
+                    // Trim stays out of the way: a scissors beside the button, and the chosen part above it
+                    val clip = viewModel.activeClip
+                    clip?.let { ChosenPart(it, onClear = { viewModel.applyTrim(null) }, onEdit = { viewModel.openTrim(context) }) }
 
-                    Button(
-                        onClick = onTranscribeClick,
-                        enabled = canTranscribe,
-                        interactionSource = interaction,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             // The card's 8dp short-window gap felt cramped under the field; the button gets a little more air
-                            .padding(top = if (isShort) 6.dp else 0.dp)
-                            .height(if (isShort) 44.dp else if (isLarge) 54.dp else 50.dp)
-                            .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
-                            .graphicsLayer {
-                                scaleX = pressScale
-                                scaleY = pressScale
-                            }
-                            .clip(PillShape)
-                            .background(container)
-                            // A faint sheen on top once ready, so it reads as lit rather than flat
-                            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
-                        shape = PillShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = content,
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = content
-                        )
+                            .padding(top = if (isShort) 6.dp else 0.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                        Button(
+                            onClick = onTranscribeClick,
+                            enabled = canTranscribe,
+                            interactionSource = interaction,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(buttonHeight)
+                                .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
+                                .graphicsLayer {
+                                    scaleX = pressScale
+                                    scaleY = pressScale
+                                }
+                                .clip(PillShape)
+                                .background(container)
+                                // A faint sheen on top once ready, so it reads as lit rather than flat
+                                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
+                            shape = PillShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = content,
+                                disabledContainerColor = Color.Transparent,
+                                disabledContentColor = content
+                            )
                         ) {
-                            Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            if (isBilled && viewModel.isCalculatingCost) {
-                                Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
-                            } else {
-                                Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
-                                if (isBilled && cost != null) {
-                                    Spacer(Modifier.width(10.dp))
-                                    Surface(
-                                        shape = PillShape,
-                                        color = content.copy(alpha = 0.14f),
-                                        contentColor = content
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                if (isBilled && viewModel.isCalculatingCost) {
+                                    Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
+                                } else {
+                                    Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
+                                    if (isBilled && cost != null) {
+                                        Spacer(Modifier.width(10.dp))
+                                        Surface(
+                                            shape = PillShape,
+                                            color = content.copy(alpha = 0.14f),
+                                            contentColor = content
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.MonetizationOn,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(15.dp)
-                                            )
-                                            Text(
-                                                text = "$cost",
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 13.sp
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MonetizationOn,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(15.dp)
+                                                )
+                                                Text(
+                                                    text = "$cost",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 13.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
+                        }
+                        if (viewModel.canTrim && !needsSignIn) {
+                            TrimButton(
+                                isTrimmed = clip != null,
+                                size = buttonHeight,
+                                enabled = !needsPassword && !viewModel.isCalculatingCost,
+                                onClick = { viewModel.openTrim(context) }
+                            )
                         }
                     }
                 }
@@ -512,6 +560,61 @@ private fun ServerPasswordNotice(isOfficialServer: Boolean, onClick: () -> Unit)
         }
     }
 }
+/** Opens Trim; lit when a part is chosen. A round button the button's height, so the row stays one line. */
+@Composable
+private fun TrimButton(isTrimmed: Boolean, size: androidx.compose.ui.unit.Dp, enabled: Boolean, onClick: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.secondary
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = CircleShape,
+        color = if (isTrimmed) accent.copy(alpha = 0.22f) else accent.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, accent.copy(alpha = if (isTrimmed) 0.8f else 0.35f)),
+        modifier = Modifier.size(size)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Default.ContentCut,
+                contentDescription = if (isTrimmed) "Change the part to transcribe" else "Trim: transcribe only a part",
+                tint = accent.copy(alpha = if (enabled) 1f else 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+/** The part Trim chose, as a chip: tap to change it, ✕ for the whole song again. */
+@Composable
+private fun ChosenPart(clip: Clip, onClear: () -> Unit, onEdit: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.secondary
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        Surface(
+            onClick = onEdit,
+            shape = PillShape,
+            color = accent.copy(alpha = 0.1f),
+            border = BorderStroke(1.dp, accent.copy(alpha = 0.45f))
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 12.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.ContentCut, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Part ${clip.describe()}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = accent,
+                    maxLines = 1
+                )
+                IconButton(onClick = onClear, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Transcribe the whole song", tint = accent, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
 /** "Only convert music you have the right to use", with the Terms of Service that explain it one tap away. */
 @Composable
 private fun RightsFootnote() {

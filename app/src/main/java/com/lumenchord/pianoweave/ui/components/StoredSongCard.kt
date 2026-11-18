@@ -25,6 +25,9 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.foundation.layout.width
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.api.isUploadSourceKey
+import com.lumenchord.pianoweave.api.Clip
+import com.lumenchord.pianoweave.api.describe
+import com.lumenchord.pianoweave.api.libraryKeyClip
 import com.lumenchord.pianoweave.api.libraryKeyMode
 import com.lumenchord.pianoweave.api.sourceOfLibraryKey
 import androidx.compose.material.icons.filled.Piano
@@ -125,7 +128,7 @@ fun StoredSongCard(
                     ) {
                         // A transcription and an arrangement of one link share a title; the tag tells them apart
                         song.madeAs?.let { mode ->
-                            SongModeTag(mode, compact = !room.isWide)
+                            SongModeTag(mode, compact = !room.isWide, clip = song.videoUrl.libraryKeyClip)
                             Spacer(Modifier.width(6.dp))
                         }
                         Text(
@@ -165,13 +168,15 @@ internal val StoredMidi.madeAs: TranscriptionMode?
 
 /**
  * Marks a song as a transcription or an arrangement. [compact] (portrait, where the details line is
- * short) shows the icon only; the name is still read out by screen readers.
+ * short) shows the icon only; the name is still read out by screen readers. A song of a part shows the part
+ * ([clip]) too, also when compact: it tells two parts of one video apart.
  */
 @Composable
-internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean) {
+internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean, clip: Clip? = null) {
     val accent = MaterialTheme.colorScheme.secondary
     val isArrangement = mode == TranscriptionMode.Arrangement
-    val label = if (isArrangement) "Arrangement" else "Transcription"
+    val name = if (isArrangement) "Arrangement" else "Transcription"
+    val label = clip?.let { "$name, part ${it.describe()}" } ?: name
     Row(
         modifier = Modifier
             .clip(PillShape)
@@ -186,10 +191,10 @@ internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean) {
             tint = accent,
             modifier = Modifier.size(11.dp)
         )
-        if (!compact) {
+        if (!compact || clip != null) {
             Spacer(Modifier.width(3.dp))
             Text(
-                text = label,
+                text = clip?.let { if (compact) it.describe() else "$name · ${it.describe()}" } ?: name,
                 color = accent,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,

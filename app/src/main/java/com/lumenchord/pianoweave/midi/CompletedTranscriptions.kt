@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.midi
 import android.content.Context
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.api.VideoMetadata
+import com.lumenchord.pianoweave.api.libraryKeyClip
 import com.lumenchord.pianoweave.api.placeholderMetadata
 import com.lumenchord.pianoweave.api.sanitizeVideoMetadata
 import kotlinx.coroutines.sync.Mutex
@@ -33,6 +34,14 @@ object CompletedTranscriptions {
      * plain title; use it rather than the "Piano Performance" placeholder.
      */
     private fun metadataFor(job: TranscriptionStatusResponse, stableUrl: String): VideoMetadata? =
-        job.metadata?.let { sanitizeVideoMetadata(it, fallbackUrl = stableUrl) }
-            ?: job.title?.takeIf { it.isNotBlank() }?.let { placeholderMetadata(stableUrl).copy(title = it) }
+        (job.metadata?.let { sanitizeVideoMetadata(it, fallbackUrl = stableUrl) }
+            ?: job.title?.takeIf { it.isNotBlank() }?.let { placeholderMetadata(stableUrl).copy(title = it) })
+            ?.let { partLength(it, stableUrl) }
+
+    /** A part's song lasts as long as the part; the server's metadata gives the whole video's length. */
+    internal fun partLength(metadata: VideoMetadata, libraryKey: String): VideoMetadata {
+        val clip = libraryKey.libraryKeyClip ?: return metadata
+        if (metadata.duration <= 0f) return metadata
+        return metadata.copy(duration = clip.lengthSeconds(metadata.duration).coerceAtLeast(0f))
+    }
 }

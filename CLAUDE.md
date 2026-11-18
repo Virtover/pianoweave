@@ -113,6 +113,12 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus
   `#piano-arrangement` (`libraryKey()` in `api/TranscriptionModels.kt`), so it never collides with the transcription
   of the same link and stays a working link; the mode is read back from the key (resume, cards, library tag).
+- **Trim** (server-info `trimming: true`): the scissors beside Transcribe opens `TrimDialog`; the part (whole seconds,
+  end null = to the end) is sent as `start_seconds`/`end_seconds` and only its length is charged. A part's library key
+  is its source key plus `#part=<start>-<end>` before any `#piano-arrangement` (`api/Clips.kt`), so parts and the whole
+  song are separate songs locally and on Drive (sync matches exact keys). A link's part that overlaps a part (or the
+  whole) already in the library in the same mode asks first (`PartOverlapDialog`); uploads never do, as each is its
+  own song. `ClipsTest` covers keys, overlaps, requests and the Drive description round trip.
 - **In-app updates** (`update/AppUpdates.kt`, Play `app-update`): once per start, after the permission prompts, a
   newer Play version is offered as a flexible update (Restart snackbar when downloaded); priority 4–5 forces the
   immediate flow; a declined version rests 3 days. Debug builds: Settings → "Simulate app update (debug)" runs it

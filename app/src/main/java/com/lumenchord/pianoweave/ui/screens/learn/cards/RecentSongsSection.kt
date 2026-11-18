@@ -26,6 +26,7 @@ import com.lumenchord.pianoweave.ui.components.SongThumbnail
 import com.lumenchord.pianoweave.ui.components.songDetails
 import com.lumenchord.pianoweave.ui.components.SongModeTag
 import com.lumenchord.pianoweave.ui.components.madeAs
+import com.lumenchord.pianoweave.api.libraryKeyClip
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
@@ -70,7 +71,7 @@ fun RecentSongsSection(
                     if (mode != null || details != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             mode?.let {
-                                SongModeTag(it, compact = !room.isWide)
+                                SongModeTag(it, compact = !room.isWide, clip = song.videoUrl.libraryKeyClip)
                                 Spacer(Modifier.width(6.dp))
                             }
                             details?.let {

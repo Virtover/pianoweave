@@ -6,7 +6,9 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.CreateTranscriptionResponse
+import com.lumenchord.pianoweave.api.clipSourceKey
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.retryWhenBusy
@@ -121,7 +123,8 @@ internal fun PianoWeaveViewModel.limitProblem(file: SelectedMediaFile): String? 
 
 internal fun PianoWeaveViewModel.calculateCostForFile(file: SelectedMediaFile) {
     costJob?.cancel()
-    val duration = file.durationSeconds
+    // A part chosen with Trim costs its own length
+    val duration = clipCostSeconds ?: file.durationSeconds
     val context = appContext
     if (duration == null || !isBilledServer || !isGoogleSignedIn || context == null) {
         // Unknown length: the server works out the cost after the upload and still enforces the balance.
@@ -215,16 +218,17 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
         }
         activeUpload = body
         val mode = transcriptionMode
+        val clip = activeClip
         val idempotencyKey = PendingSubmissionStore.keyFor(
             context,
-            "upload|$activeServerUrl|${file.uri}|${file.sizeBytes}${submissionModeTag(mode)}"
+            "upload|$activeServerUrl|${file.uri}|${file.sizeBytes}${submissionModeTag(mode)}${submissionClipTag(clip)}"
         )
 
         try {
             // Once the whole file is sent the server queues and bills the job, so its id must not be
             // lost to a cancellation: cancelling stops the body instead (see cancelTranscriptionImpl).
             val submitted = withContext(NonCancellable) {
-                submitUpload(context, file, body, idempotencyKey, mode)
+                submitUpload(context, file, body, idempotencyKey, mode, clip)
             }
             val jobId = submitted.job_id
             // The server measures the decoded audio, so this, not the estimate, is what was charged
@@ -233,7 +237,7 @@ internal fun PianoWeaveViewModel.proceedStartUpload(context: Context, file: Sele
             isUploading = false
             if (body.isCancelled) return@launch // the cancel flow deletes the job
 
-            val key = libraryKey(uploadSourceKey(jobId), mode)
+            val key = libraryKey(clipSourceKey(uploadSourceKey(jobId), clip), mode)
             ActiveJobStore.save(context, jobId, key)
             enqueueTranscriptionWorker(context, jobId, key)
             status = "Job successfully queued..."
@@ -280,7 +284,7 @@ private suspend fun PianoWeaveViewModel.hasBalanceForUpload(context: Context, fi
     val balance = loadUserBalance(context) ?: return true
     // Read with the balance: a developer's jobs are never charged, nor an unlimited plan's (fair use aside)
     if (hasUnlimitedCredits) return true
-    val cost = estimatedCostCredits ?: file.durationSeconds?.let { duration ->
+    val cost = estimatedCostCredits ?: (clipCostSeconds ?: file.durationSeconds)?.let { duration ->
         try {
             fetchBillingCost(context, durationSeconds = duration).also { estimatedCostCredits = it }
         } catch (e: Exception) {
@@ -296,7 +300,8 @@ private suspend fun PianoWeaveViewModel.submitUpload(
     file: SelectedMediaFile,
     body: MediaUploadBody,
     key: String,
-    mode: TranscriptionMode
+    mode: TranscriptionMode,
+    clip: Clip?
 ): CreateTranscriptionResponse {
     val uId = getOrCreateUserId(context)
     val serverUrl = activeServerUrl
@@ -313,6 +318,8 @@ private suspend fun PianoWeaveViewModel.submitUpload(
                     // A transcription sends no mode, so older servers get the request they know
                     mode = mode.apiValue.takeIf { mode != TranscriptionMode.Transcription },
                     style = mode.style,
+                    startSeconds = clip?.startSeconds,
+                    endSeconds = clip?.endSeconds,
                     authHeader = authHeader,
                     userId = if (!isBilledServer) uId else null,
                     idempotencyKey = key

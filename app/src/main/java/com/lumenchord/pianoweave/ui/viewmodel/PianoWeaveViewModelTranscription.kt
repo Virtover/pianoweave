@@ -3,7 +3,11 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.api.BillingCostResponse
+import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
+import com.lumenchord.pianoweave.api.clipSourceKey
+import com.lumenchord.pianoweave.api.sourceOfLibraryKey
 import com.lumenchord.pianoweave.api.CreateTranscriptionResponse
 import com.lumenchord.pianoweave.api.MaintenanceNotice
 import com.lumenchord.pianoweave.api.MaintenanceTexts
@@ -41,9 +45,17 @@ internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
         return
     }
     isCalculatingCost = true
+    // A part is priced by its length alone; the link's length is known, as Trim needed it
+    val partSeconds = clipCostSeconds
     costJob = viewModelScope.launch {
         try {
-            estimatedCostCredits = fetchBillingCost(context, sourceUrl = stableUrl)
+            estimatedCostCredits = if (partSeconds != null) {
+                fetchBillingCost(context, durationSeconds = partSeconds)
+            } else {
+                val cost = fetchBillingCostResponse(context, sourceUrl = stableUrl)
+                linkDurations = linkDurations + (stableUrl to cost.durationSeconds)
+                cost.costMinutes
+            }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             estimatedCostCredits = null
@@ -66,13 +78,20 @@ internal suspend fun PianoWeaveViewModel.fetchBillingCost(
     context: Context,
     sourceUrl: String? = null,
     durationSeconds: Float? = null
-): Int {
+): Int = fetchBillingCostResponse(context, sourceUrl, durationSeconds).costMinutes
+
+/** [fetchBillingCost]'s whole answer, which also has the video's length. */
+internal suspend fun PianoWeaveViewModel.fetchBillingCostResponse(
+    context: Context,
+    sourceUrl: String? = null,
+    durationSeconds: Float? = null
+): BillingCostResponse {
     val url = activeServerUrl
     return retryWhenBusy {
         executeServerCallImpl(context, url) { authHeader ->
             PianoApiFactory.getApi(url).getBillingCost(sourceUrl = sourceUrl, durationSeconds = durationSeconds, authHeader = authHeader)
         }
-    }.costMinutes
+    }
 }
 internal fun PianoWeaveViewModel.updateUrlImpl(url: String) {
     if (isLoading) return
@@ -101,13 +120,31 @@ internal fun PianoWeaveViewModel.lastChosenModeImpl(context: Context): Transcrip
     return TranscriptionMode.fromApiValue(AppPrefs.get(context).getString(AppPrefs.LAST_TRANSCRIPTION_MODE, null))
 }
 
-internal fun PianoWeaveViewModel.startTranscriptionImpl(context: Context, mode: TranscriptionMode) {
+/**
+ * Starts the job in [mode]. A part of a link that overlaps a part (or the whole) already in the library in the same
+ * mode asks first ([overlapWarning]); [overlapConfirmed] is the answer.
+ */
+internal fun PianoWeaveViewModel.startTranscriptionImpl(
+    context: Context,
+    mode: TranscriptionMode,
+    overlapConfirmed: Boolean = false
+) {
     if (isLoading) return
     if (isRecording) return
     val isFileSource = transcriptionSource != TranscriptionSource.Link
     val file = if (isFileSource && supportsFileUpload) sourceMediaFile else null
     val stableUrl = normalizeUrlImpl(videoUrl)
     if (file == null && (isFileSource || stableUrl.isBlank())) return
+
+    // Uploads are each their own song (keyed by job), so only links can overlap what the library has
+    val chosenMode = if (supportsArrangement) mode else TranscriptionMode.Transcription
+    if (file == null && !overlapConfirmed) {
+        val overlapping = overlappingLibraryParts(stableUrl, chosenMode, activeClip)
+        if (overlapping.isNotEmpty()) {
+            overlapWarning = OverlapWarning(chosenMode, activeClip, overlapping)
+            return
+        }
+    }
 
     if (file == null) videoUrl = stableUrl
     transcriptionError = null
@@ -132,8 +169,10 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
     val stableUrl = normalizeUrlImpl(videoUrl)
     if (stableUrl.isBlank() || isLoading) return
     val mode = transcriptionMode
-    // The song's key in the library: an arrangement of a link is kept apart from its transcription
-    val songKey = libraryKey(stableUrl, mode)
+    val clip = activeClip
+    // The song's key in the library: an arrangement of a link is kept apart from its transcription, and a part of
+    // it from the whole and from other parts
+    val songKey = libraryKey(clipSourceKey(stableUrl, clip), mode)
 
     transcriptionJob = viewModelScope.launch {
         isLoading = true
@@ -163,7 +202,7 @@ internal fun PianoWeaveViewModel.proceedStartTranscription(context: Context) {
             }
 
             status = "Submitting request to server..."
-            val submitted = submitTranscription(context, stableUrl, mode)
+            val submitted = submitTranscription(context, stableUrl, mode, clip)
             val jobId = submitted.job_id
             submitted.minutes?.let { userCredits = it }
             currentJobId = jobId
@@ -310,13 +349,15 @@ private suspend fun PianoWeaveViewModel.findInCloudLibrary(context: Context, son
 private suspend fun PianoWeaveViewModel.submitTranscription(
     context: Context,
     stableUrl: String,
-    mode: TranscriptionMode
+    mode: TranscriptionMode,
+    clip: Clip?
 ): CreateTranscriptionResponse {
     val uId = getOrCreateUserId(context)
     val serverUrl = activeServerUrl
     // One key per submission: every retry below, and a tap after a lost answer, finds the same job. The
     // mode is part of it, or arranging a link just transcribed would be answered with that transcription.
-    val key = PendingSubmissionStore.keyFor(context, "link|$serverUrl|$stableUrl${submissionModeTag(mode)}")
+    // The part is in it too: a part and the whole are different jobs.
+    val key = PendingSubmissionStore.keyFor(context, "link|$serverUrl|$stableUrl${submissionModeTag(mode)}${submissionClipTag(clip)}")
     return settlingSubmission(context, key) {
         retryWhenBusy(attempts = ServerErrors.SUBMIT_ATTEMPTS, retryDelayMs = ServerErrors::submitRetryDelayMs) {
             executeServerCallImpl(context) { authHeader ->
@@ -327,7 +368,9 @@ private suspend fun PianoWeaveViewModel.submitTranscription(
                     request = CreateTranscriptionRequest(
                         source_url = stableUrl,
                         mode = mode.apiValue.takeIf { mode != TranscriptionMode.Transcription },
-                        style = mode.style
+                        style = mode.style,
+                        startSeconds = clip?.startSeconds,
+                        endSeconds = clip?.endSeconds
                     ),
                     authHeader = authHeader,
                     userId = if (!isBilledServer) uId else null,
@@ -340,6 +383,9 @@ private suspend fun PianoWeaveViewModel.submitTranscription(
 /** Added to a submission's source for [PendingSubmissionStore]; empty for a transcription, as before modes. */
 internal fun submissionModeTag(mode: TranscriptionMode): String =
     if (mode == TranscriptionMode.Transcription) "" else "|${mode.apiValue}"
+
+/** Added after [submissionModeTag] for a part; empty for the whole song, as before Trim. */
+internal fun submissionClipTag(clip: Clip?): String = clip?.let { "|part=${it.keyText}" }.orEmpty()
 
 /**
  * Runs a submission sent with [key] and drops the key once the server has answered it for good: with the
@@ -355,7 +401,8 @@ internal suspend fun <T> settlingSubmission(context: Context, key: String, submi
 // --- URL normalization ---
 
 internal fun PianoWeaveViewModel.normalizeUrlImpl(url: String): String {
-    var trimmed = url.trim()
+    // A pasted library key (or a link ending in its marks) is its link: the marks are the app's to set
+    var trimmed = url.trim().sourceOfLibraryKey
     if (trimmed.isBlank()) return trimmed
     val ytDomain = "y" + "o" + "u" + "t" + "u" + "b" + "e.com"
     val ytShort = "y" + "o" + "u" + "t" + "u.be"
