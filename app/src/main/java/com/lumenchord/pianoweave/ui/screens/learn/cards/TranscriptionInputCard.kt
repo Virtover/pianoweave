@@ -72,7 +72,6 @@ import androidx.compose.ui.graphics.Brush
 import com.lumenchord.pianoweave.ui.theme.Moods
 import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.describe
-import com.lumenchord.pianoweave.api.formatClipTime
 import com.lumenchord.pianoweave.ui.screens.learn.PartOverlapDialog
 import com.lumenchord.pianoweave.ui.screens.learn.TrimDialog
 import com.lumenchord.pianoweave.ui.viewmodel.activeClip
@@ -422,21 +421,10 @@ fun TranscriptionInputCard(
                     val interaction = remember { MutableInteractionSource() }
                     val pressed by interaction.collectIsPressedAsState()
                     val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "transcribePress")
-                    // Trim: one quiet pill under the source, so the button keeps its whole width
-                    if (viewModel.canTrim && !needsSignIn) {
-                        TrimPill(
-                            clip = viewModel.activeClip,
-                            totalSeconds = viewModel.trimSourceSeconds,
-                            enabled = !needsPassword,
-                            onOpen = { viewModel.openTrim(context) },
-                            onClear = { viewModel.applyTrim(null) }
-                        )
-                    }
-
-                    Button(
-                        onClick = onTranscribeClick,
-                        enabled = canTranscribe,
-                        interactionSource = interaction,
+                    // Trim is the button's own end, behind a hairline: no row or button of its own
+                    val showTrim = viewModel.canTrim && !needsSignIn
+                    val clip = viewModel.activeClip
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             // The card's 8dp short-window gap felt cramped under the field; the button gets a little more air
@@ -447,54 +435,86 @@ fun TranscriptionInputCard(
                                 scaleX = pressScale
                                 scaleY = pressScale
                             }
-                            .clip(PillShape)
-                            .background(container)
-                            // A faint sheen on top once ready, so it reads as lit rather than flat
-                            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
-                        shape = PillShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = content,
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = content
-                        )
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                        Button(
+                            onClick = onTranscribeClick,
+                            enabled = canTranscribe,
+                            interactionSource = interaction,
+                            contentPadding = if (showTrim) PaddingValues(start = 20.dp, end = TRIM_SEGMENT_WIDTH + 8.dp)
+                            else ButtonDefaults.ContentPadding,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(PillShape)
+                                .background(container)
+                                // A faint sheen on top once ready, so it reads as lit rather than flat
+                                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
+                            shape = PillShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = content,
+                                disabledContainerColor = Color.Transparent,
+                                disabledContentColor = content
+                            )
                         ) {
-                            Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            if (isBilled && viewModel.isCalculatingCost) {
-                                Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
-                            } else {
-                                Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
-                                if (isBilled && cost != null) {
-                                    Spacer(Modifier.width(10.dp))
-                                    Surface(
-                                        shape = PillShape,
-                                        color = content.copy(alpha = 0.14f),
-                                        contentColor = content
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.MonetizationOn,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(15.dp)
-                                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                if (isBilled && viewModel.isCalculatingCost) {
+                                    Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
+                                } else {
+                                    // A chosen part is said under the label, so the button tells all that will be sent
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(buttonLabel, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                                        clip?.let {
                                             Text(
-                                                text = "$cost",
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 13.sp
+                                                text = it.describe(),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                lineHeight = 12.sp,
+                                                maxLines = 1,
+                                                color = content.copy(alpha = 0.8f)
                                             )
+                                        }
+                                    }
+                                    if (isBilled && cost != null) {
+                                        Spacer(Modifier.width(10.dp))
+                                        Surface(
+                                            shape = PillShape,
+                                            color = content.copy(alpha = 0.14f),
+                                            contentColor = content
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MonetizationOn,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(15.dp)
+                                                )
+                                                Text(
+                                                    text = "$cost",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 13.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
+                        }
+                        if (showTrim) {
+                            TrimSegment(
+                                isTrimmed = clip != null,
+                                tint = content,
+                                enabled = !needsPassword,
+                                onClick = { viewModel.openTrim(context) },
+                                modifier = Modifier.align(Alignment.CenterEnd)
+                            )
                         }
                     }
                 }
@@ -552,62 +572,41 @@ private fun ServerPasswordNotice(isOfficialServer: Boolean, onClick: () -> Unit)
         }
     }
 }
+private val TRIM_SEGMENT_WIDTH = 48.dp
+
 /**
- * Trim's one control: "Trim" while the whole song would be sent, the chosen part with its length once there is one
- * (tap to change it, ✕ for the whole song again). Centred under the source, it takes no width from Transcribe.
+ * The end of the Transcribe button that opens Trim: a scissors behind a hairline, lit a little once a part is
+ * chosen (the part itself is said under the button's label).
  */
 @Composable
-private fun TrimPill(clip: Clip?, totalSeconds: Float?, enabled: Boolean, onOpen: () -> Unit, onClear: () -> Unit) {
-    val accent = MaterialTheme.colorScheme.secondary
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val isTrimmed = clip != null
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        Surface(
-            onClick = onOpen,
-            enabled = enabled,
-            shape = PillShape,
-            color = if (isTrimmed) accent.copy(alpha = 0.14f) else Color.Transparent,
-            border = BorderStroke(1.dp, if (isTrimmed) accent.copy(alpha = 0.55f) else muted.copy(alpha = 0.3f)),
-            modifier = Modifier.heightIn(min = 34.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(start = 12.dp, end = if (isTrimmed) 2.dp else 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val tint = if (isTrimmed) accent else muted
-                Icon(Icons.Default.ContentCut, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
-                Spacer(Modifier.width(7.dp))
-                if (clip == null) {
-                    Text(
-                        text = "Trim",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = muted,
-                        maxLines = 1,
-                        modifier = Modifier.padding(vertical = 7.dp)
-                    )
-                } else {
-                    Text(
-                        text = clip.describe(),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = accent,
-                        maxLines = 1
-                    )
-                    totalSeconds?.let { total ->
-                        Text(
-                            text = "  ·  ${formatClipTime(clip.lengthSeconds(total))}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = accent.copy(alpha = 0.7f),
-                            maxLines = 1
-                        )
-                    }
-                    IconButton(onClick = onClear, enabled = enabled, modifier = Modifier.size(34.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Transcribe the whole song", tint = accent, modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-        }
+private fun TrimSegment(isTrimmed: Boolean, tint: Color, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(TRIM_SEGMENT_WIDTH)
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50))
+            .background(if (isTrimmed) tint.copy(alpha = 0.16f) else Color.Transparent)
+            .clickable(
+                enabled = enabled,
+                role = androidx.compose.ui.semantics.Role.Button,
+                onClickLabel = if (isTrimmed) "Change the part to transcribe" else "Trim: transcribe only a part",
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .width(1.dp)
+                .fillMaxHeight(0.5f)
+                .background(tint.copy(alpha = 0.3f))
+        )
+        Icon(
+            Icons.Default.ContentCut,
+            contentDescription = if (isTrimmed) "Change the part to transcribe" else "Trim: transcribe only a part",
+            tint = tint,
+            modifier = Modifier.size(18.dp).offset(x = (-2).dp)
+        )
     }
 }
 

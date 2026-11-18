@@ -1,6 +1,15 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +40,6 @@ import com.lumenchord.pianoweave.api.formatClipTime
 import com.lumenchord.pianoweave.api.parseClipTime
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
-import com.lumenchord.pianoweave.ui.components.quietFieldColors
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import kotlin.math.roundToInt
@@ -81,8 +89,7 @@ internal fun TrimDialog(
                 ) {
                     DialogHeader(title = "Trim", icon = Icons.Default.ContentCut, onClose = onDismiss, titleColor = gold)
                     Text(
-                        text = if (isBilled) "Transcribe only a part of it. Only the part's length is charged."
-                        else "Transcribe only a part of it.",
+                        text = if (isBilled) "Transcribe only a part. Only its length is charged." else "Transcribe only a part.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
                     )
@@ -114,64 +121,34 @@ private fun LengthPending(error: String?, onRetry: () -> Unit) {
         }
     }
 }
-
 @Composable
 private fun TrimRange(total: Int, totalSeconds: Float, initial: Clip?, onApply: (Clip?) -> Unit) {
     val appTheme = LocalAppTheme.current
     val gold = appTheme.primaryColor
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     var start by remember(total) { mutableIntStateOf(initial?.startSeconds?.coerceIn(0, total - Clip.MIN_SECONDS) ?: 0) }
     var end by remember(total) { mutableIntStateOf((initial?.endSeconds ?: total).coerceIn(start + Clip.MIN_SECONDS, total)) }
     val isWhole = start == 0 && end == total
 
-    // What will be sent, large: the part's length, or that it is the whole song
-    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = formatClipTime(end - start),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Black,
-            color = gold
-        )
-        Text(
-            text = if (isWhole) "the whole song" else "of ${formatClipTime(total)}",
-            style = MaterialTheme.typography.labelMedium,
-            color = muted
-        )
-    }
-
-    Column {
-        RangeSlider(
-            value = start.toFloat()..end.toFloat(),
-            onValueChange = { range ->
-                val newStart = range.start.roundToInt()
-                val newEnd = range.endInclusive.roundToInt()
-                // The thumb that moved gives way at the minimum length, never the other one
-                if (newStart != start) start = newStart.coerceIn(0, end - Clip.MIN_SECONDS)
-                if (newEnd != end) end = newEnd.coerceIn(start + Clip.MIN_SECONDS, total)
-            },
-            valueRange = 0f..total.toFloat(),
-            colors = SliderDefaults.colors(
-                thumbColor = gold,
-                activeTrackColor = gold,
-                inactiveTrackColor = muted.copy(alpha = 0.22f)
-            )
-        )
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Text("0:00", style = MaterialTheme.typography.labelSmall, color = muted)
-            Spacer(Modifier.weight(1f))
-            Text(formatClipTime(total), style = MaterialTheme.typography.labelSmall, color = muted)
+    PartSlider(
+        start = start,
+        end = end,
+        total = total,
+        onChange = { newStart, newEnd ->
+            // The thumb that moved gives way at the minimum length, never the other one
+            if (newStart != start) start = newStart.coerceIn(0, end - Clip.MIN_SECONDS)
+            if (newEnd != end) end = newEnd.coerceIn(start + Clip.MIN_SECONDS, total)
         }
-    }
+    )
 
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        TimeField(
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        TimeBox(
             label = "Start",
             value = start,
             range = 0..(end - Clip.MIN_SECONDS),
             onValue = { start = it },
             modifier = Modifier.weight(1f)
         )
-        TimeField(
+        TimeBox(
             label = "End",
             value = end,
             range = (start + Clip.MIN_SECONDS)..total,
@@ -179,6 +156,14 @@ private fun TrimRange(total: Int, totalSeconds: Float, initial: Clip?, onApply: 
             modifier = Modifier.weight(1f)
         )
     }
+
+    Text(
+        text = "Part: ${formatClipTime(end - start)} of ${formatClipTime(total)}",
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center
+    )
 
     Row(
         modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
@@ -191,7 +176,7 @@ private fun TrimRange(total: Int, totalSeconds: Float, initial: Clip?, onApply: 
             shape = PillShape,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
         ) {
-            Text("Whole song", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+            Text("Whole song", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
         }
         Button(
             onClick = { onApply(Clip.within(start, end, totalSeconds)) },
@@ -208,47 +193,108 @@ private fun TrimRange(total: Int, totalSeconds: Float, initial: Clip?, onApply: 
 }
 
 /**
- * A time to type ("1:35"), with a second's nudge either way below it, so the field keeps its whole width for the
- * time. Only a time within [range] is taken; anything else is marked and dropped when the field is left.
+ * The part on the song: a slim track lit between two round gold thumbs. The default range slider draws tall bar
+ * thumbs with gaps in the track, which looked out of place in the app's dialogs.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PartSlider(start: Int, end: Int, total: Int, onChange: (Int, Int) -> Unit) {
+    val gold = LocalAppTheme.current.primaryColor
+    val rail = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.22f)
+    val surface = MaterialTheme.colorScheme.surface
+    val thumb = @Composable { _: RangeSliderState ->
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .shadow(3.dp, CircleShape)
+                .background(gold, CircleShape)
+                .border(3.dp, surface, CircleShape)
+        )
+    }
+    RangeSlider(
+        value = start.toFloat()..end.toFloat(),
+        onValueChange = { range -> onChange(range.start.roundToInt(), range.endInclusive.roundToInt()) },
+        valueRange = 0f..total.toFloat(),
+        startThumb = thumb,
+        endThumb = thumb,
+        track = { state ->
+            Canvas(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+                val span = (state.valueRange.endInclusive - state.valueRange.start).takeIf { it > 0f } ?: 1f
+                val from = size.width * (state.activeRangeStart - state.valueRange.start) / span
+                val to = size.width * (state.activeRangeEnd - state.valueRange.start) / span
+                val y = size.height / 2
+                drawLine(rail, Offset(0f, y), Offset(size.width, y), strokeWidth = size.height, cap = StrokeCap.Round)
+                drawLine(gold, Offset(from, y), Offset(to, y), strokeWidth = size.height, cap = StrokeCap.Round)
+            }
+        }
+    )
+}
+
+/**
+ * A time to type ("1:35") between a second's nudge either way. A plain field rather than an outlined text field,
+ * whose icon slots left too little room for a time like 13:51 on a phone. Only a time within [range] is taken;
+ * anything else is marked and dropped when the field is left.
  */
 @Composable
-private fun TimeField(label: String, value: Int, range: IntRange, onValue: (Int) -> Unit, modifier: Modifier = Modifier) {
+private fun TimeBox(label: String, value: Int, range: IntRange, onValue: (Int) -> Unit, modifier: Modifier = Modifier) {
     var text by remember { mutableStateOf(formatClipTime(value)) }
     var focused by remember { mutableStateOf(false) }
     // The slider and the nudges move the value; what is being typed is left alone
     LaunchedEffect(value) { if (!focused) text = formatClipTime(value) }
     val typed = parseClipTime(text)
+    val isError = typed == null || typed !in range
     val focusManager = LocalFocusManager.current
+    val gold = LocalAppTheme.current.primaryColor
+    val onSurface = MaterialTheme.colorScheme.onSurface
     val nudge = { by: Int ->
         val next = (value + by).coerceIn(range)
         onValue(next)
         text = formatClipTime(next)
     }
+    val borderColor = when {
+        isError -> MaterialTheme.colorScheme.error
+        focused -> gold
+        else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    }
 
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedTextField(
-            value = text,
-            onValueChange = { changed ->
-                text = changed.take(9)
-                parseClipTime(changed)?.takeIf { it in range }?.let(onValue)
-            },
-            label = { Text(label) },
-            singleLine = true,
-            isError = typed == null || typed !in range,
-            textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center, fontWeight = FontWeight.Bold),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-            shape = RoundedCornerShape(14.dp),
-            colors = quietFieldColors(),
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged {
-                    focused = it.isFocused
-                    if (!it.isFocused) text = formatClipTime(value)
-                }
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                .height(46.dp)
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                .border(1.dp, borderColor, RoundedCornerShape(14.dp)),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             NudgeButton(Icons.Default.Remove, "$label a second earlier", enabled = value > range.first) { nudge(-1) }
+            BasicTextField(
+                value = text,
+                onValueChange = { changed ->
+                    text = changed.take(9)
+                    parseClipTime(changed)?.takeIf { it in range }?.let(onValue)
+                },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.titleMedium.copy(
+                    color = if (isError) MaterialTheme.colorScheme.error else onSurface,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                ),
+                cursorBrush = SolidColor(gold),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged {
+                        focused = it.isFocused
+                        if (!it.isFocused) text = formatClipTime(value)
+                    }
+            )
             NudgeButton(Icons.Default.Add, "$label a second later", enabled = value < range.last) { nudge(1) }
         }
     }
@@ -256,7 +302,7 @@ private fun TimeField(label: String, value: Int, range: IntRange, onValue: (Int)
 
 @Composable
 private fun NudgeButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
-    FilledTonalIconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(36.dp)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(36.dp)) {
         Icon(icon, contentDescription = description, modifier = Modifier.size(18.dp))
     }
 }
