@@ -31,6 +31,7 @@ import com.lumenchord.pianoweave.api.libraryKeyClip
 import com.lumenchord.pianoweave.api.libraryKeyMode
 import com.lumenchord.pianoweave.api.sourceOfLibraryKey
 import androidx.compose.material.icons.filled.Piano
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material.icons.filled.CheckCircle
@@ -168,8 +169,8 @@ internal val StoredMidi.madeAs: TranscriptionMode?
 
 /**
  * Marks a song as a transcription or an arrangement. [compact] (portrait, where the details line is
- * short) shows the icon only; the name is still read out by screen readers. A song of a part shows the part
- * ([clip]) too, also when compact: it tells two parts of one video apart.
+ * short) shows the icon only; the name is still read out by screen readers. A song of a part ([clip]) shows its
+ * range beside the name, or a scissors when compact.
  */
 @Composable
 internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean, clip: Clip? = null) {
@@ -191,10 +192,15 @@ internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean, clip: Clip? 
             tint = accent,
             modifier = Modifier.size(11.dp)
         )
-        if (!compact || clip != null) {
+        // Compact keeps the author's room: a part is a small scissors there, its range is read out
+        if (compact && clip != null) {
+            Spacer(Modifier.width(3.dp))
+            Icon(Icons.Default.ContentCut, contentDescription = null, tint = accent, modifier = Modifier.size(10.dp))
+        }
+        if (!compact) {
             Spacer(Modifier.width(3.dp))
             Text(
-                text = clip?.let { if (compact) it.describe() else "$name · ${it.describe()}" } ?: name,
+                text = clip?.let { "$name · ${it.describe()}" } ?: name,
                 color = accent,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
