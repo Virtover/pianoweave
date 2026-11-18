@@ -113,7 +113,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus
   `#piano-arrangement` (`libraryKey()` in `api/TranscriptionModels.kt`), so it never collides with the transcription
   of the same link and stays a working link; the mode is read back from the key (resume, cards, library tag).
-- **Trim** (server-info `trimming: true`): the scissors beside Transcribe opens `TrimDialog`; the part (whole seconds,
+- **Trim** (server-info `trimming: true`): the Trim pill under the source (`TrimPill` in the convert card) opens `TrimDialog`; the part (whole seconds,
   end null = to the end) is sent as `start_seconds`/`end_seconds` and only its length is charged. A part's library key
   is its source key plus `#part=<start>-<end>` before any `#piano-arrangement` (`api/Clips.kt`), so parts and the whole
   song are separate songs locally and on Drive (sync matches exact keys). A link's part that overlaps a part (or the
