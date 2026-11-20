@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens
 
 import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
@@ -805,7 +806,7 @@ internal fun ModernPianoPlayerContent(
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Turn off count-in",
-                            tint = Color.White.copy(alpha = 0.22f),
+                            tint = Ink.copy(alpha = 0.22f),
                             modifier = Modifier.size(12.dp)
                         )
                     }
@@ -917,7 +918,7 @@ internal fun ModernPianoPlayerContent(
                 Snackbar(
                     snackbarData = data,
                     containerColor = ColorSurface,
-                    contentColor = Color.White,
+                    contentColor = Ink,
                     actionColor = LocalAppTheme.current.primaryColor
                 )
             }

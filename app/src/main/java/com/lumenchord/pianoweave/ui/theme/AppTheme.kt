@@ -2,7 +2,11 @@ package com.lumenchord.pianoweave.ui.theme
 
 import android.graphics.Color as AndroidColor
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 
@@ -22,7 +26,9 @@ data class AppTheme(
     val isLightAccent: Boolean = false,
     val palette: NeutralPalette = NeutralPalette.Slate,
     /** A gentle, living touch on the falling-notes stage, taken from the theme's own image. */
-    val stageOrnament: StageOrnament = StageOrnament.None
+    val stageOrnament: StageOrnament = StageOrnament.None,
+    /** One of the light themes, by day (see [AppThemeManager.isLight]). */
+    val isLight: Boolean = false
 )
 
 /** What moves on a theme's falling-notes stage, behind the notes. Each is faint, slow and never in the way. */
@@ -71,6 +77,66 @@ data class NeutralPalette(
             stageBottom = Color(0xFF070A0F),
             stageLane = Color(0xFF161B22)
         )
+
+        /**
+         * By day: sunlight scattered through a warm mist, the glory of God over everything. Cream and pale gold
+         * rooms, the falling-notes stage bright above like a sky full of light and warmer toward the keys, and
+         * warm brown ink instead of white text. Gentle on the eyes: warm parchment in sunlight, never paper white,
+         * so the brightest surface stays well below white and nothing glares.
+         */
+        val Sunlit = NeutralPalette(
+            text = Color(0xFF2A2017),
+            onText = Color(0xFFFFFBF3),
+            container = Color(0xFFE9DCC4),
+            secondaryContainer = Color(0xFFEEE3CF),
+            background = Color(0xFFF2E8D6),
+            surface = Color(0xFFF7EEDD),
+            dialogSurface = Color(0xFFF6ECDA),
+            onSurface = Color(0xFF30251B),
+            onSurfaceVariant = Color(0xFF6E5E4C),
+            muted = Color(0xFF7B6A57),
+            mutedContainer = Color(0xFFE2D3B9),
+            errorContainer = Color(0xFFF2DEDA),
+            stageTop = Color(0xFFF8EEDB),
+            stageMiddle = Color(0xFFF1E4CC),
+            stageBottom = Color(0xFFE8D6B6),
+            stageLane = Color(0xFFDFCDAE)
+        )
+
+        /**
+         * [Sunlit] with the theme's [hue] in its mist: each color is mixed with the same color turned to
+         * that hue, more so for a larger [strength] (1 = an ordinary theme). The ink keeps most of its warmth.
+         */
+        fun sunlit(hue: Float, strength: Float = 1f): NeutralPalette {
+            val mix = (0.45f * strength).coerceIn(0f, 0.8f)
+            fun Color.retint(amount: Float = mix): Color {
+                val hsv = FloatArray(3)
+                AndroidColor.colorToHSV(toArgb(), hsv)
+                // A pale color needs more saturation than the warm base has to show a cool hue at all
+                val turned = Color(AndroidColor.HSVToColor(floatArrayOf(hue, (hsv[1] * 1.6f).coerceIn(0f, 1f), hsv[2])))
+                return lerp(this, turned, amount)
+            }
+            return with(Sunlit) {
+                NeutralPalette(
+                    text = text.retint(mix * 0.4f),
+                    onText = onText,
+                    container = container.retint(),
+                    secondaryContainer = secondaryContainer.retint(),
+                    background = background.retint(),
+                    surface = surface.retint(),
+                    dialogSurface = dialogSurface.retint(),
+                    onSurface = onSurface.retint(mix * 0.4f),
+                    onSurfaceVariant = onSurfaceVariant.retint(mix * 0.6f),
+                    muted = muted.retint(mix * 0.6f),
+                    mutedContainer = mutedContainer.retint(),
+                    errorContainer = errorContainer,
+                    stageTop = stageTop.retint(mix * 0.7f),
+                    stageMiddle = stageMiddle.retint(),
+                    stageBottom = stageBottom.retint(),
+                    stageLane = stageLane.retint()
+                )
+            }
+        }
 
         /**
          * Slate with its slight tint turned to [hue] (0-360), so the backgrounds quietly take on
@@ -125,7 +191,7 @@ object AppThemeManager {
         customWaitTarget = Color(0xFF5CCFFF),
         customSuccess = Color(0xFF4ADE80),
         customBaseline = Color(0xFFFF8A5C),
-        palette = NeutralPalette.tinted(hue = 28f, strength = 1.35f, depth = 0.88f)
+        palette = Tint(hue = 28f, strength = 1.35f, depth = 0.88f)
     )
 
     /** Reverence before His glory (Psalm 29:2). */
@@ -139,13 +205,9 @@ object AppThemeManager {
         tint = 0.8f
     )
 
-    val defaultTheme = lamplightTheme
 
-    /**
-     * Names come from the Bible's imagery of creation, worship and joy. Ids stay as they were, so
-     * a saved choice keeps working.
-     */
-    val themes: List<AppTheme> = listOf(
+    /** Every theme, in the order the list of [themes] gives them; the first is the default. */
+    private val specs: List<ThemeSpec> = listOf(
         lamplightTheme,
         classicGoldTheme,
         createTheme("sunburst", "Morning Joy", Color(0xFFF1E065)), // Joy that comes in the morning (Ps 30:5)
@@ -155,7 +217,7 @@ object AppThemeManager {
         createTheme(
             "solar", "Burning Bush", Color(0xFFF87840),
             customBaseline = Color(0xFFFFB258),
-            palette = NeutralPalette.tinted(hue = 22f, strength = 1.3f, depth = 0.92f)
+            palette = Tint(hue = 22f, strength = 1.3f, depth = 0.92f)
         ),
         // Joy at the reaping: "Those who sow with tears will reap with songs of joy; those who go out weeping,
         // carrying seed to sow, will return with songs of joy, carrying sheaves with them" (Ps 126:5-6). Sun-ripe
@@ -164,7 +226,7 @@ object AppThemeManager {
         createTheme(
             "goldenrod", "Harvest", Color(0xFFFCA942),
             customBaseline = Color(0xFFFBD452),
-            palette = NeutralPalette.tinted(hue = 40f, strength = 1.5f),
+            palette = Tint(hue = 40f, strength = 1.5f),
             stage = listOf(Color(0xFF170F07), Color(0xFF22170A), Color(0xFF3A270C), Color(0xFF2A2014))
         ),
         createTheme("crimson", "Scarlet Cord", Color(0xFFF47C84)), // Redemption held by faith (Josh 2:18)
@@ -179,8 +241,9 @@ object AppThemeManager {
         // in the amber of Moods.Watch.
         createTheme(
             "deep_velvet", "Night Watch", Color(0xFFB2D0FC),
-            customBaseline = Moods.Watch.core,
-            palette = NeutralPalette.tinted(hue = 222f, strength = 3.4f, depth = 0.95f, textStrength = 1.3f),
+            // Moods.Watch.core by night (not read from Moods: it depends on isLight, set up below)
+            customBaseline = Color(0xFFF5AE42),
+            palette = Tint(hue = 222f, strength = 3.4f, depth = 0.95f, textStrength = 1.3f),
             // A night sky: darkest overhead, a faint deep-blue horizon above the keys where the lamp sits
             stage = listOf(Color(0xFF01030A), Color(0xFF040A1A), Color(0xFF0B1631), Color(0xFF101A33)),
             stageOrnament = StageOrnament.Stars
@@ -192,7 +255,7 @@ object AppThemeManager {
         createTheme(
             "indigo", "Evening Prayer", Color(0xFFE79F9C),
             customBaseline = Color(0xFFF5D38E),
-            palette = NeutralPalette.tinted(hue = 328f, strength = 3f, depth = 1f, textStrength = 1.3f)
+            palette = Tint(hue = 328f, strength = 3f, depth = 1f, textStrength = 1.3f)
         ),
         createTheme("cyan", "Living Water", Color(0xFF6DE1F6)), // Refreshment, thirst met (Jn 4:10)
         // Gentle grace: "I will be like the dew to Israel; he will blossom like a lily" (Hos 14:5). Dew on a
@@ -200,7 +263,7 @@ object AppThemeManager {
         createTheme(
             "neon_cyan", "Morning Dew", Color(0xFFBDDBBA),
             customBaseline = Color(0xFFFFC29A),
-            palette = NeutralPalette.tinted(hue = 95f, strength = 1.2f),
+            palette = Tint(hue = 95f, strength = 1.2f),
             stage = listOf(Color(0xFF0C110E), Color(0xFF121812), Color(0xFF2A1E16), Color(0xFF1C221B))
         ),
         // Calm, being led: "He leads me beside still waters, He restores my soul" (Ps 23:2-3). Warm, not cold:
@@ -209,7 +272,7 @@ object AppThemeManager {
         createTheme(
             "aqua", "Still Waters", Color(0xFF82C5DC),
             customBaseline = Color(0xFFF2CB83),
-            palette = NeutralPalette.tinted(hue = 32f, strength = 1f)
+            palette = Tint(hue = 32f, strength = 1f)
         ),
         createTheme("mint", "Spring Rain", Color(0xFF79DFB7)), // Blessing that falls in season (Joel 2:23)
         // Full of life, rest and peace: "He makes me lie down in green pastures... He restores my soul" (Ps
@@ -220,7 +283,7 @@ object AppThemeManager {
         createTheme(
             "emerald", "Green Pastures", Color(0xFF95D587),
             customBaseline = Color(0xFFF7AAC4),
-            palette = NeutralPalette.tinted(hue = 125f, strength = 1.6f),
+            palette = Tint(hue = 125f, strength = 1.6f),
             stage = listOf(Color(0xFF0C1A15), Color(0xFF11231A), Color(0xFF2A2A20), Color(0xFF1A2C20))
         ),
         // New beginnings: "I am doing a new thing; now it springs up" (Is 43:19). Growth out of the earth: the
@@ -246,7 +309,7 @@ object AppThemeManager {
         createTheme(
             "champagne", "Fine Linen", Color(0xFFF4EAD5),
             customBaseline = Color(0xFF539AF2),
-            palette = NeutralPalette.tinted(hue = 45f, strength = 1.2f),
+            palette = Tint(hue = 45f, strength = 1.2f),
             stage = listOf(Color(0xFF12100D), Color(0xFF1A1611), Color(0xFF262016), Color(0xFF221E17))
         ),
         // Security in a living God: "The Lord is my rock, my fortress and my deliverer" (Ps 18:2). Not dead
@@ -255,19 +318,19 @@ object AppThemeManager {
         createTheme(
             "titanium", "Rock of Refuge", Color(0xFFC8B49C),
             customBaseline = Color(0xFF4DDAE9),
-            palette = NeutralPalette.tinted(hue = 34f, strength = 0.9f)
+            palette = Tint(hue = 34f, strength = 0.9f)
         ),
 
         // Deep themes, for evenings and quieter hearts: darker backgrounds and lower, still readable
         // accents. Like the lament psalms, each holds sorrow or night together with trust.
         createTheme( // Longing in sorrow, "deep calls to deep" (Ps 42:7)
             "deep_waters", "Deep Waters", Color(0xFF5F9FD2),
-            palette = NeutralPalette.tinted(hue = 215f, strength = 1.2f, depth = DEEP_THEME_DEPTH)
+            palette = Tint(hue = 215f, strength = 1.2f, depth = DEEP_THEME_DEPTH)
         ),
         createTheme( // Communion by candlelight (Lk 22:12)
             "upper_room", "Upper Room", Color(0xFFE79A51),
             customBaseline = Color(0xFFFEBD56),
-            palette = NeutralPalette.tinted(hue = 32f, strength = 1.3f, depth = DEEP_THEME_DEPTH)
+            palette = Tint(hue = 32f, strength = 1.3f, depth = DEEP_THEME_DEPTH)
         ),
         // Through the valley (Ps 23:4): sorrow, fear, anger and wrath, each held where Jesus meets it. Strongly
         // colored dark rooms, like Night Watch; text stays near neutral so it reads easily.
@@ -278,7 +341,7 @@ object AppThemeManager {
         createTheme(
             "sowing_in_tears", "Sowing in Tears", Color(0xFFA7B6C6),
             customBaseline = Color(0xFFC7A667),
-            palette = NeutralPalette.tinted(hue = 215f, strength = 1.6f, depth = 0.85f, textStrength = 1.3f),
+            palette = Tint(hue = 215f, strength = 1.6f, depth = 0.85f, textStrength = 1.3f),
             stage = listOf(Color(0xFF0E1218), Color(0xFF12161C), Color(0xFF1C1610), Color(0xFF1A1E25))
         ),
         // Sorrow, grief: "a man of sorrows, and acquainted with grief" (Is 53:3); "Jesus wept" (Jn 11:35).
@@ -286,7 +349,7 @@ object AppThemeManager {
         createTheme(
             "man_of_sorrows", "Man of Sorrows", Color(0xFFA8A5D2),
             customBaseline = Color(0xFFEDA7B9),
-            palette = NeutralPalette.tinted(hue = 250f, strength = 2.2f, depth = 0.8f, textStrength = 1.3f),
+            palette = Tint(hue = 250f, strength = 2.2f, depth = 0.8f, textStrength = 1.3f),
             stage = listOf(Color(0xFF08070F), Color(0xFF0E0C18), Color(0xFF171426), Color(0xFF17152A))
         ),
         // Fear, and the One who stills it: "Peace, be still" (Mk 4:39); "Take courage! It is I. Don't be afraid"
@@ -294,7 +357,7 @@ object AppThemeManager {
         createTheme(
             "storm_on_the_lake", "Storm on the Lake", Color(0xFFA4E1E4),
             customBaseline = Color(0xFFEFC469),
-            palette = NeutralPalette.tinted(hue = 195f, strength = 2.4f, depth = 0.8f, textStrength = 1.3f),
+            palette = Tint(hue = 195f, strength = 2.4f, depth = 0.8f, textStrength = 1.3f),
             stage = listOf(Color(0xFF080E12), Color(0xFF0B181D), Color(0xFF0F2A30), Color(0xFF12242A))
         ),
         // Anger that is holy: "Zeal for your house will consume me" (Jn 2:17, Ps 69:9), as He clears the temple;
@@ -303,7 +366,7 @@ object AppThemeManager {
         createTheme(
             "zeal", "Zeal for Your House", Color(0xFFE57669),
             customBaseline = Color(0xFFF4CC64),
-            palette = NeutralPalette.tinted(hue = 10f, strength = 2.6f, depth = 0.85f, textStrength = 1.3f),
+            palette = Tint(hue = 10f, strength = 2.6f, depth = 0.85f, textStrength = 1.3f),
             stage = listOf(Color(0xFF120605), Color(0xFF1E0A07), Color(0xFF3A1408), Color(0xFF2A120E))
         ),
         // Wrath, borne by Him: "My Father, if it is possible, may this cup be taken from me. Yet not as I will"
@@ -313,7 +376,7 @@ object AppThemeManager {
         createTheme(
             "the_cup", "The Cup", Color(0xFFDC7D96),
             customBaseline = Color(0xFFF1E4BF),
-            palette = NeutralPalette.tinted(hue = 345f, strength = 2.8f, depth = 0.72f, textStrength = 1.3f),
+            palette = Tint(hue = 345f, strength = 2.8f, depth = 0.72f, textStrength = 1.3f),
             stage = listOf(Color(0xFF080305), Color(0xFF120509), Color(0xFF200710), Color(0xFF1E0A12))
         ),
 
@@ -325,7 +388,7 @@ object AppThemeManager {
         createTheme(
             "out_of_the_depths", "Out of the Depths", Color(0xFF86C29E),
             customBaseline = Color(0xFFF3DFA2),
-            palette = NeutralPalette.tinted(hue = 160f, strength = 2.4f, depth = 0.75f, textStrength = 1.3f),
+            palette = Tint(hue = 160f, strength = 2.4f, depth = 0.75f, textStrength = 1.3f),
             stage = listOf(Color(0xFF0D211D), Color(0xFF07130F), Color(0xFF030806), Color(0xFF0F1E1A))
         ),
         // Loneliness: "I lie awake; I have become like a bird alone on a roof" (Ps 102:7); and Jesus: "not one
@@ -335,7 +398,7 @@ object AppThemeManager {
         createTheme(
             "sparrow_alone", "Sparrow on the Roof", Color(0xFF9EA8E6),
             customBaseline = Color(0xFFC9A27A),
-            palette = NeutralPalette.tinted(hue = 232f, strength = 2.6f, depth = 0.85f, textStrength = 1.3f),
+            palette = Tint(hue = 232f, strength = 2.6f, depth = 0.85f, textStrength = 1.3f),
             stage = listOf(Color(0xFF05060F), Color(0xFF0A0C1C), Color(0xFF12152B), Color(0xFF14172C)),
             stageOrnament = StageOrnament.Stars
         ),
@@ -352,7 +415,7 @@ object AppThemeManager {
         createTheme(
             "wayfarer", "Wayfarer", Color(0xFFD8844E),
             customBaseline = Color(0xFFF0B85A),
-            palette = NeutralPalette.tinted(hue = 8f, strength = 1.8f, depth = 0.7f, textStrength = 1.2f),
+            palette = Tint(hue = 8f, strength = 1.8f, depth = 0.7f, textStrength = 1.2f),
             stage = listOf(Color(0xFF0A0808), Color(0xFF130D0C), Color(0xFF341A0C), Color(0xFF1C1513))
         ),
         // Numbness, relief by forgetting: Odysseus among the lotus, broken and wanting nothing but to forget home.
@@ -366,7 +429,7 @@ object AppThemeManager {
         createTheme(
             "sleeper", "Sleeper", Color(0xFFE3B5C8),
             customBaseline = Color(0xFFD9C79A),
-            palette = NeutralPalette.tinted(hue = 320f, strength = 1.2f, depth = 0.9f),
+            palette = Tint(hue = 320f, strength = 1.2f, depth = 0.9f),
             stage = listOf(Color(0xFF141017), Color(0xFF18131A), Color(0xFF1D1719), Color(0xFF1F1A21))
         ),
         // Doubt: "For now we see through a glass, darkly; but then face to face" (1 Cor 13:12); "I do believe;
@@ -375,7 +438,7 @@ object AppThemeManager {
         createTheme(
             "glass_darkly", "Through a Glass Darkly", Color(0xFFA9C8C2),
             customBaseline = Color(0xFFC99A5E),
-            palette = NeutralPalette.tinted(hue = 175f, strength = 1.4f, depth = 0.82f, textStrength = 1.1f),
+            palette = Tint(hue = 175f, strength = 1.4f, depth = 0.82f, textStrength = 1.1f),
             stage = listOf(Color(0xFF0B1011), Color(0xFF111819), Color(0xFF1A2122), Color(0xFF172021))
         ),
         // Exhaustion: Elijah "came to a broom bush, sat down under it and prayed that he might die. 'I have had
@@ -385,7 +448,7 @@ object AppThemeManager {
         createTheme(
             "broom_tree", "Under the Broom Tree", Color(0xFFBCCB9F),
             customBaseline = Color(0xFFF0915A),
-            palette = NeutralPalette.tinted(hue = 35f, strength = 1.1f, depth = 0.75f),
+            palette = Tint(hue = 35f, strength = 1.1f, depth = 0.75f),
             stage = listOf(Color(0xFF0B0A08), Color(0xFF110F0C), Color(0xFF1E140D), Color(0xFF1A1813))
         ),
 
@@ -397,7 +460,7 @@ object AppThemeManager {
         createTheme(
             "whiter_than_snow", "Whiter than Snow", Color(0xFFE4ECF5),
             customBaseline = Color(0xFF9CBF84),
-            palette = NeutralPalette.tinted(hue = 212f, strength = 0.6f, depth = 0.8f),
+            palette = Tint(hue = 212f, strength = 0.6f, depth = 0.8f),
             stage = listOf(Color(0xFF0C0D10), Color(0xFF121418), Color(0xFF1E2126), Color(0xFF1A1C21))
         ),
         // Shame: the son who came home rehearsing "I am no longer worthy to be called your son", but "while he
@@ -407,7 +470,7 @@ object AppThemeManager {
         createTheme(
             "way_home", "The Way Home", Color(0xFFE8B49B),
             customBaseline = Color(0xFFF2CF7A),
-            palette = NeutralPalette.tinted(hue = 290f, strength = 1.6f, depth = 0.85f, textStrength = 1.2f),
+            palette = Tint(hue = 290f, strength = 1.6f, depth = 0.85f, textStrength = 1.2f),
             stage = listOf(Color(0xFF0D0912), Color(0xFF150E18), Color(0xFF2A1A1A), Color(0xFF1E1620))
         ),
         // Regret: Peter denied Him warming himself at a charcoal fire, and "went outside and wept bitterly" (Lk
@@ -417,16 +480,63 @@ object AppThemeManager {
         createTheme(
             "charcoal_fire", "Charcoal Fire", Color(0xFFD9B3CF),
             customBaseline = Color(0xFFF08A4B),
-            palette = NeutralPalette.tinted(hue = 20f, strength = 0.8f, depth = 0.78f),
+            palette = Tint(hue = 20f, strength = 0.8f, depth = 0.78f),
             stage = listOf(Color(0xFF09080A), Color(0xFF0E0D10), Color(0xFF201310), Color(0xFF18161A))
         ),
     )
 
     /**
+     * Names by day, where the night's image doesn't hold in sunlight. Each comes from the same passage,
+     * or the morning the passage waits for.
+     */
+    private val lightNames = mapOf(
+        // "a light for my path" (Ps 119:105), the second half of the lamp's verse
+        "lamplight" to "Light for My Path",
+        // "my soul waits for the Lord more than watchmen wait for the morning" (Ps 130:6): the morning came
+        "deep_velvet" to "Morning Watch",
+        // "In the morning, Lord, you hear my voice; in the morning I lay my requests before you" (Ps 5:3)
+        "indigo" to "Morning Prayer",
+        // "He reached down from on high and took hold of me; he drew me out of deep waters" (Ps 18:16)
+        "deep_waters" to "Drawn from the Waters",
+        // The same room at Pentecost, by day: "tongues of fire that separated and came to rest on each" (Acts 2:3)
+        "upper_room" to "Pentecost",
+        // "Then he got up and rebuked the winds and the waves, and it was completely calm" (Mt 8:26)
+        "storm_on_the_lake" to "Great Calm",
+        // "Early on the first day of the week" (Jn 20:1): after the cup, the morning
+        "the_cup" to "Resurrection Morning",
+        // "you brought my life up from the pit" (Jon 2:6), and "my life shall see the light" (Job 33:28)
+        "out_of_the_depths" to "Into the Light",
+        // "Wake up, sleeper... and Christ will shine on you" (Eph 5:14)
+        "sleeper" to "Awake, O Sleeper",
+        // "but then face to face" (1 Cor 13:12)
+        "glass_darkly" to "Face to Face",
+    )
+
+    /** Dark themes, as the app has always had them. */
+    private val darkThemes: List<AppTheme> = specs.map { it.build(light = false) }
+
+    /** The same themes by day: sunlight scattered through a warm mist, the glory of God over everything. */
+    private val lightThemes: List<AppTheme> = specs.map { it.build(light = true) }
+
+    /**
+     * Whether the light themes are in use. Kept here, as snapshot state, so composables and drawing code
+     * (moods, [Ink]) all follow it; the ViewModel sets it from the saved choice.
+     */
+    var isLight by mutableStateOf(false)
+
+    /**
+     * Names come from the Bible's imagery of creation, worship and joy. Ids stay as they were, so
+     * a saved choice keeps working. By day, the themes are the ones of the current light.
+     */
+    val themes: List<AppTheme> get() = if (isLight) lightThemes else darkThemes
+
+    val defaultTheme: AppTheme get() = themes.first()
+
+    /**
      * The themes as the picker shows them: by the feeling each expresses, so neighbors read as kin and
      * the choice is first of a feeling, then of a color.
      */
-    val themeGroups: List<Pair<String, List<AppTheme>>> = listOf(
+    private val groupIds: List<Pair<String, List<String>>> = listOf(
         "Joy & Glory" to listOf("lamplight", "gold", "sunburst", "goldenrod"),
         // Right after Harvest, so its sibling Sowing in Tears sits beside it; and, as in Psalm 23, the valley
         // comes before the green pastures and still waters
@@ -439,10 +549,22 @@ object AppThemeManager {
         "Peace & Rest" to listOf("lavender", "aqua", "cyan", "neon_cyan", "mint", "emerald"),
         "Faithfulness" to listOf("lime", "olive", "titanium", "champagne"),
         "Evening & Night" to listOf("indigo", "upper_room", "deep_velvet", "deep_waters"),
-    ).map { (feeling, ids) -> feeling to ids.map { id -> themes.first { it.id == id } } }
+    )
 
-    /** How much darker the deep themes' backgrounds are than the others'. */
-    private const val DEEP_THEME_DEPTH = 0.8f
+    /** Group names by day: the evening group becomes the morning's, and the depths lead up. */
+    private val lightGroupNames = mapOf(
+        "Evening & Night" to "Morning & Day",
+        "Out of the Depths" to "Up from the Depths",
+    )
+
+    private fun groupsOf(list: List<AppTheme>, light: Boolean) = groupIds.map { (feeling, ids) ->
+        (if (light) lightGroupNames[feeling] ?: feeling else feeling) to ids.map { id -> list.first { it.id == id } }
+    }
+
+    private val darkGroups = groupsOf(darkThemes, light = false)
+    private val lightGroups = groupsOf(lightThemes, light = true)
+
+    val themeGroups: List<Pair<String, List<AppTheme>>> get() = if (isLight) lightGroups else darkGroups
 
     /**
      * Themes that were merged into another of the same feeling, so their colors could stay distinct. A
@@ -471,10 +593,144 @@ object AppThemeManager {
     /** The theme id to use for a saved [id], following merged themes to their replacement. */
     fun resolveId(id: String?): String? = mergedThemeIds[id] ?: id
 
-    fun getTheme(id: String?): AppTheme {
+    /** The theme for a saved [id], dark or by day as [light] says (the current light by default). */
+    fun getTheme(id: String?, light: Boolean = isLight): AppTheme {
         val resolved = resolveId(id)
-        return themes.find { it.id == resolved } ?: defaultTheme
+        val list = if (light) lightThemes else darkThemes
+        return list.find { it.id == resolved } ?: list.first()
     }
+
+    /** A theme's background tint: its hue and how strongly the backgrounds take it on (see [NeutralPalette.tinted]). */
+    private data class Tint(val hue: Float, val strength: Float = 1f, val depth: Float = 1f, val textStrength: Float = strength)
+
+    /** One theme as declared, built into its dark and its light version. */
+    private class ThemeSpec(
+        val id: String,
+        val name: String,
+        val primary: Color,
+        val isLightAccent: Boolean,
+        val customWaitTarget: Color?,
+        val customSuccess: Color?,
+        val customBaseline: Color?,
+        val tint: Float,
+        val palette: Tint?,
+        val stage: List<Color>?,
+        val stageOrnament: StageOrnament
+    ) {
+        fun build(light: Boolean): AppTheme {
+            val dark = buildDark()
+            return if (light) dark.sunlit(lightNames[id] ?: name) else dark
+        }
+
+        private fun buildDark(): AppTheme {
+            val hsv = FloatArray(3)
+            AndroidColor.colorToHSV(primary.toArgb(), hsv)
+            val hue = hsv[0]
+            val sat = hsv[1]
+            val valVal = hsv[2]
+
+            val lightColor = Color(AndroidColor.HSVToColor(floatArrayOf(hue, maxOf(0f, sat * 0.4f), minOf(1f, valVal * 1.25f))))
+            val upcomingColor = Color(AndroidColor.HSVToColor(floatArrayOf(hue, minOf(1f, sat * 1.05f), valVal * 0.85f)))
+
+            val waitTargetColor = customWaitTarget ?: run {
+                val targetHue = if (hue in 160f..220f) {
+                    45f
+                } else if (hue in 40f..80f) {
+                    195f
+                } else {
+                    (hue + 150f) % 360f
+                }
+                Color(AndroidColor.HSVToColor(floatArrayOf(targetHue, 0.85f, 1f)))
+            }
+
+            val waitTargetHsv = FloatArray(3)
+            AndroidColor.colorToHSV(waitTargetColor.toArgb(), waitTargetHsv)
+            val waitTargetLightColor = Color(AndroidColor.HSVToColor(floatArrayOf(waitTargetHsv[0], 0.3f, 1f)))
+
+            val targetColor = Color(AndroidColor.HSVToColor(floatArrayOf((hue + 15f) % 360f, minOf(1f, sat * 1.1f), minOf(1f, valVal * 1.1f))))
+            val baselineColor = customBaseline ?: Color(AndroidColor.HSVToColor(floatArrayOf((hue - 20f + 360f) % 360f, minOf(1f, sat * 1.2f), 1f)))
+            val baselineGlowColor = Color(AndroidColor.HSVToColor(floatArrayOf((hue - 30f + 360f) % 360f, sat, valVal * 0.9f)))
+
+            val successColor = customSuccess ?: run {
+                if (hue in 80f..160f) {
+                    Color(0xFF00B0FF)
+                } else {
+                    Color(0xFF2EA043)
+                }
+            }
+            val successLightColor = if (hue in 80f..160f) Color(0xFF80D8FF) else Color(0xFF69C67E)
+
+            // Dark text on the accent wherever it reads better than white: the WCAG contrast of the two
+            // is equal at a relative luminance of about 0.18, so soft accents get dark text.
+            val resolvedIsLightAccent = isLightAccent || primary.luminance() > 0.179f
+
+            val ownPalette = palette?.let { NeutralPalette.tinted(it.hue, it.strength, it.depth, it.textStrength) }
+            return AppTheme(
+                id = id,
+                name = name,
+                primaryColor = primary,
+                lightColor = lightColor,
+                upcomingColor = upcomingColor,
+                waitTargetColor = waitTargetColor,
+                waitTargetLightColor = waitTargetLightColor,
+                targetColor = targetColor,
+                baselineColor = baselineColor,
+                baselineGlowColor = baselineGlowColor,
+                successColor = successColor,
+                successLightColor = successLightColor,
+                isLightAccent = resolvedIsLightAccent,
+                // Near-gray accents have no real hue to borrow, so they keep Slate
+                palette = (ownPalette ?: if (sat < 0.15f || tint <= 0f) NeutralPalette.Slate else NeutralPalette.tinted(hue, strength = tint))
+                    .let { base ->
+                        if (stage == null) base
+                        else base.copy(stageTop = stage[0], stageMiddle = stage[1], stageBottom = stage[2], stageLane = stage[3])
+                    },
+                stageOrnament = stageOrnament
+            )
+        }
+
+        /**
+         * The theme by day. Every color keeps its hue but is deepened until it reads on the misty light
+         * (white text on the accent, notes and keyboard line clear against the stage). The room is the warm
+         * mist with the theme's own hue in it; a theme with its own stage keeps that stage's colors, lightened.
+         */
+        private fun AppTheme.sunlit(lightName: String): AppTheme {
+            val hsv = FloatArray(3)
+            AndroidColor.colorToHSV(primary.toArgb(), hsv)
+            val ownTint = this@ThemeSpec.palette
+            val room = when {
+                ownTint != null -> NeutralPalette.sunlit(ownTint.hue, ownTint.strength.coerceAtMost(1.6f))
+                hsv[1] < 0.15f || tint <= 0f -> NeutralPalette.Sunlit
+                else -> NeutralPalette.sunlit(hsv[0], tint)
+            }
+            return copy(
+                name = lightName,
+                primaryColor = primaryColor.inDaylight(0.17f),
+                lightColor = lightColor.inDaylight(0.42f),
+                upcomingColor = upcomingColor.inDaylight(0.14f),
+                waitTargetColor = waitTargetColor.inDaylight(0.2f),
+                waitTargetLightColor = waitTargetLightColor.inDaylight(0.45f),
+                targetColor = targetColor.inDaylight(0.2f),
+                baselineColor = baselineColor.inDaylight(0.24f),
+                baselineGlowColor = baselineGlowColor.inDaylight(0.3f),
+                successColor = successColor.inDaylight(0.2f),
+                successLightColor = successLightColor.inDaylight(0.42f),
+                isLightAccent = false,
+                palette = if (stage == null) room else room.copy(
+                    stageTop = stage[0].asDaylightStage(),
+                    stageMiddle = stage[1].asDaylightStage(),
+                    stageBottom = stage[2].asDaylightStage(),
+                    stageLane = stage[3].asDaylightStage()
+                ),
+                // Stars belong to the night; the day's sky is the mist itself
+                stageOrnament = StageOrnament.None,
+                isLight = true
+            )
+        }
+    }
+
+    /** How much darker the deep themes' backgrounds are than the others'. */
+    private const val DEEP_THEME_DEPTH = 0.8f
 
     private fun createTheme(
         id: String,
@@ -486,75 +742,45 @@ object AppThemeManager {
         customBaseline: Color? = null,
         /** How strongly the backgrounds take on the theme's color; 0 keeps plain Slate. */
         tint: Float = 0.9f,
-        palette: NeutralPalette? = null,
+        palette: Tint? = null,
         /** The falling-notes stage from top to bottom, then its lane lines; the palette's own otherwise. */
         stage: List<Color>? = null,
         stageOrnament: StageOrnament = StageOrnament.None
-    ): AppTheme {
-        val hsv = FloatArray(3)
-        AndroidColor.colorToHSV(primary.toArgb(), hsv)
-        val hue = hsv[0]
-        val sat = hsv[1]
-        val valVal = hsv[2]
-
-        val lightColor = Color(AndroidColor.HSVToColor(floatArrayOf(hue, maxOf(0f, sat * 0.4f), minOf(1f, valVal * 1.25f))))
-        val upcomingColor = Color(AndroidColor.HSVToColor(floatArrayOf(hue, minOf(1f, sat * 1.05f), valVal * 0.85f)))
-
-        val waitTargetColor = customWaitTarget ?: run {
-            val targetHue = if (hue in 160f..220f) {
-                45f
-            } else if (hue in 40f..80f) {
-                195f
-            } else {
-                (hue + 150f) % 360f
-            }
-            Color(AndroidColor.HSVToColor(floatArrayOf(targetHue, 0.85f, 1f)))
-        }
-
-        val waitTargetHsv = FloatArray(3)
-        AndroidColor.colorToHSV(waitTargetColor.toArgb(), waitTargetHsv)
-        val waitTargetLightColor = Color(AndroidColor.HSVToColor(floatArrayOf(waitTargetHsv[0], 0.3f, 1f)))
-
-        val targetColor = Color(AndroidColor.HSVToColor(floatArrayOf((hue + 15f) % 360f, minOf(1f, sat * 1.1f), minOf(1f, valVal * 1.1f))))
-        val baselineColor = customBaseline ?: Color(AndroidColor.HSVToColor(floatArrayOf((hue - 20f + 360f) % 360f, minOf(1f, sat * 1.2f), 1f)))
-        val baselineGlowColor = Color(AndroidColor.HSVToColor(floatArrayOf((hue - 30f + 360f) % 360f, sat, valVal * 0.9f)))
-
-        val successColor = customSuccess ?: run {
-            if (hue in 80f..160f) {
-                Color(0xFF00B0FF)
-            } else {
-                Color(0xFF2EA043)
-            }
-        }
-        val successLightColor = if (hue in 80f..160f) Color(0xFF80D8FF) else Color(0xFF69C67E)
-
-        // Dark text on the accent wherever it reads better than white: the WCAG contrast of the two
-        // is equal at a relative luminance of about 0.18, so soft accents get dark text.
-        val resolvedIsLightAccent = isLightAccent || primary.luminance() > 0.179f
-
-        return AppTheme(
-            id = id,
-            name = name,
-            primaryColor = primary,
-            lightColor = lightColor,
-            upcomingColor = upcomingColor,
-            waitTargetColor = waitTargetColor,
-            waitTargetLightColor = waitTargetLightColor,
-            targetColor = targetColor,
-            baselineColor = baselineColor,
-            baselineGlowColor = baselineGlowColor,
-            successColor = successColor,
-            successLightColor = successLightColor,
-            isLightAccent = resolvedIsLightAccent,
-            // Near-gray accents have no real hue to borrow, so they keep Slate
-            palette = (palette ?: if (sat < 0.15f || tint <= 0f) NeutralPalette.Slate else NeutralPalette.tinted(hue, strength = tint))
-                .let { base ->
-                    if (stage == null) base
-                    else base.copy(stageTop = stage[0], stageMiddle = stage[1], stageBottom = stage[2], stageLane = stage[3])
-                },
-            stageOrnament = stageOrnament
-        )
-    }
+    ) = ThemeSpec(id, name, primary, isLightAccent, customWaitTarget, customSuccess, customBaseline, tint, palette, stage, stageOrnament)
 }
+
+/**
+ * This color deepened, keeping its hue, until its relative luminance is at most [maxLuminance]: a little
+ * more saturated as it darkens, so it stays a color in the light rather than turning muddy (and golds lean amber).
+ */
+internal fun Color.inDaylight(maxLuminance: Float): Color {
+    if (luminance() <= maxLuminance) return this
+    val hsv = FloatArray(3)
+    AndroidColor.colorToHSV(toArgb(), hsv)
+    var color = this
+    while (color.luminance() > maxLuminance && hsv[2] > 0.05f) {
+        hsv[2] -= 0.01f
+        hsv[1] = (hsv[1] + 0.006f).coerceAtMost(1f)
+        // Yellow darkened turns olive: golds and yellows lean toward amber instead, as sunlit gold does
+        if (hsv[0] in 38f..75f) hsv[0] -= 0.35f
+        color = Color(AndroidColor.HSVToColor(floatArrayOf(hsv[0], hsv[1], hsv[2])))
+    }
+    return color.copy(alpha = alpha)
+}
+
+/** A dark stage color as the same place by day: its hue kept, brightened into the mist. */
+private fun Color.asDaylightStage(): Color {
+    val hsv = FloatArray(3)
+    AndroidColor.colorToHSV(toArgb(), hsv)
+    val day = Color(AndroidColor.HSVToColor(floatArrayOf(hsv[0], (hsv[1] * 0.28f).coerceIn(0f, 0.3f), (0.98f - hsv[2] * 0.6f).coerceIn(0f, 1f))))
+    // Always a little of the sunlight's warmth in it
+    return lerp(day, NeutralPalette.Sunlit.stageMiddle, 0.3f)
+}
+
+/**
+ * The color for text, icons and hairlines that used to be plain white: white at night, the warm
+ * ink of the light themes by day. Not for text on an accent, which keeps its own rule.
+ */
+val Ink: Color get() = if (AppThemeManager.isLight) NeutralPalette.Sunlit.text else Color.White
 
 val LocalAppTheme = compositionLocalOf { AppThemeManager.defaultTheme }

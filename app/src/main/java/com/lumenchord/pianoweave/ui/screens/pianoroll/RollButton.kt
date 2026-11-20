@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.animation.core.animateFloatAsState
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -71,7 +72,7 @@ internal fun RollButton(
             .clip(shape)
             .background(lerp(ColorSurface.copy(alpha = 0.8f), accent.copy(alpha = 0.20f), on))
             .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f * on), Color.Transparent)))
-            .border(1.dp, lerp(Color.White.copy(alpha = 0.12f), accent.copy(alpha = 0.75f), on), shape)
+            .border(1.dp, lerp(Ink.copy(alpha = 0.12f), accent.copy(alpha = 0.75f), on), shape)
             .combinedClickable(
                 interactionSource = interaction,
                 indication = ripple(),

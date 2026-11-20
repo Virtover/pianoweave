@@ -282,6 +282,9 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 withContext(Dispatchers.Main) { cloudSongs = cloudLibrary }
             }
 
+            // Best effort, and never a sync error: the songs are what the sync is about
+            syncAccountProgressImpl(context, token)
+
             withContext(Dispatchers.Main) {
                 hasCloudSyncError = failures.isNotEmpty()
                 cloudSyncError = if (failures.isNotEmpty()) {

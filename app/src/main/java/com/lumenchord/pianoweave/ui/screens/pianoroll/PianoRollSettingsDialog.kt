@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.activity.compose.BackHandler
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -44,6 +45,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.lumenchord.pianoweave.midi.BleMidiPeripheral
 import com.lumenchord.pianoweave.midi.MidiInputManager
 import com.lumenchord.pianoweave.ui.components.AppThemeDialog
+import com.lumenchord.pianoweave.ui.components.rememberLightThemeControl
 import com.lumenchord.pianoweave.ui.components.settings.LinkRow
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.LoopingSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.MetronomeSection
@@ -136,7 +138,7 @@ internal fun SettingsDialog(
                     .heightIn(max = 650.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = ColorSurface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, colorSlate)
             ) {
                 AnimatedContent(
@@ -280,7 +282,8 @@ internal fun SettingsDialog(
                 onSelectTheme = { themeId ->
                     viewModel.setSelectedTheme(currentContext, themeId)
                 },
-                onDismiss = { showThemeDialog = false }
+                onDismiss = { showThemeDialog = false },
+                light = rememberLightThemeControl(viewModel, currentContext)
             )
         }
     }

@@ -52,22 +52,24 @@ fun PianoWeaveWordmark(
     val accent = theme.primaryColor
     val light = theme.palette.text
     // Website: gold, white 50 %, silver #d8dce3 65 %, gold.
-    val stops = remember(accent, light) {
+    // By day the silver would vanish into the mist: warm bronze instead, and a glow of sunlight
+    val isLight = theme.isLight
+    val stops = remember(accent, light, isLight) {
         arrayOf(
             0f to accent,
             0.5f to light,
-            0.65f to lerp(light, Color(0xFFD8DCE3), 0.85f),
+            0.65f to if (isLight) lerp(light, Color(0xFF9A7442), 0.6f) else lerp(light, Color(0xFFD8DCE3), 0.85f),
             1f to accent
         )
     }
-    val style = remember(accent, fontSize) {
+    val style = remember(accent, fontSize, isLight) {
         TextStyle(
             color = Color.White, // only its alpha matters: the gradient is painted over it
             fontFamily = DisplayFontFamily,
             fontWeight = FontWeight.Light,
             fontSize = fontSize,
             letterSpacing = 0.26.em,
-            shadow = Shadow(color = Color.White.copy(alpha = 0.3f), offset = Offset.Zero, blurRadius = 18f)
+            shadow = Shadow(color = if (isLight) Color(0x99FFD98A) else Color.White.copy(alpha = 0.3f), offset = Offset.Zero, blurRadius = 18f)
         )
     }
     val phase = rememberInfiniteTransition(label = "wordmark").animateFloat(

@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -72,15 +73,15 @@ fun LoopingSection(
                         label = { Text("Start (mm:ss)") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = colorAccent,
                             unfocusedBorderColor = colorSlate,
                             focusedLabelColor = colorAccent,
-                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                            unfocusedLabelColor = Ink.copy(alpha = 0.6f),
                             cursorColor = colorAccent,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = Ink,
+                            unfocusedTextColor = Ink
                         )
                     )
                     OutlinedTextField(
@@ -95,15 +96,15 @@ fun LoopingSection(
                         label = { Text("End (mm:ss)") },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = colorAccent,
                             unfocusedBorderColor = colorSlate,
                             focusedLabelColor = colorAccent,
-                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                            unfocusedLabelColor = Ink.copy(alpha = 0.6f),
                             cursorColor = colorAccent,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = Ink,
+                            unfocusedTextColor = Ink
                         )
                     )
                 }

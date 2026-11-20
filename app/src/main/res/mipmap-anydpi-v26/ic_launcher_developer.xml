@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher icon of a developer's account (LauncherDeveloper in the manifest, see DeveloperLauncherIcon). -->
+<!-- The launcher icon of a developer's account (LauncherDeveloper in the manifest, see util/LauncherIcon.kt). -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_developer_background"/>
     <foreground android:drawable="@drawable/ic_launcher_developer_foreground"/>

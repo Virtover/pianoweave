@@ -9,7 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.api.executeServerCall
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.util.AppPrefs
-import com.lumenchord.pianoweave.util.DeveloperLauncherIcon
+import com.lumenchord.pianoweave.util.LauncherIcon
 import kotlinx.coroutines.launch
 
 internal fun openAddGoogleAccountImpl(context: Context) {
@@ -133,7 +133,7 @@ internal fun PianoWeaveViewModel.signOutGoogleImpl(context: Context) {
     googleToken = ""
     googleUserEmail = ""
     googleAuthError = null
-    DeveloperLauncherIcon.request(context, false)
+    LauncherIcon.requestDeveloper(context, false)
     isCloudSyncEnabled = false
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false).apply()
     if (isBilledServer) {

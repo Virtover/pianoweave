@@ -128,7 +128,8 @@ fun AppSettingsDialog(
                             onSelectTheme = { themeId ->
                                 selectedThemeId = themeId
                                 viewModel.setSelectedTheme(context, themeId)
-                            }
+                            },
+                            light = rememberLightThemeControl(viewModel, context)
                         )
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
@@ -140,7 +141,9 @@ fun AppSettingsDialog(
                             discordLink = viewModel.discordLink,
                             isSignedIn = viewModel.isGoogleSignedIn,
                             onOpenWalkthrough = onOpenWalkthrough,
-                            onSimulateUpdate = onSimulateUpdate
+                            onSimulateUpdate = onSimulateUpdate,
+                            isIgnoringAccountProgress = viewModel.isIgnoringAccountProgress,
+                            onSetIgnoringAccountProgress = { viewModel.setIgnoringAccountProgress(context, it) }
                         )
 
                         // Critical server messages moved off the Learn screen, so they can still be read
@@ -272,3 +275,12 @@ fun AppSettingsDialog(
         }
     }
 }
+
+/** The picker's light-theme part, backed by the ViewModel. */
+@Composable
+fun rememberLightThemeControl(viewModel: PianoWeaveViewModel, context: Context): LightThemeControl =
+    LightThemeControl(
+        isUnlocked = viewModel.isLightThemeUnlocked,
+        onUnlock = { viewModel.unlockLightTheme(context) },
+        onSetLight = { viewModel.setLightTheme(context, it) }
+    )

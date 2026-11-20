@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components
 
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -47,7 +48,7 @@ fun AdaptiveNavigation(
     logo: Painter? = null,
     content: @Composable () -> Unit
 ) {
-    val logoPainter = logo ?: painterResource(id = R.drawable.app_icon)
+    val logoPainter = logo ?: painterResource(id = if (AppThemeManager.isLight) R.drawable.app_icon_light else R.drawable.app_icon)
     val room = rememberWindowRoom()
     // A rail from tablet width up too, where a bottom bar would stretch two items across the whole screen
     val useRail = room.isLandscape || room.isWide

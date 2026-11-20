@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -49,7 +50,7 @@ internal fun SupportDialog(
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = colorSurface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, colorSlate)
             ) {
                 Column(
@@ -69,7 +70,7 @@ internal fun SupportDialog(
                     Text(
                         text = "Transcription is free at the moment. If you'd like to support me, I'd be grateful.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = Ink.copy(alpha = 0.9f),
                         lineHeight = 22.sp
                     )
 
@@ -90,7 +91,7 @@ internal fun SupportDialog(
                             shape = PillShape,
                             border = BorderStroke(1.dp, colorSlate),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink)
                         ) {
                             Text(
                                 text = "Close",

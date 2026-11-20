@@ -178,6 +178,8 @@ object GoogleDriveManager {
                 items.mapNotNull { item ->
                     val fileId = item.id ?: return@mapNotNull null
                     val fileName = item.name ?: return@mapNotNull null
+                    // The account's progress lives in the same folder but is not a song
+                    if (fileName == AccountProgressSync.FILE_NAME) return@mapNotNull null
                     val size = item.size?.toLongOrNull() ?: 0L
                     val modTime = try {
                         Instant.parse(item.modifiedTime).toEpochMilli()

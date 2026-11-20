@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.ui.platform.LocalHapticFeedback
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.Manifest
 import android.content.res.Configuration
@@ -112,7 +113,7 @@ internal fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
                     .padding(horizontal = 48.dp)
                     .size(90.dp),
                 shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.7f),
+                color = ColorOverlay,
                 border = BorderStroke(1.5.dp, ColorGold.copy(alpha = 0.8f))
             ) {
                 Column(
@@ -128,7 +129,7 @@ internal fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = if (info.direction == SeekDirection.BACKWARD) "-5s" else "+5s",
-                        color = Color.White,
+                        color = Ink,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -186,12 +187,12 @@ internal fun ModernToolbar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Ink)
         }
         if (!isPortrait) {
             Text(
                 text = viewModel.activePracticeSong?.metadata?.title ?: "",
-                color = Color.White,
+                color = Ink,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
@@ -354,7 +355,7 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit, metronome: SpeedC
                 text = speedLabel(speed),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isNormal) Color.White else LocalContentColor.current,
+                color = if (isNormal) Ink else LocalContentColor.current,
                 // Clear of the pill's rounded end
                 modifier = Modifier.padding(start = 14.dp)
             )
@@ -388,7 +389,7 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit, metronome: SpeedC
             }
             Text(
                 text = "Hold the speed button for the metronome",
-                color = Color.White.copy(alpha = 0.5f),
+                color = Ink.copy(alpha = 0.5f),
                 fontSize = 11.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
@@ -447,7 +448,7 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
             color = ColorSurface.copy(alpha = 0.85f),
             shape = RoundedCornerShape(16.dp),
             shadowElevation = 4.dp,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+            border = BorderStroke(1.dp, Ink.copy(alpha = 0.08f))
         ) {
             Row(
                 modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -457,7 +458,7 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                     text = "Play",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White.copy(alpha = 0.5f),
+                    color = Ink.copy(alpha = 0.5f),
                     modifier = Modifier.padding(end = 10.dp)
                 )
                 // Notes change with every chord, so they fade into each other instead of snapping
@@ -486,7 +487,7 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Hide note banner",
-                        tint = Color.White.copy(alpha = 0.4f),
+                        tint = Ink.copy(alpha = 0.4f),
                         modifier = Modifier.size(16.dp)
                     )
                 }

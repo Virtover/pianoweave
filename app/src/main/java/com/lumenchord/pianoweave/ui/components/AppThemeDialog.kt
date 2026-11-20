@@ -14,6 +14,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,26 +23,46 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.ui.theme.AppTheme
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
+import com.lumenchord.pianoweave.ui.theme.Ink
+import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AppThemeGrid(
     selectedThemeId: String,
     onSelectTheme: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    light: LightThemeControl? = null
 ) {
     var selectedId by remember(selectedThemeId) { mutableStateOf(AppThemeManager.resolveId(selectedThemeId) ?: selectedThemeId) }
+    // Shown once, right as the light is found
+    var justUnlocked by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (light != null && light.isUnlocked) {
+            DayNightToggle(isLight = AppThemeManager.isLight, onSetLight = light.onSetLight)
+            if (justUnlocked) {
+                Text(
+                    text = "\u201CLet there be light,\u201D and there was light.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontStyle = FontStyle.Italic,
+                    color = LocalAppTheme.current.primaryColor,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+            }
+        }
         AppThemeManager.themeGroups.forEach { (feeling, themes) ->
             Column(
                 modifier = Modifier.animateContentSize(),
@@ -51,7 +73,7 @@ fun AppThemeGrid(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
-                    color = Color.White.copy(alpha = 0.5f),
+                    color = Ink.copy(alpha = 0.5f),
                     modifier = Modifier.padding(start = 2.dp)
                 )
                 FlowRow(
@@ -59,13 +81,21 @@ fun AppThemeGrid(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     themes.forEach { theme ->
+                        val select = {
+                            selectedId = theme.id
+                            onSelectTheme(theme.id)
+                        }
                         ThemeTile(
                             theme = theme,
                             isSelected = theme.id == selectedId,
-                            onClick = {
-                                selectedId = theme.id
-                                onSelectTheme(theme.id)
-                            }
+                            onClick = select,
+                            // Hidden: holding the lamp long enough brings the daylight (once found, it's just a tap)
+                            onHold = if (light != null && !light.isUnlocked && theme.id == LIGHT_KEY_THEME_ID) {
+                                {
+                                    select()
+                                    if (light.onUnlock()) justUnlocked = true
+                                }
+                            } else null
                         )
                     }
                 }
@@ -95,19 +125,23 @@ private fun ThemeName(theme: AppTheme) {
 private fun ThemeTile(
     theme: AppTheme,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onHold: (() -> Unit)? = null
 ) {
     val shape = RoundedCornerShape(12.dp)
     Surface(
         modifier = Modifier
             .width(60.dp)
             .clip(shape)
-            .clickable(onClickLabel = "Use ${theme.name}", onClick = onClick),
+            .then(
+                if (onHold != null) Modifier.clickableWithLongHold(holdMillis = LIGHT_UNLOCK_HOLD_MILLIS, onHold = onHold, onClick = onClick)
+                else Modifier.clickable(onClickLabel = "Use ${theme.name}", onClick = onClick)
+            ),
         shape = shape,
         color = theme.palette.surface,
         border = BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) theme.primaryColor else Color.White.copy(alpha = 0.1f)
+            color = if (isSelected) theme.primaryColor else Ink.copy(alpha = 0.1f)
         )
     ) {
         Column(
@@ -139,11 +173,65 @@ private fun ThemeTile(
     }
 }
 
+/** The light themes in the picker: whether they were found, finding them, and choosing Dark or Light. */
+class LightThemeControl(
+    val isUnlocked: Boolean,
+    /** Called when Lamplight is held long enough; returns whether this unlocked it just now. */
+    val onUnlock: () -> Boolean,
+    val onSetLight: (Boolean) -> Unit
+)
+
+/** Hold the Lamplight tile this long to find the light themes: "Your word is a lamp... and a light" (Psalm 119:105). */
+private const val LIGHT_UNLOCK_HOLD_MILLIS = 5_000L
+private const val LIGHT_KEY_THEME_ID = "lamplight"
+
+/** Night or day: the whole app in the dark themes or in the light ones. */
+@Composable
+private fun DayNightToggle(isLight: Boolean, onSetLight: (Boolean) -> Unit) {
+    val theme = LocalAppTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Ink.copy(alpha = 0.12f), PillShape)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        listOf(false to "Dark", true to "Light").forEach { (light, label) ->
+            val selected = light == isLight
+            val content = when {
+                !selected -> Ink.copy(alpha = 0.7f)
+                theme.isLightAccent -> Color.Black
+                else -> Ink
+            }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(PillShape)
+                    .background(if (selected) theme.primaryColor else Color.Transparent)
+                    .clickable(onClickLabel = "Use the ${label.lowercase()} themes") { onSetLight(light) }
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    if (light) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    contentDescription = null,
+                    tint = content,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(label, color = content, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
 @Composable
 fun AppThemeDialog(
     currentThemeId: String,
     onSelectTheme: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    light: LightThemeControl? = null
 ) {
     var selectedId by remember { mutableStateOf(currentThemeId) }
     val previewTheme = AppThemeManager.getTheme(selectedId)
@@ -162,7 +250,7 @@ fun AppThemeDialog(
                     .fillMaxHeight(0.88f),
                 shape = RoundedCornerShape(20.dp),
                 color = previewTheme.palette.dialogSurface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {
                 Column(
@@ -198,7 +286,8 @@ fun AppThemeDialog(
                                     selectedId = themeId
                                     onSelectTheme(themeId)
                                 },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                light = light
                             )
                         }
                     }

@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import com.lumenchord.pianoweave.ui.components.DialogHeader
+import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
@@ -123,7 +124,7 @@ internal fun ServerSettingsDialog(
                     .heightIn(max = 620.dp),
                 shape = RoundedCornerShape(20.dp),
                 color = ColorSurface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, ColorSlate)
             ) {
                 Column(
@@ -148,7 +149,7 @@ internal fun ServerSettingsDialog(
                         Text(
                             text = "Select the backend server used for turning songs into MIDI.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.7f),
+                            color = Ink.copy(alpha = 0.7f),
                             lineHeight = 18.sp
                         )
 
@@ -194,7 +195,7 @@ internal fun ServerSettingsDialog(
                                             text = AppConfig.getConfig().name,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
-                                            color = Color.White
+                                            color = Ink
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Text(
@@ -249,7 +250,7 @@ internal fun ServerSettingsDialog(
                                             text = "Custom Server",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
-                                            color = Color.White,
+                                            color = Ink,
                                             maxLines = 1
                                         )
                                         Text(
@@ -301,10 +302,10 @@ internal fun ServerSettingsDialog(
                                             focusedBorderColor = ColorGold,
                                             unfocusedBorderColor = ColorSlate,
                                             focusedLabelColor = ColorGold,
-                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                            unfocusedLabelColor = Ink.copy(alpha = 0.6f),
                                             cursorColor = ColorGold,
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
+                                            focusedTextColor = Ink,
+                                            unfocusedTextColor = Ink
                                         )
                                     )
 
@@ -344,10 +345,10 @@ internal fun ServerSettingsDialog(
                                             focusedBorderColor = ColorGold,
                                             unfocusedBorderColor = ColorSlate,
                                             focusedLabelColor = ColorGold,
-                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                            unfocusedLabelColor = Ink.copy(alpha = 0.6f),
                                             cursorColor = ColorGold,
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
+                                            focusedTextColor = Ink,
+                                            unfocusedTextColor = Ink
                                         )
                                     )
 
@@ -378,10 +379,10 @@ internal fun ServerSettingsDialog(
 //                                            focusedBorderColor = ColorGold,
 //                                            unfocusedBorderColor = ColorSlate,
 //                                            focusedLabelColor = ColorGold,
-//                                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+//                                            unfocusedLabelColor = Ink.copy(alpha = 0.6f),
 //                                            cursorColor = ColorGold,
-//                                            focusedTextColor = Color.White,
-//                                            unfocusedTextColor = Color.White
+//                                            focusedTextColor = Ink,
+//                                            unfocusedTextColor = Ink
 //                                        )
 //                                    )
                                 }

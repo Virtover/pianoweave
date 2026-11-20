@@ -6,7 +6,7 @@ import com.lumenchord.pianoweave.api.DeveloperJobDetails
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.util.AppPrefs
-import com.lumenchord.pianoweave.util.DeveloperLauncherIcon
+import com.lumenchord.pianoweave.util.LauncherIcon
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -37,7 +37,7 @@ internal fun PianoWeaveViewModel.loadDeveloperPreferences(context: Context) {
 internal fun PianoWeaveViewModel.setDeveloperBackgroundEnabledImpl(context: Context, enabled: Boolean) {
     isDeveloperBackgroundEnabled = enabled
     AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_DEVELOPER_BACKGROUND_ENABLED, enabled).apply()
-    if (isDeveloper) DeveloperLauncherIcon.request(context, wantsDeveloperIcons)
+    if (isDeveloper) LauncherIcon.requestDeveloper(context, wantsDeveloperIcons)
 }
 
 /**

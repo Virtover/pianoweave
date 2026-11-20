@@ -7,4 +7,12 @@
         <item name="android:windowSplashScreenAnimationDuration">1000</item>
         <item name="android:windowSplashScreenBrandingImage">@drawable/splash_branding</item>
     </style>
+
+    <!-- The splash by day: chosen for the next launches with SplashScreen.setSplashScreenTheme (API 33+). -->
+    <style name="Theme.PianoWeave.Light" parent="Theme.PianoWeave">
+        <item name="android:windowBackground">@color/splash_background_light</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background_light</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_light</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/splash_branding_light</item>
+    </style>
 </resources>

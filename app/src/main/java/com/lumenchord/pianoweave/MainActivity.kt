@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave
 
+import com.lumenchord.pianoweave.ui.viewmodel.applyDaylightOutsideApp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -59,8 +60,9 @@ import com.lumenchord.pianoweave.ui.screens.learn.WelcomeTutorialDialog
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.theme.PianoWeaveTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
+import com.lumenchord.pianoweave.util.AccountProgress
 import com.lumenchord.pianoweave.util.AppPrefs
-import com.lumenchord.pianoweave.util.DeveloperLauncherIcon
+import com.lumenchord.pianoweave.util.LauncherIcon
 import com.lumenchord.pianoweave.util.LegalConsent
 import com.lumenchord.pianoweave.update.AppUpdates
 import com.lumenchord.pianoweave.ui.components.AppSnackbar
@@ -109,6 +111,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // By day the window is sunlit before the first frame (the splash itself is set in applyDaylightOutsideApp)
+        if (prefersLightTheme()) setTheme(R.style.Theme_PianoWeave_Light)
         super.onCreate(savedInstanceState)
         LegalConsent.onAppStart(this)
         PianoApiFactory.initialize(application, applicationContext)
@@ -141,6 +145,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val currentTheme = AppThemeManager.getTheme(viewModel.selectedThemeId)
+            // The bars come only on a swipe, but then their icons must read on the day's light background
+            LaunchedEffect(currentTheme.isLight) {
+                WindowInsetsControllerCompat(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = currentTheme.isLight
+                    isAppearanceLightNavigationBars = currentTheme.isLight
+                }
+                applyDaylightOutsideApp(this@MainActivity, currentTheme.isLight)
+            }
             PianoWeaveTheme(theme = currentTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize()
@@ -179,6 +191,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Whether the light themes were chosen, read straight from the preferences before anything is loaded. */
+    private fun prefersLightTheme(): Boolean =
+        AppPrefs.get(this).getBoolean(AppPrefs.IS_LIGHT_THEME, false) &&
+            AccountProgress.getFlag(this, AppPrefs.IS_LIGHT_THEME_UNLOCKED)
+
     override fun onResume() {
         super.onResume()
         BluetoothMidi.onAppVisible(this)
@@ -197,7 +214,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         // Out of sight: a launcher that closes the app over an icon swap closes nothing the user is looking at
-        if (!isChangingConfigurations) DeveloperLauncherIcon.applyPending(this)
+        if (!isChangingConfigurations) LauncherIcon.applyPending(this)
     }
 
     override fun onDestroy() {
@@ -228,11 +245,11 @@ private fun PianoWeaveApp(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showVerseOfLight by remember { mutableStateOf(false) }
     // The first discovery takes a longer hold; once found, shorter is enough
-    var verseOfLightOpens by remember {
-        val prefs = AppPrefs.get(context)
-        val legacyOpened = if (prefs.getBoolean(AppPrefs.HAS_OPENED_VERSE_OF_LIGHT, false)) 1 else 0
-        mutableIntStateOf(prefs.getInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, legacyOpened))
+    // Read again when the account's progress arrives (or the debug switch changes it)
+    var verseOfLightOpens by remember(AccountProgress.revision) {
+        mutableIntStateOf(AccountProgress.getCount(context, AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT))
     }
+    LaunchedEffect(AccountProgress.revision) { viewModel.reloadProgress(context) }
     val snackbarHost = remember { SnackbarHostState() }
 
     // Songs whose Drive backup failed when they were saved are uploaded at the next return to the app
@@ -273,7 +290,8 @@ private fun PianoWeaveApp(
             showVerseOfLight = true
             if (verseOfLightOpens < 2) {
                 verseOfLightOpens++
-                AppPrefs.get(context).edit().putInt(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, verseOfLightOpens).apply()
+                AccountProgress.setCount(context, AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT, verseOfLightOpens)
+                viewModel.pushAccountProgress(context)
             }
         },
         // The developer look, or the regular one a developer can pick in Settings: background and icons together

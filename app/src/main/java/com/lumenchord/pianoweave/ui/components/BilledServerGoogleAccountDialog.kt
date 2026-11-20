@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +66,7 @@ fun BilledServerGoogleAccountDialog(
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {
                 Column(
@@ -84,7 +85,7 @@ fun BilledServerGoogleAccountDialog(
                     Text(
                         text = "This server requires a Google account to verify access, manage your credits, and perform transcriptions.\n\nPlease sign in with a Google account to use this server.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = Ink.copy(alpha = 0.85f),
                         lineHeight = 20.sp
                     )
 
@@ -106,7 +107,7 @@ fun BilledServerGoogleAccountDialog(
                             shape = PillShape,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink)
                         ) {
                             Text(
                                 text = "Not now",

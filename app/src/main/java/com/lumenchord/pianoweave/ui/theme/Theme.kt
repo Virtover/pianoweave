@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
@@ -29,13 +30,27 @@ val PianoDarkColorScheme = darkColorScheme(
     tertiaryContainer = Color(0xFF30363D)
 )
 
+/** The light themes' base: [NeutralPalette.Sunlit], each theme then sets its own colors over it. */
+val PianoLightColorScheme = lightColorScheme(
+    primary = NeutralPalette.Sunlit.text,
+    onPrimary = NeutralPalette.Sunlit.onText,
+    background = NeutralPalette.Sunlit.background,
+    surface = NeutralPalette.Sunlit.surface,
+    onBackground = NeutralPalette.Sunlit.onSurface,
+    onSurface = NeutralPalette.Sunlit.onSurface,
+    onSurfaceVariant = NeutralPalette.Sunlit.onSurfaceVariant,
+    outline = Color(0xFFC9B79C)
+)
+
 @Composable
 fun PianoWeaveTheme(
     theme: AppTheme = AppThemeManager.defaultTheme,
     content: @Composable () -> Unit
 ) {
     val palette = theme.palette
-    val dynamicColorScheme = PianoDarkColorScheme.copy(
+    // By day the Material defaults (ripples, disabled states, scrims) must be the light ones too
+    val base = if (theme.isLight) PianoLightColorScheme else PianoDarkColorScheme
+    val dynamicColorScheme = base.copy(
         primary = palette.text,
         onPrimary = palette.onText,
         primaryContainer = palette.container,

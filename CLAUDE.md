@@ -140,11 +140,28 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   behind everything, dimmed (`AdaptiveNavigation`'s `backdrop`). Background "Regular" (Settings → Developer, or
   the panel) brings back the regular background, logo and launcher icon together (`wantsDeveloperIcons`). Signing out or
   changing servers clears it with the balance. The launcher icon is the cat too: the manifest's launcher entries
-  are two aliases of `MainActivity` (`LauncherDefault`, `LauncherDeveloper`), one enabled; `DeveloperLauncherIcon`
+  are aliases of `MainActivity` (`LauncherDefault`, `LauncherDeveloper`, `LauncherLight`), one enabled; `LauncherIcon`
   remembers the wish on a definite answer (balance, sign-out) and swaps them in `onStop`, as a swap can close the app.
-- **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`); closes only via its buttons.
+  The cat wins over the light icon.
+- **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`, account progress); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a
   random verse from `bible_verses.json` with the matching Hebrew name of God, revealed by a shine sweep that copies
   the splash icon's animation (`res/drawable/splash_icon*.xml`). Tapping the name or verse copies it. Its look is
-  meant to match the splash screen: palette `#0F0B09` background, `#FFDEB2` glow, ribbon golds.
+  meant to match the splash screen: palette `#0F0B09` background, `#FFDEB2` glow, ribbon golds (by day the light
+  splash's: `#F2E8D6` mist, bronze letters, a sunlit `#FFC46A` glow).
+- **Light themes** (hidden): hold the Lamplight tile in any theme picker for 5 s (`IS_LIGHT_THEME_UNLOCKED`); then a
+  Dark / Light toggle shows above the themes (`IS_LIGHT_THEME`). Each theme has a generated day version
+  (`ThemeSpec.sunlit` in `AppTheme.kt`: accents deepened until white text reads on them, rooms from
+  `NeutralPalette.Sunlit`, "sunlight scattered over warm mist", tinted by the theme's hue;
+  warm parchment, never near white: the owner wants it restful to look at, not glaring); night-only names get day
+  names (`lightNames`, e.g. Night Watch → Morning Watch). `AppThemeManager.isLight` is snapshot state read by
+  `Moods`, `Ink` (use it instead of `Color.White` for text and hairlines on surfaces; text on an accent keeps the
+  `isLightAccent` rule) and `lampGlow`. Outside the app: `LauncherLight` icon, `Theme.PianoWeave.Light` (window
+  background, and the splash via `setSplashScreenTheme` on API 33+; older versions keep the dark splash).
+- **Account progress** (`util/AccountProgress.kt`): tutorials done, the light unlock and the verse count live in their
+  own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account; with cloud sync on,
+  they are also merged with `piano_weave_progress.json` in the Drive app folder (`cloud/AccountProgressSync.kt`,
+  after each library sync and on each change; later change wins, counts only grow). `listCloudMidis` skips that
+  file, but **app versions before 55 list it as a song**. Debug builds: Settings → "Ignore account progress (debug)"
+  uses an empty stand-in file that never syncs (a newcomer's view); off brings the real progress back.

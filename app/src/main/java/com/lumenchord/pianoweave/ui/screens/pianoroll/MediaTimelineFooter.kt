@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.foundation.Canvas
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -45,7 +46,7 @@ internal fun MediaTimelineFooter(
     val ColorGoldLight = appTheme.lightColor
     val edgeColor = ColorSlate
     val timeStyle = TextStyle(
-        color = Color.White.copy(alpha = 0.6f),
+        color = Ink.copy(alpha = 0.6f),
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
         fontFeatureSettings = "tnum" // Equal-width digits, so the time doesn't jitter while playing
@@ -92,7 +93,7 @@ internal fun MediaTimelineFooter(
                 Icon(
                     imageVector = if (viewModel.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (viewModel.isPlaying) "Pause" else "Play",
-                    tint = Color.Black,
+                    tint = if (appTheme.isLightAccent) Color.Black else Color.White,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -104,7 +105,7 @@ internal fun MediaTimelineFooter(
                 Icon(
                     imageVector = Icons.Default.Replay,
                     contentDescription = "Back to start",
-                    tint = Color.White,
+                    tint = Ink,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -148,7 +149,7 @@ internal fun MediaTimelineFooter(
                                     .border(1.5.dp, Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.ChevronLeft, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ChevronLeft, null, tint = if (appTheme.isLightAccent) Color.Black else Color.White, modifier = Modifier.size(16.dp))
                             }
                         },
                         endThumb = {
@@ -159,7 +160,7 @@ internal fun MediaTimelineFooter(
                                     .border(1.5.dp, Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.ChevronRight, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ChevronRight, null, tint = if (appTheme.isLightAccent) Color.Black else Color.White, modifier = Modifier.size(16.dp))
                             }
                         }
                     )
@@ -174,7 +175,7 @@ internal fun MediaTimelineFooter(
                     onValueChangeFinished = { onSeekState(false) },
                     valueRange = 0f..dur.toFloat().coerceAtLeast(1f),
                     colors = SliderDefaults.colors(
-                        thumbColor = Color.White,
+                        thumbColor = Ink,
                         activeTrackColor = Color.Transparent,
                         inactiveTrackColor = Color.Transparent
                     ),
@@ -196,7 +197,7 @@ internal fun MediaTimelineFooter(
                                         radius = glowRadius
                                     )
                                 }
-                                .background(Color.White, CircleShape)
+                                .background(Ink, CircleShape)
                         )
                     },
                     track = { _ ->

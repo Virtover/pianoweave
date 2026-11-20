@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
 import androidx.compose.animation.core.animateFloatAsState
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -177,8 +178,8 @@ private fun SliderTrack(
     val inset = with(density) { ThumbInset.toPx() }
     var dragging by remember { mutableStateOf(false) }
     val thumbScale by animateFloatAsState(if (dragging) 1.25f else 1f, label = "thumbScale")
-    val trackColor = Color.White.copy(alpha = 0.12f)
-    val tickColor = Color.White.copy(alpha = 0.3f)
+    val trackColor = Ink.copy(alpha = 0.12f)
+    val tickColor = Ink.copy(alpha = 0.3f)
     val ringColor = MaterialTheme.colorScheme.surface
 
     fun stopAt(x: Float, width: Int): Int {
@@ -268,7 +269,7 @@ private fun SliderTrack(
                         text = text,
                         fontSize = 10.sp,
                         fontWeight = if (i == index) FontWeight.ExtraBold else FontWeight.Medium,
-                        color = if (i == index) accent else Color.White.copy(alpha = 0.5f),
+                        color = if (i == index) accent else Ink.copy(alpha = 0.5f),
                         maxLines = 1
                     )
                 }

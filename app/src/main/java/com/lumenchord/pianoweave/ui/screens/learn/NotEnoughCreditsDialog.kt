@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import com.lumenchord.pianoweave.billing.MIN_BALANCE_TO_TRANSCRIBE
+import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.billing.owedMinutes
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
@@ -51,7 +52,7 @@ internal fun NotEnoughCreditsDialog(
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = ColorSurface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, ColorSlate)
             ) {
                 Column(
@@ -70,7 +71,7 @@ internal fun NotEnoughCreditsDialog(
                     Text(
                         text = notEnoughCreditsText(requiredCredits, availableCredits, plansAvailable),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = Ink.copy(alpha = 0.9f),
                         lineHeight = 22.sp
                     )
 
@@ -88,7 +89,7 @@ internal fun NotEnoughCreditsDialog(
                             shape = PillShape,
                             border = BorderStroke(1.dp, ColorSlate),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color.White
+                                contentColor = Ink
                             )
                         ) {
                             Text(

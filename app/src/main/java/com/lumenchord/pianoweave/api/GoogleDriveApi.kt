@@ -55,6 +55,15 @@ interface GoogleDriveApi {
         @Body metadata: Map<String, String>
     ): DriveFileItem
 
+    /** Replaces a file's content, keeping its id and metadata. */
+    @PATCH("upload/drive/v3/files/{fileId}")
+    suspend fun updateFileContent(
+        @Path("fileId") fileId: String,
+        @Header("Authorization") authHeader: String?,
+        @Body body: RequestBody,
+        @Query("uploadType") uploadType: String = "media"
+    ): DriveFileItem
+
     @Streaming
     @GET("drive/v3/files/{fileId}")
     suspend fun downloadFile(

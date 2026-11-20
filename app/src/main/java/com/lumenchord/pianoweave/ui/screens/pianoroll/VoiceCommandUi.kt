@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.ui.graphics.Brush
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.lumenchord.pianoweave.audio.VoiceListeningMode
@@ -217,7 +218,7 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
                     modifier = Modifier.size(28.dp),
                     strokeWidth = 2.dp,
                     color = LocalAppTheme.current.primaryColor,
-                    trackColor = Color.White.copy(alpha = 0.12f)
+                    trackColor = Ink.copy(alpha = 0.12f)
                 )
             }
             Icon(
@@ -276,7 +277,7 @@ internal fun VoiceFeedbackChip(
         val info = shown ?: return@AnimatedVisibility
         Surface(
             shape = PillShape,
-            color = Color.Black.copy(alpha = 0.72f),
+            color = ColorOverlay,
             border = BorderStroke(1.dp, accent.copy(alpha = 0.7f)),
             modifier = when {
                 info.canUndo -> Modifier.clickable(onClickLabel = "Undo", onClick = {
@@ -297,7 +298,7 @@ internal fun VoiceFeedbackChip(
             ) {
                 Icon(info.icon, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
                 if (!isPortrait || !compactLinkOnly) {
-                    Text(info.text, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(info.text, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 if (linkText != null) {
                     Text(
@@ -313,14 +314,14 @@ internal fun VoiceFeedbackChip(
                         modifier = Modifier
                             .size(22.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.08f))
+                            .background(Ink.copy(alpha = 0.08f))
                             .clickable(onClickLabel = "Open voice command settings", onClick = onOpenSettings),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Open voice command settings",
-                            tint = Color.White.copy(alpha = 0.75f),
+                            tint = Ink.copy(alpha = 0.75f),
                             modifier = Modifier.size(12.dp)
                         )
                     }
@@ -328,7 +329,7 @@ internal fun VoiceFeedbackChip(
                     Icon(
                         Icons.AutoMirrored.Filled.Undo,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.6f),
+                        tint = Ink.copy(alpha = 0.6f),
                         modifier = Modifier.size(15.dp)
                     )
                 }
@@ -571,14 +572,14 @@ internal fun VoiceCommandGuide(mode: VoiceListeningMode) {
         COMMAND_GUIDE.forEach { (words, action) ->
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(words, color = accent, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, modifier = Modifier.weight(0.45f))
-                Text(action, color = Color.White.copy(alpha = 0.8f), fontSize = 12.5.sp, modifier = Modifier.weight(0.55f))
+                Text(action, color = Ink.copy(alpha = 0.8f), fontSize = 12.5.sp, modifier = Modifier.weight(0.55f))
             }
         }
         val prefix = if (mode == VoiceListeningMode.SELAH) "Selah, " else ""
         Text(
             text = "Several in one go: “${prefix}full screen, play”, “${prefix}back back” (10 s). " +
                     "Said by mistake? “undo” within 4 s, or tap the note that appears.",
-            color = Color.White.copy(alpha = 0.6f),
+            color = Ink.copy(alpha = 0.6f),
             fontSize = 12.sp,
             lineHeight = 17.sp,
             modifier = Modifier.padding(top = 4.dp)

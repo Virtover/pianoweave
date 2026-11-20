@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
 import android.content.Context
+import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +66,7 @@ fun NoGoogleAccountDialog(
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {
                 Column(
@@ -85,7 +86,7 @@ fun NoGoogleAccountDialog(
                         text = "Piano Weave needs a Google account on this device to sign in. " +
                                 "Add one in your device settings, then come back and try again.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = Ink.copy(alpha = 0.85f),
                         lineHeight = 20.sp
                     )
 
@@ -107,7 +108,7 @@ fun NoGoogleAccountDialog(
                             shape = PillShape,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink)
                         ) {
                             Text(
                                 text = "Not now",

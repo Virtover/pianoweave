@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import androidx.compose.foundation.BorderStroke
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,7 +49,7 @@ internal fun PartOverlapDialog(warning: OverlapWarning, onConfirm: () -> Unit, o
                 modifier = Modifier.fillMaxWidth(0.98f).wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiaryContainer)
             ) {
                 Column(
@@ -59,7 +60,7 @@ internal fun PartOverlapDialog(warning: OverlapWarning, onConfirm: () -> Unit, o
                     Text(
                         text = "$what overlaps ${if (count == 1) "a $noun" else "${noun}s"} of this video you already have:",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = Ink.copy(alpha = 0.85f),
                         lineHeight = 20.sp
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -75,7 +76,7 @@ internal fun PartOverlapDialog(warning: OverlapWarning, onConfirm: () -> Unit, o
                     Text(
                         text = "Make it anyway? Both stay in your library.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = Ink.copy(alpha = 0.7f)
                     )
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(

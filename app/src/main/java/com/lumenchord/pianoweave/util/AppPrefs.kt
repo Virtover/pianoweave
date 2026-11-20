@@ -102,13 +102,15 @@ object AppPrefs {
     const val VOICE_LISTENING_MODE = "voice_listening_mode"
     /** [com.lumenchord.pianoweave.audio.VoiceMicMode] name: the mic processing for voice commands (debug builds). */
     const val VOICE_MIC_MODE = "voice_mic_mode"
-    const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
-    /** The walkthrough (copy a link, transcribe, open the piano roll) was finished; the Learn tab's "How it works" path is retired. */
-    const val HAS_SEEN_WELCOME_TUTORIAL = "has_seen_welcome_tutorial"
-    /** Legacy flag: the hidden verse screen was opened at least once (superseded by the count below). */
+    /** Legacy flag: the hidden verse screen was opened at least once (superseded by [VERSE_OF_LIGHT_OPEN_COUNT]). */
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"
-    /** How many times the hidden verse screen was opened; the logo hold gets shorter as it grows. */
-    const val VERSE_OF_LIGHT_OPEN_COUNT = "verse_of_light_open_count"
+    /** Whether the light themes are in use (only once [IS_LIGHT_THEME_UNLOCKED]). */
+    const val IS_LIGHT_THEME = "is_light_theme"
+    /**
+     * Debug builds: progress ([progress]) kept apart from the Google account and from this device's own, starting
+     * empty, so tutorials and hidden things can be tried as a newcomer. Turning it off brings the real progress back.
+     */
+    const val IGNORE_ACCOUNT_PROGRESS = "ignore_account_progress"
     /** Play version code of the last flexible in-app update the user declined, and when (epoch ms). */
     const val DECLINED_UPDATE_VERSION_CODE = "declined_update_version_code"
     const val DECLINED_UPDATE_AT = "declined_update_at"
@@ -119,7 +121,37 @@ object AppPrefs {
     const val IS_DEVELOPER_BACKGROUND_ENABLED = "is_developer_background_enabled"
     /** Whether the launcher should show the developer icon; applied when the app goes to the background. */
     const val WANTS_DEVELOPER_LAUNCHER_ICON = "wants_developer_launcher_icon"
+    /** Whether the launcher should show the sunlit icon of the light themes; applied as [WANTS_DEVELOPER_LAUNCHER_ICON]. */
+    const val WANTS_LIGHT_LAUNCHER_ICON = "wants_light_launcher_icon"
 
     fun get(context: Context): SharedPreferences =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+
+    // Progress: what someone has done or found, kept with their Google account (see AccountProgress), in its own
+    // file so it can be merged with the account's copy. Each key also has "<key>@at", when it last changed.
+    private const val PROGRESS_NAME = "account_progress"
+    /** The debug stand-in for [PROGRESS_NAME] while [IGNORE_ACCOUNT_PROGRESS] is on. */
+    private const val IGNORED_PROGRESS_NAME = "account_progress_ignored"
+    const val HAS_SEEN_PIANO_ROLL_TUTORIAL = "has_seen_piano_roll_tutorial"
+    /** The walkthrough (copy a link, transcribe, open the piano roll) was finished; the Learn tab's "How it works" path is retired. */
+    const val HAS_SEEN_WELCOME_TUTORIAL = "has_seen_welcome_tutorial"
+    /** How many times the hidden verse screen was opened; the logo hold gets shorter as it grows. */
+    const val VERSE_OF_LIGHT_OPEN_COUNT = "verse_of_light_open_count"
+    /** The light themes were found (hold Lamplight in the theme picker), so Settings offers Dark / Light. */
+    const val IS_LIGHT_THEME_UNLOCKED = "is_light_theme_unlocked"
+    /** Suffix of the key holding when a progress value last changed (epoch ms). */
+    const val PROGRESS_CHANGED_AT_SUFFIX = "@at"
+    /** The progress file read and written now: the debug stand-in while [IGNORE_ACCOUNT_PROGRESS] is on. */
+    fun progress(context: Context): SharedPreferences = context.getSharedPreferences(
+        if (get(context).getBoolean(IGNORE_ACCOUNT_PROGRESS, false)) IGNORED_PROGRESS_NAME else PROGRESS_NAME,
+        Context.MODE_PRIVATE
+    )
+
+    /** The real progress file, whatever [IGNORE_ACCOUNT_PROGRESS] says (for moving older values into it). */
+    fun realProgress(context: Context): SharedPreferences = context.getSharedPreferences(PROGRESS_NAME, Context.MODE_PRIVATE)
+
+    /** Clears the debug stand-in, so the next time it's used it starts as a newcomer again. */
+    fun clearIgnoredProgress(context: Context) {
+        context.getSharedPreferences(IGNORED_PROGRESS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+    }
 }

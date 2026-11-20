@@ -23,6 +23,7 @@ import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.ui.screens.learn.ShopTab
+import com.lumenchord.pianoweave.util.AccountProgress
 import com.lumenchord.pianoweave.util.AppPrefs
 import kotlinx.coroutines.Job
 
@@ -68,6 +69,12 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
 
     var selectedThemeId by mutableStateOf(AppThemeManager.defaultTheme.id)
+        internal set
+    /** The light themes were found (hold Lamplight in the theme picker): Settings offers Dark / Light. */
+    var isLightThemeUnlocked by mutableStateOf(false)
+        internal set
+    /** Debug builds: progress kept apart from the Google account (see AccountProgress). */
+    var isIgnoringAccountProgress by mutableStateOf(false)
         internal set
 
     // --- Playback State (Orientation Survival) ---
@@ -564,6 +571,12 @@ class PianoWeaveViewModel : ViewModel() {
     fun refreshServerStateOnResume(context: Context) = refreshServerStateOnResumeImpl(context)
 
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)
+    fun unlockLightTheme(context: Context): Boolean = unlockLightThemeImpl(context)
+    fun setLightTheme(context: Context, light: Boolean) = setLightThemeImpl(context, light)
+    fun setIgnoringAccountProgress(context: Context, ignore: Boolean) = setIgnoringAccountProgressImpl(context, ignore)
+    /** Rereads progress changed outside the ViewModel (see AccountProgress.revision). */
+    fun reloadProgress(context: Context) = reloadProgressImpl(context)
+    fun pushAccountProgress(context: Context) = pushAccountProgressImpl(context)
     fun clearTranscriptionError() = clearTranscriptionErrorImpl()
     fun uploadInsteadOfLink() = uploadInsteadOfLinkImpl()
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
@@ -630,18 +643,16 @@ class PianoWeaveViewModel : ViewModel() {
     }
 
     fun hasSeenPianoRollTutorial(context: Context): Boolean =
-        AppPrefs.get(context).getBoolean(AppPrefs.HAS_SEEN_PIANO_ROLL_TUTORIAL, false)
+        AccountProgress.getFlag(context, AppPrefs.HAS_SEEN_PIANO_ROLL_TUTORIAL)
 
-    fun markPianoRollTutorialSeen(context: Context) {
-        AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SEEN_PIANO_ROLL_TUTORIAL, true).apply()
-    }
+    fun markPianoRollTutorialSeen(context: Context) = setProgressFlag(context, AppPrefs.HAS_SEEN_PIANO_ROLL_TUTORIAL, true)
 
     /**
      * Offers the walkthrough with the "How it works" path until it has been finished once. It isn't shown on
      * its own at start: most people want to transcribe first, and would only click through it.
      */
     fun loadHowItWorksHint(context: Context) {
-        showHowItWorksHint = !AppPrefs.get(context).getBoolean(AppPrefs.HAS_SEEN_WELCOME_TUTORIAL, false)
+        showHowItWorksHint = !AccountProgress.getFlag(context, AppPrefs.HAS_SEEN_WELCOME_TUTORIAL)
     }
 
     fun openWelcomeTutorial() {
@@ -660,7 +671,7 @@ class PianoWeaveViewModel : ViewModel() {
     /** Hides or (on Undo) brings back the Learn tab's "How it works" path without going through the walkthrough. */
     fun setHowItWorksHintShown(context: Context, shown: Boolean) {
         showHowItWorksHint = shown
-        AppPrefs.get(context).edit().putBoolean(AppPrefs.HAS_SEEN_WELCOME_TUTORIAL, !shown).apply()
+        setProgressFlag(context, AppPrefs.HAS_SEEN_WELCOME_TUTORIAL, !shown)
     }
 
     override fun onCleared() {

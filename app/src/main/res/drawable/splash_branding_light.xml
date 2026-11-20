@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash wordmark by day: the same image multiplied by bronze, so its pale golds keep their gradient
+     but read on the sunlit mist. -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/splash_branding"
+    android:tint="#A8682A"
+    android:tintMode="multiply" />

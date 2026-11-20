@@ -3,4 +3,9 @@
     <style name="Theme.PianoWeave" parent="@android:style/Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@color/splash_background</item>
     </style>
+
+    <!-- Set in MainActivity.onCreate for someone using the light themes, so the window is sunlit from the start. -->
+    <style name="Theme.PianoWeave.Light" parent="Theme.PianoWeave">
+        <item name="android:windowBackground">@color/splash_background_light</item>
+    </style>
 </resources>

@@ -50,8 +50,8 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- The launcher entries: exactly one is enabled. A developer's account gets the cat
-             (see util/DeveloperLauncherIcon.kt); everyone else the usual icon. -->
+        <!-- The launcher entries: exactly one is enabled. A developer's account gets the cat, someone using
+             the light themes the sunlit icon (see util/LauncherIcon.kt); everyone else the usual icon. -->
         <activity-alias
             android:name=".LauncherDefault"
             android:targetActivity=".MainActivity"
@@ -70,6 +70,19 @@
             android:enabled="false"
             android:icon="@mipmap/ic_launcher_developer"
             android:roundIcon="@mipmap/ic_launcher_developer">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".LauncherLight"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_light"
+            android:roundIcon="@mipmap/ic_launcher_light">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

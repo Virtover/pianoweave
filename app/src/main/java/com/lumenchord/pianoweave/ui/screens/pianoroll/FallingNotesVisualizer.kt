@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
 import androidx.compose.foundation.Canvas
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -101,7 +102,7 @@ internal fun FallingNotesVisualizer(
             val y = size.height - ((ms - head) * scale)
             if (y in 0f..size.height) {
                 drawLine(
-                    color = Color.White.copy(alpha = alpha),
+                    color = Ink.copy(alpha = alpha),
                     start = Offset(0f, y),
                     end = Offset(tw, y),
                     strokeWidth = width

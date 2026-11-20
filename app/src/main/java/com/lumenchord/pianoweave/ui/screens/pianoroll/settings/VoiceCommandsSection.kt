@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -99,7 +100,7 @@ fun VoiceCommandsSection(
                     VoiceListeningMode.WORDS -> "Say a command on its own, like “pause”."
                     VoiceListeningMode.SELAH -> "Start with Selah, like “Selah, pause”. Other talking is ignored, for noisy rooms or lessons."
                 },
-                color = Color.White.copy(alpha = 0.6f),
+                color = Ink.copy(alpha = 0.6f),
                 fontSize = 12.sp,
                 lineHeight = 17.sp
             )
@@ -147,7 +148,7 @@ private fun VoiceDownloadStatus(viewModel: PianoWeaveViewModel, accent: Color) {
                     .fillMaxWidth()
                     .clip(PillShape),
                 color = accent,
-                trackColor = Color.White.copy(alpha = 0.1f)
+                trackColor = Ink.copy(alpha = 0.1f)
             )
         }
         VoiceModelState.FAILED, VoiceModelState.MISSING -> Row(
@@ -263,7 +264,7 @@ private fun PillNoticeToggle(
 
 @Composable
 private fun StatusText(text: String, modifier: Modifier = Modifier) {
-    Text(text, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, lineHeight = 17.sp, modifier = modifier)
+    Text(text, color = Ink.copy(alpha = 0.7f), fontSize = 12.sp, lineHeight = 17.sp, modifier = modifier)
 }
 
 /** "Just the word" or "Selah first", as one pill split in two (labels fit a narrow portrait screen). */
@@ -285,7 +286,7 @@ private fun <T> PillChoice(options: List<Pair<T, String>>, selected: T, accent: 
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .clip(PillShape)
-            .border(1.dp, Color.White.copy(alpha = 0.14f), PillShape)
+            .border(1.dp, Ink.copy(alpha = 0.14f), PillShape)
             .padding(3.dp)
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -305,7 +306,7 @@ private fun <T> PillChoice(options: List<Pair<T, String>>, selected: T, accent: 
             ) {
                 Text(
                     text = label,
-                    color = if (selected) Color.White else Color.White.copy(alpha = 0.65f),
+                    color = if (selected) Ink else Ink.copy(alpha = 0.65f),
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -328,7 +329,7 @@ private fun CommandGuide(mode: VoiceListeningMode, accent: Color) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White.copy(alpha = 0.05f))
+            .background(Ink.copy(alpha = 0.05f))
     ) {
         Row(
             modifier = Modifier
@@ -339,11 +340,11 @@ private fun CommandGuide(mode: VoiceListeningMode, accent: Color) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(Icons.Outlined.Info, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-            Text("What can I say?", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Text("What can I say?", color = Ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
             Icon(
                 Icons.Default.ExpandMore,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.6f),
+                tint = Ink.copy(alpha = 0.6f),
                 modifier = Modifier
                     .size(20.dp)
                     .rotate(arrow)

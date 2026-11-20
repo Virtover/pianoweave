@@ -24,8 +24,9 @@ import com.lumenchord.pianoweave.billing.usablePlans
 import com.lumenchord.pianoweave.billing.verify
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.midi.MidiInputManager
+import com.lumenchord.pianoweave.util.AccountProgress
 import com.lumenchord.pianoweave.util.AppPrefs
-import com.lumenchord.pianoweave.util.DeveloperLauncherIcon
+import com.lumenchord.pianoweave.util.LauncherIcon
 import com.lumenchord.pianoweave.util.Connectivity
 import com.lumenchord.pianoweave.util.SecretStore
 import com.lumenchord.pianoweave.util.findActivity
@@ -365,11 +366,12 @@ internal fun PianoWeaveViewModel.applyBalance(context: Context, balance: UserBal
     isUnlimitedHeavyUse = balance.unlimitedHeavyUse == true
     userVideoLimit = balance.videoLimit
     billingAccountId = balance.userId.takeIf { (it as String?)?.isNotBlank() == true }
-    DeveloperLauncherIcon.request(context, wantsDeveloperIcons)
+    LauncherIcon.requestDeveloper(context, wantsDeveloperIcons)
     startBalanceTicker(context)
 }
 
 internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
+    AccountProgress.migrate(context)
     val prefs = AppPrefs.get(context)
     getOrCreateUserIdImpl(context)
     isStrikeOverlayEnabled = prefs.getBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, true)
@@ -384,6 +386,8 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     loadDeveloperPreferences(context)
     // A theme merged into another resolves to its replacement, so the picker shows it as selected
     selectedThemeId = AppThemeManager.resolveId(prefs.getString(AppPrefs.SELECTED_THEME_ID, null)) ?: AppThemeManager.defaultTheme.id
+    isIgnoringAccountProgress = AccountProgress.isIgnoringAccount(context)
+    reloadProgressImpl(context)
     topBarSpeed = prefs.getFloat(AppPrefs.TOP_BAR_SPEED, 1.0f)
     isCloudSyncEnabled = prefs.getBoolean(AppPrefs.IS_CLOUD_SYNC_ENABLED, false)
     hasCloudSyncError = prefs.getBoolean(AppPrefs.HAS_CLOUD_SYNC_ERROR, false)

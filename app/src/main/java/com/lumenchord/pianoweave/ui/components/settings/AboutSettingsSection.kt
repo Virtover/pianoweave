@@ -13,6 +13,9 @@ import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.ToggleOff
+import androidx.compose.material.icons.filled.ToggleOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,7 +45,9 @@ fun AboutSettingsSection(
     discordLink: String?,
     isSignedIn: Boolean,
     onOpenWalkthrough: () -> Unit,
-    onSimulateUpdate: () -> Unit
+    onSimulateUpdate: () -> Unit,
+    isIgnoringAccountProgress: Boolean = false,
+    onSetIgnoringAccountProgress: (Boolean) -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -130,6 +135,20 @@ fun AboutSettingsSection(
             previewChanges?.let { changes ->
                 TermsChangeDialog(changes = changes, onDismiss = { previewChanges = null }, linkToUpcomingPages = true)
             }
+        }
+
+        // Debug builds only: tutorials, the light themes and the verse screen as a newcomer would meet them,
+        // without the progress Android's backup or the Google account would bring back (see AccountProgress)
+        if (context.isDebuggable) {
+            LinkRow(
+                icon = Icons.Default.School,
+                title = "Ignore account progress (debug)",
+                subtitle = if (isIgnoringAccountProgress) "On: as a newcomer, nothing synced. Tap to go back"
+                else "Off: tutorials and unlocks from the account",
+                previewTheme = previewTheme,
+                onClick = { onSetIgnoringAccountProgress(!isIgnoringAccountProgress) },
+                trailingIcon = if (isIgnoringAccountProgress) Icons.Default.ToggleOn else Icons.Default.ToggleOff
+            )
         }
 
         if (isSignedIn) {

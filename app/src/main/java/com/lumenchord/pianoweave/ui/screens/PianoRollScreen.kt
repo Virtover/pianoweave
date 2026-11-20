@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens
 
 import androidx.activity.compose.BackHandler
+import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -127,7 +128,7 @@ private fun MidiErrorScreen(song: StoredMidi, error: String, onBack: () -> Unit)
             Text(
                 text = "Midi Compatibility Error",
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color.White,
+                color = Ink,
                 fontWeight = FontWeight.Bold
             )
             Text(

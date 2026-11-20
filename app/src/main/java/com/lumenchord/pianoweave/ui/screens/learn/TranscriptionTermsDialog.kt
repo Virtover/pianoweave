@@ -1,6 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
 import com.lumenchord.pianoweave.ui.components.DialogHeroHeader
+import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -54,7 +55,7 @@ internal fun TranscriptionTermsDialog(
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 color = colorSurface,
-                contentColor = Color.White,
+                contentColor = Ink,
                 border = BorderStroke(1.dp, colorSlate)
             ) {
                 Column(
@@ -84,7 +85,7 @@ internal fun TranscriptionTermsDialog(
                             appendLink("Terms of Service", AppLinks.TERMS_OF_SERVICE, colorGold)
                         },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = Ink.copy(alpha = 0.85f),
                         lineHeight = 20.sp
                     )
 
@@ -102,7 +103,7 @@ internal fun TranscriptionTermsDialog(
                             shape = PillShape,
                             border = BorderStroke(1.dp, colorSlate),
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink)
                         ) {
                             Text(
                                 text = "Cancel",
