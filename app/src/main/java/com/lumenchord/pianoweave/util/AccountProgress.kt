@@ -17,6 +17,9 @@ import com.google.gson.JsonParser
  * Each value carries when it last changed. Merging keeps the later one, except counts, which only grow. Debug builds
  * can ignore all of it (Settings, [AppPrefs.IGNORE_ACCOUNT_PROGRESS]): progress then lives in a stand-in that
  * starts empty and never syncs.
+ *
+ * Only what was done or found (unlocks, tutorials) belongs here, never choices such as the theme or Dark / Light:
+ * those stay with each device.
  */
 object AccountProgress {
 

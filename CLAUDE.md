@@ -162,6 +162,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
 - **Account progress** (`util/AccountProgress.kt`): tutorials done, the light unlock and the verse count live in their
   own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account; with cloud sync on,
   they are also merged with `piano_weave_progress.json` in the Drive app folder (`cloud/AccountProgressSync.kt`,
-  after each library sync and on each change; later change wins, counts only grow). `listCloudMidis` skips that
+  after each library sync and on each change; later change wins, counts only grow). Only unlocks and things done belong
+  there, never choices (theme, Dark / Light stay per device). `listCloudMidis` skips that
   file, but **app versions before 55 list it as a song**. Debug builds: Settings → "Ignore account progress (debug)"
   uses an empty stand-in file that never syncs (a newcomer's view); off brings the real progress back.
