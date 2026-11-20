@@ -152,10 +152,10 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   splash's: `#F2E8D6` mist, bronze letters, a sunlit `#FFC46A` glow).
 - **Light themes** (hidden): hold the Lamplight tile in any theme picker for 5 s (`IS_LIGHT_THEME_UNLOCKED`); then a
   Dark / Light toggle shows above the themes (`IS_LIGHT_THEME`). Each theme has a generated day version
-  (`ThemeSpec.sunlit` in `AppTheme.kt`: accents deepened until white text reads on them, rooms from
+  (`ThemeSpec.sunlit` in `AppTheme.kt`: accents deepened but kept vivid, rooms in each theme's own pale hue from
   `NeutralPalette.Sunlit`, "sunlight scattered over warm mist", tinted by the theme's hue;
   warm parchment, never near white: the owner wants it restful to look at, not glaring); night-only names get day
-  names (`lightNames`, e.g. Night Watch → Morning Watch). `AppThemeManager.isLight` is snapshot state read by
+  names (`lightNames`, e.g. Lamplight → Sunlight, Night Watch → Morning Watch); `drawSunBeams` (Glow.kt) lays beams of light over the screens and the stage. `AppThemeManager.isLight` is snapshot state read by
   `Moods`, `Ink` (use it instead of `Color.White` for text and hairlines on surfaces; text on an accent keeps the
   `isLightAccent` rule) and `lampGlow`. Outside the app: `LauncherLight` icon, `Theme.PianoWeave.Light` (window
   background, and the splash via `setSplashScreenTheme` on API 33+; older versions keep the dark splash).

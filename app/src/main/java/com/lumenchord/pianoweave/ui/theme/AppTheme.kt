@@ -79,63 +79,80 @@ data class NeutralPalette(
         )
 
         /**
-         * By day: sunlight scattered through a warm mist, the glory of God over everything. Cream and pale gold
-         * rooms, the falling-notes stage bright above like a sky full of light and warmer toward the keys, and
-         * warm brown ink instead of white text. Gentle on the eyes: warm parchment in sunlight, never paper white,
-         * so the brightest surface stays well below white and nothing glares.
+         * By day: sunlight scattered through a warm mist, the glory of God over everything ("the path of the
+         * righteous is like the morning sun, shining ever brighter", Proverbs 4:18). Luminous cream rather than
+         * paper white, so it is warm to rest the eyes on; warm brown ink; edges clear enough that cards read.
          */
         val Sunlit = NeutralPalette(
-            text = Color(0xFF2A2017),
-            onText = Color(0xFFFFFBF3),
-            container = Color(0xFFE9DCC4),
-            secondaryContainer = Color(0xFFEEE3CF),
-            background = Color(0xFFF2E8D6),
-            surface = Color(0xFFF7EEDD),
-            dialogSurface = Color(0xFFF6ECDA),
-            onSurface = Color(0xFF30251B),
-            onSurfaceVariant = Color(0xFF6E5E4C),
-            muted = Color(0xFF7B6A57),
-            mutedContainer = Color(0xFFE2D3B9),
-            errorContainer = Color(0xFFF2DEDA),
-            stageTop = Color(0xFFF8EEDB),
-            stageMiddle = Color(0xFFF1E4CC),
-            stageBottom = Color(0xFFE8D6B6),
-            stageLane = Color(0xFFDFCDAE)
+            text = Color(0xFF2B1F12),
+            onText = Color(0xFFFFFDF7),
+            container = Color(0xFFEBDFC8),
+            secondaryContainer = Color(0xFFF1E7D4),
+            background = Color(0xFFF6EEDF),
+            surface = Color(0xFFFBF6EC),
+            dialogSurface = Color(0xFFFAF3E5),
+            onSurface = Color(0xFF2E2216),
+            onSurfaceVariant = Color(0xFF66543F),
+            muted = Color(0xFF75624B),
+            mutedContainer = Color(0xFFD9C6A6),
+            errorContainer = Color(0xFFF5E0DC),
+            stageTop = Color(0xFFFFF8EA),
+            stageMiddle = Color(0xFFF6E9CF),
+            stageBottom = Color(0xFFE9D3AC),
+            stageLane = Color(0xFFDCC59E)
         )
 
         /**
-         * [Sunlit] with the theme's [hue] in its mist: each color is mixed with the same color turned to
-         * that hue, more so for a larger [strength] (1 = an ordinary theme). The ink keeps most of its warmth.
+         * [Sunlit] with the theme's [hue] in it: the rooms are each theme's own pale color (a dawn sky for
+         * Morning Watch, a meadow for Green Pastures), so themes stay apart by day, while the golden light over
+         * them (see lampGlow) is the same for all. [strength] is the theme's tint (1 = an ordinary theme).
          */
         fun sunlit(hue: Float, strength: Float = 1f): NeutralPalette {
-            val mix = (0.45f * strength).coerceIn(0f, 0.8f)
-            fun Color.retint(amount: Float = mix): Color {
+            val mix = (0.55f + 0.2f * strength).coerceIn(0.55f, 0.9f)
+            fun Color.retint(amount: Float = mix, minSaturation: Float = 0.1f): Color {
                 val hsv = FloatArray(3)
                 AndroidColor.colorToHSV(toArgb(), hsv)
-                // A pale color needs more saturation than the warm base has to show a cool hue at all
-                val turned = Color(AndroidColor.HSVToColor(floatArrayOf(hue, (hsv[1] * 1.6f).coerceIn(0f, 1f), hsv[2])))
+                val turned = Color(
+                    AndroidColor.HSVToColor(floatArrayOf(hue, (hsv[1] * 1.8f).coerceIn(minSaturation, 1f), hsv[2]))
+                )
                 return lerp(this, turned, amount)
             }
             return with(Sunlit) {
                 NeutralPalette(
-                    text = text.retint(mix * 0.4f),
+                    text = text.retint(0.35f, 0.3f),
                     onText = onText,
-                    container = container.retint(),
-                    secondaryContainer = secondaryContainer.retint(),
+                    container = container.retint(minSaturation = 0.16f),
+                    secondaryContainer = secondaryContainer.retint(minSaturation = 0.12f),
                     background = background.retint(),
-                    surface = surface.retint(),
-                    dialogSurface = dialogSurface.retint(),
-                    onSurface = onSurface.retint(mix * 0.4f),
-                    onSurfaceVariant = onSurfaceVariant.retint(mix * 0.6f),
-                    muted = muted.retint(mix * 0.6f),
-                    mutedContainer = mutedContainer.retint(),
+                    surface = surface.retint(0.5f, 0.06f),
+                    dialogSurface = dialogSurface.retint(0.6f, 0.08f),
+                    onSurface = onSurface.retint(0.3f, 0.3f),
+                    onSurfaceVariant = onSurfaceVariant.retint(0.45f, 0.25f),
+                    muted = muted.retint(0.45f, 0.25f),
+                    mutedContainer = mutedContainer.retint(minSaturation = 0.22f),
                     errorContainer = errorContainer,
-                    stageTop = stageTop.retint(mix * 0.7f),
-                    stageMiddle = stageMiddle.retint(),
-                    stageBottom = stageBottom.retint(),
-                    stageLane = stageLane.retint()
+                    stageTop = daylightStage(hue, 0),
+                    stageMiddle = daylightStage(hue, 1),
+                    stageBottom = daylightStage(hue, 2),
+                    stageLane = daylightStage(hue, 3)
                 )
             }
+        }
+
+        /**
+         * The falling-notes stage by day, from the top ([part] 0) to the keys (2), then its lanes (3): a sky full
+         * of light above, golden where the sun falls, deepening in the theme's own [hue] toward the keyboard, so
+         * vivid notes stand out against it.
+         */
+        internal fun daylightStage(hue: Float, part: Int): Color {
+            val (saturation, value, gold) = when (part) {
+                0 -> Triple(0.07f, 1f, 0.55f)
+                1 -> Triple(0.14f, 0.96f, 0.3f)
+                2 -> Triple(0.26f, 0.87f, 0.15f)
+                else -> Triple(0.3f, 0.8f, 0.1f)
+            }
+            val own = Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation, value)))
+            return lerp(own, Color(0xFFFFEFC8), gold)
         }
 
         /**
@@ -490,8 +507,8 @@ object AppThemeManager {
      * or the morning the passage waits for.
      */
     private val lightNames = mapOf(
-        // "a light for my path" (Ps 119:105), the second half of the lamp's verse
-        "lamplight" to "Light for My Path",
+        // The lamp by night, the sun by day: "The Lord God is a sun and shield" (Ps 84:11)
+        "lamplight" to "Sunlight",
         // "my soul waits for the Lord more than watchmen wait for the morning" (Ps 130:6): the morning came
         "deep_velvet" to "Morning Watch",
         // "In the morning, Lord, you hear my voice; in the morning I lay my requests before you" (Ps 5:3)
@@ -705,22 +722,22 @@ object AppThemeManager {
             }
             return copy(
                 name = lightName,
-                primaryColor = primaryColor.inDaylight(0.17f),
-                lightColor = lightColor.inDaylight(0.42f),
-                upcomingColor = upcomingColor.inDaylight(0.14f),
-                waitTargetColor = waitTargetColor.inDaylight(0.2f),
-                waitTargetLightColor = waitTargetLightColor.inDaylight(0.45f),
-                targetColor = targetColor.inDaylight(0.2f),
-                baselineColor = baselineColor.inDaylight(0.24f),
-                baselineGlowColor = baselineGlowColor.inDaylight(0.3f),
-                successColor = successColor.inDaylight(0.2f),
-                successLightColor = successLightColor.inDaylight(0.42f),
-                isLightAccent = false,
+                primaryColor = primaryColor.inDaylight(0.24f),
+                lightColor = lightColor.inDaylight(0.5f),
+                upcomingColor = upcomingColor.inDaylight(0.24f),
+                waitTargetColor = waitTargetColor.inDaylight(0.24f),
+                waitTargetLightColor = waitTargetLightColor.inDaylight(0.5f),
+                targetColor = targetColor.inDaylight(0.3f),
+                baselineColor = baselineColor.inDaylight(0.28f),
+                baselineGlowColor = baselineGlowColor.inDaylight(0.32f),
+                successColor = successColor.inDaylight(0.24f),
+                successLightColor = successLightColor.inDaylight(0.5f),
+                isLightAccent = primaryColor.inDaylight(0.24f).luminance() > 0.179f,
                 palette = if (stage == null) room else room.copy(
-                    stageTop = stage[0].asDaylightStage(),
-                    stageMiddle = stage[1].asDaylightStage(),
-                    stageBottom = stage[2].asDaylightStage(),
-                    stageLane = stage[3].asDaylightStage()
+                    stageTop = NeutralPalette.daylightStage(hueOf(stage[0]), 0),
+                    stageMiddle = NeutralPalette.daylightStage(hueOf(stage[1]), 1),
+                    stageBottom = NeutralPalette.daylightStage(hueOf(stage[2]), 2),
+                    stageLane = NeutralPalette.daylightStage(hueOf(stage[3]), 3)
                 ),
                 // Stars belong to the night; the day's sky is the mist itself
                 stageOrnament = StageOrnament.None,
@@ -760,7 +777,7 @@ internal fun Color.inDaylight(maxLuminance: Float): Color {
     var color = this
     while (color.luminance() > maxLuminance && hsv[2] > 0.05f) {
         hsv[2] -= 0.01f
-        hsv[1] = (hsv[1] + 0.006f).coerceAtMost(1f)
+        hsv[1] = (hsv[1] + 0.014f).coerceAtMost(1f)
         // Yellow darkened turns olive: golds and yellows lean toward amber instead, as sunlit gold does
         if (hsv[0] in 38f..75f) hsv[0] -= 0.35f
         color = Color(AndroidColor.HSVToColor(floatArrayOf(hsv[0], hsv[1], hsv[2])))
@@ -768,14 +785,7 @@ internal fun Color.inDaylight(maxLuminance: Float): Color {
     return color.copy(alpha = alpha)
 }
 
-/** A dark stage color as the same place by day: its hue kept, brightened into the mist. */
-private fun Color.asDaylightStage(): Color {
-    val hsv = FloatArray(3)
-    AndroidColor.colorToHSV(toArgb(), hsv)
-    val day = Color(AndroidColor.HSVToColor(floatArrayOf(hsv[0], (hsv[1] * 0.28f).coerceIn(0f, 0.3f), (0.98f - hsv[2] * 0.6f).coerceIn(0f, 1f))))
-    // Always a little of the sunlight's warmth in it
-    return lerp(day, NeutralPalette.Sunlit.stageMiddle, 0.3f)
-}
+private fun hueOf(color: Color): Float = FloatArray(3).also { AndroidColor.colorToHSV(color.toArgb(), it) }[0]
 
 /**
  * The color for text, icons and hairlines that used to be plain white: white at night, the warm

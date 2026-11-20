@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.components.SunGlow
+import com.lumenchord.pianoweave.ui.components.drawSunBeams
 import androidx.compose.foundation.Canvas
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,6 +79,9 @@ internal fun FallingNotesVisualizer(
             ),
             size = size
         )
+
+        // By day, the sky above the notes is full of light
+        if (appTheme.isLight) drawSunBeams(SunGlow, strength = 1.3f)
 
         val t = ornamentTime?.value ?: 0f
         when (ornament) {
