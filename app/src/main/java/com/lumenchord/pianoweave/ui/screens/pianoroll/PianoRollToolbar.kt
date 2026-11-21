@@ -222,14 +222,19 @@ internal fun ModernToolbar(
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Ink)
         }
-        if (isPortrait) {
-            // The song, as the design shows it: its title, the artist under it
+        // A phone has no room for the song beside the controls (more of them appear with the metronome or wait mode):
+        // there the pill holds only the controls. A wider screen shows the title with the artist under it
+        val showsSong = isPortrait && configuration.screenWidthDp >= 600
+        if (showsSong) {
             val song = viewModel.activePracticeSong?.metadata
-            Column(modifier = Modifier.weight(1f).padding(start = 2.dp, end = 4.dp)) {
+            Column(
+                modifier = Modifier.weight(1f).padding(start = 2.dp, end = 8.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
                 Text(
                     text = song?.title ?: "",
                     color = Ink,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.titleSmall.copy(lineHeight = 17.sp),
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -238,12 +243,14 @@ internal fun ModernToolbar(
                     Text(
                         text = it,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 15.sp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
+        } else if (isPortrait) {
+            Spacer(Modifier.weight(1f))
         }
         if (!isPortrait) {
             Text(
