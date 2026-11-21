@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.midi
 
+import android.bluetooth.BluetoothStatusCodes
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -183,7 +184,7 @@ internal class BleMidiKeyboard(
         val value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
         return runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                g.writeDescriptor(cccd, value) == BluetoothGatt.GATT_SUCCESS
+                g.writeDescriptor(cccd, value) == BluetoothStatusCodes.SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 cccd.value = value
@@ -196,7 +197,7 @@ internal class BleMidiKeyboard(
     private fun writeOne(g: BluetoothGatt, ch: BluetoothGattCharacteristic, packet: ByteArray, type: Int): Boolean =
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                g.writeCharacteristic(ch, packet, type) == BluetoothGatt.GATT_SUCCESS
+                g.writeCharacteristic(ch, packet, type) == BluetoothStatusCodes.SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 ch.value = packet

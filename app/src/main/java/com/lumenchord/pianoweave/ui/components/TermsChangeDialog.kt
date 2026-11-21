@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -48,7 +49,7 @@ fun TermsChangeDialog(
     val colorSurface = MaterialTheme.colorScheme.surface
     val colorSlate = MaterialTheme.colorScheme.tertiaryContainer
     // The Terms page has both languages; open the user's one first. The Privacy Policy is in English only.
-    val polish = Locale.getDefault().language == "pl"
+    val polish = LocalConfiguration.current.locales[0].language == "pl"
     val termsUrl = changes.terms?.let {
         if (linkToUpcomingPages) AppLinks.termsUpcoming(polish) else AppLinks.termsVersion(it, polish)
     }

@@ -54,12 +54,6 @@ object BluetoothMidiPermissions {
 }
 
 /**
- * Bluetooth MIDI: finding and connecting Bluetooth LE MIDI keyboards (the app's own LE connection,
- * [BleMidiKeyboard], handed to [MidiInputManager]), getting the last one back by itself (see [watchLast]), and stopping [BleMidiPeripheral] (the phone as a device for computers) when Bluetooth
- * is switched off.
- */
-@SuppressLint("MissingPermission") // every entry point checks BluetoothMidiPermissions first
-/**
  * What to say after the [failures]-th pairing failure in a row with one keyboard. Once is usually a request not
  * accepted; again and again is usually a pairing only one side still remembers (the keyboard or its computer asks
  * for keys this device no longer has), which only forgetting it there ends.
@@ -69,6 +63,15 @@ internal fun pairingFailureMessage(failures: Int): String =
     else "Pairing failed again. Remove this device from the keyboard's Bluetooth list (or the computer " +
         "it runs on), and from this device's Bluetooth settings, then tap the keyboard again."
 
+/**
+ * Bluetooth MIDI: finding and connecting Bluetooth LE MIDI keyboards (the app's own LE connection,
+ * [BleMidiKeyboard], handed to [MidiInputManager]), getting the last one back by itself (see [watchLast]), and stopping [BleMidiPeripheral] (the phone as a device for computers) when Bluetooth
+ * is switched off.
+ *
+ * Every entry point checks [BluetoothMidiPermissions] first, and each Bluetooth call is in runCatching, so a
+ * permission taken away meanwhile ends in a failure handled there, not a crash.
+ */
+@SuppressLint("MissingPermission")
 object BluetoothMidi {
     private const val SCAN_MS = 15_000L
     private const val CONNECT_TIMEOUT_MS = 20_000L

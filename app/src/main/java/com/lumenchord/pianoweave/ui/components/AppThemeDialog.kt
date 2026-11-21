@@ -156,7 +156,7 @@ private fun ThemeTile(
                 modifier = Modifier
                     .size(30.dp)
                     // A day theme shows its gold leaf, as its buttons will look; a night theme its accent
-                    .then(if (theme.fill != null) Modifier.goldLeaf(theme, CircleShape) else Modifier.background(theme.primaryColor, CircleShape)),
+                    .then(if (theme.fill != null) Modifier.goldLeaf(theme, CircleShape, glowStrength = if (theme.isLight) 1f else 0.5f) else Modifier.background(theme.primaryColor, CircleShape)),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
