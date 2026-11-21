@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
@@ -222,35 +223,36 @@ internal fun ModernToolbar(
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Ink)
         }
-        // A phone has no room for the song beside the controls (more of them appear with the metronome or wait mode):
-        // there the pill holds only the controls. A wider screen shows the title with the artist under it
-        val showsSong = isPortrait && configuration.screenWidthDp >= 600
-        if (showsSong) {
+        // In portrait the song takes the room the controls leave (less while the metronome or wait mode adds a
+        // button): its title with the artist under it, shortened to fit, and left out where even a few letters wouldn't
+        if (isPortrait) {
             val song = viewModel.activePracticeSong?.metadata
-            Column(
-                modifier = Modifier.weight(1f).padding(start = 2.dp, end = 8.dp),
-                verticalArrangement = Arrangement.Center
+            BoxWithConstraints(
+                modifier = Modifier.weight(1f).padding(start = 2.dp, end = 6.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Text(
-                    text = song?.title ?: "",
-                    color = Ink,
-                    style = MaterialTheme.typography.titleSmall.copy(lineHeight = 17.sp),
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                song?.author?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 15.sp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                if (maxWidth >= 64.dp && !song?.title.isNullOrBlank()) {
+                    Column(verticalArrangement = Arrangement.Center) {
+                        Text(
+                            text = song?.title ?: "",
+                            color = Ink,
+                            style = MaterialTheme.typography.labelLarge.copy(lineHeight = 16.sp),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        song?.author?.takeIf { it.isNotBlank() }?.let {
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall.copy(lineHeight = 13.sp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
-        } else if (isPortrait) {
-            Spacer(Modifier.weight(1f))
         }
         if (!isPortrait) {
             Text(
