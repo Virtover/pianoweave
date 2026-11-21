@@ -57,9 +57,9 @@ fun AdaptiveNavigation(
     val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
     // The theme's own colour in it, as the night's disc has: its light mixed into the sunlit ground, its accent as the ring
     val dayTint = LocalAppTheme.current.fill?.first() ?: Color(0xFFF3CC6E)
-    val logoDiscBorder = if (isDay) BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.75f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+    val logoDiscBorder = if (isDay) BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
     val logoDiscGround = if (isDay) Modifier.background(
-        Brush.verticalGradient(listOf(lerp(Color(0xFFFFF8E6), dayTint, 0.18f), lerp(Color(0xFFFAEBC8), dayTint, 0.3f), lerp(Color(0xFFF2D9A6), dayTint, 0.4f))),
+        Brush.verticalGradient(listOf(lerp(Color(0xFFFFF8E6), dayTint, 0.12f), lerp(Color(0xFFFAEDD0), dayTint, 0.2f), lerp(Color(0xFFF5E2BA), dayTint, 0.28f))),
         CircleShape
     ) else Modifier
     val room = rememberWindowRoom()

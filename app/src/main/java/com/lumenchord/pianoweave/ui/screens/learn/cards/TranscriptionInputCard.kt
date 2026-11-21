@@ -422,23 +422,23 @@ fun TranscriptionInputCard(
                 val awaitingLink = source == TranscriptionSource.Link && viewModel.videoUrl.isBlank()
                 if (!viewModel.isLoading && !viewModel.isRecording && awaitingLink) {
                     // How to fill the field: centred under it, the places a link can come from in the accent
-                    val siteStyle = SpanStyle(color = LocalAppTheme.current.primaryColor, fontWeight = FontWeight.SemiBold)
+                    val siteStyle = SpanStyle(fontWeight = FontWeight.Medium)
                     Text(
                         text = buildAnnotatedString {
-                            append("Copy a ")
+                            append("Copy a link, e.g. from ")
                             withStyle(siteStyle) { append("YouTube") }
                             append(", ")
                             withStyle(siteStyle) { append("TikTok") }
                             append(" or ")
                             withStyle(siteStyle) { append("Instagram") }
-                            append(" link,")
+                            append(",")
                             appendLine()
                             append("then paste it here.")
                         },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                         textAlign = TextAlign.Center,
-                        lineHeight = 21.sp,
+                        lineHeight = 18.sp,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 4.dp)

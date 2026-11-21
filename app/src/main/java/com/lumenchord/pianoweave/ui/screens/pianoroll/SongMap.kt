@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -107,13 +108,13 @@ internal fun SongMap(
         val x = { ms: Long -> ms.toFloat() / dur * size.width }
         loop?.let {
             drawRoundRect(
-                theme.primaryColor.copy(alpha = 0.18f),
+                theme.litColor.copy(alpha = 0.18f),
                 Offset(x(it.first), 0f),
                 Size((x(it.last) - x(it.first)).coerceAtLeast(2f), size.height),
                 CornerRadius(4.dp.toPx())
             )
             drawRoundRect(
-                theme.primaryColor,
+                theme.litColor,
                 Offset(x(it.first), 0f),
                 Size((x(it.last) - x(it.first)).coerceAtLeast(2f), size.height),
                 CornerRadius(4.dp.toPx()),
@@ -126,7 +127,7 @@ internal fun SongMap(
             val width = (x(bar.endMs) - left - gap).coerceAtLeast(1f)
             val height = size.height * (0.18f + 0.72f * bar.notes / maxNotes)
             drawRoundRect(
-                if (bar.startMs < playheadMs) theme.primaryColor else muted,
+                if (bar.startMs < playheadMs) theme.litColor else muted,
                 Offset(left, size.height - height - 3.dp.toPx()),
                 Size(width, height),
                 CornerRadius(1.5f)
@@ -136,11 +137,11 @@ internal fun SongMap(
         loop?.let {
             val handleW = 6.dp.toPx()
             for (edge in listOf(it.first, it.last)) {
-                drawRoundRect(theme.primaryColor, Offset(x(edge) - handleW / 2f, -1.dp.toPx()), Size(handleW, size.height + 2.dp.toPx()), CornerRadius(handleW / 2f))
+                drawRoundRect(theme.litColor, Offset(x(edge) - handleW / 2f, -1.dp.toPx()), Size(handleW, size.height + 2.dp.toPx()), CornerRadius(handleW / 2f))
             }
         }
         val px = x(playheadMs.coerceIn(0L, dur))
-        drawLine(theme.primaryColor.copy(alpha = 0.45f), Offset(px, 0f), Offset(px, size.height), 6.dp.toPx())
+        drawLine(theme.litColor.copy(alpha = 0.45f), Offset(px, 0f), Offset(px, size.height), 6.dp.toPx())
         drawLine(Ink, Offset(px, 0f), Offset(px, size.height), 2.dp.toPx())
     }
 }

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.nativeCanvas
@@ -53,7 +54,7 @@ internal fun FallingNotesVisualizer(
     isLargeScreen: Boolean = false
 ) {
     val appTheme = LocalAppTheme.current
-    val ColorGold = appTheme.primaryColor
+    val ColorGold = appTheme.litColor
     val ColorGoldLight = appTheme.lightColor
     val ColorUpcomingNote = appTheme.upcomingColor
     val ColorWaitTarget = appTheme.waitTargetColor

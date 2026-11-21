@@ -1,5 +1,11 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawBehind
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,14 +67,28 @@ fun AppSwitch(
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    accent: Color = LocalAppTheme.current.primaryColor
+    accent: Color = LocalAppTheme.current.litColor
 ) {
     val onSurface = MaterialTheme.colorScheme.onSurface
     val surface = MaterialTheme.colorScheme.surface
+    val theme = LocalAppTheme.current
+    // By day an on switch is gold leaf like the key buttons: the theme's gold from top to bottom
+    val leaf = theme.isLight && checked && enabled && theme.fill != null
     Switch(
         checked = checked,
         onCheckedChange = onCheckedChange,
-        modifier = modifier,
+        modifier = modifier.then(
+            if (!leaf) Modifier else Modifier.drawBehind {
+                val w = 52.dp.toPx()
+                val h = 32.dp.toPx()
+                drawRoundRect(
+                    Brush.verticalGradient(theme.fill!!, startY = (size.height - h) / 2f, endY = (size.height + h) / 2f),
+                    topLeft = Offset((size.width - w) / 2f, (size.height - h) / 2f),
+                    size = Size(w, h),
+                    cornerRadius = CornerRadius(h / 2f)
+                )
+            }
+        ),
         enabled = enabled,
         thumbContent = if (checked) {
             { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(SwitchDefaults.IconSize)) }
@@ -76,8 +96,8 @@ fun AppSwitch(
         colors = SwitchDefaults.colors(
             checkedThumbColor = surface,
             checkedIconColor = accent,
-            checkedTrackColor = accent,
-            checkedBorderColor = accent,
+            checkedTrackColor = if (leaf) Color.Transparent else accent,
+            checkedBorderColor = if (leaf) Color.Transparent else accent,
             uncheckedThumbColor = onSurface.copy(alpha = 0.55f),
             uncheckedTrackColor = onSurface.copy(alpha = 0.04f),
             uncheckedBorderColor = onSurface.copy(alpha = 0.3f),

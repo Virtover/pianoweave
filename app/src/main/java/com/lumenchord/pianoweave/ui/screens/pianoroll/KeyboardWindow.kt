@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -217,7 +218,7 @@ internal fun KeyRangeStrip(
                     drawRect(ivory, Offset(i * w + 0.5f, 0f), Size(w - 1f, size.height))
                     // The song's notes on this key, or the black key after it: a mark at the foot
                     if (pitch in songPitches || (pitch + 1) in songPitches) {
-                        drawRect(theme.primaryColor, Offset(i * w + 0.5f, size.height * 0.72f), Size(w - 1f, size.height * 0.28f))
+                        drawRect(theme.litColor, Offset(i * w + 0.5f, size.height * 0.72f), Size(w - 1f, size.height * 0.28f))
                     }
                     if (isPitchBlack(pitch + 1) && pitch + 1 <= PIANO_HIGHEST) {
                         drawRect(ebony, Offset((i + 1) * w - w * 0.32f, 0f), Size(w * 0.64f, size.height * 0.58f))
@@ -230,7 +231,7 @@ internal fun KeyRangeStrip(
                 if (x1 > 0f) drawRect(veil, Offset.Zero, Size(x1, size.height))
                 if (x2 < size.width) drawRect(veil, Offset(x2, 0f), Size(size.width - x2, size.height))
                 drawRoundRect(
-                    theme.primaryColor,
+                    theme.litColor,
                     Offset(x1 - 1.dp.toPx(), -2.dp.toPx()),
                     Size(x2 - x1 + 2.dp.toPx(), size.height + 4.dp.toPx()),
                     CornerRadius(3.dp.toPx()),

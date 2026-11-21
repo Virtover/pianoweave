@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.lerp
 import android.graphics.Paint
@@ -54,7 +55,7 @@ internal fun PianoKeyboardRow(
     showNoteNames: Boolean = false
 ) {
     val appTheme = LocalAppTheme.current
-    val ColorGold = appTheme.primaryColor
+    val ColorGold = appTheme.litColor
     val ColorWaitTarget = appTheme.waitTargetColor
     val ColorSuccess = appTheme.successColor
 

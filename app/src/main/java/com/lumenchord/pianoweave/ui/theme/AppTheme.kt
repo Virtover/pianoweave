@@ -772,6 +772,12 @@ object AppThemeManager {
 }
 
 /**
+ * The accent for shapes that shine (played keys, loop handles, frames, switches, the progress fill): by day the
+ * theme's own gold, as the design has it, not the deeper accent kept for text; at night the accent itself.
+ */
+val AppTheme.litColor: Color get() = if (isLight) fill?.lastOrNull() ?: primaryColor else primaryColor
+
+/**
  * This color deepened, keeping its hue, until its relative luminance is at most [maxLuminance]: a little
  * more saturated as it darkens, so it stays a color in the light rather than turning muddy (and golds lean amber).
  */

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -79,7 +80,7 @@ internal data class SeekInfo(
 @Composable
 internal fun SeekIndicatorOverlay(seekInfo: SeekInfo?) {
     val appTheme = LocalAppTheme.current
-    val ColorGold = appTheme.primaryColor
+    val ColorGold = appTheme.litColor
 
     var visibleInfo by remember { mutableStateOf<SeekInfo?>(null) }
     var alpha by remember { mutableFloatStateOf(0f) }
@@ -147,7 +148,7 @@ internal fun ModernToolbar(
     metronome: SpeedChipMetronome
 ) {
     val appTheme = LocalAppTheme.current
-    val ColorGold = appTheme.primaryColor
+    val ColorGold = appTheme.litColor
 
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
