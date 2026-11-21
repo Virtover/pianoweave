@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.components
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.keyButtonContainer
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -198,16 +201,12 @@ private fun DayNightToggle(isLight: Boolean, onSetLight: (Boolean) -> Unit) {
     ) {
         listOf(false to "Dark", true to "Light").forEach { (light, label) ->
             val selected = light == isLight
-            val content = when {
-                !selected -> Ink.copy(alpha = 0.7f)
-                theme.isLightAccent -> Color.Black
-                else -> Ink
-            }
+            val content = if (selected) theme.onKeyButton else Ink.copy(alpha = 0.7f)
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .clip(PillShape)
-                    .background(if (selected) theme.primaryColor else Color.Transparent)
+                    .then(if (selected && theme.fill != null) Modifier.goldLeaf(theme) else Modifier.background(if (selected) theme.primaryColor else Color.Transparent))
                     .clickable(onClickLabel = "Use the ${label.lowercase()} themes") { onSetLight(light) }
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.Center,
@@ -233,7 +232,7 @@ fun AppThemeDialog(
     onDismiss: () -> Unit,
     light: LightThemeControl? = null
 ) {
-    var selectedId by remember { mutableStateOf(currentThemeId) }
+    var selectedId by remember(currentThemeId) { mutableStateOf(currentThemeId) }
     val previewTheme = AppThemeManager.getTheme(selectedId)
 
     Dialog(onDismissRequest = onDismiss) {
@@ -299,18 +298,19 @@ fun AppThemeDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp),
+                            .height(46.dp)
+                            .goldLeaf(previewTheme),
                         shape = PillShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = previewTheme.primaryColor,
-                            contentColor = if (previewTheme.isLightAccent) Color.Black else Color.White
+                            containerColor = previewTheme.keyButtonContainer,
+                            contentColor = previewTheme.onKeyButton
                         )
                     ) {
                         Text(
                             "Done",
                             fontWeight = FontWeight.Black,
                             fontSize = 14.sp,
-                            color = if (previewTheme.isLightAccent) Color.Black else Color.White
+                            color = previewTheme.onKeyButton
                         )
                     }
                 }

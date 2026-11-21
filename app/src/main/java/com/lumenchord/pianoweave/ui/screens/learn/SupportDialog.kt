@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.theme.SupportRose
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.components.DialogSurface
@@ -63,8 +64,8 @@ internal fun SupportDialog(
                         title = "Support Piano Weave",
                         icon = Icons.Default.Favorite,
                         onClose = onDismiss,
-                        titleColor = colorGold,
-                        iconTint = MaterialTheme.colorScheme.error
+                        titleColor = SupportRose.ink,
+                        iconTint = SupportRose.core
                     )
 
                     Text(
@@ -125,8 +126,8 @@ internal fun SupportDialog(
                             shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = colorGold,
-                                contentColor = if (appTheme.isLightAccent) Color.Black else Color.White
+                                containerColor = SupportRose.button,
+                                contentColor = Color.White
                             )
                         ) {
                             Icon(Icons.Default.Favorite, null, modifier = Modifier.size(16.dp))

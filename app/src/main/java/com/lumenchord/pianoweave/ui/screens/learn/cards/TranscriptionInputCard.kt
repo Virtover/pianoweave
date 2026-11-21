@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.ui.theme.Ink
+import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -375,9 +377,9 @@ fun TranscriptionInputCard(
                     },
                     singleLine = true,
                     enabled = !viewModel.isLoading,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = PillShape,
                     colors = quietFieldColors(),
-                    leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary) },
+                    leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f), modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (viewModel.isLoading) return@OutlinedTextField
                         if (viewModel.videoUrl.isNotEmpty()) {
@@ -393,7 +395,15 @@ fun TranscriptionInputCard(
                                     if (!pasted.isNullOrEmpty()) viewModel.updateUrl(pasted)
                                 }
                             }) {
-                                Icon(Icons.Default.ContentPaste, "Paste link", tint = MaterialTheme.colorScheme.secondary)
+                                // A smaller icon in a soft well of the accent: clearly a button, without growing the field
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.ContentPaste, "Paste link", tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(19.dp))
+                                }
                             }
                         }
                     }
@@ -404,7 +414,20 @@ fun TranscriptionInputCard(
                     ServerPasswordNotice(isOfficialServer = viewModel.isUsingDefaultServer, onClick = onOpenServerSettings)
                 }
 
-                if (!viewModel.isLoading && !viewModel.isRecording) {
+                // Until there is a link, a new user sees only the field and how to fill it: the button comes with the link
+                val awaitingLink = source == TranscriptionSource.Link && viewModel.videoUrl.isBlank()
+                if (!viewModel.isLoading && !viewModel.isRecording && awaitingLink) {
+                    Text(
+                        text = "Copy a YouTube, TikTok or Instagram link, then paste it here.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp)
+                            .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
+                    )
+                }
+                if (!viewModel.isLoading && !viewModel.isRecording && !awaitingLink) {
                     val isBilled = viewModel.isBilledServer
                     val cost = viewModel.estimatedCostCredits
                     val buttonLabel = if (isWide) "Transcribe to MIDI" else "Transcribe"
@@ -417,7 +440,10 @@ fun TranscriptionInputCard(
                         label = "transcribeReadiness"
                     )
                     val container = lerp(accent.copy(alpha = 0.08f), accent, readiness)
-                    val content = lerp(accent.copy(alpha = 0.45f), MaterialTheme.colorScheme.onSecondary, readiness)
+                    // By day the button is gold leaf, with the ink on it
+                    val leaf = LocalAppTheme.current.fill
+                    val content = if (leaf != null) lerp(accent.copy(alpha = 0.45f), Ink, readiness)
+                    else lerp(accent.copy(alpha = 0.45f), MaterialTheme.colorScheme.onSecondary, readiness)
                     val interaction = remember { MutableInteractionSource() }
                     val pressed by interaction.collectIsPressedAsState()
                     val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "transcribePress")
@@ -445,7 +471,10 @@ fun TranscriptionInputCard(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(PillShape)
-                                .background(container)
+                                .then(
+                                    if (leaf != null) Modifier.background(Brush.verticalGradient(leaf.map { lerp(it.copy(alpha = 0.12f), it, readiness) }))
+                                    else Modifier.background(container)
+                                )
                                 // A faint sheen on top once ready, so it reads as lit rather than flat
                                 .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.14f * readiness), Color.Transparent))),
                             shape = PillShape,

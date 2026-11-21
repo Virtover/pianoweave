@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import androidx.compose.ui.graphics.Color
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.Manifest
@@ -386,7 +387,7 @@ fun StorageScreen(
                     Text(
                         text = "MIDI Library",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = libraryTitleColor(),
                         maxLines = 1
                     )
 
@@ -456,7 +457,7 @@ fun StorageScreen(
                 Text(
                     text = "MIDI Library",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = libraryTitleColor(),
                     maxLines = 1
                 )
 
@@ -583,7 +584,7 @@ fun StorageScreen(
                             interactionSource = interactionSource,
                             // The same quiet well as the Transcribe card's link field
                             colors = quietFieldColors(),
-                            shape = RoundedCornerShape(if (isShort) 12.dp else 14.dp)
+                            shape = PillShape
                         )
                     }
                 )
@@ -646,3 +647,9 @@ fun StorageScreen(
     }
 }
 
+/** The Library title: the ink at night; by day the theme's gold, as the deep ink read too heavy there. */
+@Composable
+private fun libraryTitleColor(): Color {
+    val theme = LocalAppTheme.current
+    return if (theme.isLight) theme.primaryColor else MaterialTheme.colorScheme.primary
+}

@@ -77,7 +77,10 @@ object AppPrefs {
     const val LEGAL_NEW_USER = "legal_new_user"
 
     // UI & playback
+    /** The night theme chosen (the dark themes). */
     const val SELECTED_THEME_ID = "selected_theme_id"
+    /** The day theme chosen (the light themes), remembered apart so switching back finds it again. */
+    const val SELECTED_DAY_THEME_ID = "selected_day_theme_id"
     const val TOP_BAR_SPEED = "top_bar_speed"
     const val IS_STRIKE_OVERLAY_ENABLED = "is_strike_overlay_enabled"
     /** Whether notes from a connected MIDI keyboard are played through the app's piano sound. */

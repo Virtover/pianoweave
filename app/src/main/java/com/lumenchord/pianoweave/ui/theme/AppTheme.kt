@@ -28,7 +28,12 @@ data class AppTheme(
     /** A gentle, living touch on the falling-notes stage, taken from the theme's own image. */
     val stageOrnament: StageOrnament = StageOrnament.None,
     /** One of the light themes, by day (see [AppThemeManager.isLight]). */
-    val isLight: Boolean = false
+    val isLight: Boolean = false,
+    /**
+     * By day, the gold-leaf fill of the key buttons (top to bottom): the accent's bright version, lit from within,
+     * with dark ink on it. Null at night, where buttons are filled with [primaryColor].
+     */
+    val fill: List<Color>? = null
 )
 
 /** What moves on a theme's falling-notes stage, behind the notes. Each is faint, slow and never in the way. */
@@ -79,80 +84,61 @@ data class NeutralPalette(
         )
 
         /**
-         * By day: sunlight scattered through a warm mist, the glory of God over everything ("the path of the
-         * righteous is like the morning sun, shining ever brighter", Proverbs 4:18). Luminous cream rather than
-         * paper white, so it is warm to rest the eyes on; warm brown ink; edges clear enough that cards read.
+         * By day: the glory of God as light, not glare ("God is light; in him there is no darkness at all", 1 John 1:5).
+         * A warm parchment ground, cards of warm light lifted by light rather than shadow, a deep warm ink, and a
+         * falling-notes stage that is brightest above and settles warmer toward the keys.
          */
         val Sunlit = NeutralPalette(
-            text = Color(0xFF2B1F12),
+            text = Color(0xFF2A1D10),
             onText = Color(0xFFFFFDF7),
-            container = Color(0xFFEBDFC8),
-            secondaryContainer = Color(0xFFF1E7D4),
-            background = Color(0xFFF6EEDF),
-            surface = Color(0xFFFBF6EC),
-            dialogSurface = Color(0xFFFAF3E5),
+            container = Color(0xFFEADBBE),
+            secondaryContainer = Color(0xFFF1E6D2),
+            background = Color(0xFFEFE2C8),
+            surface = Color(0xFFF8F0DF),
+            dialogSurface = Color(0xFFF9F1E2),
             onSurface = Color(0xFF2E2216),
-            onSurfaceVariant = Color(0xFF66543F),
-            muted = Color(0xFF75624B),
-            mutedContainer = Color(0xFFD9C6A6),
+            onSurfaceVariant = Color(0xFF574632),
+            muted = Color(0xFF6B5A45),
+            mutedContainer = Color(0xFFE6D5B4),
             errorContainer = Color(0xFFF5E0DC),
-            stageTop = Color(0xFFFFF8EA),
-            stageMiddle = Color(0xFFF6E9CF),
-            stageBottom = Color(0xFFE9D3AC),
-            stageLane = Color(0xFFDCC59E)
+            stageTop = Color(0xFFFBF4E4),
+            stageMiddle = Color(0xFFF8EEDA),
+            stageBottom = Color(0xFFF1E2C4),
+            stageLane = Color(0xFFE6D5B4)
         )
 
         /**
-         * [Sunlit] with the theme's [hue] in it: the rooms are each theme's own pale color (a dawn sky for
-         * Morning Watch, a meadow for Green Pastures), so themes stay apart by day, while the golden light over
-         * them (see lampGlow) is the same for all. [strength] is the theme's tint (1 = an ordinary theme).
+         * [Sunlit] with a little of the theme's [hue] in it, more for a larger [strength]: the rooms keep their
+         * parchment warmth, and each day theme still feels its own.
          */
         fun sunlit(hue: Float, strength: Float = 1f): NeutralPalette {
-            val mix = (0.55f + 0.2f * strength).coerceIn(0.55f, 0.9f)
-            fun Color.retint(amount: Float = mix, minSaturation: Float = 0.1f): Color {
+            val mix = (0.35f * strength).coerceIn(0f, 0.6f)
+            fun Color.retint(amount: Float = mix, minSaturation: Float = 0.08f): Color {
                 val hsv = FloatArray(3)
                 AndroidColor.colorToHSV(toArgb(), hsv)
-                val turned = Color(
-                    AndroidColor.HSVToColor(floatArrayOf(hue, (hsv[1] * 1.8f).coerceIn(minSaturation, 1f), hsv[2]))
-                )
+                val turned = Color(AndroidColor.HSVToColor(floatArrayOf(hue, (hsv[1] * 1.6f).coerceIn(minSaturation, 1f), hsv[2])))
                 return lerp(this, turned, amount)
             }
             return with(Sunlit) {
                 NeutralPalette(
-                    text = text.retint(0.35f, 0.3f),
+                    text = text,
                     onText = onText,
-                    container = container.retint(minSaturation = 0.16f),
-                    secondaryContainer = secondaryContainer.retint(minSaturation = 0.12f),
+                    container = container.retint(),
+                    secondaryContainer = secondaryContainer.retint(),
                     background = background.retint(),
-                    surface = surface.retint(0.5f, 0.06f),
-                    dialogSurface = dialogSurface.retint(0.6f, 0.08f),
-                    onSurface = onSurface.retint(0.3f, 0.3f),
-                    onSurfaceVariant = onSurfaceVariant.retint(0.45f, 0.25f),
-                    muted = muted.retint(0.45f, 0.25f),
-                    mutedContainer = mutedContainer.retint(minSaturation = 0.22f),
+                    surface = surface.retint(mix * 0.6f),
+                    dialogSurface = dialogSurface.retint(mix * 0.6f),
+                    onSurface = onSurface,
+                    onSurfaceVariant = onSurfaceVariant,
+                    muted = muted,
+                    mutedContainer = mutedContainer.retint(),
                     errorContainer = errorContainer,
-                    stageTop = daylightStage(hue, 0),
-                    stageMiddle = daylightStage(hue, 1),
-                    stageBottom = daylightStage(hue, 2),
-                    stageLane = daylightStage(hue, 3)
+                    stageTop = stageTop.retint(mix * 0.5f),
+                    stageMiddle = stageMiddle.retint(mix * 0.6f),
+                    stageBottom = stageBottom.retint(mix * 0.7f),
+                    stageLane = stageLane.retint()
                 )
             }
-        }
-
-        /**
-         * The falling-notes stage by day, from the top ([part] 0) to the keys (2), then its lanes (3): a sky full
-         * of light above, golden where the sun falls, deepening in the theme's own [hue] toward the keyboard, so
-         * vivid notes stand out against it.
-         */
-        internal fun daylightStage(hue: Float, part: Int): Color {
-            val (saturation, value, gold) = when (part) {
-                0 -> Triple(0.07f, 1f, 0.55f)
-                1 -> Triple(0.14f, 0.96f, 0.3f)
-                2 -> Triple(0.26f, 0.87f, 0.15f)
-                else -> Triple(0.3f, 0.8f, 0.1f)
-            }
-            val own = Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation, value)))
-            return lerp(own, Color(0xFFFFEFC8), gold)
         }
 
         /**
@@ -502,38 +488,64 @@ object AppThemeManager {
         ),
     )
 
+    /** Dark themes, as the app has always had them. */
+    private val darkThemes: List<AppTheme> = specs.map { it.build() }
+
     /**
-     * Names by day, where the night's image doesn't hold in sunlight. Each comes from the same passage,
-     * or the morning the passage waits for.
+     * The day themes: a set of their own, chosen for daylight, one clear colour each (the design's "Themes by day"
+     * board). Each is drawn by hand: [DayTheme.top] and [DayTheme.bottom] are its gold-leaf fill, [DayTheme.line]
+     * its keyboard line; everything else follows from them. The first is the default.
      */
-    private val lightNames = mapOf(
-        // The lamp by night, the sun by day: "The Lord God is a sun and shield" (Ps 84:11)
-        "lamplight" to "Sunlight",
-        // "my soul waits for the Lord more than watchmen wait for the morning" (Ps 130:6): the morning came
-        "deep_velvet" to "Morning Watch",
-        // "In the morning, Lord, you hear my voice; in the morning I lay my requests before you" (Ps 5:3)
-        "indigo" to "Morning Prayer",
-        // "He reached down from on high and took hold of me; he drew me out of deep waters" (Ps 18:16)
-        "deep_waters" to "Drawn from the Waters",
-        // The same room at Pentecost, by day: "tongues of fire that separated and came to rest on each" (Acts 2:3)
-        "upper_room" to "Pentecost",
-        // "Then he got up and rebuked the winds and the waves, and it was completely calm" (Mt 8:26)
-        "storm_on_the_lake" to "Great Calm",
-        // "Early on the first day of the week" (Jn 20:1): after the cup, the morning
-        "the_cup" to "Resurrection Morning",
-        // "you brought my life up from the pit" (Jon 2:6), and "my life shall see the light" (Job 33:28)
-        "out_of_the_depths" to "Into the Light",
-        // "Wake up, sleeper... and Christ will shine on you" (Eph 5:14)
-        "sleeper" to "Awake, O Sleeper",
-        // "but then face to face" (1 Cor 13:12)
-        "glass_darkly" to "Face to Face",
+    private val dayThemes = listOf(
+        // "The Son is the radiance of God's glory" (Hebrews 1:3); Lamplight's counterpart by day
+        DayTheme("radiance", "Radiance", Color(0xFFF3CC6E), Color(0xFFD9A23F), Color(0xFFE58A5A)),
+        // "Fan into flame the gift of God" (2 Timothy 1:6); Upper Room's counterpart
+        DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFF7A15E), Color(0xFFE06A2E), Color(0xFFE9B84C)),
+        // "Arise, shine, for your light has come" (Isaiah 60:1); The Cup's counterpart
+        DayTheme("rise_up", "Rise Up", Color(0xFFD696D8), Color(0xFFB064B4), Color(0xFFEDC062)),
+        DayTheme("crimson", "Scarlet Cord", Color(0xFFE8707A), Color(0xFFC23B4A), Color(0xFFE6B25A)),
+        DayTheme("rose", "Rose of Sharon", Color(0xFFF08CB2), Color(0xFFD6588A), Color(0xFFA9C46A)),
+        DayTheme("lavender", "Lavender", Color(0xFFAE9BE6), Color(0xFF7F66C8), Color(0xFFE3B860)),
+        DayTheme("cyan", "Living Water", Color(0xFF52C6D2), Color(0xFF1A97AA), Color(0xFFE5B45A)),
+        DayTheme("mint", "Spring Rain", Color(0xFF6FD3A8), Color(0xFF2E9F74), Color(0xFFE8A96A)),
+        DayTheme("emerald", "Green Pastures", Color(0xFF8CC66A), Color(0xFF559A35), Color(0xFFEE9DB6)),
+        // "More than watchmen wait for the morning" (Psalm 130:6); Night Watch's counterpart
+        DayTheme("morning_watch", "Morning Watch", Color(0xFF86AEE6), Color(0xFF4473BD), Color(0xFFE2A548)),
+        DayTheme("olive", "Olive Tree", Color(0xFFB3B864), Color(0xFF7C8233), Color(0xFFB59270)),
+        DayTheme("titanium", "Rock of Refuge", Color(0xFFC9B08E), Color(0xFF9C7F5A), Color(0xFF3FB8C8), strength = 0.5f),
     )
 
-    /** Dark themes, as the app has always had them. */
-    private val darkThemes: List<AppTheme> = specs.map { it.build(light = false) }
+    private val lightThemes: List<AppTheme> = dayThemes.map { it.build() }
 
-    /** The same themes by day: sunlight scattered through a warm mist, the glory of God over everything. */
-    private val lightThemes: List<AppTheme> = specs.map { it.build(light = true) }
+    /**
+     * Themes that are one image by night and by day under different names, so switching keeps the image. A theme
+     * in both sets with the same id needs no entry; anything else goes to the other side's default.
+     */
+    private val dayPartners = mapOf(
+        "lamplight" to "radiance",
+        "deep_velvet" to "morning_watch",
+        "upper_room" to "fan_into_flame",
+        "the_cup" to "rise_up",
+    )
+
+    const val DEFAULT_NIGHT_ID = "lamplight"
+    const val DEFAULT_DAY_ID = "radiance"
+
+    /**
+     * The theme to show after switching to the other side ([toLight]): the same theme if it exists there, else its
+     * partner, else [rememberedId] (that side's last choice), else that side's default.
+     */
+    fun counterpart(id: String, toLight: Boolean, rememberedId: String?): String {
+        val resolved = resolveId(id) ?: id
+        val target = if (toLight) lightThemes else darkThemes
+        val partner = if (toLight) dayPartners[resolved] else dayPartners.entries.firstOrNull { it.value == resolved }?.key
+        return when {
+            target.any { it.id == resolved } -> resolved
+            partner != null -> partner
+            rememberedId != null && target.any { it.id == resolveId(rememberedId) } -> resolveId(rememberedId)!!
+            else -> if (toLight) DEFAULT_DAY_ID else DEFAULT_NIGHT_ID
+        }
+    }
 
     /**
      * Whether the light themes are in use. Kept here, as snapshot state, so composables and drawing code
@@ -568,18 +580,18 @@ object AppThemeManager {
         "Evening & Night" to listOf("indigo", "upper_room", "deep_velvet", "deep_waters"),
     )
 
-    /** Group names by day: the evening group becomes the morning's, and the depths lead up. */
-    private val lightGroupNames = mapOf(
-        "Evening & Night" to "Morning & Day",
-        "Out of the Depths" to "Up from the Depths",
+    private val dayGroupIds: List<Pair<String, List<String>>> = listOf(
+        "Joy & Glory" to listOf("radiance", "fan_into_flame", "rise_up"),
+        "Hope & Love" to listOf("crimson", "rose"),
+        "Peace & Rest" to listOf("lavender", "cyan", "mint", "emerald"),
+        "Watch & Faithfulness" to listOf("morning_watch", "olive", "titanium"),
     )
 
-    private fun groupsOf(list: List<AppTheme>, light: Boolean) = groupIds.map { (feeling, ids) ->
-        (if (light) lightGroupNames[feeling] ?: feeling else feeling) to ids.map { id -> list.first { it.id == id } }
-    }
+    private fun groupsOf(ids: List<Pair<String, List<String>>>, list: List<AppTheme>) =
+        ids.map { (feeling, members) -> feeling to members.map { id -> list.first { it.id == id } } }
 
-    private val darkGroups = groupsOf(darkThemes, light = false)
-    private val lightGroups = groupsOf(lightThemes, light = true)
+    private val darkGroups = groupsOf(groupIds, darkThemes)
+    private val lightGroups = groupsOf(dayGroupIds, lightThemes)
 
     val themeGroups: List<Pair<String, List<AppTheme>>> get() = if (isLight) lightGroups else darkGroups
 
@@ -634,12 +646,7 @@ object AppThemeManager {
         val stage: List<Color>?,
         val stageOrnament: StageOrnament
     ) {
-        fun build(light: Boolean): AppTheme {
-            val dark = buildDark()
-            return if (light) dark.sunlit(lightNames[id] ?: name) else dark
-        }
-
-        private fun buildDark(): AppTheme {
+        fun build(): AppTheme {
             val hsv = FloatArray(3)
             AndroidColor.colorToHSV(primary.toArgb(), hsv)
             val hue = hsv[0]
@@ -706,42 +713,38 @@ object AppThemeManager {
             )
         }
 
-        /**
-         * The theme by day. Every color keeps its hue but is deepened until it reads on the misty light
-         * (white text on the accent, notes and keyboard line clear against the stage). The room is the warm
-         * mist with the theme's own hue in it; a theme with its own stage keeps that stage's colors, lightened.
-         */
-        private fun AppTheme.sunlit(lightName: String): AppTheme {
-            val hsv = FloatArray(3)
-            AndroidColor.colorToHSV(primary.toArgb(), hsv)
-            val ownTint = this@ThemeSpec.palette
-            val room = when {
-                ownTint != null -> NeutralPalette.sunlit(ownTint.hue, ownTint.strength.coerceAtMost(1.6f))
-                hsv[1] < 0.15f || tint <= 0f -> NeutralPalette.Sunlit
-                else -> NeutralPalette.sunlit(hsv[0], tint)
-            }
-            return copy(
-                name = lightName,
-                primaryColor = primaryColor.inDaylight(0.24f),
-                lightColor = lightColor.inDaylight(0.5f),
-                upcomingColor = upcomingColor.inDaylight(0.24f),
-                waitTargetColor = waitTargetColor.inDaylight(0.24f),
-                waitTargetLightColor = waitTargetLightColor.inDaylight(0.5f),
-                targetColor = targetColor.inDaylight(0.3f),
-                baselineColor = baselineColor.inDaylight(0.28f),
-                baselineGlowColor = baselineGlowColor.inDaylight(0.32f),
-                successColor = successColor.inDaylight(0.24f),
-                successLightColor = successLightColor.inDaylight(0.5f),
-                isLightAccent = primaryColor.inDaylight(0.24f).luminance() > 0.179f,
-                palette = if (stage == null) room else room.copy(
-                    stageTop = NeutralPalette.daylightStage(hueOf(stage[0]), 0),
-                    stageMiddle = NeutralPalette.daylightStage(hueOf(stage[1]), 1),
-                    stageBottom = NeutralPalette.daylightStage(hueOf(stage[2]), 2),
-                    stageLane = NeutralPalette.daylightStage(hueOf(stage[3]), 3)
-                ),
-                // Stars belong to the night; the day's sky is the mist itself
+    }
+
+    /**
+     * One day theme: its gold-leaf fill from [top] to [bottom], its keyboard [line], and how strongly its hue tints
+     * the parchment rooms ([strength]). The accent for text and icons is [bottom] deepened until it reads on the
+     * parchment; notes fall in [bottom]'s colour.
+     */
+    private class DayTheme(val id: String, val name: String, val top: Color, val bottom: Color, val line: Color, val strength: Float = 1f) {
+        fun build(): AppTheme {
+            val hue = hueOf(bottom)
+            val accent = bottom.inDaylight(0.2f)
+            // Waiting notes in a colour apart from the theme's own: amber for blue themes, sky blue for the rest
+            val wait = if (hue in 190f..250f) Color(0xFFE0952E) else Color(0xFF3E93CF)
+            val success = if (hue in 90f..170f) Color(0xFF2A86C8) else Color(0xFF3C9A52)
+            return AppTheme(
+                id = id,
+                name = name,
+                primaryColor = accent,
+                lightColor = top,
+                upcomingColor = bottom.inDaylight(0.36f),
+                waitTargetColor = wait,
+                waitTargetLightColor = lerp(wait, Color.White, 0.55f),
+                targetColor = lerp(bottom, top, 0.4f).inDaylight(0.42f),
+                baselineColor = line.inDaylight(0.4f),
+                baselineGlowColor = line,
+                successColor = success,
+                successLightColor = lerp(success, Color.White, 0.5f),
+                isLightAccent = accent.luminance() > 0.179f,
+                palette = NeutralPalette.sunlit(hue, strength),
                 stageOrnament = StageOrnament.None,
-                isLight = true
+                isLight = true,
+                fill = listOf(top, bottom)
             )
         }
     }

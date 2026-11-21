@@ -18,6 +18,17 @@ data class Mood(
  * how it should feel. Every mood follows a passage, so the feeling stays truthful: sorrow that is held
  * rather than alarm, watchfulness without fear, joy as light that does not fade.
  */
+/**
+ * The support heart's rose: a true rose rather than an alert red, "God loves a cheerful giver" (2 Corinthians 9:7).
+ * [core] for the heart and the button, [ink] for words in it; deep by day, soft by night.
+ */
+object SupportRose {
+    val core: Color get() = if (AppThemeManager.isLight) Color(0xFFC8506A) else Color(0xFFF2A0A8)
+    val ink: Color get() = if (AppThemeManager.isLight) Color(0xFF8A2E44) else Color(0xFFF6D2D2)
+    /** The Support button's fill: a rose that carries white text in both themes. */
+    val button: Color get() = if (AppThemeManager.isLight) Color(0xFFC8506A) else Color(0xFFD86A7C)
+}
+
 object Moods {
 
     /**

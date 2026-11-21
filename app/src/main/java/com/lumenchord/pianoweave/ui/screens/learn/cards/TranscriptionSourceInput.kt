@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
@@ -92,37 +94,41 @@ internal fun SourceSelector(
             size.sp
         }
 
+        // A recessed well, the chosen part lifted out of it: in warm light by day, in the theme's gold by night
+        val theme = LocalAppTheme.current
+        val well = if (theme.isLight) MaterialTheme.colorScheme.tertiaryContainer else Color.Black.copy(alpha = 0.28f)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(if (isCompact) 42.dp else 36.dp)
                 .clip(pill)
-                .border(1.dp, outline, pill)
+                .background(well, pill)
+                .border(1.dp, outline.copy(alpha = 0.5f), pill)
+                .padding(3.dp)
                 .selectableGroup()
         ) {
             options.forEachIndexed { index, (source, label, icon) ->
                 val isFirst = index == 0
                 val isLast = index == options.lastIndex
                 val isSelected = source == selected
-                val shape = RoundedCornerShape(
-                    topStartPercent = if (isFirst) 50 else 0,
-                    bottomStartPercent = if (isFirst) 50 else 0,
-                    topEndPercent = if (isLast) 50 else 0,
-                    bottomEndPercent = if (isLast) 50 else 0
-                )
-                val contentColor = (if (isSelected) accent else MaterialTheme.colorScheme.onSurface)
-                    .copy(alpha = if (enabled) 1f else 0.38f)
+                val shape = pill
+                val contentColor = when {
+                    !isSelected -> MaterialTheme.colorScheme.onSurfaceVariant
+                    theme.isLight -> MaterialTheme.colorScheme.onSurface
+                    else -> theme.onKeyButton
+                }.copy(alpha = if (enabled) 1f else 0.38f)
 
-                if (!isFirst) VerticalDivider(thickness = SegmentDivider, color = outline)
+                if (!isFirst) Spacer(Modifier.width(SegmentDivider))
                 Row(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .then(
-                            if (isSelected) Modifier
-                                .background(accent.copy(alpha = 0.18f), shape)
-                                .border(1.dp, accent.copy(alpha = 0.6f), shape)
-                            else Modifier
+                            if (!isSelected) Modifier
+                            else if (theme.isLight) Modifier
+                                .background(MaterialTheme.colorScheme.surface, shape)
+                                .border(1.dp, outline.copy(alpha = 0.6f), shape)
+                            else Modifier.background(theme.primaryColor, shape)
                         )
                         .selectable(
                             selected = isSelected,
@@ -140,7 +146,7 @@ internal fun SourceSelector(
                     Text(
                         text = label,
                         color = contentColor,
-                        style = labelStyle.copy(fontSize = labelFontSize),
+                        style = labelStyle.copy(fontSize = labelFontSize, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium),
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis,

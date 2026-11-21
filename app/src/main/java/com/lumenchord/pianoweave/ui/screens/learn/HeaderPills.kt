@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.theme.SupportRose
 import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 
 import androidx.compose.foundation.BorderStroke
@@ -37,8 +38,6 @@ import com.lumenchord.pianoweave.billing.owedMinutes
 import com.lumenchord.pianoweave.ui.components.cardWash
 import com.lumenchord.pianoweave.ui.theme.Moods
 
-/** The Support heart's rose, softened so it sits with the page: "God loves a cheerful giver" (2 Corinthians 9:7). */
-private val SupportRose = Color(0xFFE57373)
 
 /**
  * The pill both corner actions share, made of the same stuff as the screen's cards: their surface,
@@ -223,18 +222,24 @@ fun SupportPill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    HeaderPill(onClick = onClick, description = "Support Piano Weave", accent = SupportRose, modifier = modifier) {
+    HeaderPill(
+        onClick = onClick,
+        description = "Support Piano Weave",
+        accent = SupportRose.core,
+        modifier = modifier,
+        borderColor = SupportRose.core.copy(alpha = 0.35f)
+    ) {
         Icon(
             imageVector = Icons.Rounded.Favorite,
             contentDescription = null,
-            tint = SupportRose.copy(alpha = 0.8f),
+            tint = SupportRose.core,
             modifier = Modifier.size(14.dp)
         )
         Spacer(Modifier.width(6.dp))
         Text(
             text = "Support",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = SupportRose.ink,
             maxLines = 1,
             softWrap = false
         )

@@ -37,7 +37,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.draw.drawWithContent
 import com.lumenchord.pianoweave.ui.theme.LetterFontFamily
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
-import com.lumenchord.pianoweave.ui.components.lampGlow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.draw.drawBehind
@@ -71,11 +70,13 @@ import kotlin.math.pow
 // The splash screen's palette (see splash_icon_vector.xml and its _light twin), independent of the accent theme:
 // lamplight at night; by day sunlight in a warm mist, with deep bronze letters lit by a golden glow
 private fun byDay(day: Long, night: Long) = Color(if (AppThemeManager.isLight) day else night)
-private val LightBackground: Color get() = byDay(0xFFF2E8D6, 0xFF0F0B09)
-private val LightGlow: Color get() = byDay(0xFFFFC46A, 0xFFFFDEB2)
+private val LightBackground: Color get() = byDay(0xFFEEE3CF, 0xFF0F0B09)
+// By day a warm white, not yellow: the light is the cross's, not a tint over the page
+private val LightGlow: Color get() = byDay(0xFFFFF4DC, 0xFFFFDEB2)
 private val LightPale: Color get() = byDay(0xFF5A4632, 0xFFF6E2C5)
-private val VerseColor: Color get() = byDay(0xFF3A2A1A, 0xFFFBEAD3)
-private val SoftGold: Color get() = byDay(0xFF9A6A2A, 0xFFE6C08D)
+// By day the words in deep gold, the name and reference in a brighter one
+private val VerseColor: Color get() = byDay(0xFF6B430C, 0xFFFBEAD3)
+private val SoftGold: Color get() = byDay(0xFFA87418, 0xFFE6C08D)
 /** What the letters flash toward as the light reveals them. */
 private val RevealFlash: Color get() = byDay(0xFFB8782E, 0xFFFFFFFF)
 
@@ -185,7 +186,18 @@ fun VerseOfLightScreen(onClose: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             // By day the sun's glow over the mist, as behind the app's own screens
-            .then(if (AppThemeManager.isLight) Modifier.lampGlow(LightBackground, SoftGold) else Modifier.background(LightBackground))
+            // By day the page is brightest around the cross and settles into soft warm shade at the edges: the cross is
+            // the source of the light, with no disc or tint laid over the page
+            .then(if (AppThemeManager.isLight) Modifier.drawBehind {
+                drawRect(
+                    Brush.radialGradient(
+                        0f to Color(0xFFFBF6EC), 0.18f to Color(0xFFF6EEDF), 0.4f to Color(0xFFEEE3CF),
+                        0.68f to Color(0xFFE4D5BB), 1f to Color(0xFFD9C7A8),
+                        center = Offset(size.width / 2f, size.height * 0.27f),
+                        radius = maxOf(size.width, size.height) * 0.9f
+                    )
+                )
+            } else Modifier.background(LightBackground))
             .pointerInput(Unit) { detectTapGestures { } } // Keep touches from reaching the app below
     ) {
         BoxWithConstraints(
@@ -417,9 +429,8 @@ private fun Modifier.shineReveal(
 }
 
 // The splash icon's ribbon gradients (see splash_icon_vector.xml)
-private val RibbonGold: List<Color>
-    get() = if (AppThemeManager.isLight) listOf(Color(0xFFAD7A41), Color(0xFFBC9A6C), Color(0xFFC4AA84), Color(0xFFCCC0AC))
-    else listOf(Color(0xFFD9A86E), Color(0xFFEBCB9C), Color(0xFFF6E2C5), Color(0xFFFFF8EF))
+// The cross: the splash icon's ribbon golds, the same by day and by night
+private val RibbonGold: List<Color> = listOf(Color(0xFFD9A86E), Color(0xFFEBCB9C), Color(0xFFF6E2C5), Color(0xFFFFF8EF))
 private val RibbonEdge = Color(0xFFFFFBF4)
 
 private const val GLOW_LAYERS = 22

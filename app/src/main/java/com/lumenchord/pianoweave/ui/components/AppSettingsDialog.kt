@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.components
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.keyButtonContainer
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.BorderStroke
@@ -33,7 +36,8 @@ fun AppSettingsDialog(
     onSimulateUpdate: () -> Unit,
     onOpenWalkthrough: () -> Unit
 ) {
-    var selectedThemeId by remember { mutableStateOf(viewModel.selectedThemeId) }
+    // Read straight from the ViewModel: switching Dark / Light changes the theme too
+    val selectedThemeId = viewModel.selectedThemeId
     var showSignOutConfirm by remember { mutableStateOf(false) }
     val previewTheme = AppThemeManager.getTheme(selectedThemeId)
 
@@ -126,7 +130,6 @@ fun AppSettingsDialog(
                         AppThemeGrid(
                             selectedThemeId = selectedThemeId,
                             onSelectTheme = { themeId ->
-                                selectedThemeId = themeId
                                 viewModel.setSelectedTheme(context, themeId)
                             },
                             light = rememberLightThemeControl(viewModel, context)
@@ -156,11 +159,13 @@ fun AppSettingsDialog(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp),
+                            .height(46.dp)
+                            .goldLeaf(previewTheme),
                         shape = PillShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = previewTheme.primaryColor,
-                            contentColor = if (previewTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
+                            containerColor = previewTheme.keyButtonContainer,
+                            contentColor = if (previewTheme.fill != null) previewTheme.onKeyButton
+                            else if (previewTheme.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
                         Text("Done", fontWeight = FontWeight.Black, fontSize = 14.sp)

@@ -148,17 +148,21 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a
   random verse from `bible_verses.json` with the matching Hebrew name of God, revealed by a shine sweep that copies
   the splash icon's animation (`res/drawable/splash_icon*.xml`). Tapping the name or verse copies it. Its look is
-  meant to match the splash screen: palette `#0F0B09` background, `#FFDEB2` glow, ribbon golds (by day the light
-  splash's: `#F2E8D6` mist, bronze letters, a sunlit `#FFC46A` glow).
+  meant to match the splash screen: palette `#0F0B09` background, `#FFDEB2` glow, ribbon golds (by day the same gold
+  cross on a page brightest around it, settling into warm shade at the edges, words in deep gold).
 - **Light themes** (hidden): hold the Lamplight tile in any theme picker for 5 s (`IS_LIGHT_THEME_UNLOCKED`); then a
-  Dark / Light toggle shows above the themes (`IS_LIGHT_THEME`). Each theme has a generated day version
-  (`ThemeSpec.sunlit` in `AppTheme.kt`: accents deepened but kept vivid, rooms in each theme's own pale hue from
-  `NeutralPalette.Sunlit`, "sunlight scattered over warm mist", tinted by the theme's hue;
-  warm parchment, never near white: the owner wants it restful to look at, not glaring); night-only names get day
-  names (`lightNames`, e.g. Lamplight → Sunlight, Night Watch → Morning Watch); `drawSunBeams` (Glow.kt) lays beams of light over the screens and the stage. `AppThemeManager.isLight` is snapshot state read by
-  `Moods`, `Ink` (use it instead of `Color.White` for text and hairlines on surfaces; text on an accent keeps the
-  `isLightAccent` rule) and `lampGlow`. Outside the app: `LauncherLight` icon, `Theme.PianoWeave.Light` (window
-  background, and the splash via `setSplashScreenTheme` on API 33+; older versions keep the dark splash).
+  Dark / Light toggle shows above the themes (`IS_LIGHT_THEME`). The day themes are a set of their own (`dayThemes` in
+  `AppTheme.kt`, 12, one clear colour each; default Radiance), drawn from the design canvas "Piano Weave by Day"
+  (claude.ai artifact). Switching keeps the same theme if it exists on the other side, else its partner
+  (`dayPartners`, e.g. Night Watch ↔ Morning Watch), else that side's last choice (`SELECTED_THEME_ID` /
+  `SELECTED_DAY_THEME_ID`), else that side's default. Style by Scripture: light, not glare and no darkness: warm
+  parchment (`NeutralPalette.Sunlit`), cards lifted by light rather than shadow, gold lit from within, no rays or sun
+  shapes (the owner rejected them). Key buttons are gold leaf by day (`goldLeaf`, `AppTheme.fill`, ink on it).
+  `AppThemeManager.isLight` is snapshot state read by `Moods`, `SupportRose`, `Ink` (use it instead of `Color.White`
+  for text and hairlines on surfaces; text on an accent keeps the `isLightAccent` rule) and `lampGlow`. Outside the
+  app: `LauncherLight` icon, `Theme.PianoWeave.Light` (window background, and the splash via `setSplashScreenTheme` on
+  API 33+), all in the chosen "Warm across, edges": the night drawables' ribbons in warm golds shaded across, a fine
+  gold line, the bright edges; the launcher icon on the piano roll's sunlit stage.
 - **Account progress** (`util/AccountProgress.kt`): tutorials done, the light unlock and the verse count live in their
   own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account; with cloud sync on,
   they are also merged with `piano_weave_progress.json` in the Drive app folder (`cloud/AccountProgressSync.kt`,

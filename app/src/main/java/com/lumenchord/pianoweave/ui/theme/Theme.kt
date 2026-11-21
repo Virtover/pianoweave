@@ -1,5 +1,9 @@
 package com.lumenchord.pianoweave.ui.theme
 
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.background
+import androidx.compose.ui.Modifier
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -86,3 +90,20 @@ fun PianoWeaveTheme(
  * and dialogs. Cards, fields and tiles keep their rounded rectangles, which tells them apart.
  */
 val PillShape = RoundedCornerShape(percent = 50)
+
+/**
+ * By day the key buttons (Transcribe, Done, the chosen Dark / Light) are gold leaf: the theme's [AppTheme.fill],
+ * lit from within, with the ink on it. At night this adds nothing and the button keeps its accent fill.
+ */
+fun Modifier.goldLeaf(theme: AppTheme, shape: Shape = PillShape): Modifier =
+    theme.fill?.let { background(Brush.verticalGradient(it), shape) } ?: this
+
+/** A key button's container: clear over the gold leaf by day, the accent at night. */
+val AppTheme.keyButtonContainer: Color get() = if (fill != null) Color.Transparent else primaryColor
+
+/** What is written on a key button: the ink on gold leaf by day, black or white on the accent at night. */
+val AppTheme.onKeyButton: Color get() = when {
+    fill != null -> NeutralPalette.Sunlit.text
+    isLightAccent -> Color.Black
+    else -> Color.White
+}

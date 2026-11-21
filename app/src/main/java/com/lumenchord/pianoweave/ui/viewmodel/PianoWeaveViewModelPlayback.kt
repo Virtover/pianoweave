@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import com.lumenchord.pianoweave.api.isArrangementKey
 import android.content.Context
 import android.net.Uri
@@ -24,7 +25,9 @@ import kotlinx.coroutines.withContext
 
 internal fun PianoWeaveViewModel.setSelectedThemeImpl(context: Context, themeId: String) {
     selectedThemeId = themeId
-    AppPrefs.get(context).edit().putString(AppPrefs.SELECTED_THEME_ID, themeId).apply()
+    // Each side keeps its own choice: the day themes are a set of their own
+    val key = if (AppThemeManager.isLight) AppPrefs.SELECTED_DAY_THEME_ID else AppPrefs.SELECTED_THEME_ID
+    AppPrefs.get(context).edit().putString(key, themeId).apply()
 }
 
 internal fun PianoWeaveViewModel.clearTranscriptionErrorImpl() {

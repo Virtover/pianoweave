@@ -20,7 +20,9 @@ private const val TAG = "AccountProgress"
 /** Reads the progress the screens show (and the light theme, which needs its unlock) back from [AccountProgress]. */
 internal fun PianoWeaveViewModel.reloadProgressImpl(context: Context) {
     isLightThemeUnlocked = AccountProgress.getFlag(context, AppPrefs.IS_LIGHT_THEME_UNLOCKED)
-    AppThemeManager.isLight = isLightThemeUnlocked && AppPrefs.get(context).getBoolean(AppPrefs.IS_LIGHT_THEME, false)
+    val prefs = AppPrefs.get(context)
+    AppThemeManager.isLight = isLightThemeUnlocked && prefs.getBoolean(AppPrefs.IS_LIGHT_THEME, false)
+    selectedThemeId = selectedThemeFor(context, AppThemeManager.isLight)
     LauncherIcon.requestLight(context, AppThemeManager.isLight)
     showHowItWorksHint = !AccountProgress.getFlag(context, AppPrefs.HAS_SEEN_WELCOME_TUTORIAL)
 }
@@ -56,9 +58,24 @@ internal fun PianoWeaveViewModel.unlockLightThemeImpl(context: Context): Boolean
 }
 
 internal fun PianoWeaveViewModel.setLightThemeImpl(context: Context, light: Boolean) {
-    AppThemeManager.isLight = light && isLightThemeUnlocked
-    AppPrefs.get(context).edit().putBoolean(AppPrefs.IS_LIGHT_THEME, AppThemeManager.isLight).apply()
-    applyDaylightOutsideApp(context, AppThemeManager.isLight)
+    val toLight = light && isLightThemeUnlocked
+    if (toLight == AppThemeManager.isLight) return
+    val prefs = AppPrefs.get(context)
+    val targetKey = if (toLight) AppPrefs.SELECTED_DAY_THEME_ID else AppPrefs.SELECTED_THEME_ID
+    // The same theme on the other side, else its partner, else that side's last choice, else its default
+    val next = AppThemeManager.counterpart(selectedThemeId, toLight, prefs.getString(targetKey, null))
+    AppThemeManager.isLight = toLight
+    selectedThemeId = next
+    prefs.edit().putBoolean(AppPrefs.IS_LIGHT_THEME, toLight).putString(targetKey, next).apply()
+    applyDaylightOutsideApp(context, toLight)
+}
+
+/** The theme chosen for one side, a merged theme followed to its replacement; that side's default if none yet. */
+internal fun selectedThemeFor(context: Context, light: Boolean): String {
+    val prefs = AppPrefs.get(context)
+    val saved = prefs.getString(if (light) AppPrefs.SELECTED_DAY_THEME_ID else AppPrefs.SELECTED_THEME_ID, null)
+    return AppThemeManager.resolveId(saved)?.takeIf { AppThemeManager.getTheme(it, light).id == it }
+        ?: if (light) AppThemeManager.DEFAULT_DAY_ID else AppThemeManager.DEFAULT_NIGHT_ID
 }
 
 /**
