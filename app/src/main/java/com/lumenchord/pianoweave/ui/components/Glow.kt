@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -14,13 +16,23 @@ import kotlin.math.max
  * is lit from above without any shape of a sun or beams in it.
  */
 fun DrawScope.drawStageDaylight() {
-    drawRect(
-        Brush.verticalGradient(
-            0f to Color(0xFFFFFBF0).copy(alpha = 0.75f),
-            0.22f to Color(0xFFFFFBF0).copy(alpha = 0.25f),
-            0.4f to Color.Transparent
+    // As in the design: a wide ellipse of light just above the stage, warm white at its heart, gently; never a beam
+    val center = Offset(size.width / 2f, 8.dp.toPx())
+    val ry = 190.dp.toPx().coerceAtMost(size.height * 0.45f)
+    val rx = size.width / 2f + 60.dp.toPx()
+    scale(scaleX = rx / ry, scaleY = 1f, pivot = center) {
+        drawCircle(
+            Brush.radialGradient(
+                0f to Color(0xFFFFF0C8).copy(alpha = 0.55f),
+                0.35f to Color(0xFFFFDE8C).copy(alpha = 0.26f),
+                0.7f to Color.Transparent,
+                center = center,
+                radius = ry
+            ),
+            radius = ry,
+            center = center
         )
-    )
+    }
 }
 
 /** Sunlight through warm mist: the glory over the light themes ("the Lord will be your everlasting light", Isaiah 60:19). */

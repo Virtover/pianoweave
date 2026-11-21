@@ -307,14 +307,14 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.edgeLight(
 }
 
 /**
- * The logo by day: the splash screen's own drawing, sized as the splash shows it (its visible circle is the middle
+ * The logo by day: the splash screen's own drawing (without the ribbons' lines), sized as the splash shows it (its visible circle is the middle
  * 192 of 288 dp), so it fills this circle the same way.
  */
 @Composable
 private fun DayLogo(modifier: Modifier) {
     BoxWithConstraints(modifier.clip(CircleShape), contentAlignment = Alignment.Center) {
         Image(
-            painterResource(R.drawable.splash_icon_vector_light),
+            painterResource(R.drawable.app_icon_light),
             contentDescription = "Piano Weave Settings",
             modifier = Modifier.requiredSize(maxWidth * 1.5f)
         )

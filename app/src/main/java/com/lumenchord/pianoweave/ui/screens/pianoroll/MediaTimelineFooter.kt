@@ -282,10 +282,23 @@ internal fun MediaTimelineFooter(
                             val activeTrackHeight = (if (isDay) 6.dp else 6.5.dp).toPx()
                             val activeWidth = thumbCenterX.coerceIn(0f, totalWidth)
                             if (activeWidth > 0f) {
+                                // By day the played part shines: a soft glow of the theme's light around it
+                                if (isDay) {
+                                    val glow = appTheme.fill?.first() ?: ColorGoldLight
+                                    for ((spread, alpha) in listOf(5.dp to 0.12f, 2.5.dp to 0.2f)) {
+                                        val px = spread.toPx()
+                                        drawRoundRect(
+                                            color = glow.copy(alpha = alpha),
+                                            topLeft = Offset(-px, centerY - activeTrackHeight / 2f - px),
+                                            size = Size(activeWidth + px * 2, activeTrackHeight + px * 2),
+                                            cornerRadius = CornerRadius(activeTrackHeight / 2f + px)
+                                        )
+                                    }
+                                }
                                 drawRoundRect(
                                     brush = Brush.horizontalGradient(
-                                        // By day a little lighter than the button gold, deeper to bright toward the playhead
-                                        colors = if (isDay) (appTheme.fill?.reversed() ?: listOf(ColorGold, ColorGoldLight)).map { lerp(it, Color.White, 0.18f) } else listOf(ColorGold, ColorGoldLight),
+                                        // By day full gold, deeper to bright toward the playhead, lit by a glow (not faded)
+                                        colors = if (isDay) appTheme.fill?.reversed() ?: listOf(ColorGold, ColorGoldLight) else listOf(ColorGold, ColorGoldLight),
                                         startX = 0f,
                                         endX = activeWidth.coerceAtLeast(1f)
                                     ),

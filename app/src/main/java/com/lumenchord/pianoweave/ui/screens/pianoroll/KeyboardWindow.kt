@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.composed
 import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -95,7 +98,12 @@ internal fun Modifier.twoFingerKeys(
     onStart: () -> Unit,
     onChange: (spreadRatio: Float, panFraction: Float, focusFraction: Float) -> Unit,
     onEnd: () -> Unit
-): Modifier = pointerInput(Unit) {
+): Modifier = composed {
+    // The gesture runs as long as the screen; its callbacks change (they read the keys shown now), so always the latest
+    val start by rememberUpdatedState(onStart)
+    val change by rememberUpdatedState(onChange)
+    val end by rememberUpdatedState(onEnd)
+    pointerInput(Unit) {
     awaitEachGesture {
         awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         var startSpread = 0f
@@ -114,16 +122,17 @@ internal fun Modifier.twoFingerKeys(
                     active = true
                     startSpread = spread.coerceAtLeast(24.dp.toPx())
                     startX = middle
-                    onStart()
+                    start()
                 }
-                onChange(spread.coerceAtLeast(1f) / startSpread, (middle - startX) / width, startX / width)
+                change(spread.coerceAtLeast(1f) / startSpread, (middle - startX) / width, startX / width)
                 event.changes.forEach { it.consume() }
             } else if (active) {
                 // The last finger still down after a pinch stays the pinch's, not a scrub or a tap
                 event.changes.forEach { it.consume() }
             }
         } while (event.changes.any { it.pressed })
-        if (active) onEnd()
+        if (active) end()
+    }
     }
 }
 
