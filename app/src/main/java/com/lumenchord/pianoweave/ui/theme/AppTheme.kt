@@ -510,7 +510,7 @@ object AppThemeManager {
         DayTheme("mint", "Spring Rain", Color(0xFF6FD3A8), Color(0xFF2E9F74), Color(0xFFE8A96A)),
         DayTheme("emerald", "Green Pastures", Color(0xFF8CC66A), Color(0xFF559A35), Color(0xFFEE9DB6)),
         // "More than watchmen wait for the morning" (Psalm 130:6); Night Watch's counterpart
-        DayTheme("morning_watch", "Morning Watch", Color(0xFFFFC890), Color(0xFFEC9858), Color(0xFF8DBCEB), strength = 0.9f, skyHue = 208f, stageStrength = 1.9f),
+        DayTheme("morning_watch", "Morning Watch", Color(0xFFFFE3A6), Color(0xFFF2B26C), Color(0xFF8DBCEB), strength = 0.9f, skyHue = 208f, stageStrength = 1.9f),
         DayTheme("olive", "Olive Tree", Color(0xFFB3BE6A), Color(0xFF738433), Color(0xFF7A5A86)),
         DayTheme("titanium", "Rock of Refuge", Color(0xFFC9B08E), Color(0xFF9C7F5A), Color(0xFF3FB8C8), strength = 0.5f),
     )
