@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.graphics.lerp
 import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -283,7 +284,8 @@ internal fun MediaTimelineFooter(
                             if (activeWidth > 0f) {
                                 drawRoundRect(
                                     brush = Brush.horizontalGradient(
-                                        colors = if (isDay) appTheme.fill?.reversed() ?: listOf(ColorGold, ColorGoldLight) else listOf(ColorGold, ColorGoldLight),
+                                        // By day a little lighter than the button gold, deeper to bright toward the playhead
+                                        colors = if (isDay) (appTheme.fill?.reversed() ?: listOf(ColorGold, ColorGoldLight)).map { lerp(it, Color.White, 0.18f) } else listOf(ColorGold, ColorGoldLight),
                                         startX = 0f,
                                         endX = activeWidth.coerceAtLeast(1f)
                                     ),
