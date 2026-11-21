@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components
 
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -52,7 +53,8 @@ fun PillButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurface,
+                // By day the label in the accent like its icon: ink there looked too black on the light pill
+                color = if (AppThemeManager.isLight) tint else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 softWrap = false
             )

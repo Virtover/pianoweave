@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.BoxWithConstraints
 import com.lumenchord.pianoweave.ui.theme.onKeyButton
 import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.graphics.lerp
@@ -52,22 +55,16 @@ fun AdaptiveNavigation(
     logo: Painter? = null,
     content: @Composable () -> Unit
 ) {
-    val logoPainter = logo ?: painterResource(id = if (AppThemeManager.isLight) R.drawable.app_icon_light else R.drawable.app_icon)
-    // By day the logo sits on the launcher icon's sunlit ground with a firm gold ring, so it holds on the parchment;
-    // at night the faint disc it always had
+    val logoPainter = logo ?: painterResource(id = R.drawable.app_icon)
+    // By day the logo is the launcher icon itself (one logo everywhere), filling the disc; only the thin ring takes
+    // the colour theme's accent. At night the faint disc it always had
     val isDay = AppThemeManager.isLight && logo == null
+    val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    val logoDiscBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = if (isDay) 0.4f else 0.3f))
     // The chosen tab's light: by day the theme's own gold (ink on it), as on the key buttons
     val navTheme = LocalAppTheme.current
     val navIndicator = if (navTheme.isLight) navTheme.litColor else MaterialTheme.colorScheme.secondary
     val navIndicatorIcon = if (navTheme.isLight) navTheme.onKeyButton else MaterialTheme.colorScheme.onPrimary
-    val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-    // The theme's own colour in it, as the night's disc has: its light mixed into the sunlit ground, its accent as the ring
-    val dayTint = LocalAppTheme.current.fill?.first() ?: Color(0xFFF3CC6E)
-    val logoDiscBorder = if (isDay) BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
-    val logoDiscGround = if (isDay) Modifier.background(
-        Brush.verticalGradient(listOf(lerp(Color(0xFFFFF8E6), dayTint, 0.12f), lerp(Color(0xFFFAEDD0), dayTint, 0.2f), lerp(Color(0xFFF5E2BA), dayTint, 0.28f))),
-        CircleShape
-    ) else Modifier
     val room = rememberWindowRoom()
     // A rail from tablet width up too, where a bottom bar would stretch two items across the whole screen
     val useRail = room.isLandscape || room.isWide
@@ -98,14 +95,13 @@ fun AdaptiveNavigation(
                             modifier = Modifier
                                 .size(if (isLarge) 60.dp else 52.dp)
                                 .clip(CircleShape)
-                                .then(logoDiscGround)
                                 .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
                             shape = CircleShape,
                             color = logoDiscColor,
                             border = logoDiscBorder
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Image(
+                                if (isDay) DayLogo(Modifier.fillMaxSize()) else Image(
                                     painter = logoPainter,
                                     contentDescription = "Piano Weave Settings",
                                     contentScale = ContentScale.Crop,
@@ -209,14 +205,13 @@ fun AdaptiveNavigation(
                                 modifier = Modifier
                                     .size(38.dp)
                                     .clip(CircleShape)
-                                    .then(logoDiscGround)
-                                    .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
+                                        .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
                                 shape = CircleShape,
                                 color = logoDiscColor,
                                 border = logoDiscBorder
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Image(
+                                    if (isDay) DayLogo(Modifier.fillMaxSize()) else Image(
                                         painter = logoPainter,
                                         contentDescription = "Piano Weave Settings",
                                         contentScale = ContentScale.Crop,
@@ -307,5 +302,16 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.edgeLight(
             end = Offset(size.width, y),
             strokeWidth = stroke
         )
+    }
+}
+
+/** The logo by day: the launcher icon's two layers, sized so its visible circle fills this circle. */
+@Composable
+private fun DayLogo(modifier: Modifier) {
+    BoxWithConstraints(modifier.clip(CircleShape), contentAlignment = Alignment.Center) {
+        // An adaptive icon shows its middle 72 of 108 dp
+        val full = maxWidth * 1.5f
+        Image(painterResource(R.drawable.ic_launcher_background_light), contentDescription = null, modifier = Modifier.requiredSize(full))
+        Image(painterResource(R.drawable.ic_launcher_foreground_light), contentDescription = "Piano Weave Settings", modifier = Modifier.requiredSize(full))
     }
 }
