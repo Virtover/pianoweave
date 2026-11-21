@@ -283,7 +283,7 @@ internal fun MediaTimelineFooter(
                             if (activeWidth > 0f) {
                                 drawRoundRect(
                                     brush = Brush.horizontalGradient(
-                                        colors = if (isDay) appTheme.fill ?: listOf(ColorGoldLight, ColorGold) else listOf(ColorGold, ColorGoldLight),
+                                        colors = if (isDay) appTheme.fill?.reversed() ?: listOf(ColorGold, ColorGoldLight) else listOf(ColorGold, ColorGoldLight),
                                         startX = 0f,
                                         endX = activeWidth.coerceAtLeast(1f)
                                     ),
