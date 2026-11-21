@@ -55,6 +55,39 @@ class KeyboardWindowTest {
     }
 
     @Test
+    fun pinchingInShowsFewerKeysAroundTheFingers() {
+        val all = KeyWindow(21, 108).toSpan()
+        assertEquals(52f, all.count)
+        // Fingers in the middle, spread to twice the distance: half the keys, still centred
+        val zoomed = all.pinched(zoom = 2f, panFraction = 0f, focusFraction = 0.5f).toWindow()
+        assertEquals(26, zoomed.whiteKeys)
+        assertTrue(zoomed.low < 60 && zoomed.high > 60)
+    }
+
+    @Test
+    fun pinchingStopsAtTwoOctavesAndAtTheWholeKeyboard() {
+        val all = KeyWindow(21, 108).toSpan()
+        assertEquals(MIN_WINDOW_WHITES, all.pinched(zoom = 20f, panFraction = 0f, focusFraction = 0.5f).toWindow().whiteKeys)
+        assertTrue(KeyWindow(60, 84).toSpan().pinched(zoom = 0.05f, panFraction = 0f, focusFraction = 0.5f).toWindow().isWhole)
+    }
+
+    @Test
+    fun slidingMovesTheKeysWithoutChangingTheirCount() {
+        val window = KeyWindow(48, 72)
+        val slid = window.toSpan().pinched(zoom = 1f, panFraction = 0.5f, focusFraction = 0.5f).toWindow()
+        assertEquals(window.whiteKeys, slid.whiteKeys)
+        assertTrue(slid.low < window.low)
+    }
+
+    @Test
+    fun theStripMovesTheWindowKeepingItsWidth() {
+        val window = KeyWindow(48, 72)
+        val moved = window.centredOn(84)
+        assertEquals(window.whiteKeys, moved.whiteKeys)
+        assertTrue(84 in moved.low..moved.high)
+    }
+
+    @Test
     fun songMapCountsNotesPerBar() {
         val beats = listOf(Beat(0L, true), Beat(500L, false), Beat(1000L, true), Beat(1500L, false))
         val bars = songMapBars(listOf(note(60, 0L), note(62, 100L), note(64, 1200L)), beats, durationMs = 2000L)

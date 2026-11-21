@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.foundation.background
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -49,6 +50,12 @@ fun AdaptiveNavigation(
     content: @Composable () -> Unit
 ) {
     val logoPainter = logo ?: painterResource(id = if (AppThemeManager.isLight) R.drawable.app_icon_light else R.drawable.app_icon)
+    // By day the logo sits on the launcher icon's sunlit ground with a firm gold ring, so it holds on the parchment;
+    // at night the faint disc it always had
+    val isDay = AppThemeManager.isLight && logo == null
+    val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    val logoDiscBorder = if (isDay) BorderStroke(1.5.dp, Color(0xFFB5821F)) else BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+    val logoDiscGround = if (isDay) Modifier.background(Brush.verticalGradient(listOf(Color(0xFFFFF4D8), Color(0xFFF6DDA6), Color(0xFFE8C07A))), CircleShape) else Modifier
     val room = rememberWindowRoom()
     // A rail from tablet width up too, where a bottom bar would stretch two items across the whole screen
     val useRail = room.isLandscape || room.isWide
@@ -79,10 +86,11 @@ fun AdaptiveNavigation(
                             modifier = Modifier
                                 .size(if (isLarge) 60.dp else 52.dp)
                                 .clip(CircleShape)
+                                .then(logoDiscGround)
                                 .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+                            color = logoDiscColor,
+                            border = logoDiscBorder
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Image(
@@ -189,10 +197,11 @@ fun AdaptiveNavigation(
                                 modifier = Modifier
                                     .size(38.dp)
                                     .clip(CircleShape)
+                                    .then(logoDiscGround)
                                     .clickableWithLongHold(logoHoldMillis, onHold = onLogoLongHold, onClick = onOpenSettingsDialog),
                                 shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+                                color = logoDiscColor,
+                                border = logoDiscBorder
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Image(

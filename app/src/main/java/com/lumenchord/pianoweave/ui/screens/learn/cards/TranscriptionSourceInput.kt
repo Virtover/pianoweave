@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Brush
 import com.lumenchord.pianoweave.ui.theme.onKeyButton
@@ -114,11 +115,8 @@ internal fun SourceSelector(
                 val isLast = index == options.lastIndex
                 val isSelected = source == selected
                 val shape = pill
-                val contentColor = when {
-                    !isSelected -> MaterialTheme.colorScheme.onSurfaceVariant
-                    theme.isLight -> MaterialTheme.colorScheme.onSurface
-                    else -> theme.onKeyButton
-                }.copy(alpha = if (enabled) 1f else 0.38f)
+                val contentColor = (if (isSelected) theme.onKeyButton else MaterialTheme.colorScheme.onSurfaceVariant)
+                    .copy(alpha = if (enabled) 1f else 0.38f)
 
                 if (!isFirst) Spacer(Modifier.width(SegmentDivider))
                 Row(
@@ -126,11 +124,8 @@ internal fun SourceSelector(
                         .weight(1f)
                         .fillMaxHeight()
                         .then(
-                            if (!isSelected) Modifier
-                            else if (theme.isLight) Modifier
-                                .background(MaterialTheme.colorScheme.surface, shape)
-                                .border(1.dp, outline.copy(alpha = 0.6f), shape)
-                            else Modifier.background(theme.primaryColor, shape)
+                            // Lit like the key buttons: gold leaf by day, the accent lit from above by night
+                            if (isSelected) Modifier.goldLeaf(theme, shape) else Modifier
                         )
                         .selectable(
                             selected = isSelected,

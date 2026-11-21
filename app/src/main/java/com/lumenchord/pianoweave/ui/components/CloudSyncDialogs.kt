@@ -99,7 +99,7 @@ fun CloudSyncDialogs(
                                 )
                             }
 
-                            Button(
+                            AccentButton(
                                 onClick = { viewModel.enableCloudSync(context) },
                                 modifier = Modifier
                                     .weight(1f)
@@ -170,7 +170,7 @@ fun CloudSyncDialogs(
                                 .height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Button(
+                            AccentButton(
                                 onClick = { viewModel.showTurnOffCloudSyncConfirmDialog = false },
                                 modifier = Modifier
                                     .weight(1f)
@@ -330,7 +330,7 @@ fun CloudSyncDialogs(
                                 )
                             }
 
-                            Button(
+                            AccentButton(
                                 onClick = {
                                     viewModel.showCloudSyncErrorDialog = false
                                     viewModel.enableCloudSync(context)

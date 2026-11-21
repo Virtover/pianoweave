@@ -71,7 +71,7 @@ fun keysAndNotesSummary(viewModel: PianoWeaveViewModel): String =
 fun KeysAndNotesSection(viewModel: PianoWeaveViewModel, context: Context) {
     val theme = LocalAppTheme.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingLabel(title = "Keyboard", subtitle = rangeHelp(viewModel.keyboardRange))
+        SettingLabel(title = "Keyboard", subtitle = rangeHelp(viewModel.keyboardRange) + ". Or pinch the notes with two fingers")
         RangeChoice(selected = viewModel.keyboardRange, onSelect = { viewModel.setKeyboardRange(context, it) })
 
         AnimatedVisibility(

@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -210,7 +212,7 @@ internal fun TranscribePicture(withArrangements: Boolean) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(38.dp)
-                    .background(accent, PillShape),
+                    .goldLeaf(LocalAppTheme.current, PillShape),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -238,7 +240,7 @@ internal fun ChooseModePicture() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(36.dp)
-                    .background(gold, PillShape),
+                    .goldLeaf(LocalAppTheme.current, PillShape),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -317,7 +319,7 @@ internal fun PlayAlongPicture(withArrangements: Boolean) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(38.dp)
-                        .background(accent, PillShape),
+                        .goldLeaf(LocalAppTheme.current, PillShape),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -387,7 +389,7 @@ private fun TapHint(
                     .align(Alignment.TopEnd)
                     .offset(x = 6.dp, y = (-6).dp)
                     .size(18.dp)
-                    .background(gold, CircleShape),
+                    .goldLeaf(LocalAppTheme.current, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text("$number", color = onGold, fontSize = 11.sp, fontWeight = FontWeight.Black)

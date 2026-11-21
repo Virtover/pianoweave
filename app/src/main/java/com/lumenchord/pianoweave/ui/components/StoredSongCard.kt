@@ -442,7 +442,7 @@ fun ExportConfirmationDialog(
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = onConfirm,
                             modifier = Modifier
                                 .weight(1f)

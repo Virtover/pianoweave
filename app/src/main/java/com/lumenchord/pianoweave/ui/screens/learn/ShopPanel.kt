@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -196,11 +198,13 @@ fun ShopPanel(
 /** "Plans | Credit packs", in the accent, quiet when not chosen. */
 @Composable
 private fun ShopTabs(selected: ShopTab, onSelect: (ShopTab) -> Unit) {
-    val gold = LocalAppTheme.current.primaryColor
+    val theme = LocalAppTheme.current
+    val gold = theme.primaryColor
     val slate = MaterialTheme.colorScheme.tertiaryContainer
+    // The chosen tab lit like Link / File / Mic: gold leaf by day, the accent lit from above by night
     val colors = SegmentedButtonDefaults.colors(
-        activeContainerColor = gold.copy(alpha = 0.16f),
-        activeContentColor = gold,
+        activeContainerColor = Color.Transparent,
+        activeContentColor = theme.onKeyButton,
         activeBorderColor = gold.copy(alpha = 0.6f),
         inactiveContainerColor = Color.Transparent,
         inactiveContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
@@ -209,10 +213,12 @@ private fun ShopTabs(selected: ShopTab, onSelect: (ShopTab) -> Unit) {
     val tabs = listOf(ShopTab.Plans to "Plans", ShopTab.Packs to "Credit packs")
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().testTag(ShopTags.TABS)) {
         tabs.forEachIndexed { index, (tab, label) ->
+            val shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size)
             SegmentedButton(
                 selected = selected == tab,
                 onClick = { onSelect(tab) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                modifier = if (selected == tab) Modifier.goldLeaf(theme, shape) else Modifier,
+                shape = shape,
                 colors = colors,
                 icon = {}
             ) {
@@ -653,21 +659,24 @@ private fun PlanChip(text: String, scheduled: Boolean = false) {
 /** The pill that acts on a plan; a spinner while its purchase is being confirmed. */
 @Composable
 private fun ActionPill(text: String, enabled: Boolean, busy: Boolean, outlined: Boolean, onClick: () -> Unit) {
-    val gold = LocalAppTheme.current.primaryColor
-    val onAccent = MaterialTheme.colorScheme.onSecondary
-    val content = if (outlined) gold else onAccent
+    val theme = LocalAppTheme.current
+    val gold = theme.primaryColor
+    // Lit like the key buttons while it can be pressed
+    val lit = !outlined && (enabled || busy)
+    val content = if (outlined) gold else theme.onKeyButton
     Surface(
         onClick = onClick,
         enabled = enabled && !busy,
         shape = PillShape,
         color = when {
-            outlined -> Color.Transparent
-            enabled || busy -> gold
+            outlined || lit -> Color.Transparent
             else -> gold.copy(alpha = 0.3f)
         },
         contentColor = content,
         border = if (outlined) BorderStroke(1.dp, gold.copy(alpha = 0.7f)) else null,
-        modifier = Modifier.heightIn(min = 36.dp)
+        modifier = Modifier
+            .heightIn(min = 36.dp)
+            .then(if (lit) Modifier.goldLeaf(theme) else Modifier)
     ) {
         Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
             if (busy) {
@@ -714,14 +723,15 @@ private fun PacksList(state: ShopUiState, onPack: (ShopPack) -> Unit) {
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
+                    val theme = LocalAppTheme.current
                     Box(
                         modifier = Modifier
                             .heightIn(min = 32.dp)
-                            .background(if (canBuy || busy) gold else gold.copy(alpha = 0.3f), PillShape)
+                            .then(if (canBuy || busy) Modifier.goldLeaf(theme) else Modifier.background(gold.copy(alpha = 0.3f), PillShape))
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        val onAccent = MaterialTheme.colorScheme.onSecondary
+                        val onAccent = if (canBuy || busy) theme.onKeyButton else MaterialTheme.colorScheme.onSecondary
                         if (busy) {
                             CircularProgressIndicator(color = onAccent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
                         } else {

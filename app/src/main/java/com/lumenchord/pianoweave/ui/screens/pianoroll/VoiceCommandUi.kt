@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.ui.graphics.Brush
 import com.lumenchord.pianoweave.ui.theme.Ink
@@ -210,7 +212,7 @@ internal fun VoiceCommandButton(viewModel: PianoWeaveViewModel, onToggle: (Boole
                         .align(Alignment.TopEnd)
                         .offset(x = 3.dp, y = (-3).dp)
                         .size(7.dp)
-                        .background(LocalAppTheme.current.primaryColor, CircleShape)
+                        .goldLeaf(LocalAppTheme.current, CircleShape)
                 )
             }
             if (enabled && modelState == VoiceModelState.DOWNLOADING) {

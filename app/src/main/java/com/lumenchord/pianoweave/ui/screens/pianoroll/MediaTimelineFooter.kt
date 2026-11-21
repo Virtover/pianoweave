@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import androidx.compose.ui.platform.LocalContext
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.ui.draw.clip
@@ -145,7 +147,11 @@ internal fun MediaTimelineFooter(
                         playheadMs = currentMs,
                         loop = if (viewModel.isLoopingEnabled) minOf(viewModel.loopStartMs, viewModel.loopEndMs)..maxOf(viewModel.loopStartMs, viewModel.loopEndMs) else null,
                         onSeek = { viewModel.playheadMs = it },
-                        onSeekState = onSeekState
+                        onSeekState = onSeekState,
+                        onLoopChange = { start, end ->
+                            viewModel.loopStartMs = start
+                            viewModel.loopEndMs = end
+                        }
                     )
                 } else {
                 if (viewModel.isLoopingEnabled) {
@@ -171,7 +177,7 @@ internal fun MediaTimelineFooter(
                             Box(
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .background(ColorGold, CircleShape)
+                                    .goldLeaf(appTheme, CircleShape)
                                     .border(1.5.dp, Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -182,7 +188,7 @@ internal fun MediaTimelineFooter(
                             Box(
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .background(ColorGold, CircleShape)
+                                    .goldLeaf(appTheme, CircleShape)
                                     .border(1.5.dp, Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {

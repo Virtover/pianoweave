@@ -1,5 +1,12 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -35,6 +42,73 @@ import com.lumenchord.pianoweave.ui.viewmodel.PIANO_LOWEST
 data class KeyWindow(val low: Int, val high: Int) {
     val whiteKeys: Int get() = (low..high).count { !isPitchBlack(it) }
     val isWhole: Boolean get() = low <= PIANO_LOWEST && high >= PIANO_HIGHEST
+}
+
+/** The piano's white keys, A0 to C8: a window is a run of them. */
+internal val PIANO_WHITES: List<Int> = (PIANO_LOWEST..PIANO_HIGHEST).filter { !isPitchBlack(it) }
+
+/** The fewest white keys a window shows: two octaves and the next C. */
+const val MIN_WINDOW_WHITES = 15
+
+/** Where a window starts and how wide it is, in white keys (fractional while a gesture is under way). */
+data class WhiteSpan(val low: Float, val count: Float) {
+    fun toWindow(): KeyWindow {
+        val n = count.coerceIn(MIN_WINDOW_WHITES.toFloat(), PIANO_WHITES.size.toFloat()).let { kotlin.math.round(it).toInt() }
+        val lo = kotlin.math.round(low).toInt().coerceIn(0, PIANO_WHITES.size - n)
+        return KeyWindow(PIANO_WHITES[lo], PIANO_WHITES[lo + n - 1])
+    }
+}
+
+internal fun KeyWindow.toSpan(): WhiteSpan {
+    val lo = PIANO_WHITES.indexOfFirst { it >= low }.coerceAtLeast(0)
+    val hi = PIANO_WHITES.indexOfLast { it <= high }.coerceAtLeast(lo)
+    return WhiteSpan(lo.toFloat(), (hi - lo + 1).toFloat())
+}
+
+/**
+ * A two-finger gesture on the window: [zoom] above 1 shows fewer keys around [focusFraction] (where the fingers are,
+ * 0 at the left edge), [panFraction] slides the keys (a fraction of the width, positive to the right).
+ */
+internal fun WhiteSpan.pinched(zoom: Float, panFraction: Float, focusFraction: Float): WhiteSpan {
+    val max = PIANO_WHITES.size.toFloat()
+    val newCount = (count / zoom).coerceIn(MIN_WINDOW_WHITES.toFloat(), max)
+    val focus = low + focusFraction * count
+    val newLow = (focus - focusFraction * newCount - panFraction * newCount).coerceIn(0f, max - newCount)
+    return WhiteSpan(newLow, newCount)
+}
+
+/** The same width, moved so it is centred on [pitch]. */
+internal fun KeyWindow.centredOn(pitch: Int): KeyWindow {
+    val span = toSpan()
+    val centre = PIANO_WHITES.indexOfLast { it <= pitch }.coerceAtLeast(0)
+    return WhiteSpan(centre - span.count / 2f + 0.5f, span.count).toWindow()
+}
+
+/**
+ * Two fingers on the stage: pinch to show more or fewer keys, slide to move them. Seen before the stage's own
+ * gestures (one finger scrubs, taps play) and taken from them once a second finger is down.
+ */
+internal fun Modifier.twoFingerKeys(
+    onChange: (zoom: Float, panFraction: Float, focusFraction: Float) -> Unit,
+    onEnd: () -> Unit
+): Modifier = pointerInput(Unit) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        var active = false
+        do {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.changes.count { it.pressed } >= 2) {
+                active = true
+                val width = size.width.toFloat().coerceAtLeast(1f)
+                onChange(event.calculateZoom(), event.calculatePan().x / width, event.calculateCentroid(useCurrent = true).x / width)
+                event.changes.forEach { it.consume() }
+            } else if (active) {
+                // The last finger still down after a pinch stays the pinch's, not a scrub or a tap
+                event.changes.forEach { it.consume() }
+            }
+        } while (event.changes.any { it.pressed })
+        if (active) onEnd()
+    }
 }
 
 /** Follow's window: two octaves, C to C. */
@@ -79,7 +153,8 @@ internal fun bestFollowLow(upcoming: List<Int>, current: Int): Int {
 
 /**
  * The whole keyboard in miniature under the keys, when only part of it is shown: the window in light, the song's
- * notes outside it in the accent, and the range in words. Tapping it moves the window there.
+ * notes outside it in the accent, and the range in words. Tapping or dragging moves the window there, its width
+ * and the keyboard's mode kept.
  */
 @Composable
 internal fun KeyRangeStrip(
@@ -110,6 +185,12 @@ internal fun KeyRangeStrip(
                     .pointerInput(whites) {
                         detectTapGestures { offset ->
                             val index = (offset.x / size.width * whites.size).toInt().coerceIn(0, whites.lastIndex)
+                            onPick(whites[index])
+                        }
+                    }
+                    .pointerInput(whites) {
+                        detectHorizontalDragGestures { change, _ ->
+                            val index = (change.position.x / size.width * whites.size).toInt().coerceIn(0, whites.lastIndex)
                             onPick(whites[index])
                         }
                     }

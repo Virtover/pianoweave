@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.layout.*
@@ -87,7 +88,7 @@ internal fun PartOverlapDialog(warning: OverlapWarning, onConfirm: () -> Unit, o
                         ) {
                             Text("Cancel", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                         }
-                        Button(
+                        AccentButton(
                             onClick = onConfirm,
                             modifier = Modifier.weight(1f).height(46.dp),
                             shape = PillShape,

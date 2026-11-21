@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -521,7 +522,7 @@ internal fun BillingMessageDialog(
                         lineHeight = 22.sp
                     )
                     Spacer(Modifier.height(4.dp))
-                    Button(
+                    AccentButton(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp),
                         shape = PillShape,

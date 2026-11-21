@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -178,7 +181,7 @@ private fun TrimRange(total: Int, totalSeconds: Float, initial: Clip?, onApply: 
         ) {
             Text("Whole song", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
         }
-        Button(
+        AccentButton(
             onClick = { onApply(Clip.within(start, end, totalSeconds)) },
             modifier = Modifier.weight(1.2f).fillMaxHeight().heightIn(min = 46.dp),
             shape = PillShape,
@@ -207,7 +210,7 @@ private fun PartSlider(start: Int, end: Int, total: Int, onChange: (Int, Int) ->
             modifier = Modifier
                 .size(22.dp)
                 .shadow(3.dp, CircleShape)
-                .background(gold, CircleShape)
+                .goldLeaf(LocalAppTheme.current, CircleShape)
                 .border(3.dp, surface, CircleShape)
         )
     }

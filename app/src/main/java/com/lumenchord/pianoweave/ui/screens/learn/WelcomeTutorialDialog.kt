@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
@@ -305,7 +307,7 @@ private fun MoreBelowHint() {
         modifier = Modifier
             .offset(y = bob.dp)
             .size(28.dp)
-            .background(LocalAppTheme.current.primaryColor, CircleShape),
+            .goldLeaf(LocalAppTheme.current, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Icon(

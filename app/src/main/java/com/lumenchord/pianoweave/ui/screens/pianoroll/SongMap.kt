@@ -57,8 +57,12 @@ internal fun SongMap(
     loop: LongRange?,
     onSeek: (Long) -> Unit,
     onSeekState: (Boolean) -> Unit,
+    /** Dragging a loop handle: the new start and end. */
+    onLoopChange: (start: Long, end: Long) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val loopNow by rememberUpdatedState(loop)
+    val loopChange by rememberUpdatedState(onLoopChange)
     val theme = LocalAppTheme.current
     val muted = theme.palette.mutedContainer
     val seek by rememberUpdatedState(onSeek)
@@ -72,11 +76,32 @@ internal fun SongMap(
             .semantics { contentDescription = "Song map: how busy each bar is. Tap or drag to move through the song" }
             .pointerInput(dur) { detectTapGestures { seek((it.x / size.width * dur).toLong().coerceIn(0L, dur)) } }
             .pointerInput(dur) {
+                // A drag that starts on a loop handle moves that end of the loop; anywhere else it moves through the song
+                var handle = 0 // -1 start, 1 end, 0 none
+                val reach = 20.dp.toPx()
+                fun msAt(x: Float) = (x / size.width * dur).toLong().coerceIn(0L, dur)
                 detectHorizontalDragGestures(
-                    onDragStart = { seekState(true); seek((it.x / size.width * dur).toLong().coerceIn(0L, dur)) },
-                    onDragEnd = { seekState(false) },
-                    onDragCancel = { seekState(false) }
-                ) { change, _ -> seek((change.position.x / size.width * dur).toLong().coerceIn(0L, dur)) }
+                    onDragStart = { offset ->
+                        val l = loopNow
+                        handle = when {
+                            l == null -> 0
+                            kotlin.math.abs(offset.x - l.first.toFloat() / dur * size.width) <= reach -> -1
+                            kotlin.math.abs(offset.x - l.last.toFloat() / dur * size.width) <= reach -> 1
+                            else -> 0
+                        }
+                        if (handle == 0) { seekState(true); seek(msAt(offset.x)) }
+                    },
+                    onDragEnd = { if (handle == 0) seekState(false); handle = 0 },
+                    onDragCancel = { if (handle == 0) seekState(false); handle = 0 }
+                ) { change, _ ->
+                    val ms = msAt(change.position.x)
+                    val l = loopNow
+                    when {
+                        handle == -1 && l != null -> loopChange(ms.coerceAtMost(l.last - 500L), l.last)
+                        handle == 1 && l != null -> loopChange(l.first, ms.coerceAtLeast(l.first + 500L))
+                        else -> seek(ms)
+                    }
+                }
             }
     ) {
         val x = { ms: Long -> ms.toFloat() / dur * size.width }
@@ -106,6 +131,13 @@ internal fun SongMap(
                 Size(width, height),
                 CornerRadius(1.5f)
             )
+        }
+        // The loop's two ends as handles to drag
+        loop?.let {
+            val handleW = 6.dp.toPx()
+            for (edge in listOf(it.first, it.last)) {
+                drawRoundRect(theme.primaryColor, Offset(x(edge) - handleW / 2f, -1.dp.toPx()), Size(handleW, size.height + 2.dp.toPx()), CornerRadius(handleW / 2f))
+            }
         }
         val px = x(playheadMs.coerceIn(0L, dur))
         drawLine(theme.primaryColor.copy(alpha = 0.45f), Offset(px, 0f), Offset(px, size.height), 6.dp.toPx())

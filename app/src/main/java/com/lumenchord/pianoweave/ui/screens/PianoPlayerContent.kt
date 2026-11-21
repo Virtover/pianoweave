@@ -1,5 +1,11 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import androidx.compose.runtime.mutableStateOf
+import com.lumenchord.pianoweave.ui.screens.pianoroll.twoFingerKeys
+import com.lumenchord.pianoweave.ui.screens.pianoroll.centredOn
+import com.lumenchord.pianoweave.ui.screens.pianoroll.pinched
+import com.lumenchord.pianoweave.ui.screens.pianoroll.toSpan
+import com.lumenchord.pianoweave.ui.screens.pianoroll.WhiteSpan
 import com.lumenchord.pianoweave.ui.screens.pianoroll.songMapBars
 import com.lumenchord.pianoweave.ui.screens.pianoroll.noteName
 import com.lumenchord.pianoweave.ui.screens.pianoroll.whiteBounded
@@ -138,7 +144,10 @@ internal fun ModernPianoPlayerContent(
         val upcoming = noteEvents.filter { it.startMs + it.durationMs >= head && it.startMs <= head + 2500L }.map { it.pitch }
         followLow = bestFollowLow(upcoming, followLow)
     }
+    // While two fingers pinch or slide the keys: the window as it is right now (committed when they lift)
+    var pinchSpan by remember { mutableStateOf<WhiteSpan?>(null) }
     val keyWindow = when {
+        pinchSpan != null -> pinchSpan!!.toWindow()
         follows -> KeyWindow(followLow, followLow + FOLLOW_SPAN)
         range == KeyboardRange.Song -> songKeys
         range == KeyboardRange.Custom -> whiteBounded(viewModel.customRangeLow, viewModel.customRangeHigh)
@@ -733,6 +742,22 @@ internal fun ModernPianoPlayerContent(
                 .weight(1f)
                 .fillMaxWidth()
                 .clipToBounds()
+                // Two fingers: pinch to show more or fewer keys, slide to move them (kept as Custom, or All 88)
+                .twoFingerKeys(
+                    onChange = { zoom, pan, focus ->
+                        pinchSpan = (pinchSpan ?: keyWindow.toSpan()).pinched(zoom, pan, focus)
+                    },
+                    onEnd = {
+                        pinchSpan?.toWindow()?.let { window ->
+                            if (window.isWhole) viewModel.setKeyboardRange(context, KeyboardRange.All)
+                            else {
+                                viewModel.setCustomRange(context, window.low, window.high)
+                                viewModel.setKeyboardRange(context, KeyboardRange.Custom)
+                            }
+                        }
+                        pinchSpan = null
+                    }
+                )
                 .onSizeChanged { containerSize = it }
                 .pointerInput(songDurationMs, isUiHidden) {
                     val scale = 0.25f
@@ -1036,10 +1061,16 @@ internal fun ModernPianoPlayerContent(
                 songPitches = songPitches,
                 label = keyWindowLabel,
                 onPick = { pitch ->
-                    followLow = octaveFloor(pitch - FOLLOW_SPAN / 2).coerceIn(24, PIANO_HIGHEST - FOLLOW_SPAN)
-                    // Kept there a while before following the music again
-                    followHeldUntil = System.currentTimeMillis() + 5000L
-                    if (!follows) viewModel.setKeyboardRange(context, KeyboardRange.Follow)
+                    // Moves the keys shown there, keeping their width and the keyboard's mode
+                    if (follows) {
+                        followLow = octaveFloor(pitch - FOLLOW_SPAN / 2).coerceIn(24, PIANO_HIGHEST - FOLLOW_SPAN)
+                        // Kept there a while before following the music again
+                        followHeldUntil = System.currentTimeMillis() + 5000L
+                    } else {
+                        val moved = keyWindow.centredOn(pitch)
+                        viewModel.setCustomRange(context, moved.low, moved.high)
+                        if (range != KeyboardRange.Custom) viewModel.setKeyboardRange(context, KeyboardRange.Custom)
+                    }
                 }
             )
         }

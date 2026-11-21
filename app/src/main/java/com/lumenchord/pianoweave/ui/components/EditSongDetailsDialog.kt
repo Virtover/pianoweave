@@ -162,7 +162,7 @@ fun EditSongDetailsDialog(
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = save,
                             enabled = canSave,
                             modifier = Modifier
