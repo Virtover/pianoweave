@@ -57,10 +57,10 @@ fun AdaptiveNavigation(
     content: @Composable () -> Unit
 ) {
     val logoPainter = logo ?: painterResource(id = R.drawable.app_icon)
-    // By day the logo is the splash screen's (one logo: splash, launcher icon and here), on its colour; at night the
+    // By day the logo is the launcher icon as the app list shows it (one logo: launcher, splash and here); at night the
     // faint disc it always had
     val isDay = AppThemeManager.isLight && logo == null
-    val logoDiscColor = if (isDay) colorResource(R.color.splash_background_light) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
     val logoDiscBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
     // The chosen tab's light: by day the theme's own gold (ink on it), as on the key buttons
     val navTheme = LocalAppTheme.current
@@ -307,16 +307,15 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.edgeLight(
 }
 
 /**
- * The logo by day: the splash screen's own drawing (without the ribbons' lines), sized as the splash shows it (its visible circle is the middle
- * 192 of 288 dp), so it fills this circle the same way.
+ * The logo by day: the launcher icon as the phone's app list shows it, its own background and ribbons (without the
+ * ribbons' fine lines, which read as outlines this small), sized so its visible circle fills this circle.
  */
 @Composable
 private fun DayLogo(modifier: Modifier) {
     BoxWithConstraints(modifier.clip(CircleShape), contentAlignment = Alignment.Center) {
-        Image(
-            painterResource(R.drawable.app_icon_light),
-            contentDescription = "Piano Weave Settings",
-            modifier = Modifier.requiredSize(maxWidth * 1.5f)
-        )
+        // An adaptive icon shows its middle 72 of 108 dp
+        val full = maxWidth * 1.5f
+        Image(painterResource(R.drawable.ic_launcher_background_light), contentDescription = null, modifier = Modifier.requiredSize(full))
+        Image(painterResource(R.drawable.app_icon_light), contentDescription = "Piano Weave Settings", modifier = Modifier.requiredSize(full))
     }
 }

@@ -418,20 +418,32 @@ fun TranscriptionInputCard(
                     ServerPasswordNotice(isOfficialServer = viewModel.isUsingDefaultServer, onClick = onOpenServerSettings)
                 }
 
-                // Until there is a link, a new user sees only the field and how to fill it: the button comes with the link
-                val awaitingLink = source == TranscriptionSource.Link && viewModel.videoUrl.isBlank()
+                // Until there is a link, a file or a recording, a new user sees only how to give one: the button comes with it
+                val awaitingLink = if (source == TranscriptionSource.Link) viewModel.videoUrl.isBlank() else selectedFile == null
                 if (!viewModel.isLoading && !viewModel.isRecording && awaitingLink) {
                     // How to fill the field: centred under it, the places a link can come from in the accent
                     val siteStyle = SpanStyle(fontWeight = FontWeight.Medium)
                     Text(
                         text = buildAnnotatedString {
-                            append("Paste a link, e.g. from ")
-                            withStyle(siteStyle) { append("YouTube") }
-                            append(", ")
-                            withStyle(siteStyle) { append("TikTok") }
-                            append(" or ")
-                            withStyle(siteStyle) { append("Instagram") }
-                            append(".")
+                            when (source) {
+                                TranscriptionSource.Link -> {
+                                    append("Paste a link, e.g. from ")
+                                    withStyle(siteStyle) { append("YouTube") }
+                                    append(", ")
+                                    withStyle(siteStyle) { append("TikTok") }
+                                    append(" or ")
+                                    withStyle(siteStyle) { append("Instagram") }
+                                    append(".")
+                                }
+                                TranscriptionSource.File -> {
+                                    append("Choose an ")
+                                    withStyle(siteStyle) { append("audio") }
+                                    append(" or ")
+                                    withStyle(siteStyle) { append("video") }
+                                    append(" file of piano music.")
+                                }
+                                TranscriptionSource.Record -> append("Play the piano near your phone and record it.")
+                            }
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
