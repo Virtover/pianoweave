@@ -428,7 +428,7 @@ fun TranscriptionInputCard(
                             when (source) {
                                 // With arrangements any song will do; without them a piano performance
                                 TranscriptionSource.Link -> {
-                                    append(if (viewModel.supportsArrangement) "Paste a link to a song, e.g. from " else "Paste a link to piano playing, e.g. from ")
+                                    append(if (viewModel.supportsArrangement) "Paste a song video link, e.g. from " else "Paste a piano video link, e.g. from ")
                                     withStyle(siteStyle) { append("YouTube") }
                                     append(", ")
                                     withStyle(siteStyle) { append("TikTok") }
