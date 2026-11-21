@@ -47,7 +47,9 @@ internal fun PianoKeyboardRow(
     waitTargetPitches: Set<Int> = emptySet(),
     satisfiedPitches: Set<Int> = emptySet(),
     isInteractive: Boolean = false,
-    keyboardHeight: Dp = 100.dp
+    keyboardHeight: Dp = 100.dp,
+    /** Names on the keys being played, where a key is wide enough to hold one. */
+    showNoteNames: Boolean = false
 ) {
     val appTheme = LocalAppTheme.current
     val ColorGold = appTheme.primaryColor
@@ -178,6 +180,7 @@ internal fun PianoKeyboardRow(
 
             // 3. Active White Key Glow Auras & Highlights
             val now = System.currentTimeMillis()
+            val playedWhite = mutableListOf<Int>()
             for (p in start..end) {
                 if (isPitchBlack(p)) continue
                 val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
@@ -221,6 +224,7 @@ internal fun PianoKeyboardRow(
                         )
                     )
                     drawPath(path = keyPath, color = color)
+                    if (showNoteNames && x2 - x1 >= 14.dp.toPx()) playedWhite += p
                 }
             }
 
@@ -279,6 +283,18 @@ internal fun PianoKeyboardRow(
                 textSize = 10.sp.toPx()
                 textAlign = Paint.Align.CENTER
                 isAntiAlias = true
+            }
+            // Played keys carry their name above the C labels, in the ink of a lit key
+            val namePaint = Paint().apply {
+                color = android.graphics.Color.parseColor("#3A2410")
+                textSize = 10.sp.toPx()
+                textAlign = Paint.Align.CENTER
+                isAntiAlias = true
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            }
+            for (p in playedWhite) {
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                drawContext.canvas.nativeCanvas.drawText(noteName(p), (x1 + x2) / 2f, size.height - 24.dp.toPx(), namePaint)
             }
             for (p in start..end) {
                 if (!isPitchBlack(p) && p % 12 == 0) {

@@ -1,5 +1,12 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.platform.LocalContext
+import com.lumenchord.pianoweave.ui.theme.PillShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.Canvas
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.foundation.background
@@ -39,8 +46,15 @@ internal fun MediaTimelineFooter(
     viewModel: PianoWeaveViewModel,
     dur: Long,
     onSeekState: (Boolean) -> Unit,
-    onResetHead: () -> Unit
+    onResetHead: () -> Unit,
+    /** The song's bars, for the song map and the bar number; empty hides both. */
+    songBars: List<SongMapBar> = emptyList(),
+    /** A phone in portrait: no room for the back-to-start button, so the elapsed time does it instead. */
+    isCompact: Boolean = false
 ) {
+    val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val showSongMap = viewModel.isSongMapEnabled && songBars.isNotEmpty()
     val appTheme = LocalAppTheme.current
     val ColorGold = appTheme.primaryColor
     val ColorGoldLight = appTheme.lightColor
@@ -97,17 +111,19 @@ internal fun MediaTimelineFooter(
                     modifier = Modifier.size(32.dp)
                 )
             }
-            RollButton(
-                onClick = { onResetHead() },
-                size = 44.dp,
-                shape = CircleShape
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Replay,
-                    contentDescription = "Back to start",
-                    tint = Ink,
-                    modifier = Modifier.size(22.dp)
-                )
+            if (!isCompact) {
+                RollButton(
+                    onClick = { onResetHead() },
+                    size = 44.dp,
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Replay,
+                        contentDescription = "Back to start",
+                        tint = Ink,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
         Spacer(modifier = Modifier.width(14.dp))
@@ -122,6 +138,16 @@ internal fun MediaTimelineFooter(
                 val currentMs = viewModel.playheadMs.coerceIn(0L, dur.coerceAtLeast(1L))
                 val fraction = if (dur > 0L) (currentMs.toFloat() / dur.toFloat()).coerceIn(0f, 1f) else 0f
 
+                if (showSongMap) {
+                    SongMap(
+                        bars = songBars,
+                        durationMs = dur,
+                        playheadMs = currentMs,
+                        loop = if (viewModel.isLoopingEnabled) minOf(viewModel.loopStartMs, viewModel.loopEndMs)..maxOf(viewModel.loopStartMs, viewModel.loopEndMs) else null,
+                        onSeek = { viewModel.playheadMs = it },
+                        onSeekState = onSeekState
+                    )
+                } else {
                 if (viewModel.isLoopingEnabled) {
                     RangeSlider(
                         // Ordered, since the loop settings can set the end before the start
@@ -259,14 +285,34 @@ internal fun MediaTimelineFooter(
                         }
                     }
                 )
+                }
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(y = (-4).dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(formatTime(viewModel.playheadMs.coerceIn(0L, dur.coerceAtLeast(0L))), style = timeStyle)
+                val elapsed = formatTime(viewModel.playheadMs.coerceIn(0L, dur.coerceAtLeast(0L)))
+                val bar = if (showSongMap) barAt(songBars, viewModel.playheadMs) else null
+                val elapsedText = if (bar != null) "Bar $bar / ${songBars.size} · $elapsed" else elapsed
+                if (isCompact) {
+                    // Back to start, on the time itself: a small chip, as there is no room for a button of its own
+                    Row(
+                        modifier = Modifier
+                            .clip(PillShape)
+                            .background(ColorSlate.copy(alpha = 0.6f))
+                            .clickable(onClickLabel = "Back to start") { onResetHead() }
+                            .padding(start = 4.dp, end = 7.dp, top = 1.dp, bottom = 1.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.SkipPrevious, contentDescription = null, tint = Ink.copy(alpha = 0.7f), modifier = Modifier.size(13.dp))
+                        Text(elapsedText, style = timeStyle)
+                    }
+                } else {
+                    Text(elapsedText, style = timeStyle)
+                }
                 Text(formatTime(dur), style = timeStyle)
             }
         }
@@ -274,6 +320,12 @@ internal fun MediaTimelineFooter(
         RollButton(
             onClick = { viewModel.isLoopingEnabled = !viewModel.isLoopingEnabled },
             isOn = viewModel.isLoopingEnabled,
+            // Its own gesture, as the speed button's for the metronome; the hint is in the Loop settings
+            onLongClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.setSongMapEnabled(context, !viewModel.isSongMapEnabled)
+            },
+            onLongClickLabel = if (viewModel.isSongMapEnabled) "Hide the song map" else "Show the song map",
             role = Role.Switch,
             size = 44.dp,
             shape = CircleShape

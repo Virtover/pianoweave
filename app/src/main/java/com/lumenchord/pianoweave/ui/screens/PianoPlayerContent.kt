@@ -1,5 +1,20 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import com.lumenchord.pianoweave.ui.screens.pianoroll.songMapBars
+import com.lumenchord.pianoweave.ui.screens.pianoroll.noteName
+import com.lumenchord.pianoweave.ui.screens.pianoroll.whiteBounded
+import com.lumenchord.pianoweave.ui.screens.pianoroll.songWindow
+import com.lumenchord.pianoweave.ui.screens.pianoroll.octaveFloor
+import com.lumenchord.pianoweave.ui.screens.pianoroll.bestFollowLow
+import com.lumenchord.pianoweave.ui.screens.pianoroll.FOLLOW_SPAN
+import com.lumenchord.pianoweave.ui.screens.pianoroll.KeyRangeStrip
+import com.lumenchord.pianoweave.ui.screens.pianoroll.KeyWindow
+import com.lumenchord.pianoweave.ui.viewmodel.PIANO_HIGHEST
+import com.lumenchord.pianoweave.ui.viewmodel.PIANO_LOWEST
+import com.lumenchord.pianoweave.ui.viewmodel.KeyboardRange
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.platform.LocalConfiguration
 import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.ui.graphics.graphicsLayer
@@ -105,6 +120,32 @@ internal fun ModernPianoPlayerContent(
     val noteEvents = remember(rawEvents, viewModel.transposeOffset) {
         rawEvents.map { it.copy(pitch = it.pitch + viewModel.transposeOffset) }
     }
+
+    // Which keys are shown (Settings → Display → Keyboard). Only the drawing changes: wait mode listens to all 88.
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    // Keys at least 14 dp wide: about 3½ octaves in portrait on a phone, the whole keyboard in landscape or on a tablet
+    val comfortableWhiteKeys = (screenWidthDp / 14).coerceAtLeast(15)
+    val songKeys = remember(noteEvents) { songWindow(noteEvents) }
+    val songPitches = remember(noteEvents) { noteEvents.map { it.pitch }.toSet() }
+    val range = viewModel.keyboardRange
+    val follows = range == KeyboardRange.Follow || (range == KeyboardRange.Song && songKeys.whiteKeys > comfortableWhiteKeys)
+    var followLow by remember { mutableIntStateOf(octaveFloor(songKeys.low).coerceAtLeast(24)) }
+    var followHeldUntil by remember { mutableLongStateOf(0L) }
+    val followTick = viewModel.playheadMs / 250L
+    LaunchedEffect(follows, followTick, noteEvents) {
+        if (!follows || System.currentTimeMillis() < followHeldUntil) return@LaunchedEffect
+        val head = viewModel.playheadMs
+        val upcoming = noteEvents.filter { it.startMs + it.durationMs >= head && it.startMs <= head + 2500L }.map { it.pitch }
+        followLow = bestFollowLow(upcoming, followLow)
+    }
+    val keyWindow = when {
+        follows -> KeyWindow(followLow, followLow + FOLLOW_SPAN)
+        range == KeyboardRange.Song -> songKeys
+        range == KeyboardRange.Custom -> whiteBounded(viewModel.customRangeLow, viewModel.customRangeHigh)
+        else -> KeyWindow(PIANO_LOWEST, PIANO_HIGHEST)
+    }
+    val visibleWhiteKeys = keyWindow.whiteKeys
+    val keyWindowLabel = "${noteName(keyWindow.low)}–${noteName(keyWindow.high)}" + if (follows) " · Follow" else ""
 
     val songDurationMs = remember(noteEvents) {
         (noteEvents.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
@@ -672,7 +713,11 @@ internal fun ModernPianoPlayerContent(
 
     // Taller with the bars hidden; the count-in also uses it to sit in the middle of notes and keys together.
     // A tablet has height to spare, so its keys get closer to a real key's proportions and are easier to hit.
-    val isLargeWindow = rememberWindowRoom().isLarge
+    val windowRoom = rememberWindowRoom()
+    val isLargeWindow = windowRoom.isLarge
+    // A phone in portrait: the footer's back-to-start moves onto the elapsed time
+    val isCompactFooter = !windowRoom.isLandscape && !isLargeWindow
+    val songBars = remember(noteEvents, beats, songDurationMs) { songMapBars(noteEvents, beats, songDurationMs) }
     val keyboardHeight = when {
         isLargeWindow -> if (isUiHidden) 120.dp else 104.dp
         else -> if (isUiHidden) 100.dp else 70.dp
@@ -740,8 +785,11 @@ internal fun ModernPianoPlayerContent(
                 events = noteEvents,
                 beats = beats,
                 head = viewModel.playheadMs,
-                start = startPitch,
-                numWhiteKeys = totalWhiteKeys,
+                start = keyWindow.low,
+                end = keyWindow.high,
+                numWhiteKeys = visibleWhiteKeys,
+                showNoteNames = viewModel.isNoteNamesEnabled,
+                isLargeScreen = isLargeWindow,
                 waitTargetPitches = waitTargetPitches,
                 satisfiedPitches = emptySet()
             )
@@ -969,9 +1017,10 @@ internal fun ModernPianoPlayerContent(
                 )
         ) {
             PianoKeyboardRow(
-                start = startPitch,
-                end = endPitch,
-                numWhiteKeys = totalWhiteKeys,
+                start = keyWindow.low,
+                end = keyWindow.high,
+                numWhiteKeys = visibleWhiteKeys,
+                showNoteNames = viewModel.isNoteNamesEnabled,
                 sustainedPitches = sustainedPitches,
                 waitTargetPitches = waitTargetPitches,
                 satisfiedPitches = emptySet(),
@@ -980,10 +1029,27 @@ internal fun ModernPianoPlayerContent(
             )
         }
 
+        // Only part of the keyboard shown: the whole of it in miniature, the window marked, tap to move there
+        if (!isUiHidden && !keyWindow.isWhole) {
+            KeyRangeStrip(
+                window = keyWindow,
+                songPitches = songPitches,
+                label = keyWindowLabel,
+                onPick = { pitch ->
+                    followLow = octaveFloor(pitch - FOLLOW_SPAN / 2).coerceIn(24, PIANO_HIGHEST - FOLLOW_SPAN)
+                    // Kept there a while before following the music again
+                    followHeldUntil = System.currentTimeMillis() + 5000L
+                    if (!follows) viewModel.setKeyboardRange(context, KeyboardRange.Follow)
+                }
+            )
+        }
+
         if (!isUiHidden) {
             MediaTimelineFooter(
                 viewModel = viewModel,
                 dur = songDurationMs,
+                songBars = songBars,
+                isCompact = isCompactFooter,
                 onSeekState = { isUserSeeking = it },
                 onResetHead = {
                     viewModel.playheadMs = if (viewModel.isLoopingEnabled) viewModel.loopStartMs else 0L

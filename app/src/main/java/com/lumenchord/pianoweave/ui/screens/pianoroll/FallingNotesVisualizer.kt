@@ -42,6 +42,8 @@ internal fun FallingNotesVisualizer(
     beats: List<Beat> = emptyList(),
     head: Long,
     start: Int,
+    /** The last key shown: notes beyond [start]..[end] get a marker at the stage's edge. */
+    end: Int = 108,
     numWhiteKeys: Int,
     waitTargetPitches: Set<Int> = emptySet(),
     satisfiedPitches: Set<Int> = emptySet(),
@@ -274,7 +276,45 @@ internal fun FallingNotesVisualizer(
 
         whiteEvents.forEach { drawNote(it) }
         blackEvents.forEach { drawNote(it) }
+        // Notes coming outside the keys shown: a marker at the edge they come from, at their height
+        val outside = filtered.filter { it.pitch < start || it.pitch > end }
+        if (outside.isNotEmpty()) drawEdgeMarkers(outside, start, head, scale, labelPaint, tagColors)
         if (showNoteNames) drawNoteNames(labels, labelPaint, nameSize, tagColors)
+    }
+}
+
+/**
+ * A marker at the stage's edge for each note coming outside the keys shown, the side it is on, at the height its
+ * note will reach the keys from: "◀ G2", "A6 ▶". Markers that would overlap keep the nearest note.
+ */
+private fun DrawScope.drawEdgeMarkers(
+    outside: List<MidiNoteEvent>,
+    start: Int,
+    head: Long,
+    scale: Float,
+    paint: Paint,
+    colors: Pair<Color, Color>
+) {
+    val canvas = drawContext.canvas.nativeCanvas
+    val markerH = 22.dp.toPx()
+    val pad = 6.dp.toPx()
+    val placedLeft = mutableListOf<Float>()
+    val placedRight = mutableListOf<Float>()
+    for (e in outside.sortedBy { it.startMs }) {
+        val bottom = size.height - (e.startMs - head) * scale
+        val y = bottom.coerceIn(markerH, size.height)
+        val left = e.pitch < start
+        val placed = if (left) placedLeft else placedRight
+        if (placed.any { kotlin.math.abs(it - y) < markerH + 2.dp.toPx() }) continue
+        placed += y
+        val text = if (left) "◀ ${noteName(e.pitch)}" else "${noteName(e.pitch)} ▶"
+        val width = paint.measureText(text) + 2 * pad
+        val x = if (left) 0f else size.width - width
+        val corner = markerH / 2f
+        drawRoundRect(colors.first, Offset(x - if (left) corner else 0f, y - markerH), Size(width + corner, markerH), CornerRadius(corner))
+        drawRoundRect(colors.second.copy(alpha = 0.5f), Offset(x - if (left) corner else 0f, y - markerH), Size(width + corner, markerH), CornerRadius(corner), style = Stroke(1f))
+        paint.color = colors.second.toArgb()
+        canvas.drawText(text, x + width / 2f, y - markerH / 2f + paint.textSize * 0.35f, paint)
     }
 }
 
