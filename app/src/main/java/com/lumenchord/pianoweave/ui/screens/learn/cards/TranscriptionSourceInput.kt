@@ -127,6 +127,8 @@ internal fun SourceSelector(
                             // Lit like the key buttons: gold leaf by day, the accent lit from above by night
                             if (isSelected) Modifier.goldLeaf(theme, shape) else Modifier
                         )
+                        // The touch ripple in the segment's own pill, not its square
+                        .clip(shape)
                         .selectable(
                             selected = isSelected,
                             enabled = enabled,
