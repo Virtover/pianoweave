@@ -111,10 +111,12 @@ fun Modifier.goldLeaf(theme: AppTheme, shape: Shape = PillShape, glowStrength: F
             // gold a little brighter at the foot
             val leaf = listOf(colors.first(), lerp(colors.last(), colors.first(), 0.18f))
             drawBehind {
-                for ((spread, alpha) in listOf(8.dp to 0.10f, 5.dp to 0.14f, 2.5.dp to 0.18f)) {
+                // The theme's own light, faint: a gold theme glows gold, a rose one rose
+                val glow = lerp(colors.first(), colors.last(), 0.5f)
+                for ((spread, alpha) in listOf(5.dp to 0.05f, 3.dp to 0.07f, 1.5.dp to 0.09f)) {
                     val px = spread.toPx()
                     val outline = shape.createOutline(Size(size.width + px * 2, size.height + px * 2), layoutDirection, this)
-                    translate(-px, -px) { drawOutline(outline, Color(0xFFFFC450).copy(alpha = alpha * strength)) }
+                    translate(-px, -px) { drawOutline(outline, glow.copy(alpha = alpha * strength)) }
                 }
             }.background(Brush.verticalGradient(leaf), shape)
         } else {

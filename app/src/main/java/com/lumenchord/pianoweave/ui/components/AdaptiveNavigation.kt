@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.ui.res.colorResource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -55,9 +56,11 @@ fun AdaptiveNavigation(
     logo: Painter? = null,
     content: @Composable () -> Unit
 ) {
-    val logoPainter = logo ?: painterResource(id = if (AppThemeManager.isLight) R.drawable.app_icon_light else R.drawable.app_icon)
-    // The same faint disc and ring by day and by night, in the colour theme's own colours
-    val logoDiscColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    val logoPainter = logo ?: painterResource(id = R.drawable.app_icon)
+    // By day the logo is the splash screen's (one logo: splash, launcher icon and here), on its colour; at night the
+    // faint disc it always had
+    val isDay = AppThemeManager.isLight && logo == null
+    val logoDiscColor = if (isDay) colorResource(R.color.splash_background_light) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
     val logoDiscBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
     // The chosen tab's light: by day the theme's own gold (ink on it), as on the key buttons
     val navTheme = LocalAppTheme.current
@@ -99,7 +102,7 @@ fun AdaptiveNavigation(
                             border = logoDiscBorder
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Image(
+                                if (isDay) DayLogo(Modifier.fillMaxSize()) else Image(
                                     painter = logoPainter,
                                     contentDescription = "Piano Weave Settings",
                                     contentScale = ContentScale.Crop,
@@ -209,7 +212,7 @@ fun AdaptiveNavigation(
                                 border = logoDiscBorder
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Image(
+                                    if (isDay) DayLogo(Modifier.fillMaxSize()) else Image(
                                         painter = logoPainter,
                                         contentDescription = "Piano Weave Settings",
                                         contentScale = ContentScale.Crop,
@@ -299,6 +302,21 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.edgeLight(
             start = Offset(0f, y),
             end = Offset(size.width, y),
             strokeWidth = stroke
+        )
+    }
+}
+
+/**
+ * The logo by day: the splash screen's own drawing, sized as the splash shows it (its visible circle is the middle
+ * 192 of 288 dp), so it fills this circle the same way.
+ */
+@Composable
+private fun DayLogo(modifier: Modifier) {
+    BoxWithConstraints(modifier.clip(CircleShape), contentAlignment = Alignment.Center) {
+        Image(
+            painterResource(R.drawable.splash_icon_vector_light),
+            contentDescription = "Piano Weave Settings",
+            modifier = Modifier.requiredSize(maxWidth * 1.5f)
         )
     }
 }
