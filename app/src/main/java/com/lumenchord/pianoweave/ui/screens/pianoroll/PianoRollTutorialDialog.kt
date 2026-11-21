@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.foundation.BorderStroke
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.foundation.background
@@ -221,7 +222,7 @@ private fun StepButtons(
                     Text(text = "Back", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-            Button(
+            AccentButton(
                 onClick = onNext,
                 shape = PillShape,
                 colors = ButtonDefaults.buttonColors(

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.update
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,7 +98,7 @@ fun SimulatedUpdatePromptDialog(onAnswer: (accept: Boolean) -> Unit) {
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = { onAnswer(true) },
                             modifier = Modifier
                                 .weight(1f)

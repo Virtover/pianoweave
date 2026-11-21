@@ -394,7 +394,7 @@ private fun DialogButtons(
                 )
             }
         }
-        Button(
+        AccentButton(
             onClick = onPrimary,
             modifier = Modifier
                 .weight(1f)
@@ -763,7 +763,7 @@ private fun CriticalAnnouncementScreen(announcement: Announcement, onHideAnyway:
                         }
                         AnnouncementText(announcement.blocks, linkColor = mood.core)
                         announcement.link?.let { link ->
-                            Button(
+                            AccentButton(
                                 onClick = { openInBrowser(context, link.url) },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -884,7 +884,7 @@ private fun HideCriticalAnnouncementDialog(onConfirm: () -> Unit, onCancel: () -
                 )
             }
             // The safe choice is the prominent one
-            Button(
+            AccentButton(
                 onClick = onCancel,
                 modifier = Modifier
                     .weight(1f)

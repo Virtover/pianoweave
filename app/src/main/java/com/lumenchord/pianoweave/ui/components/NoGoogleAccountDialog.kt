@@ -119,7 +119,7 @@ fun NoGoogleAccountDialog(
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = {
                                 viewModel.openAddGoogleAccount(context)
                                 onDismiss()

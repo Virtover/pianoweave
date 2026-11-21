@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import com.lumenchord.pianoweave.billing.MIN_BALANCE_TO_TRANSCRIBE
 import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.billing.owedMinutes
@@ -99,7 +100,7 @@ internal fun NotEnoughCreditsDialog(
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = {
                                 onDismiss()
                                 onBuyCredits()

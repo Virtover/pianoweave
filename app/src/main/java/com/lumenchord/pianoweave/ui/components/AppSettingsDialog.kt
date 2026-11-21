@@ -155,7 +155,7 @@ fun AppSettingsDialog(
 
                     Spacer(Modifier.height(10.dp))
 
-                    Button(
+                    AccentButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -239,7 +239,7 @@ fun AppSettingsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Button(
+                            AccentButton(
                                 onClick = { showSignOutConfirm = false },
                                 modifier = Modifier
                                     .weight(1f)

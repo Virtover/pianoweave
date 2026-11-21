@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Brush
 import com.lumenchord.pianoweave.ui.theme.onKeyButton
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -302,10 +304,16 @@ internal fun StartRecordingArea(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+        // The mic lit like a flame: a warm gradient and a soft glow around it, not a flat red disc
+        val flame = RecordRed
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .background(RecordRed, CircleShape),
+                .size(52.dp)
+                .drawBehind {
+                    drawCircle(Brush.radialGradient(listOf(flame.copy(alpha = 0.28f), Color.Transparent)), radius = size.minDimension * 0.75f)
+                }
+                .padding(2.dp)
+                .background(Brush.verticalGradient(listOf(lerp(flame, Color.White, 0.25f), flame)), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Default.Mic, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
@@ -314,7 +322,7 @@ internal fun StartRecordingArea(
         Text(
             text = "Tap to record",
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = accent
+            color = MaterialTheme.colorScheme.onSurface
         )
         maxMinutes?.let {
             Text(
@@ -424,7 +432,8 @@ internal fun RecordingArea(
  * Recording is courage, not danger: [Moods.Furnace], the fire that did not harm the three in it
  * (Daniel 3:27).
  */
-private val RecordRed = Moods.Furnace.core
+// A getter: the mood follows Dark / Light
+private val RecordRed: Color get() = Moods.Furnace.core
 /** A rounded bar filled to [fraction] with [color]. */
 @Composable
 private fun ProgressLine(fraction: Float, color: Color, height: Dp = 6.dp) {

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.ui.graphics.Color
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
@@ -163,7 +164,7 @@ fun StorageScreen(
                             color = MaterialTheme.colorScheme.onSurface,
                             lineHeight = 22.sp
                         )
-                        Button(
+                        AccentButton(
                             onClick = onClearImportError,
                             modifier = Modifier
                                 .fillMaxWidth()

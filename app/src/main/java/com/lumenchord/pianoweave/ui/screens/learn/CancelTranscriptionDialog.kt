@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.components.DialogSurface
@@ -85,7 +86,7 @@ internal fun CancelTranscriptionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Button(
+                        AccentButton(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .weight(1f)

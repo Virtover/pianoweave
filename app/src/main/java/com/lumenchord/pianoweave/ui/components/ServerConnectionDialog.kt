@@ -148,7 +148,7 @@ fun ServerConnectionDialog(
                         }
 
                         val primaryBusy = isChecking && text.primary == ConnectionAction.Retry
-                        Button(
+                        AccentButton(
                             onClick = { run(text.primary) },
                             enabled = !primaryBusy,
                             modifier = Modifier

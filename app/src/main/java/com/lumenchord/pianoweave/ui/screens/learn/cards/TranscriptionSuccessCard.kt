@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 
 import com.lumenchord.pianoweave.api.isArrangementKey
@@ -140,7 +141,7 @@ fun TranscriptionSuccessCard(
                 )
             }
             Spacer(Modifier.height(if (isShort) 10.dp else 16.dp))
-            Button(
+            AccentButton(
                 onClick = { onSongSelect(song) },
                 modifier = Modifier
                     .fillMaxWidth()

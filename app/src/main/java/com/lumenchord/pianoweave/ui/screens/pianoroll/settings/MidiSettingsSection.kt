@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
@@ -266,7 +267,7 @@ private fun TurnOnCard(accent: Color, onTurnOn: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Hint("Connect a Bluetooth keyboard, or let a computer connect to this phone.")
-            Button(
+            AccentButton(
                 onClick = onTurnOn,
                 modifier = Modifier.fillMaxWidth().height(42.dp),
                 colors = ButtonDefaults.buttonColors(

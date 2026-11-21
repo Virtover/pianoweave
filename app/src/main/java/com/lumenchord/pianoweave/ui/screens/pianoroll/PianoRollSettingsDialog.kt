@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.activity.compose.BackHandler
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.animation.AnimatedContent
@@ -237,7 +238,7 @@ internal fun SettingsDialog(
                                 }
 
                                 // Every setting applies as it changes (the loop times as they're typed), so this only closes
-                                Button(
+                                AccentButton(
                                     onClick = onDismiss,
                                     modifier = Modifier
                                         .fillMaxWidth()

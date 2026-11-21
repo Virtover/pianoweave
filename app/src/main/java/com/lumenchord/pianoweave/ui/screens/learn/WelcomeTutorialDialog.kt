@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -352,7 +353,7 @@ private fun StepControls(stepIndex: Int, stepCount: Int, onSkip: () -> Unit, onB
                         Text(text = "Back", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
-                Button(
+                AccentButton(
                     onClick = onNext,
                     shape = PillShape,
                     colors = ButtonDefaults.buttonColors(

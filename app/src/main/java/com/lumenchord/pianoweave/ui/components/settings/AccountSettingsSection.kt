@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components.settings
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import com.lumenchord.pianoweave.ui.components.SettingToggleRow
 import android.content.Context
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -135,7 +136,7 @@ fun AccountSettingsSection(
                                 }
                             }
                         } else {
-                            Button(
+                            AccentButton(
                                 onClick = { viewModel.signInWithGoogle(context) },
                                 enabled = !viewModel.isGoogleAuthLoading,
                                 shape = PillShape,

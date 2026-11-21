@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import com.lumenchord.pianoweave.ui.components.DialogHeroHeader
 import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.components.DialogSurface
@@ -114,7 +115,7 @@ internal fun TranscriptionTermsDialog(
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = onAgree,
                             modifier = Modifier
                                 .weight(1.4f)

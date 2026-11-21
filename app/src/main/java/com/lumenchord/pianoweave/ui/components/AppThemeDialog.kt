@@ -155,14 +155,15 @@ private fun ThemeTile(
             Box(
                 modifier = Modifier
                     .size(30.dp)
-                    .background(theme.primaryColor, CircleShape),
+                    // A day theme shows its gold leaf, as its buttons will look; a night theme its accent
+                    .then(if (theme.fill != null) Modifier.goldLeaf(theme, CircleShape) else Modifier.background(theme.primaryColor, CircleShape)),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
                     Icon(
                         Icons.Default.Check,
                         contentDescription = "Selected",
-                        tint = if (theme.isLightAccent) Color.Black else Color.White,
+                        tint = theme.onKeyButton,
                         modifier = Modifier.size(16.dp)
                     )
                 }

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -283,7 +284,7 @@ private fun ModeDialogButtons(selected: TranscriptionMode, onConfirm: () -> Unit
         ) {
             Text("Cancel", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
         }
-        Button(
+        AccentButton(
             onClick = onConfirm,
             modifier = Modifier
                 .weight(1.4f)

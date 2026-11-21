@@ -98,7 +98,7 @@ fun MicPermissionDialog(
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = {
                                 onDismiss()
                                 AcousticNoteDetector.openAppSettings(context)

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.compose.ui.graphics.Brush
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -403,7 +404,7 @@ private fun VoiceCommandsIntroDialog(needsDownload: Boolean, onConfirm: () -> Un
                         TextButton(onClick = onDismiss) {
                             Text("Not now", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         }
-                        Button(
+                        AccentButton(
                             onClick = onConfirm,
                             shape = PillShape,
                             colors = ButtonDefaults.buttonColors(
@@ -527,7 +528,7 @@ private fun VoiceModelProblemDialog(
                     TextButton(onClick = onTurnOff) {
                         Text("Turn off", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     }
-                    Button(
+                    AccentButton(
                         onClick = onDownload,
                         shape = PillShape,
                         colors = ButtonDefaults.buttonColors(
@@ -654,7 +655,7 @@ internal fun VoiceCommandsHelpDialog(viewModel: PianoWeaveViewModel, onDismiss: 
                             )
                         }
                     }
-                    Button(
+                    AccentButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()

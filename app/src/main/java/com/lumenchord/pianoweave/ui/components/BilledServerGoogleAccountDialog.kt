@@ -118,7 +118,7 @@ fun BilledServerGoogleAccountDialog(
                             )
                         }
 
-                        Button(
+                        AccentButton(
                             onClick = {
                                 onDismiss()
                                 viewModel.signInWithGoogle(context)
