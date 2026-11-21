@@ -1,0 +1,133 @@
+package com.lumenchord.pianoweave.ui.components.settings
+
+import android.content.Context
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Gavel
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.ToggleOff
+import androidx.compose.material.icons.filled.ToggleOn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.lumenchord.pianoweave.ui.components.TermsChangeDialog
+import com.lumenchord.pianoweave.ui.theme.AppTheme
+import com.lumenchord.pianoweave.util.LegalChanges
+import java.time.LocalDate
+import java.time.ZoneOffset
+
+/**
+ * Settings for testing, in debug builds only: the caller composes this section (its heading included) only when
+ * the app is debuggable, so a release build has no trace of it.
+ */
+@Composable
+fun DebugSettingsSection(
+    context: Context,
+    previewTheme: AppTheme,
+    onSimulateUpdate: () -> Unit,
+    isIgnoringAccountProgress: Boolean,
+    onSetIgnoringAccountProgress: (Boolean) -> Unit,
+    headerPillLabel: String,
+    onCycleHeaderPill: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "DEBUG",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Debug builds only: runs the in-app update flow against a fake Play (see AppUpdates.simulate)
+            LinkRow(
+                icon = Icons.Default.SystemUpdate,
+                title = "Simulate app update",
+                subtitle = "Fake Play update: download, then Restart prompt",
+                previewTheme = previewTheme,
+                onClick = onSimulateUpdate,
+                trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+            )
+
+        // Debug builds only: shows the Terms / Privacy change notice with made-up dates, a different case each tap.
+        // Nothing is stored, so the real notice still comes when a change is announced.
+            var previewCase by remember { mutableIntStateOf(0) }
+            var previewChanges by remember { mutableStateOf<LegalChanges?>(null) }
+            LinkRow(
+                icon = Icons.Default.Gavel,
+                title = "Preview legal change notice",
+                subtitle = "Next: " + LEGAL_PREVIEW_CASES[previewCase % LEGAL_PREVIEW_CASES.size],
+                previewTheme = previewTheme,
+                onClick = {
+                    previewChanges = legalPreviewChanges(previewCase)
+                    previewCase++
+                },
+                trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+            )
+            previewChanges?.let { changes ->
+                TermsChangeDialog(changes = changes, onDismiss = { previewChanges = null }, linkToUpcomingPages = true)
+            }
+
+        // Debug builds only: tutorials, the light themes and the verse screen as a newcomer would meet them,
+        // without the progress Android's backup or the Google account would bring back (see AccountProgress)
+            LinkRow(
+                icon = Icons.Default.School,
+                title = "Ignore account progress",
+                subtitle = if (isIgnoringAccountProgress) "On: as a newcomer, nothing synced. Tap to go back"
+                else "Off: tutorials and unlocks from the account",
+                previewTheme = previewTheme,
+                onClick = { onSetIgnoringAccountProgress(!isIgnoringAccountProgress) },
+                trailingIcon = if (isIgnoringAccountProgress) Icons.Default.ToggleOn else Icons.Default.ToggleOff
+            )
+
+        // Debug builds only: the Learn header's pill as the server decides, or forced to credits or to support
+            LinkRow(
+                icon = Icons.Default.Favorite,
+                title = "Learn header pill",
+                subtitle = "$headerPillLabel · tap to switch",
+                previewTheme = previewTheme,
+                onClick = onCycleHeaderPill,
+                trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+            )
+
+    }
+}
+
+private val LEGAL_PREVIEW_CASES = listOf(
+    "Terms only", "Privacy Policy only", "both, same date", "both, different dates",
+    "both, already in effect", "Terms in effect, Policy upcoming"
+)
+
+/**
+ * Made-up versions for each of [LEGAL_PREVIEW_CASES], in turn: announced ones 14 and 21 days ahead, and ones that
+ * took effect 3 days ago (the user missed the notice period).
+ */
+private fun legalPreviewChanges(case: Int): LegalChanges {
+    val soon = LocalDate.now(ZoneOffset.UTC).plusDays(14).toString()
+    val later = LocalDate.now(ZoneOffset.UTC).plusDays(21).toString()
+    val past = LocalDate.now(ZoneOffset.UTC).minusDays(3).toString()
+    return when (case % LEGAL_PREVIEW_CASES.size) {
+        0 -> LegalChanges(terms = soon, privacyPolicy = null)
+        1 -> LegalChanges(terms = null, privacyPolicy = soon)
+        2 -> LegalChanges(terms = soon, privacyPolicy = soon)
+        3 -> LegalChanges(terms = later, privacyPolicy = soon)
+        4 -> LegalChanges(terms = past, privacyPolicy = past)
+        else -> LegalChanges(terms = past, privacyPolicy = soon)
+    }
+}
+

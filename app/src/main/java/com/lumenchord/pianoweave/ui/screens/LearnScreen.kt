@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import com.lumenchord.pianoweave.ui.viewmodel.HeaderPillOverride
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
@@ -219,6 +220,12 @@ fun LearnScreen(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Debug builds can force either pill (Settings → About), to see both on any server
+                    if (viewModel.headerPillOverride == HeaderPillOverride.Credits) {
+                        CreditsBalancePill(credits = viewModel.userCredits, onClick = { viewModel.openShop(context) })
+                    } else if (viewModel.headerPillOverride == HeaderPillOverride.Support) {
+                        SupportPill(onClick = { viewModel.openSupport() })
+                    } else
                     // Support follows the official server's billing, so it also shows while a custom server is selected.
                     if (viewModel.serverStatus == ServerStatus.ONLINE && viewModel.isBilledServer && viewModel.isDeveloper) {
                         DeveloperBalancePill(onClick = { viewModel.openDeveloperPanel() })

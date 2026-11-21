@@ -16,6 +16,9 @@ internal fun formatTime(ms: Long): String {
     return "%02d:%02d".format(s / 60, s % 60)
 }
 
+/** A note's name as shown to people: C♯4, with a sharp sign rather than #. */
+internal fun noteName(p: Int): String = midiPitchName(p).replace('#', '♯')
+
 internal fun midiPitchName(p: Int): String {
     val n = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
     return n[p % 12] + (p / 12 - 1)

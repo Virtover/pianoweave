@@ -83,6 +83,15 @@ object AppPrefs {
     const val SELECTED_DAY_THEME_ID = "selected_day_theme_id"
     const val TOP_BAR_SPEED = "top_bar_speed"
     const val IS_STRIKE_OVERLAY_ENABLED = "is_strike_overlay_enabled"
+    /** Piano roll: names on the falling notes and on played keys (on by default). */
+    const val IS_NOTE_NAMES_ENABLED = "is_note_names_enabled"
+    /** Piano roll: the song map instead of the progress bar (off by default; holding the loop button switches it). */
+    const val IS_SONG_MAP_ENABLED = "is_song_map_enabled"
+    /** Piano roll: which keys are shown ([com.lumenchord.pianoweave.ui.viewmodel.KeyboardRange] name; All by default). */
+    const val KEYBOARD_RANGE = "keyboard_range"
+    /** Piano roll: the custom range's lowest and highest key (MIDI pitch). */
+    const val CUSTOM_RANGE_LOW = "custom_range_low"
+    const val CUSTOM_RANGE_HIGH = "custom_range_high"
     /** Whether notes from a connected MIDI keyboard are played through the app's piano sound. */
     const val IS_KEYBOARD_SOUND_ENABLED = "is_keyboard_sound_enabled"
     /** Whether the song being played is also sent to the connected MIDI device (e.g. the website piano on a computer). */
@@ -114,6 +123,8 @@ object AppPrefs {
      * empty, so tutorials and hidden things can be tried as a newcomer. Turning it off brings the real progress back.
      */
     const val IGNORE_ACCOUNT_PROGRESS = "ignore_account_progress"
+    /** Debug builds: which pill the Learn header shows ([com.lumenchord.pianoweave.ui.viewmodel.HeaderPillOverride] name). */
+    const val DEBUG_HEADER_PILL = "debug_header_pill"
     /** Play version code of the last flexible in-app update the user declined, and when (epoch ms). */
     const val DECLINED_UPDATE_VERSION_CODE = "declined_update_version_code"
     const val DECLINED_UPDATE_AT = "declined_update_at"

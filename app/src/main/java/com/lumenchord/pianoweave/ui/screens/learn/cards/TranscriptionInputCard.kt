@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
 import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.theme.PillShape
@@ -440,9 +441,10 @@ fun TranscriptionInputCard(
                         label = "transcribeReadiness"
                     )
                     val container = lerp(accent.copy(alpha = 0.08f), accent, readiness)
-                    // By day the button is gold leaf, with the ink on it
-                    val leaf = LocalAppTheme.current.fill
-                    val content = if (leaf != null) lerp(accent.copy(alpha = 0.45f), Ink, readiness)
+                    // Lit like the other key buttons: gold leaf by day, the accent lit from above by night
+                    val leafTheme = LocalAppTheme.current
+                    val leaf = leafTheme.fill
+                    val content = if (leaf != null) lerp(accent.copy(alpha = 0.45f), leafTheme.onKeyButton, readiness)
                     else lerp(accent.copy(alpha = 0.45f), MaterialTheme.colorScheme.onSecondary, readiness)
                     val interaction = remember { MutableInteractionSource() }
                     val pressed by interaction.collectIsPressedAsState()

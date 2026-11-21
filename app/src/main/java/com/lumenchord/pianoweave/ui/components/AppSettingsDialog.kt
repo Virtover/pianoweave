@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
+import com.lumenchord.pianoweave.util.isDebuggable
+import com.lumenchord.pianoweave.ui.components.settings.DebugSettingsSection
 import com.lumenchord.pianoweave.ui.theme.onKeyButton
 import com.lumenchord.pianoweave.ui.theme.keyButtonContainer
 import com.lumenchord.pianoweave.ui.theme.goldLeaf
@@ -143,14 +145,25 @@ fun AppSettingsDialog(
                             previewTheme = previewTheme,
                             discordLink = viewModel.discordLink,
                             isSignedIn = viewModel.isGoogleSignedIn,
-                            onOpenWalkthrough = onOpenWalkthrough,
-                            onSimulateUpdate = onSimulateUpdate,
-                            isIgnoringAccountProgress = viewModel.isIgnoringAccountProgress,
-                            onSetIgnoringAccountProgress = { viewModel.setIgnoringAccountProgress(context, it) }
+                            onOpenWalkthrough = onOpenWalkthrough
                         )
 
                         // Critical server messages moved off the Learn screen, so they can still be read
                         AnnouncementSettingsSection(previewTheme = previewTheme)
+
+                        // Debug builds only, heading and divider included: release builds show nothing of it
+                        if (context.isDebuggable) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
+                            DebugSettingsSection(
+                                context = context,
+                                previewTheme = previewTheme,
+                                onSimulateUpdate = onSimulateUpdate,
+                                isIgnoringAccountProgress = viewModel.isIgnoringAccountProgress,
+                                onSetIgnoringAccountProgress = { viewModel.setIgnoringAccountProgress(context, it) },
+                                headerPillLabel = viewModel.headerPillOverride.label,
+                                onCycleHeaderPill = { viewModel.cycleHeaderPill(context) }
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(10.dp))

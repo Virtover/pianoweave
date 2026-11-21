@@ -10,7 +10,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -18,9 +17,9 @@ import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import com.lumenchord.pianoweave.ui.theme.onKeyButton
 
 /**
- * A [Button] that, by day, turns a button filled with the theme's accent into gold leaf (the theme's
- * [com.lumenchord.pianoweave.ui.theme.AppTheme.fill], ink on it), so every accent button in the app shines the same
- * way. Any other button, and every button at night, is exactly a [Button].
+ * A [Button] that gives a button filled with the theme's accent the theme's lit fill and soft glow
+ * ([com.lumenchord.pianoweave.ui.theme.AppTheme.fill]: gold leaf by day, the accent lit from above by night), so every
+ * accent button in the app shines the same way. Any other button is exactly a [Button].
  */
 @Composable
 fun AccentButton(
@@ -39,7 +38,7 @@ fun AccentButton(
     val isLeaf = enabled && theme.fill != null && colors.containerColor == theme.primaryColor
     Button(
         onClick = onClick,
-        modifier = if (isLeaf) modifier.clip(shape).goldLeaf(theme, shape) else modifier,
+        modifier = if (isLeaf) modifier.goldLeaf(theme, shape) else modifier,
         enabled = enabled,
         shape = shape,
         colors = if (isLeaf) colors.copy(containerColor = Color.Transparent, contentColor = theme.onKeyButton) else colors,

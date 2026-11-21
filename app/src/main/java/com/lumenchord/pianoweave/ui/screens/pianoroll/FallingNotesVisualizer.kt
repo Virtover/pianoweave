@@ -1,5 +1,11 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.runtime.remember
+import android.graphics.Typeface
+import android.graphics.Paint
 import com.lumenchord.pianoweave.ui.components.drawStageDaylight
 import androidx.compose.foundation.Canvas
 import com.lumenchord.pianoweave.ui.theme.Ink
@@ -38,7 +44,11 @@ internal fun FallingNotesVisualizer(
     start: Int,
     numWhiteKeys: Int,
     waitTargetPitches: Set<Int> = emptySet(),
-    satisfiedPitches: Set<Int> = emptySet()
+    satisfiedPitches: Set<Int> = emptySet(),
+    /** Names on the notes (see [NoteNameRules]); off draws none. */
+    showNoteNames: Boolean = false,
+    /** A tablet: larger names. */
+    isLargeScreen: Boolean = false
 ) {
     val appTheme = LocalAppTheme.current
     val ColorGold = appTheme.primaryColor
@@ -63,6 +73,15 @@ internal fun FallingNotesVisualizer(
             label = "stageOrnamentTime"
         )
     } else null
+    // Bar numbers: each bar start's number in the song, counted once per beat grid
+    val barNumbers = remember(beats) {
+        var bar = 0
+        beats.filter { it.isBarStart }.associate { it.timeMs to ++bar }
+    }
+    val inkArgb = Ink.toArgb()
+    val labelPaint = remember { Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD } }
+    val barPaint = remember { Paint().apply { isAntiAlias = true; textAlign = Paint.Align.LEFT; typeface = Typeface.DEFAULT_BOLD } }
+    val tagColors = if (appTheme.isLight) Color(0xF2FFFAEC) to Color(0xFF4A300A) else Color(0xE0140E0A) to Color(0xFFFFE8BE)
     Canvas(modifier = Modifier.fillMaxSize()) {
         if (size.width <= 0 || size.height <= 0) return@Canvas
         val tw = size.width
@@ -88,14 +107,16 @@ internal fun FallingNotesVisualizer(
             StageOrnament.None -> Unit
         }
 
-        // 1. Grid Lanes
+        // 1. Grid lanes: an even line at every C (each octave), the other key edges only faintly
+        val startWhite = getWhiteIndex(start)
         for (i in 0..numWhiteKeys) {
             val x = i * (tw / numWhiteKeys)
+            val isOctave = (startWhite + i) % 7 == 0
             drawLine(
-                color = appTheme.palette.stageLane.copy(alpha = 0.6f),
+                color = appTheme.palette.stageLane.copy(alpha = if (isOctave) 0.9f else 0.22f),
                 start = Offset(x, 0f),
                 end = Offset(x, size.height),
-                strokeWidth = 1f
+                strokeWidth = if (isOctave) 1.dp.toPx() else 1f
             )
         }
 
@@ -115,9 +136,20 @@ internal fun FallingNotesVisualizer(
         }
         if (beats.isNotEmpty()) {
             var index = beats.binarySearchBy(head) { it.timeMs }.let { if (it < 0) -it - 1 else it }
+            barPaint.textSize = 10.sp.toPx()
+            barPaint.color = inkArgb
+            barPaint.alpha = 115
             while (index < beats.size && beats[index].timeMs <= lastMs) {
                 val beat = beats[index++]
-                if (beat.isBarStart) timeLine(beat.timeMs, 0.1f, 1.dp.toPx()) else timeLine(beat.timeMs, 0.04f, 1f)
+                if (beat.isBarStart) {
+                    timeLine(beat.timeMs, 0.1f, 1.dp.toPx())
+                    // Its number at the left end, for finding your place and setting a loop
+                    val y = size.height - ((beat.timeMs - head) * scale)
+                    val number = barNumbers[beat.timeMs]
+                    if (number != null && y in 14.dp.toPx()..size.height - 4.dp.toPx()) {
+                        drawContext.canvas.nativeCanvas.drawText(number.toString(), 5.dp.toPx(), y - 3.dp.toPx(), barPaint)
+                    }
+                } else timeLine(beat.timeMs, 0.04f, 1f)
             }
         } else {
             val barIntervalMs = 2000L
@@ -129,6 +161,10 @@ internal fun FallingNotesVisualizer(
         // 3. Falling Notes
         val filtered = events.filter { (it.startMs + it.durationMs) >= head && it.startMs <= lastMs }
         val (blackEvents, whiteEvents) = filtered.partition { isPitchBlack(it.pitch) }
+
+        val nameSize = (if (isLargeScreen) 12 else 10).sp.toPx()
+        labelPaint.textSize = nameSize
+        val labels = mutableListOf<NoteLabel>()
 
         fun drawNote(e: MidiNoteEvent) {
             val (x1, x2) = getPitchXRange(e.pitch, start, tw, numWhiteKeys)
@@ -197,6 +233,12 @@ internal fun FallingNotesVisualizer(
                 style = Stroke(width = 1.dp.toPx())
             )
 
+            if (showNoteNames) {
+                // Arriving: near the keys, or being played or waited for
+                val arriving = isAtBaseline || isWaiting || y + h >= size.height * 0.7f
+                labels += NoteLabel(e.pitch, x1, x2, noteTop, h, arriving, if (baseCol.luminance() > 0.4f) Color(0xFF2A1D10) else Color.White)
+            }
+
             if (isHitting || isUserMatch || isWaiting) {
                 val glowCol = if (isWaiting && !isSatisfied) ColorWaitTarget else baseCol
                 drawRect(
@@ -232,6 +274,58 @@ internal fun FallingNotesVisualizer(
 
         whiteEvents.forEach { drawNote(it) }
         blackEvents.forEach { drawNote(it) }
+        if (showNoteNames) drawNoteNames(labels, labelPaint, nameSize, tagColors)
+    }
+}
+
+/** One note's name, waiting to be drawn over the notes. */
+private class NoteLabel(val pitch: Int, val x1: Float, val x2: Float, val top: Float, val height: Float, val arriving: Boolean, val ink: Color)
+
+/**
+ * The names on the notes, by these rules (the design's "Note names on each screen"):
+ *  - inside a white-key note tall enough (34 dp) and wide enough to hold it, at its bottom, so it is read as it
+ *    arrives; where keys are narrow (all 88 on a phone, landscape), only on arriving notes, so the stage stays clear;
+ *  - otherwise, for an arriving note at least 14 dp tall (black keys always), a small tag just above it;
+ *  - shorter notes get no name (fast runs): it lights on the key as it is played;
+ *  - tags that would touch keep the lowest and highest of a chord.
+ */
+private fun DrawScope.drawNoteNames(labels: List<NoteLabel>, paint: Paint, textSize: Float, tagColors: Pair<Color, Color>) {
+    val canvas = drawContext.canvas.nativeCanvas
+    val minInside = 34.dp.toPx()
+    val minTagged = 14.dp.toPx()
+    val pad = 4.dp.toPx()
+    val tags = mutableListOf<Pair<NoteLabel, android.graphics.RectF>>()
+    for (label in labels) {
+        val name = noteName(label.pitch)
+        val width = label.x2 - label.x1
+        val textWidth = paint.measureText(name)
+        val narrowKeys = width < 18.dp.toPx()
+        val fitsInside = !isPitchBlack(label.pitch) && label.height >= minInside && width >= textWidth + pad
+        if (fitsInside && (label.arriving || !narrowKeys)) {
+            if (label.top + label.height > size.height + textSize) continue
+            paint.color = label.ink.toArgb()
+            canvas.drawText(name, (label.x1 + label.x2) / 2f, label.top + label.height - 5.dp.toPx(), paint)
+        } else if (label.arriving && label.height >= minTagged) {
+            val tagW = textWidth + 2 * pad
+            val tagH = textSize + pad
+            val cx = (label.x1 + label.x2) / 2f
+            val bottom = (label.top - 3.dp.toPx()).coerceAtLeast(tagH + 2.dp.toPx())
+            tags += label to android.graphics.RectF(cx - tagW / 2f, bottom - tagH, cx + tagW / 2f, bottom)
+        }
+    }
+    // A chord's tags would touch: the lowest and the highest first, the rest only where there is room
+    val ordered = tags.sortedBy { it.first.pitch }.let { list ->
+        if (list.size <= 2) list else listOf(list.first(), list.last()) + list.subList(1, list.size - 1)
+    }
+    val placed = mutableListOf<android.graphics.RectF>()
+    for ((label, rect) in ordered) {
+        if (placed.any { android.graphics.RectF.intersects(it, rect) }) continue
+        placed += rect
+        val corner = 6.dp.toPx()
+        drawRoundRect(tagColors.first, Offset(rect.left, rect.top), Size(rect.width(), rect.height()), CornerRadius(corner))
+        drawRoundRect(tagColors.second.copy(alpha = 0.45f), Offset(rect.left, rect.top), Size(rect.width(), rect.height()), CornerRadius(corner), style = Stroke(1f))
+        paint.color = tagColors.second.toArgb()
+        canvas.drawText(noteName(label.pitch), rect.centerX(), rect.bottom - pad * 0.75f - 1f, paint)
     }
 }
 

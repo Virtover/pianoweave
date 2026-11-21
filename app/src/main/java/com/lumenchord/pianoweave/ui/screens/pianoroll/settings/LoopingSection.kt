@@ -149,5 +149,11 @@ fun LoopingSection(
                 }
             }
         }
+        // As the metronome's hint sits in the speed menu: the loop button's own gesture, where looping is set up
+        Text(
+            text = "Hold the loop button for the song map",
+            color = Ink.copy(alpha = 0.5f),
+            fontSize = 11.sp
+        )
     }
 }

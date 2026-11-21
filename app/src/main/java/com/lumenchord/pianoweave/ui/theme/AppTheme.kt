@@ -30,8 +30,8 @@ data class AppTheme(
     /** One of the light themes, by day (see [AppThemeManager.isLight]). */
     val isLight: Boolean = false,
     /**
-     * By day, the gold-leaf fill of the key buttons (top to bottom): the accent's bright version, lit from within,
-     * with dark ink on it. Null at night, where buttons are filled with [primaryColor].
+     * The key buttons' lit fill, top to bottom: by day the gold leaf (the accent's bright version, ink on it), by
+     * night the accent brightening toward the top. Null only for a theme built without one.
      */
     val fill: List<Color>? = null
 )
@@ -709,7 +709,9 @@ object AppThemeManager {
                         if (stage == null) base
                         else base.copy(stageTop = stage[0], stageMiddle = stage[1], stageBottom = stage[2], stageLane = stage[3])
                     },
-                stageOrnament = stageOrnament
+                stageOrnament = stageOrnament,
+                // The accent lit from above, as the design's night buttons
+                fill = listOf(lerp(primary, Color.White, 0.28f), primary)
             )
         }
 

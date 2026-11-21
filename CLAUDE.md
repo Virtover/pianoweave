@@ -107,8 +107,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   back before): "new" means no preferences at all on the first launch, not install time = update time (they differ
   after an update before the first launch, or two installs in a row), and the user stays new until the version
   lists are first fetched (`LEGAL_NEW_USER`). `LegalConsentTest` covers this; run it after touching `LegalConsent`
-  or anything that writes preferences before `LegalConsent.onAppStart`. Testing needs no made-up versions: debug builds have Settings →
-  "Preview legal change notice (debug)" (each tap a different case), and any page takes `?today=YYYY-MM-DD`.
+  or anything that writes preferences before `LegalConsent.onAppStart`. Testing needs no made-up versions: debug builds have Settings → Debug →
+  "Preview legal change notice" (each tap a different case), and any page takes `?today=YYYY-MM-DD`.
 - **Piano arrangements**: when server-info says `arrangement: true`, Transcribe opens `TranscriptionModeDialog`
   (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus
   `#piano-arrangement` (`libraryKey()` in `api/TranscriptionModels.kt`), so it never collides with the transcription
@@ -121,7 +121,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   own song. `ClipsTest` covers keys, overlaps, requests and the Drive description round trip.
 - **In-app updates** (`update/AppUpdates.kt`, Play `app-update`): once per start, after the permission prompts, a
   newer Play version is offered as a flexible update (Restart snackbar when downloaded); priority 4–5 forces the
-  immediate flow; a declined version rests 3 days. Debug builds: Settings → "Simulate app update (debug)" runs it
+  immediate flow; a declined version rests 3 days. Debug builds: Settings → Debug → "Simulate app update" runs it
   against `FakeAppUpdateManager`. A real check only works on a Play install (internal app sharing).
 - **Server announcements** (`api/Announcements.kt`, server `GET /api/announcements`): fetched at launch, on every
   resume (throttled 30 s) and on server change, from the selected server *and* the official one (a takedown
@@ -168,5 +168,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   they are also merged with `piano_weave_progress.json` in the Drive app folder (`cloud/AccountProgressSync.kt`,
   after each library sync and on each change; later change wins, counts only grow). Only unlocks and things done belong
   there, never choices (theme, Dark / Light stay per device). `listCloudMidis` skips that
-  file, but **app versions before 55 list it as a song**. Debug builds: Settings → "Ignore account progress (debug)"
+  file, but **app versions before 55 list it as a song**. Debug builds: Settings → Debug → "Ignore account progress"
   uses an empty stand-in file that never syncs (a newcomer's view); off brings the real progress back.
+- **Debug section** (Settings, debug builds only, heading included: `DebugSettingsSection`): every testing switch lives
+  there, e.g. "Learn header pill" forces the Learn header to the credits or the support pill on any server.

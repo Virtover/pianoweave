@@ -375,6 +375,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     val prefs = AppPrefs.get(context)
     getOrCreateUserIdImpl(context)
     isStrikeOverlayEnabled = prefs.getBoolean(AppPrefs.IS_STRIKE_OVERLAY_ENABLED, true)
+    loadDisplayPreferences(context)
     isKeyboardSoundEnabled = prefs.getBoolean(AppPrefs.IS_KEYBOARD_SOUND_ENABLED, true)
     MidiInputManager.isSoundEnabled = isKeyboardSoundEnabled
     isMidiOutputEnabled = prefs.getBoolean(AppPrefs.IS_MIDI_OUTPUT_ENABLED, true)

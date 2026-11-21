@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import androidx.compose.runtime.mutableIntStateOf
 import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import android.content.Context
@@ -86,6 +87,20 @@ class PianoWeaveViewModel : ViewModel() {
 
     var isWaitModeEnabled by mutableStateOf(false)
     var isStrikeOverlayEnabled by mutableStateOf(true)
+        internal set
+    /** Piano roll display: names on notes and keys, the song map, and which keys are shown (see PianoWeaveViewModelDisplay). */
+    var isNoteNamesEnabled by mutableStateOf(true)
+        internal set
+    var isSongMapEnabled by mutableStateOf(false)
+        internal set
+    var keyboardRange by mutableStateOf(KeyboardRange.All)
+        internal set
+    var customRangeLow by mutableIntStateOf(33)
+        internal set
+    var customRangeHigh by mutableIntStateOf(96)
+        internal set
+    /** Debug builds: the Learn header's pill forced to credits or support (see Settings → About). */
+    var headerPillOverride by mutableStateOf(HeaderPillOverride.Auto)
         internal set
     var isKeyboardSoundEnabled by mutableStateOf(true)
         internal set
@@ -582,6 +597,11 @@ class PianoWeaveViewModel : ViewModel() {
     fun setTopBarSpeed(context: Context, speed: Float) = setTopBarSpeedImpl(context, speed)
     fun selectPlaybackSpeed(context: Context, speed: Float) = selectPlaybackSpeedImpl(context, speed)
     fun setStrikeOverlayEnabled(context: Context, enabled: Boolean) = setStrikeOverlayEnabledImpl(context, enabled)
+    fun setNoteNamesEnabled(context: Context, enabled: Boolean) = setNoteNamesEnabledImpl(context, enabled)
+    fun setSongMapEnabled(context: Context, enabled: Boolean) = setSongMapEnabledImpl(context, enabled)
+    fun setKeyboardRange(context: Context, range: KeyboardRange) = setKeyboardRangeImpl(context, range)
+    fun setCustomRange(context: Context, low: Int, high: Int) = setCustomRangeImpl(context, low, high)
+    fun cycleHeaderPill(context: Context) = cycleHeaderPillImpl(context)
     fun setKeyboardSoundEnabled(context: Context, enabled: Boolean) = setKeyboardSoundEnabledImpl(context, enabled)
     fun setMidiOutputEnabled(context: Context, enabled: Boolean) = setMidiOutputEnabledImpl(context, enabled)
     fun setMetronomeEnabled(context: Context, enabled: Boolean) = setMetronomeEnabledImpl(context, enabled)

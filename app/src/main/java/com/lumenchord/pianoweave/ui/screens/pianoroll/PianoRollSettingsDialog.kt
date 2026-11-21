@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.DisplaySection
 import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.activity.compose.BackHandler
 import com.lumenchord.pianoweave.ui.theme.Ink
@@ -187,6 +188,12 @@ internal fun SettingsDialog(
                                         onEndTextChange = { endText = it }
                                     )
                                     TranspositionSection(viewModel = viewModel)
+                                }
+
+                                HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+
+                                SettingsGroup("Display") {
+                                    DisplaySection(viewModel = viewModel, context = currentContext)
                                 }
 
                                 HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))

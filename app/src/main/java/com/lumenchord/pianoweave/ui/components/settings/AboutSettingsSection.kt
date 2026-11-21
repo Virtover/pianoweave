@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components.settings
 
+import androidx.compose.material.icons.filled.Favorite
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -44,10 +45,7 @@ fun AboutSettingsSection(
     previewTheme: AppTheme,
     discordLink: String?,
     isSignedIn: Boolean,
-    onOpenWalkthrough: () -> Unit,
-    onSimulateUpdate: () -> Unit,
-    isIgnoringAccountProgress: Boolean = false,
-    onSetIgnoringAccountProgress: (Boolean) -> Unit = {}
+    onOpenWalkthrough: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -104,53 +102,6 @@ fun AboutSettingsSection(
             onClick = { context.openUrl(AppLinks.TERMS_OF_SERVICE) }
         )
 
-        // Debug builds only: runs the in-app update flow against a fake Play (see AppUpdates.simulate)
-        if (context.isDebuggable) {
-            LinkRow(
-                icon = Icons.Default.SystemUpdate,
-                title = "Simulate app update (debug)",
-                subtitle = "Fake Play update: download, then Restart prompt",
-                previewTheme = previewTheme,
-                onClick = onSimulateUpdate,
-                trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
-            )
-        }
-
-        // Debug builds only: shows the Terms / Privacy change notice with made-up dates, a different case each tap.
-        // Nothing is stored, so the real notice still comes when a change is announced.
-        if (context.isDebuggable) {
-            var previewCase by remember { mutableIntStateOf(0) }
-            var previewChanges by remember { mutableStateOf<LegalChanges?>(null) }
-            LinkRow(
-                icon = Icons.Default.Gavel,
-                title = "Preview legal change notice (debug)",
-                subtitle = "Next: " + LEGAL_PREVIEW_CASES[previewCase % LEGAL_PREVIEW_CASES.size],
-                previewTheme = previewTheme,
-                onClick = {
-                    previewChanges = legalPreviewChanges(previewCase)
-                    previewCase++
-                },
-                trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
-            )
-            previewChanges?.let { changes ->
-                TermsChangeDialog(changes = changes, onDismiss = { previewChanges = null }, linkToUpcomingPages = true)
-            }
-        }
-
-        // Debug builds only: tutorials, the light themes and the verse screen as a newcomer would meet them,
-        // without the progress Android's backup or the Google account would bring back (see AccountProgress)
-        if (context.isDebuggable) {
-            LinkRow(
-                icon = Icons.Default.School,
-                title = "Ignore account progress (debug)",
-                subtitle = if (isIgnoringAccountProgress) "On: as a newcomer, nothing synced. Tap to go back"
-                else "Off: tutorials and unlocks from the account",
-                previewTheme = previewTheme,
-                onClick = { onSetIgnoringAccountProgress(!isIgnoringAccountProgress) },
-                trailingIcon = if (isIgnoringAccountProgress) Icons.Default.ToggleOn else Icons.Default.ToggleOff
-            )
-        }
-
         if (isSignedIn) {
             // Kept deliberately low-key; the actual deletion happens on the web page.
             TextButton(
@@ -167,29 +118,6 @@ fun AboutSettingsSection(
                 )
             }
         }
-    }
-}
-
-private val LEGAL_PREVIEW_CASES = listOf(
-    "Terms only", "Privacy Policy only", "both, same date", "both, different dates",
-    "both, already in effect", "Terms in effect, Policy upcoming"
-)
-
-/**
- * Made-up versions for each of [LEGAL_PREVIEW_CASES], in turn: announced ones 14 and 21 days ahead, and ones that
- * took effect 3 days ago (the user missed the notice period).
- */
-private fun legalPreviewChanges(case: Int): LegalChanges {
-    val soon = LocalDate.now(ZoneOffset.UTC).plusDays(14).toString()
-    val later = LocalDate.now(ZoneOffset.UTC).plusDays(21).toString()
-    val past = LocalDate.now(ZoneOffset.UTC).minusDays(3).toString()
-    return when (case % LEGAL_PREVIEW_CASES.size) {
-        0 -> LegalChanges(terms = soon, privacyPolicy = null)
-        1 -> LegalChanges(terms = null, privacyPolicy = soon)
-        2 -> LegalChanges(terms = soon, privacyPolicy = soon)
-        3 -> LegalChanges(terms = later, privacyPolicy = soon)
-        4 -> LegalChanges(terms = past, privacyPolicy = past)
-        else -> LegalChanges(terms = past, privacyPolicy = soon)
     }
 }
 

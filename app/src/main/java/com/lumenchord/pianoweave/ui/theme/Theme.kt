@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.theme
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
@@ -92,18 +94,22 @@ fun PianoWeaveTheme(
 val PillShape = RoundedCornerShape(percent = 50)
 
 /**
- * By day the key buttons (Transcribe, Done, the chosen Dark / Light) are gold leaf: the theme's [AppTheme.fill],
- * lit from within, with the ink on it. At night this adds nothing and the button keeps its accent fill.
+ * The key buttons' lit fill: the theme's [AppTheme.fill] (gold leaf by day, the accent lit from above by night),
+ * with a soft glow of its own colour around it, as light rather than shadow.
  */
 fun Modifier.goldLeaf(theme: AppTheme, shape: Shape = PillShape): Modifier =
-    theme.fill?.let { background(Brush.verticalGradient(it), shape) } ?: this
+    theme.fill?.let { colors ->
+        val glow = colors.last()
+        shadow(elevation = 6.dp, shape = shape, clip = false, ambientColor = glow, spotColor = glow)
+            .background(Brush.verticalGradient(colors), shape)
+    } ?: this
 
 /** A key button's container: clear over the gold leaf by day, the accent at night. */
 val AppTheme.keyButtonContainer: Color get() = if (fill != null) Color.Transparent else primaryColor
 
 /** What is written on a key button: the ink on gold leaf by day, black or white on the accent at night. */
 val AppTheme.onKeyButton: Color get() = when {
-    fill != null -> NeutralPalette.Sunlit.text
+    isLight -> NeutralPalette.Sunlit.text
     isLightAccent -> Color.Black
     else -> Color.White
 }
