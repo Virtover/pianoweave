@@ -234,7 +234,7 @@ fun VerseOfLightScreen(onClose: () -> Unit) {
                         CrossOfLight(
                             size = crossSize,
                             swell = { swell.value },
-                            modifier = Modifier.shineReveal({ crossReveal.value })
+                            modifier = Modifier.shineReveal({ crossReveal.value }, overflow = crossSize) // room for the whole glow, or the layer clips it square
                         )
                     }
                     Column(
@@ -261,7 +261,7 @@ fun VerseOfLightScreen(onClose: () -> Unit) {
                     CrossOfLight(
                             size = crossSize,
                             swell = { swell.value },
-                            modifier = Modifier.shineReveal({ crossReveal.value })
+                            modifier = Modifier.shineReveal({ crossReveal.value }, overflow = crossSize) // room for the whole glow, or the layer clips it square
                         )
                     Spacer(Modifier.height(32.dp))
                     verse?.let { Message(it, copy, swell.value, { nameReveal.value }, { verseReveal.value }) }
