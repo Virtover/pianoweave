@@ -1,5 +1,12 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import com.lumenchord.pianoweave.ui.theme.PillShape
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Column
 import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.lumenchord.pianoweave.ui.theme.Ink
@@ -178,8 +185,33 @@ internal fun ModernToolbar(
         )
     }
 
+    // Portrait: a floating pill over the notes, as the design has it (a soft warm glow around it by day);
+    // landscape: the see-through bar fading into the notes
+    val pillBorder = ColorGold.copy(alpha = if (appTheme.isLight) 0.3f else 0.22f)
     Row(
-        modifier = Modifier
+        modifier = if (isPortrait) Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 6.dp)
+            .height(52.dp)
+            .then(
+                if (appTheme.isLight) Modifier.drawBehind {
+                    for ((spread, alpha) in listOf(14.dp to 0.06f, 8.dp to 0.09f, 3.dp to 0.12f)) {
+                        val px = spread.toPx()
+                        drawRoundRect(
+                            Color(0xFFFFD273).copy(alpha = alpha),
+                            topLeft = Offset(-px, -px),
+                            size = Size(size.width + px * 2, size.height + px * 2),
+                            cornerRadius = CornerRadius(size.height / 2f + px)
+                        )
+                    }
+                } else Modifier
+            )
+            .background(ColorSurface.copy(alpha = if (appTheme.isLight) 0.9f else 0.85f), PillShape)
+            .border(1.dp, pillBorder, PillShape)
+            .clip(PillShape)
+            .pointerInput(Unit) { detectTapGestures { } } // Consume gestures so UI toolbar doesn't pass taps through
+            .padding(horizontal = 4.dp)
+        else Modifier
             .fillMaxWidth()
             // Fades into the falling notes instead of ending in a hard edge
             .background(Brush.verticalGradient(listOf(ColorSurface.copy(alpha = 0.85f), ColorSurface.copy(alpha = 0.45f), Color.Transparent)))
@@ -189,6 +221,29 @@ internal fun ModernToolbar(
     ) {
         IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Ink)
+        }
+        if (isPortrait) {
+            // The song, as the design shows it: its title, the artist under it
+            val song = viewModel.activePracticeSong?.metadata
+            Column(modifier = Modifier.weight(1f).padding(start = 2.dp, end = 4.dp)) {
+                Text(
+                    text = song?.title ?: "",
+                    color = Ink,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                song?.author?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
         if (!isPortrait) {
             Text(
@@ -201,10 +256,9 @@ internal fun ModernToolbar(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        if (isPortrait) Spacer(Modifier.weight(1f))
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 6.dp else 12.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (isPortrait) 2.dp else 12.dp)
         ) {
             SpeedChip(
                 speed = viewModel.speedMultiplier,

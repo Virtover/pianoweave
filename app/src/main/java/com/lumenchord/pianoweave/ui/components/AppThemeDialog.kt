@@ -200,7 +200,7 @@ private fun DayNightToggle(isLight: Boolean, onSetLight: (Boolean) -> Unit) {
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        listOf(false to "Dark", true to "Light").forEach { (light, label) ->
+        listOf(false to "Night", true to "Day").forEach { (light, label) ->
             val selected = light == isLight
             val content = if (selected) theme.onKeyButton else Ink.copy(alpha = 0.7f)
             Row(

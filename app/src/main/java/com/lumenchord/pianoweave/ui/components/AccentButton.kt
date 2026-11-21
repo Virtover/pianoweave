@@ -44,7 +44,7 @@ fun AccentButton(
         enabled = enabled,
         shape = shape,
         colors = if (isLeaf) colors.copy(containerColor = Color.Transparent, contentColor = theme.onKeyButton) else colors,
-        elevation = elevation,
+        elevation = if (isLeaf) null else elevation,
         border = border,
         contentPadding = contentPadding,
         interactionSource = interactionSource,

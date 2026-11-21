@@ -71,7 +71,7 @@ class PianoWeaveViewModel : ViewModel() {
 
     var selectedThemeId by mutableStateOf(AppThemeManager.defaultTheme.id)
         internal set
-    /** The light themes were found (hold Lamplight in the theme picker): Settings offers Dark / Light. */
+    /** The light themes were found (hold Lamplight in the theme picker): Settings offers Night / Day. */
     var isLightThemeUnlocked by mutableStateOf(false)
         internal set
     /** Debug builds: progress kept apart from the Google account (see AccountProgress). */

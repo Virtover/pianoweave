@@ -38,7 +38,7 @@ fun AppSettingsDialog(
     onSimulateUpdate: () -> Unit,
     onOpenWalkthrough: () -> Unit
 ) {
-    // Read straight from the ViewModel: switching Dark / Light changes the theme too
+    // Read straight from the ViewModel: switching Night / Day changes the theme too
     val selectedThemeId = viewModel.selectedThemeId
     var showSignOutConfirm by remember { mutableStateOf(false) }
     val previewTheme = AppThemeManager.getTheme(selectedThemeId)

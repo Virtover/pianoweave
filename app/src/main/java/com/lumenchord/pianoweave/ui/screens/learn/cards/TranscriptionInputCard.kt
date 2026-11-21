@@ -426,8 +426,9 @@ fun TranscriptionInputCard(
                     Text(
                         text = buildAnnotatedString {
                             when (source) {
+                                // With arrangements any song will do; without them a piano performance
                                 TranscriptionSource.Link -> {
-                                    append("Paste a link, e.g. from ")
+                                    append(if (viewModel.supportsArrangement) "Paste a link to a song, e.g. from " else "Paste a link to piano playing, e.g. from ")
                                     withStyle(siteStyle) { append("YouTube") }
                                     append(", ")
                                     withStyle(siteStyle) { append("TikTok") }
@@ -440,9 +441,12 @@ fun TranscriptionInputCard(
                                     withStyle(siteStyle) { append("audio") }
                                     append(" or ")
                                     withStyle(siteStyle) { append("video") }
-                                    append(" file of piano music.")
+                                    append(if (viewModel.supportsArrangement) " file of a song or of piano playing." else " file of piano playing.")
                                 }
-                                TranscriptionSource.Record -> append("Play the piano near your phone and record it.")
+                                TranscriptionSource.Record -> append(
+                                    if (viewModel.supportsArrangement) "Record piano playing, or a song, near your phone."
+                                    else "Play the piano near your phone and record it."
+                                )
                             }
                         },
                         style = MaterialTheme.typography.bodySmall,

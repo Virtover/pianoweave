@@ -427,7 +427,7 @@ internal fun RecordingArea(
  * Recording is courage, not danger: [Moods.Furnace], the fire that did not harm the three in it
  * (Daniel 3:27).
  */
-// A getter: the mood follows Dark / Light
+// A getter: the mood follows Night / Day
 private val RecordRed: Color get() = Moods.Furnace.core
 /** A rounded bar filled to [fraction] with [color]. */
 @Composable

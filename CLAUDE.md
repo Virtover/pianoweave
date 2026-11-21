@@ -156,7 +156,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   meant to match the splash screen: palette `#0F0B09` background, `#FFDEB2` glow, ribbon golds (by day the same gold
   cross on a page brightest around it, settling into warm shade at the edges, words in deep gold).
 - **Light themes** (hidden): hold the Lamplight tile in any theme picker for 5 s (`IS_LIGHT_THEME_UNLOCKED`); then a
-  Dark / Light toggle shows above the themes (`IS_LIGHT_THEME`). The day themes are a set of their own (`dayThemes` in
+  Night / Day toggle shows above the themes (`IS_LIGHT_THEME`). The day themes are a set of their own (`dayThemes` in
   `AppTheme.kt`, 12, one clear colour each; default Radiance), drawn from the design canvas "Piano Weave by Day"
   (claude.ai artifact). Switching keeps the same theme if it exists on the other side, else its partner
   (`dayPartners`, e.g. Night Watch ↔ Morning Watch), else that side's last choice (`SELECTED_THEME_ID` /
@@ -172,7 +172,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account; with cloud sync on,
   they are also merged with `piano_weave_progress.json` in the Drive app folder (`cloud/AccountProgressSync.kt`,
   after each library sync and on each change; later change wins, counts only grow). Only unlocks and things done belong
-  there, never choices (theme, Dark / Light stay per device). `listCloudMidis` skips that
+  there, never choices (theme, Night / Day stay per device). `listCloudMidis` skips that
   file, but **app versions before 55 list it as a song**. Debug builds: Settings → Debug → "Ignore account progress"
   uses an empty stand-in file that never syncs (a newcomer's view); off brings the real progress back.
 - **Debug section** (Settings, debug builds only, heading included: `DebugSettingsSection`): every testing switch lives
