@@ -111,7 +111,7 @@ data class NeutralPalette(
          * [Sunlit] with a little of the theme's [hue] in it, more for a larger [strength]: the rooms keep their
          * parchment warmth, and each day theme still feels its own.
          */
-        fun sunlit(hue: Float, strength: Float = 1f): NeutralPalette {
+        fun sunlit(hue: Float, strength: Float = 1f, stageStrength: Float = 1f): NeutralPalette {
             val mix = (0.35f * strength).coerceIn(0f, 0.6f)
             fun Color.retint(amount: Float = mix, minSaturation: Float = 0.08f): Color {
                 val hsv = FloatArray(3)
@@ -133,9 +133,9 @@ data class NeutralPalette(
                     muted = muted,
                     mutedContainer = mutedContainer.retint(),
                     errorContainer = errorContainer,
-                    stageTop = stageTop.retint(mix * 0.5f),
-                    stageMiddle = stageMiddle.retint(mix * 0.6f),
-                    stageBottom = stageBottom.retint(mix * 0.7f),
+                    stageTop = stageTop.retint((mix * 0.5f * stageStrength).coerceAtMost(0.8f)),
+                    stageMiddle = stageMiddle.retint((mix * 0.6f * stageStrength).coerceAtMost(0.8f)),
+                    stageBottom = stageBottom.retint((mix * 0.7f * stageStrength).coerceAtMost(0.8f)),
                     stageLane = stageLane.retint()
                 )
             }
@@ -500,9 +500,9 @@ object AppThemeManager {
         // "The Son is the radiance of God's glory" (Hebrews 1:3); Lamplight's counterpart by day
         DayTheme("radiance", "Radiance", Color(0xFFF3CC6E), Color(0xFFD9A23F), Color(0xFFE58A5A)),
         // "Fan into flame the gift of God" (2 Timothy 1:6); Upper Room's counterpart
-        DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFFFA656), Color(0xFFE2602A), Color(0xFFF4C24A)),
+        DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFFF8E4C), Color(0xFFD63C28), Color(0xFFFFC24A)),
         // "Arise, shine, for your light has come" (Isaiah 60:1); The Cup's counterpart
-        DayTheme("rise_up", "Rise Up", Color(0xFFE2AEE4), Color(0xFFB064B4), Color(0xFF7CC65A)),
+        DayTheme("rise_up", "Rise Up", Color(0xFFFFF1A8), Color(0xFFD2C03C), Color(0xFFF2D6C8)),
         DayTheme("crimson", "Scarlet Cord", Color(0xFFE8707A), Color(0xFFC23B4A), Color(0xFFE6B25A)),
         DayTheme("rose", "Rose of Sharon", Color(0xFFF08CB2), Color(0xFFD6588A), Color(0xFFA9C46A)),
         DayTheme("lavender", "Lavender", Color(0xFFAE9BE6), Color(0xFF7F66C8), Color(0xFFE3B860)),
@@ -510,7 +510,7 @@ object AppThemeManager {
         DayTheme("mint", "Spring Rain", Color(0xFF6FD3A8), Color(0xFF2E9F74), Color(0xFFE8A96A)),
         DayTheme("emerald", "Green Pastures", Color(0xFF8CC66A), Color(0xFF559A35), Color(0xFFEE9DB6)),
         // "More than watchmen wait for the morning" (Psalm 130:6); Night Watch's counterpart
-        DayTheme("morning_watch", "Morning Watch", Color(0xFFFFC890), Color(0xFFEC9858), Color(0xFF8DBCEB)),
+        DayTheme("morning_watch", "Morning Watch", Color(0xFFFFC890), Color(0xFFEC9858), Color(0xFF8DBCEB), strength = 0.9f, skyHue = 208f, stageStrength = 1.9f),
         DayTheme("olive", "Olive Tree", Color(0xFFB3BE6A), Color(0xFF738433), Color(0xFF7A5A86)),
         DayTheme("titanium", "Rock of Refuge", Color(0xFFC9B08E), Color(0xFF9C7F5A), Color(0xFF3FB8C8), strength = 0.5f),
     )
@@ -722,7 +722,11 @@ object AppThemeManager {
      * the parchment rooms ([strength]). The accent for text and icons is [bottom] deepened until it reads on the
      * parchment; notes fall in [bottom]'s colour.
      */
-    private class DayTheme(val id: String, val name: String, val top: Color, val bottom: Color, val line: Color, val strength: Float = 1f) {
+    private class DayTheme(
+        val id: String, val name: String, val top: Color, val bottom: Color, val line: Color, val strength: Float = 1f,
+        /** The rooms' tint when it isn't the accent's own (Morning Watch: the morning sky), and how strongly the stage takes it. */
+        val skyHue: Float? = null, val stageStrength: Float = 1f
+    ) {
         fun build(): AppTheme {
             val hue = hueOf(bottom)
             val accent = bottom.inDaylight(0.2f)
@@ -743,7 +747,7 @@ object AppThemeManager {
                 successColor = success,
                 successLightColor = lerp(success, Color.White, 0.5f),
                 isLightAccent = accent.luminance() > 0.179f,
-                palette = NeutralPalette.sunlit(hue, strength),
+                palette = NeutralPalette.sunlit(skyHue ?: hue, strength, stageStrength),
                 stageOrnament = StageOrnament.None,
                 isLight = true,
                 fill = listOf(top, bottom)

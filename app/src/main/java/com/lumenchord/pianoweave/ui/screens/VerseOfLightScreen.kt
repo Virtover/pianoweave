@@ -553,9 +553,10 @@ private fun DrawScope.drawDayCross(glow: Float, breath: Float) {
 
     // The design's three glows (blur, spread, colour, strength), widest first, each as soft strokes of the outline
     val glows = listOf(
-        Triple(90f to 30f, Color(0xFFFFECC4), 0.4f),
-        Triple(36f to 10f, Color(0xFFFFE8B4), 0.7f),
-        Triple(10f to 3f, Color(0xFFFFF8E1), 0.95f)
+        // Brightest light, barely warm: the cross shines, it doesn't tint the page yellow
+        Triple(90f to 30f, Color(0xFFFFFAF0), 0.55f),
+        Triple(36f to 10f, Color(0xFFFFFCF5), 0.85f),
+        Triple(10f to 3f, Color(0xFFFFFFFF), 1f)
     )
     val steps = 10
     for ((blurSpread, color, strength) in glows) {
