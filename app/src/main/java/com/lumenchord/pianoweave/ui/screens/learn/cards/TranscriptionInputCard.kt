@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
 import com.lumenchord.pianoweave.ui.theme.onKeyButton
 import com.lumenchord.pianoweave.ui.theme.Ink
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
@@ -418,13 +421,26 @@ fun TranscriptionInputCard(
                 // Until there is a link, a new user sees only the field and how to fill it: the button comes with the link
                 val awaitingLink = source == TranscriptionSource.Link && viewModel.videoUrl.isBlank()
                 if (!viewModel.isLoading && !viewModel.isRecording && awaitingLink) {
+                    // How to fill the field: centred under it, the places a link can come from in the accent
+                    val siteStyle = SpanStyle(color = LocalAppTheme.current.primaryColor, fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = "Copy a YouTube, TikTok or Instagram link, then paste it here.",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = buildAnnotatedString {
+                            append("Copy a ")
+                            withStyle(siteStyle) { append("YouTube") }
+                            append(", ")
+                            withStyle(siteStyle) { append("TikTok") }
+                            append(" or ")
+                            withStyle(siteStyle) { append("Instagram") }
+                            append(" link,
+then paste it here.")
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 21.sp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 6.dp)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
                             .onGloballyPositioned { linkInputAnchors.transcribeButtonBottomInRoot = it.boundsInRoot().bottom }
                     )
                 }
