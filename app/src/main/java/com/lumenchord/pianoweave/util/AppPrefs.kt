@@ -160,6 +160,8 @@ object AppPrefs {
     const val IS_LIGHT_THEME_UNLOCKED = "is_light_theme_unlocked"
     /** Suffix of the key holding when a progress value last changed (epoch ms). */
     const val PROGRESS_CHANGED_AT_SUFFIX = "@at"
+    /** Beside a progress count: when it was last reset (debug builds), so the reset survives a merge. */
+    const val PROGRESS_RESET_AT_SUFFIX = "@reset"
     /** The progress file read and written now: the debug stand-in while [IGNORE_ACCOUNT_PROGRESS] is on. */
     fun progress(context: Context): SharedPreferences = context.getSharedPreferences(
         if (get(context).getBoolean(IGNORE_ACCOUNT_PROGRESS, false)) IGNORED_PROGRESS_NAME else PROGRESS_NAME,

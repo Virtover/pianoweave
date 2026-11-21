@@ -600,6 +600,8 @@ class PianoWeaveViewModel : ViewModel() {
 
     fun setSelectedTheme(context: Context, themeId: String) = setSelectedThemeImpl(context, themeId)
     fun unlockLightTheme(context: Context): Boolean = unlockLightThemeImpl(context)
+    fun resetLightThemeUnlock(context: Context) = resetLightThemeUnlockImpl(context)
+    fun resetVerseOfLight(context: Context) = resetVerseOfLightImpl(context)
     fun setLightTheme(context: Context, light: Boolean) = setLightThemeImpl(context, light)
     fun setIgnoringAccountProgress(context: Context, ignore: Boolean) = setIgnoringAccountProgressImpl(context, ignore)
     /** Rereads progress changed outside the ViewModel (see AccountProgress.revision). */

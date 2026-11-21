@@ -155,7 +155,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   the splash icon's animation (`res/drawable/splash_icon*.xml`). Tapping the name or verse copies it. Its look is
   meant to match the splash screen: palette `#0F0B09` background, `#FFDEB2` glow, ribbon golds (by day the same gold
   cross on a page brightest around it, settling into warm shade at the edges, words in deep gold).
-- **Light themes** (hidden): hold the Lamplight tile in any theme picker for 5 s (`IS_LIGHT_THEME_UNLOCKED`); then a
+- **Light themes** (hidden): hold the Lamplight tile in any theme picker for 5 s (`IS_LIGHT_THEME_UNLOCKED`, and it switches to
+  day at once); then a
   Night / Day toggle shows above the themes (`IS_LIGHT_THEME`). The day themes are a set of their own (`dayThemes` in
   `AppTheme.kt`, 12, one clear colour each; default Radiance), drawn from the design canvas "Piano Weave by Day"
   (claude.ai artifact). Switching keeps the same theme if it exists on the other side, else its partner
@@ -172,9 +173,10 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account (the backup rules
   in `res/xml/` keep only that file and the MIDI library: settings stay per device); with cloud sync on,
   they are also merged with `piano_weave_progress.json` in the Drive app folder (`cloud/AccountProgressSync.kt`,
-  after each library sync and on each change; later change wins, counts only grow). Only unlocks and things done belong
+  after each library sync and on each change; later change wins, counts only grow unless reset later than the other side's last change). Only unlocks and things done belong
   there, never choices (theme, Night / Day stay per device). `listCloudMidis` skips that
   file, but **app versions before 55 list it as a song**. Debug builds: Settings → Debug → "Ignore account progress"
   uses an empty stand-in file that never syncs (a newcomer's view); off brings the real progress back.
 - **Debug section** (Settings, debug builds only, heading included: `DebugSettingsSection`): every testing switch lives
-  there, e.g. "Learn header pill" forces the Learn header to the credits or the support pill on any server.
+  there, e.g. "Learn header pill" forces the Learn header to the credits or the support pill on any server. "Reset light themes" / "Reset Verse of
+  Light" make each hidden feature unfound again, on the account too.

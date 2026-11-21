@@ -53,6 +53,29 @@ class AccountProgressTest {
     }
 
     @Test
+    fun aResetCountSurvivesTheMergeBothWays() {
+        val key = AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT
+        // The account still has 2 opens from before; this device was reset after that
+        val here = FakePrefs()
+        here.edit().putInt(key, 2).putLong(key + AppPrefs.PROGRESS_CHANGED_AT_SUFFIX, 1_000L).commit()
+        AccountProgress.resetCount(here, key, now = 2_000L)
+        val account = """{"version":1,"values":{"$key":{"value":2,"at":1000}}}"""
+        AccountProgress.mergeJson(here, account)
+        assertEquals(0, here.getInt(key, -1))
+
+        // Another device with 2 opens takes the reset from the account's copy
+        val other = FakePrefs()
+        other.edit().putInt(key, 2).putLong(key + AppPrefs.PROGRESS_CHANGED_AT_SUFFIX, 1_000L).commit()
+        AccountProgress.mergeJson(other, AccountProgress.toJson(here))
+        assertEquals(0, other.getInt(key, -1))
+
+        // Opened again after the reset somewhere: the count grows as before
+        val later = """{"version":1,"values":{"$key":{"value":1,"at":3000,"reset":2000}}}"""
+        AccountProgress.mergeJson(here, later)
+        assertEquals(1, here.getInt(key, -1))
+    }
+
+    @Test
     fun unknownOrBrokenFilesAreIgnored() {
         val device = FakePrefs().flag(AppPrefs.IS_LIGHT_THEME_UNLOCKED, true, at = 1)
         for (json in listOf("", "not json", "[]", """{"values": 3}""",

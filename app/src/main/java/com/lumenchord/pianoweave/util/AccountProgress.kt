@@ -30,7 +30,7 @@ object AccountProgress {
         AppPrefs.IS_LIGHT_THEME_UNLOCKED,
     )
 
-    /** Counts; merged by the larger. */
+    /** Counts; merged by the larger, unless one side was reset after the other's last change (see [resetCount]). */
     val countKeys = listOf(AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT)
 
     /** Goes up whenever progress changes from outside the screen showing it (a merge, the debug switch): reread then. */
@@ -38,6 +38,7 @@ object AccountProgress {
         private set
 
     private fun atKey(key: String) = key + AppPrefs.PROGRESS_CHANGED_AT_SUFFIX
+    private fun resetKey(key: String) = key + AppPrefs.PROGRESS_RESET_AT_SUFFIX
 
     fun isIgnoringAccount(context: Context): Boolean =
         AppPrefs.get(context).getBoolean(AppPrefs.IGNORE_ACCOUNT_PROGRESS, false)
@@ -52,6 +53,17 @@ object AccountProgress {
 
     fun setCount(context: Context, key: String, value: Int) {
         AppPrefs.progress(context).edit().putInt(key, value).putLong(atKey(key), System.currentTimeMillis()).apply()
+    }
+
+    /**
+     * Debug builds: [key]'s count back to 0. Counts otherwise only grow in a merge, so the reset carries its time:
+     * newer than the other side's last change, it wins there too.
+     */
+    fun resetCount(context: Context, key: String) = resetCount(AppPrefs.progress(context), key, System.currentTimeMillis())
+
+    internal fun resetCount(prefs: SharedPreferences, key: String, now: Long) {
+        prefs.edit().putInt(key, 0).putLong(atKey(key), now).putLong(resetKey(key), now).commit()
+        revision++
     }
 
     /**
@@ -100,6 +112,7 @@ object AccountProgress {
             values.add(key, JsonObject().apply {
                 if (key in countKeys) addProperty("value", prefs.getInt(key, 0)) else addProperty("value", prefs.getBoolean(key, false))
                 addProperty("at", prefs.getLong(atKey(key), 0L))
+                if (key in countKeys) prefs.getLong(resetKey(key), 0L).takeIf { it > 0L }?.let { addProperty("reset", it) }
             })
         }
         return JsonObject().apply {
@@ -125,9 +138,24 @@ object AccountProgress {
             val at = runCatching { entry.get("at").asLong }.getOrDefault(0L)
             if (key in countKeys) {
                 val remote = runCatching { entry.get("value").asInt }.getOrNull() ?: continue
-                if (remote > prefs.getInt(key, 0)) {
-                    edit.putInt(key, remote).putLong(atKey(key), maxOf(at, prefs.getLong(atKey(key), 0L)))
-                    changed = true
+                val remoteReset = runCatching { entry.get("reset").asLong }.getOrDefault(0L)
+                val local = prefs.getInt(key, 0)
+                val localAt = prefs.getLong(atKey(key), 0L)
+                val localReset = prefs.getLong(resetKey(key), 0L)
+                when {
+                    // Reset there after anything here: theirs, as it is now
+                    remoteReset > localAt && remoteReset > localReset -> {
+                        if (remote != local || localReset != remoteReset) {
+                            edit.putInt(key, remote).putLong(atKey(key), at).putLong(resetKey(key), remoteReset)
+                            changed = true
+                        }
+                    }
+                    // Reset here after their last change: ours stands
+                    localReset > 0L && localReset >= at -> Unit
+                    remote > local -> {
+                        edit.putInt(key, remote).putLong(atKey(key), maxOf(at, localAt))
+                        changed = true
+                    }
                 }
             } else {
                 val remote = runCatching { entry.get("value").asBoolean }.getOrNull() ?: continue

@@ -161,7 +161,10 @@ fun AppSettingsDialog(
                                 isIgnoringAccountProgress = viewModel.isIgnoringAccountProgress,
                                 onSetIgnoringAccountProgress = { viewModel.setIgnoringAccountProgress(context, it) },
                                 headerPillLabel = viewModel.headerPillOverride.label,
-                                onCycleHeaderPill = { viewModel.cycleHeaderPill(context) }
+                                onCycleHeaderPill = { viewModel.cycleHeaderPill(context) },
+                                isLightThemeUnlocked = viewModel.isLightThemeUnlocked,
+                                onResetLightTheme = { viewModel.resetLightThemeUnlock(context) },
+                                onResetVerseOfLight = { viewModel.resetVerseOfLight(context) }
                             )
                         }
                     }
@@ -299,6 +302,7 @@ fun AppSettingsDialog(
 fun rememberLightThemeControl(viewModel: PianoWeaveViewModel, context: Context): LightThemeControl =
     LightThemeControl(
         isUnlocked = viewModel.isLightThemeUnlocked,
-        onUnlock = { viewModel.unlockLightTheme(context) },
+        // Found: straight into the day ("and there was light")
+        onUnlock = { viewModel.unlockLightTheme(context).also { if (it) viewModel.setLightTheme(context, true) } },
         onSetLight = { viewModel.setLightTheme(context, it) }
     )

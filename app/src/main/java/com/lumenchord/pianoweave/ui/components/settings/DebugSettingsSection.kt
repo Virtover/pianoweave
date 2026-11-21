@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.components.settings
 
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.LightMode
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,7 +44,10 @@ fun DebugSettingsSection(
     isIgnoringAccountProgress: Boolean,
     onSetIgnoringAccountProgress: (Boolean) -> Unit,
     headerPillLabel: String,
-    onCycleHeaderPill: () -> Unit
+    onCycleHeaderPill: () -> Unit,
+    isLightThemeUnlocked: Boolean,
+    onResetLightTheme: () -> Unit,
+    onResetVerseOfLight: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -103,6 +109,24 @@ fun DebugSettingsSection(
                 previewTheme = previewTheme,
                 onClick = onCycleHeaderPill,
                 trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+            )
+
+        // Debug builds only: each hidden feature back to unfound, to find it again (on the account too)
+            LinkRow(
+                icon = Icons.Default.LightMode,
+                title = "Reset light themes",
+                subtitle = if (isLightThemeUnlocked) "Hide them again: hold Lamplight 5 s to find them" else "Hidden (not found yet)",
+                previewTheme = previewTheme,
+                onClick = onResetLightTheme,
+                trailingIcon = Icons.Default.RestartAlt
+            )
+            LinkRow(
+                icon = Icons.Default.AutoAwesome,
+                title = "Reset Verse of Light",
+                subtitle = "As never opened: hold the logo 7 s again",
+                previewTheme = previewTheme,
+                onClick = onResetVerseOfLight,
+                trailingIcon = Icons.Default.RestartAlt
             )
 
     }

@@ -49,6 +49,19 @@ internal fun PianoWeaveViewModel.setProgressFlag(context: Context, key: String, 
     pushAccountProgressImpl(context)
 }
 
+/** Debug builds: the light themes hidden again, as for someone who never found them (back to the night first). */
+internal fun PianoWeaveViewModel.resetLightThemeUnlockImpl(context: Context) {
+    setLightThemeImpl(context, false)
+    isLightThemeUnlocked = false
+    setProgressFlag(context, AppPrefs.IS_LIGHT_THEME_UNLOCKED, false)
+}
+
+/** Debug builds: the Verse of Light as never opened (the longest hold again), here and on the account. */
+internal fun PianoWeaveViewModel.resetVerseOfLightImpl(context: Context) {
+    AccountProgress.resetCount(context, AppPrefs.VERSE_OF_LIGHT_OPEN_COUNT)
+    pushAccountProgressImpl(context)
+}
+
 /** "Let there be light" (Genesis 1:3): the light themes, found by holding Lamplight. Returns whether it was new. */
 internal fun PianoWeaveViewModel.unlockLightThemeImpl(context: Context): Boolean {
     if (isLightThemeUnlocked) return false
