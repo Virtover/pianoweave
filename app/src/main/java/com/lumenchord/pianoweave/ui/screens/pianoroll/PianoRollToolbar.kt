@@ -255,15 +255,27 @@ internal fun ModernToolbar(
             }
         }
         if (!isPortrait) {
-            Text(
-                text = viewModel.activePracticeSong?.metadata?.title ?: "",
-                color = Ink,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-                overflow = TextOverflow.Ellipsis
-            )
+            // The song: its title, the artist under it
+            val song = viewModel.activePracticeSong?.metadata
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                Text(
+                    text = song?.title ?: "",
+                    color = Ink,
+                    style = MaterialTheme.typography.titleSmall.copy(lineHeight = 18.sp),
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                song?.author?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 15.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
         Row(
             verticalAlignment = Alignment.CenterVertically,
