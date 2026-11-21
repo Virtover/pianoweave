@@ -502,7 +502,8 @@ object AppThemeManager {
         // "Fan into flame the gift of God" (2 Timothy 1:6); Upper Room's counterpart
         DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFFFC65E), Color(0xFFF2902E), Color(0xFFFFE08A)),
         // "Arise, shine, for your light has come" (Isaiah 60:1); The Cup's counterpart
-        DayTheme("rise_up", "Rise Up", Color(0xFFFFF5F0), Color(0xFFEFBCC6), Color(0xFFF4D266), skyHue = 78f, stageStrength = 1.3f),
+        DayTheme("rise_up", "Rise Up", Color(0xFFFFF5F0), Color(0xFFEFBCC6), Color(0xFFF4D266), skyHue = 78f, stageStrength = 1.3f,
+            waitColor = Color(0xFF4FAE52), successColor = Color(0xFF2A86C8)),
         DayTheme("crimson", "Scarlet Cord", Color(0xFFE8707A), Color(0xFFC23B4A), Color(0xFFE6B25A)),
         DayTheme("rose", "Rose of Sharon", Color(0xFFF08CB2), Color(0xFFD6588A), Color(0xFFA9C46A)),
         DayTheme("lavender", "Lavender", Color(0xFFAE9BE6), Color(0xFF7F66C8), Color(0xFFE3B860)),
@@ -725,14 +726,16 @@ object AppThemeManager {
     private class DayTheme(
         val id: String, val name: String, val top: Color, val bottom: Color, val line: Color, val strength: Float = 1f,
         /** The rooms' tint when it isn't the accent's own (Morning Watch: the morning sky), and how strongly the stage takes it. */
-        val skyHue: Float? = null, val stageStrength: Float = 1f
+        val skyHue: Float? = null, val stageStrength: Float = 1f,
+        /** Wait mode's colours when the hue rule doesn't suit (Rise Up: the waited-for notes in fresh green). */
+        val waitColor: Color? = null, val successColor: Color? = null
     ) {
         fun build(): AppTheme {
             val hue = hueOf(bottom)
             val accent = bottom.inDaylight(0.2f)
             // Waiting notes in a colour apart from the theme's own: amber for blue themes, sky blue for the rest
-            val wait = if (hue in 190f..250f) Color(0xFFE0952E) else Color(0xFF3E93CF)
-            val success = if (hue in 90f..170f) Color(0xFF2A86C8) else Color(0xFF3C9A52)
+            val wait = waitColor ?: if (hue in 190f..250f) Color(0xFFE0952E) else Color(0xFF3E93CF)
+            val success = successColor ?: if (hue in 90f..170f) Color(0xFF2A86C8) else Color(0xFF3C9A52)
             return AppTheme(
                 id = id,
                 name = name,

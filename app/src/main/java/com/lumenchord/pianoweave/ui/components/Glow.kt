@@ -15,7 +15,18 @@ import kotlin.math.max
  * By day, an even soft light across the top of the falling-notes stage, fading within its upper part: the stage
  * is lit from above without any shape of a sun or beams in it.
  */
-fun DrawScope.drawStageDaylight() {
+fun DrawScope.drawStageDaylight(sunrise: Float = 0f) {
+    // Morning Watch: dawn climbing from the keys as the music goes on, gently (at most a soft warm wash)
+    if (sunrise > 0f) {
+        val rise = sunrise.coerceIn(0f, 1f)
+        drawRect(
+            Brush.verticalGradient(
+                0f to Color.Transparent,
+                (0.75f - 0.4f * rise) to Color.Transparent,
+                1f to Color(0xFFFFD9A0).copy(alpha = 0.10f + 0.22f * rise)
+            )
+        )
+    }
     // As in the design: a wide ellipse of light just above the stage, warm white at its heart, gently; never a beam
     val center = Offset(size.width / 2f, 8.dp.toPx())
     val ry = 190.dp.toPx().coerceAtMost(size.height * 0.45f)

@@ -103,7 +103,14 @@ internal fun FallingNotesVisualizer(
         )
 
         // By day, light from above: even across the stage, no sun or beams in it
-        if (appTheme.isLight) drawStageDaylight()
+        if (appTheme.isLight) {
+            // Morning Watch's sunrise: about four minutes of playing from first light to full morning, then it stays
+            val sunrise = if (appTheme.id == "morning_watch") {
+                val t = (head / SUNRISE_MS.toFloat()).coerceIn(0f, 1f)
+                t * t * (3f - 2f * t)
+            } else 0f
+            drawStageDaylight(sunrise)
+        }
 
         val t = ornamentTime?.value ?: 0f
         when (ornament) {
@@ -423,3 +430,6 @@ private fun DrawScope.drawStars(t: Float) {
         )
     }
 }
+
+/** How long Morning Watch's stage takes to go from first light to full morning, in playing time. */
+private const val SUNRISE_MS = 240_000L
