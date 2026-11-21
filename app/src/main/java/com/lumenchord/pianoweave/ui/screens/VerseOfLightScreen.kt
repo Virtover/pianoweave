@@ -569,12 +569,12 @@ private fun DrawScope.drawDayCross(glow: Float, breath: Float) {
         }
     }
 
-    // The gold: the bar lit from above, the upright from the right
-    drawPath(bar, Brush.verticalGradient(listOf(Color(0xFFF7DB96), Color(0xFFD9A23F)), startY = barTop, endY = barTop + beam))
+    // The gold: the upright lit from the right, then the bar in front of it, lit from above
     drawPath(
         upright,
         Brush.horizontalGradient(0f to Color(0xFFC99134), 0.55f to Color(0xFFF2CF7E), 1f to Color(0xFFFFF0C8), startX = cx - r, endX = cx + r)
     )
+    drawPath(bar, Brush.verticalGradient(listOf(Color(0xFFF7DB96), Color(0xFFD9A23F)), startY = barTop, endY = barTop + beam))
     clipPath(cross) {
         // Where the beams meet: their light's heart, joining the two golds
         val heart = Offset(cx, barTop + r)
