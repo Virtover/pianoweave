@@ -500,9 +500,9 @@ object AppThemeManager {
         // "The Son is the radiance of God's glory" (Hebrews 1:3); Lamplight's counterpart by day
         DayTheme("radiance", "Radiance", Color(0xFFF3CC6E), Color(0xFFD9A23F), Color(0xFFE58A5A)),
         // "Fan into flame the gift of God" (2 Timothy 1:6); Upper Room's counterpart
-        DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFFFA04A), Color(0xFFE8581E), Color(0xFFF2B640)),
+        DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFFFA656), Color(0xFFE2602A), Color(0xFFF4C24A)),
         // "Arise, shine, for your light has come" (Isaiah 60:1); The Cup's counterpart
-        DayTheme("rise_up", "Rise Up", Color(0xFFF6F1A6), Color(0xFF63B83A), Color(0xFFAC6CD2)),
+        DayTheme("rise_up", "Rise Up", Color(0xFFE2AEE4), Color(0xFFB064B4), Color(0xFF7CC65A)),
         DayTheme("crimson", "Scarlet Cord", Color(0xFFE8707A), Color(0xFFC23B4A), Color(0xFFE6B25A)),
         DayTheme("rose", "Rose of Sharon", Color(0xFFF08CB2), Color(0xFFD6588A), Color(0xFFA9C46A)),
         DayTheme("lavender", "Lavender", Color(0xFFAE9BE6), Color(0xFF7F66C8), Color(0xFFE3B860)),
@@ -510,8 +510,8 @@ object AppThemeManager {
         DayTheme("mint", "Spring Rain", Color(0xFF6FD3A8), Color(0xFF2E9F74), Color(0xFFE8A96A)),
         DayTheme("emerald", "Green Pastures", Color(0xFF8CC66A), Color(0xFF559A35), Color(0xFFEE9DB6)),
         // "More than watchmen wait for the morning" (Psalm 130:6); Night Watch's counterpart
-        DayTheme("morning_watch", "Morning Watch", Color(0xFF9EC6EE), Color(0xFFEC9858), Color(0xFFF6CF7A)),
-        DayTheme("olive", "Olive Tree", Color(0xFFC6D08E), Color(0xFF66802F), Color(0xFF6E4A78)),
+        DayTheme("morning_watch", "Morning Watch", Color(0xFFFFC890), Color(0xFFEC9858), Color(0xFF8DBCEB)),
+        DayTheme("olive", "Olive Tree", Color(0xFFB3BE6A), Color(0xFF738433), Color(0xFF7A5A86)),
         DayTheme("titanium", "Rock of Refuge", Color(0xFFC9B08E), Color(0xFF9C7F5A), Color(0xFF3FB8C8), strength = 0.5f),
     )
 
