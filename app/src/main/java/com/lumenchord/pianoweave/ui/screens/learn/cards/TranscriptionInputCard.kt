@@ -431,8 +431,9 @@ fun TranscriptionInputCard(
                             withStyle(siteStyle) { append("TikTok") }
                             append(" or ")
                             withStyle(siteStyle) { append("Instagram") }
-                            append(" link,
-then paste it here.")
+                            append(" link,")
+                            appendLine()
+                            append("then paste it here.")
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
