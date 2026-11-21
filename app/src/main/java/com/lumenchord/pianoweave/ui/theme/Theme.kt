@@ -123,7 +123,7 @@ fun Modifier.goldLeaf(theme: AppTheme, shape: Shape = PillShape, glowStrength: F
             // At night the accent's own light evenly all round: an elevation shadow would fall below the button
             val glow = colors.last()
             drawBehind {
-                for ((spread, alpha) in listOf(6.dp to 0.07f, 3.5.dp to 0.11f, 1.5.dp to 0.16f)) {
+                for ((spread, alpha) in listOf(6.dp to 0.04f, 3.5.dp to 0.065f, 1.5.dp to 0.10f)) {
                     val px = spread.toPx()
                     val outline = shape.createOutline(Size(size.width + px * 2, size.height + px * 2), layoutDirection, this)
                     translate(-px, -px) { drawOutline(outline, glow.copy(alpha = alpha * strength)) }
