@@ -50,8 +50,8 @@ fun PianoWeaveWordmark(
 ) {
     val theme = LocalAppTheme.current
     val accent = theme.primaryColor
-    // By day the deep ink made the wordmark too heavy: its middle is a softer bronze between ink and gold
-    val light = if (theme.isLight) lerp(theme.palette.text, accent, 0.5f) else theme.palette.text
+    // By day no ink at all: the middle brightens toward the theme's own light gold, as the night's toward white
+    val light = if (theme.isLight) lerp(accent, theme.fill?.first() ?: accent, 0.35f) else theme.palette.text
     // Website: gold, white 50 %, silver #d8dce3 65 %, gold.
     // By day the silver would vanish into the mist: warm bronze instead, and a glow of sunlight
     val isLight = theme.isLight
@@ -59,7 +59,7 @@ fun PianoWeaveWordmark(
         arrayOf(
             0f to accent,
             0.5f to light,
-            0.65f to if (isLight) lerp(light, Color(0xFF9A7442), 0.6f) else lerp(light, Color(0xFFD8DCE3), 0.85f),
+            0.65f to if (isLight) lerp(accent, Color(0xFFA8782E), 0.5f) else lerp(light, Color(0xFFD8DCE3), 0.85f),
             1f to accent
         )
     }
