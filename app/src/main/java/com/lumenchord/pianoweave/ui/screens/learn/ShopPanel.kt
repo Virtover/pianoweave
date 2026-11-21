@@ -231,6 +231,9 @@ private fun ShopTabs(selected: ShopTab, onSelect: (ShopTab) -> Unit) {
     }
 }
 
+/** The shop lists many lit buttons at once: at night their glows would add up, so each glows softly. */
+private fun shopGlow(theme: com.lumenchord.pianoweave.ui.theme.AppTheme) = if (theme.isLight) 1f else 0.35f
+
 /** The one quiet line under a list. */
 @Composable
 private fun ListNote(text: String) {
@@ -679,7 +682,7 @@ private fun ActionPill(text: String, enabled: Boolean, busy: Boolean, outlined: 
         border = if (outlined) BorderStroke(1.dp, gold.copy(alpha = 0.7f)) else null,
         modifier = Modifier
             .heightIn(min = 36.dp)
-            .then(if (lit) Modifier.goldLeaf(theme) else Modifier)
+            .then(if (lit) Modifier.goldLeaf(theme, glowStrength = shopGlow(theme)) else Modifier)
     ) {
         Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
             if (busy) {
@@ -730,7 +733,7 @@ private fun PacksList(state: ShopUiState, onPack: (ShopPack) -> Unit) {
                     Box(
                         modifier = Modifier
                             .heightIn(min = 32.dp)
-                            .then(if (canBuy || busy) Modifier.goldLeaf(theme) else Modifier.background(gold.copy(alpha = 0.3f), PillShape))
+                            .then(if (canBuy || busy) Modifier.goldLeaf(theme, glowStrength = shopGlow(theme)) else Modifier.background(gold.copy(alpha = 0.3f), PillShape))
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {

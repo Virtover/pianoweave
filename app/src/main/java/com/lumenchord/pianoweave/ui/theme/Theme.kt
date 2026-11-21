@@ -97,10 +97,11 @@ val PillShape = RoundedCornerShape(percent = 50)
  * The key buttons' lit fill: the theme's [AppTheme.fill] (gold leaf by day, the accent lit from above by night),
  * with a soft glow of its own colour around it, as light rather than shadow.
  */
-fun Modifier.goldLeaf(theme: AppTheme, shape: Shape = PillShape): Modifier =
+fun Modifier.goldLeaf(theme: AppTheme, shape: Shape = PillShape, glowStrength: Float = 1f): Modifier =
     theme.fill?.let { colors ->
-        val glow = colors.last()
-        shadow(elevation = 6.dp, shape = shape, clip = false, ambientColor = glow, spotColor = glow)
+        // [glowStrength] below 1 for places with many lit buttons together, where full glows add up
+        val glow = colors.last().copy(alpha = glowStrength.coerceIn(0f, 1f))
+        shadow(elevation = 6.dp * glowStrength.coerceIn(0.2f, 1f), shape = shape, clip = false, ambientColor = glow, spotColor = glow)
             .background(Brush.verticalGradient(colors), shape)
     } ?: this
 

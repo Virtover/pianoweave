@@ -525,6 +525,8 @@ internal fun BillingMessageDialog(
                     AccentButton(
                         onClick = onDismiss,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp),
+                        // Softer at night, like the shop's other lit buttons
+                        glowStrength = if (appTheme.isLight) 1f else 0.35f,
                         shape = PillShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = gold,

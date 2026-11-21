@@ -32,13 +32,15 @@ fun AccentButton(
     border: BorderStroke? = null,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     interactionSource: MutableInteractionSource? = null,
+    /** Below 1 where several lit buttons sit together (see goldLeaf). */
+    glowStrength: Float = 1f,
     content: @Composable RowScope.() -> Unit
 ) {
     val theme = LocalAppTheme.current
     val isLeaf = enabled && theme.fill != null && colors.containerColor == theme.primaryColor
     Button(
         onClick = onClick,
-        modifier = if (isLeaf) modifier.goldLeaf(theme, shape) else modifier,
+        modifier = if (isLeaf) modifier.goldLeaf(theme, shape, glowStrength) else modifier,
         enabled = enabled,
         shape = shape,
         colors = if (isLeaf) colors.copy(containerColor = Color.Transparent, contentColor = theme.onKeyButton) else colors,
