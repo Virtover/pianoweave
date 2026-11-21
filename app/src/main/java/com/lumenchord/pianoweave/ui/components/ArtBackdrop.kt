@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.components
 
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.ColorFilter
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,18 @@ fun smallThumbnailUrl(url: String): String =
 /** Blur needs Android 12; below that a sharp, busy image behind text would hurt readability, so none is drawn. */
 private val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
+/** Each colour kept at 85 %, plus 15 % of warm parchment: shadows lift most, light art hardly changes. */
+private val DaylightLift = ColorFilter.colorMatrix(
+    ColorMatrix(
+        floatArrayOf(
+            0.85f, 0f, 0f, 0f, 0.15f * 248f,
+            0f, 0.85f, 0f, 0f, 0.15f * 236f,
+            0f, 0f, 0.85f, 0f, 0.15f * 214f,
+            0f, 0f, 0f, 1f, 0f
+        )
+    )
+)
+
 /**
  * The song's cover art, heavily blurred and dimmed, filling the parent [Box] behind its content.
  * [fadeTo] darkens it towards the bottom so text and buttons placed there stay readable.
@@ -38,6 +53,8 @@ fun BoxScope.ArtBackdrop(
         model = smallThumbnailUrl(thumbnailUrl),
         contentDescription = null,
         contentScale = ContentScale.Crop,
+        // By day dark art is lifted a little toward warm parchment, so a black cover doesn't sit like a hole in the page
+        colorFilter = if (AppThemeManager.isLight) DaylightLift else null,
         modifier = Modifier
             .matchParentSize()
             .blur(28.dp)
