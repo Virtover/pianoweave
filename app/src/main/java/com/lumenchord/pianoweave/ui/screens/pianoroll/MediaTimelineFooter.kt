@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.lumenchord.pianoweave.ui.theme.onKeyButton
 import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import androidx.compose.ui.platform.LocalContext
@@ -104,12 +106,16 @@ internal fun MediaTimelineFooter(
                             radius = size.minDimension * 0.85f
                         )
                     }
-                    .background(Brush.linearGradient(listOf(ColorGoldLight, ColorGold)), CircleShape)
+                    // By day gold leaf lit from within, as the design has it; at night the gold it always had
+                    .then(
+                        if (appTheme.isLight) Modifier.goldLeaf(appTheme, CircleShape)
+                        else Modifier.background(Brush.linearGradient(listOf(ColorGoldLight, ColorGold)), CircleShape)
+                    )
             ) {
                 Icon(
                     imageVector = if (viewModel.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (viewModel.isPlaying) "Pause" else "Play",
-                    tint = if (appTheme.isLightAccent) Color.Black else Color.White,
+                    tint = if (appTheme.isLight) appTheme.onKeyButton else if (appTheme.isLightAccent) Color.Black else Color.White,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -174,7 +180,10 @@ internal fun MediaTimelineFooter(
                             .height(32.dp)
                             .offset(y = (-12).dp),
                         startThumb = {
-                            Box(
+                            if (appTheme.isLight) {
+                                // By day a gold pill standing across the groove
+                                Box(Modifier.size(width = 14.dp, height = 24.dp).goldLeaf(appTheme, RoundedCornerShape(7.dp)))
+                            } else Box(
                                 modifier = Modifier
                                     .size(24.dp)
                                     .goldLeaf(appTheme, CircleShape)
@@ -185,7 +194,10 @@ internal fun MediaTimelineFooter(
                             }
                         },
                         endThumb = {
-                            Box(
+                            if (appTheme.isLight) {
+                                // By day a gold pill standing across the groove
+                                Box(Modifier.size(width = 14.dp, height = 24.dp).goldLeaf(appTheme, RoundedCornerShape(7.dp)))
+                            } else Box(
                                 modifier = Modifier
                                     .size(24.dp)
                                     .goldLeaf(appTheme, CircleShape)
@@ -217,7 +229,7 @@ internal fun MediaTimelineFooter(
                     thumb = {
                         Box(
                             modifier = Modifier
-                                .size(15.dp)
+                                .size(if (appTheme.isLight) 18.dp else 15.dp)
                                 .drawBehind {
                                     val glowRadius = size.minDimension
                                     drawCircle(
@@ -229,7 +241,12 @@ internal fun MediaTimelineFooter(
                                         radius = glowRadius
                                     )
                                 }
-                                .background(Ink, CircleShape)
+                                .then(
+                                    if (appTheme.isLight) Modifier
+                                        .background(Color(0xFFFBF3E2), CircleShape)
+                                        .border(2.dp, appTheme.primaryColor, CircleShape)
+                                    else Modifier.background(Ink, CircleShape)
+                                )
                         )
                     },
                     track = { _ ->
@@ -241,14 +258,15 @@ internal fun MediaTimelineFooter(
                         ) {
                             val totalWidth = size.width
                             val centerY = size.height / 2f
-                            val thumbRadius = 7.5.dp.toPx()
+                            val thumbRadius = (if (appTheme.isLight) 9.dp else 7.5.dp).toPx()
+                            val isDay = appTheme.isLight
                             val usableWidth = (totalWidth - 2 * thumbRadius).coerceAtLeast(0f)
                             val thumbCenterX = thumbRadius + fraction * usableWidth
 
                             // 1. Inactive Track
-                            val inactiveTrackHeight = 2.5.dp.toPx()
+                            val inactiveTrackHeight = (if (isDay) 6.dp else 2.5.dp).toPx()
                             drawRoundRect(
-                                color = trackInactiveColor,
+                                color = if (isDay) appTheme.palette.mutedContainer else trackInactiveColor,
                                 topLeft = Offset(0f, centerY - inactiveTrackHeight / 2f),
                                 size = Size(totalWidth, inactiveTrackHeight),
                                 cornerRadius = CornerRadius(inactiveTrackHeight / 2f)
@@ -263,23 +281,31 @@ internal fun MediaTimelineFooter(
                                 val endX = thumbRadius + ePerc * usableWidth
                                 val rangeW = (endX - startX).coerceAtLeast(0f)
                                 if (rangeW > 0f) {
-                                    val loopTrackHeight = 7.dp.toPx()
+                                    val loopTrackHeight = (if (isDay) 12.dp else 7.dp).toPx()
                                     drawRoundRect(
-                                        color = ColorGold.copy(alpha = 0.3f),
+                                        color = ColorGold.copy(alpha = if (isDay) 0.22f else 0.3f),
                                         topLeft = Offset(startX, centerY - loopTrackHeight / 2f),
                                         size = Size(rangeW, loopTrackHeight),
-                                        cornerRadius = CornerRadius(loopTrackHeight / 2f)
+                                        cornerRadius = CornerRadius(if (isDay) 4.dp.toPx() else loopTrackHeight / 2f)
+                                    )
+                                    // By day the band is outlined in gold, as the design has it
+                                    if (isDay) drawRoundRect(
+                                        color = appTheme.primaryColor,
+                                        topLeft = Offset(startX, centerY - loopTrackHeight / 2f),
+                                        size = Size(rangeW, loopTrackHeight),
+                                        cornerRadius = CornerRadius(4.dp.toPx()),
+                                        style = Stroke(1.dp.toPx())
                                     )
                                 }
                             }
 
                             // 3. Active Progress Track
-                            val activeTrackHeight = 6.5.dp.toPx()
+                            val activeTrackHeight = (if (isDay) 6.dp else 6.5.dp).toPx()
                             val activeWidth = thumbCenterX.coerceIn(0f, totalWidth)
                             if (activeWidth > 0f) {
                                 drawRoundRect(
                                     brush = Brush.horizontalGradient(
-                                        colors = listOf(ColorGold, ColorGoldLight),
+                                        colors = if (isDay) appTheme.fill ?: listOf(ColorGoldLight, ColorGold) else listOf(ColorGold, ColorGoldLight),
                                         startX = 0f,
                                         endX = activeWidth.coerceAtLeast(1f)
                                     ),
