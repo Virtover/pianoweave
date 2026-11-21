@@ -127,6 +127,7 @@ internal fun ModernPianoPlayerContent(
         rawEvents.map { it.copy(pitch = it.pitch + viewModel.transposeOffset) }
     }
 
+    val context = LocalContext.current
     // Which keys are shown (Settings → Display → Keyboard). Only the drawing changes: wait mode listens to all 88.
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     // Keys at least 14 dp wide: about 3½ octaves in portrait on a phone, the whole keyboard in landscape or on a tablet
@@ -146,6 +147,7 @@ internal fun ModernPianoPlayerContent(
     }
     // While two fingers pinch or slide the keys: the window as it is right now (committed when they lift)
     var pinchSpan by remember { mutableStateOf<WhiteSpan?>(null) }
+    var pinchStart by remember { mutableStateOf<WhiteSpan?>(null) }
     val keyWindow = when {
         pinchSpan != null -> pinchSpan!!.toWindow()
         follows -> KeyWindow(followLow, followLow + FOLLOW_SPAN)
@@ -154,6 +156,23 @@ internal fun ModernPianoPlayerContent(
         else -> KeyWindow(PIANO_LOWEST, PIANO_HIGHEST)
     }
     val visibleWhiteKeys = keyWindow.whiteKeys
+    // Two fingers on the notes or the keys: pinch to show more or fewer keys, slide to move them; kept as Custom
+    // (or All 88) when they lift
+    val keysPinch = Modifier.twoFingerKeys(
+        onStart = { pinchStart = keyWindow.toSpan() },
+        onChange = { ratio, pan, focus -> pinchSpan = pinchStart?.pinched(ratio, pan, focus) },
+        onEnd = {
+            pinchSpan?.toWindow()?.let { window ->
+                if (window.isWhole) viewModel.setKeyboardRange(context, KeyboardRange.All)
+                else {
+                    viewModel.setCustomRange(context, window.low, window.high)
+                    viewModel.setKeyboardRange(context, KeyboardRange.Custom)
+                }
+            }
+            pinchSpan = null
+            pinchStart = null
+        }
+    )
     val keyWindowLabel = "${noteName(keyWindow.low)}–${noteName(keyWindow.high)}" + if (follows) " · Follow" else ""
 
     val songDurationMs = remember(noteEvents) {
@@ -176,7 +195,6 @@ internal fun ModernPianoPlayerContent(
 
     val chordHits = remember { mutableStateSetOf<Int>() }
 
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {
@@ -743,21 +761,7 @@ internal fun ModernPianoPlayerContent(
                 .fillMaxWidth()
                 .clipToBounds()
                 // Two fingers: pinch to show more or fewer keys, slide to move them (kept as Custom, or All 88)
-                .twoFingerKeys(
-                    onChange = { zoom, pan, focus ->
-                        pinchSpan = (pinchSpan ?: keyWindow.toSpan()).pinched(zoom, pan, focus)
-                    },
-                    onEnd = {
-                        pinchSpan?.toWindow()?.let { window ->
-                            if (window.isWhole) viewModel.setKeyboardRange(context, KeyboardRange.All)
-                            else {
-                                viewModel.setCustomRange(context, window.low, window.high)
-                                viewModel.setKeyboardRange(context, KeyboardRange.Custom)
-                            }
-                        }
-                        pinchSpan = null
-                    }
-                )
+                .then(keysPinch)
                 .onSizeChanged { containerSize = it }
                 .pointerInput(songDurationMs, isUiHidden) {
                     val scale = 0.25f
@@ -1011,6 +1015,8 @@ internal fun ModernPianoPlayerContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(keyboardHeight)
+                // On the keys too, except while wait mode waits for a chord to be played on them
+                .then(if (isWaitingAtBaseline) Modifier else keysPinch)
                 .then(
                     if (!viewModel.isWaitModeEnabled) {
                         Modifier.pointerInput(Unit) {

@@ -145,6 +145,11 @@ internal suspend fun PointerInputScope.detectTapAndDoubleTap(
                 while (true) {
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == pointer.id } ?: break
+                    // Taken by a two-finger pinch: not a tap
+                    if (change.isConsumed) {
+                        exceeded = true
+                        break
+                    }
                     if (!change.pressed) {
                         upPos = change.position
                         change.consume()

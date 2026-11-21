@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.components
 
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.background
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import androidx.compose.foundation.BorderStroke
@@ -54,8 +55,13 @@ fun AdaptiveNavigation(
     // at night the faint disc it always had
     val isDay = AppThemeManager.isLight && logo == null
     val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-    val logoDiscBorder = if (isDay) BorderStroke(1.5.dp, Color(0xFFB5821F)) else BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
-    val logoDiscGround = if (isDay) Modifier.background(Brush.verticalGradient(listOf(Color(0xFFFFF4D8), Color(0xFFF6DDA6), Color(0xFFE8C07A))), CircleShape) else Modifier
+    // The theme's own colour in it, as the night's disc has: its light mixed into the sunlit ground, its accent as the ring
+    val dayTint = LocalAppTheme.current.fill?.first() ?: Color(0xFFF3CC6E)
+    val logoDiscBorder = if (isDay) BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.75f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+    val logoDiscGround = if (isDay) Modifier.background(
+        Brush.verticalGradient(listOf(lerp(Color(0xFFFFF8E6), dayTint, 0.18f), lerp(Color(0xFFFAEBC8), dayTint, 0.3f), lerp(Color(0xFFF2D9A6), dayTint, 0.4f))),
+        CircleShape
+    ) else Modifier
     val room = rememberWindowRoom()
     // A rail from tablet width up too, where a bottom bar would stretch two items across the whole screen
     val useRail = room.isLandscape || room.isWide
