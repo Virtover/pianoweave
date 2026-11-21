@@ -62,7 +62,7 @@ internal fun PianoKeyboardRow(
     val pressed = MidiInputManager.pressedKeys.toSet()
     val isDay = appTheme.isLight
     // The bed the keys lie in, and the keys themselves: warm ivory and ebony, a parchment bed by day
-    val keyBed = if (isDay) Color(0xFFD9C6A4) else Color(0xFF050403)
+    val keyBed = if (isDay) Color(0xFFD9C6A4) else Color(0xFF030507)
     val ivoryTop = if (isDay) Color(0xFFFFFDF6) else Color(0xFFF3EDE3)
     val ivoryBottom = if (isDay) Color(0xFFF0E3CA) else Color(0xFFD9D0C1)
     val ebonyTop = if (isDay) Color(0xFF3B2A19) else Color(0xFF1C1611)
@@ -154,7 +154,172 @@ internal fun PianoKeyboardRow(
         val tw = constraints.maxWidth.toFloat()
         val keyPath = remember { Path() }
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        // At night the keyboard it always had (hairline gaps, cool keys); by day warm ivory and ebony
+        if (!isDay) Canvas(modifier = Modifier.fillMaxSize()) {
+            val wkW = tw / numWhiteKeys
+            val whiteRadius = 6.dp.toPx()
+            val blackRadius = 4.dp.toPx()
+
+            // 1. Base White Keys
+            for (i in 0 until numWhiteKeys) {
+                val x1 = i * wkW
+                keyPath.reset()
+                keyPath.addRoundRect(
+                    RoundRect(
+                        rect = Rect(x1 + 0.5f, 0f, x1 + wkW - 0.5f, size.height),
+                        bottomLeft = CornerRadius(whiteRadius, whiteRadius),
+                        bottomRight = CornerRadius(whiteRadius, whiteRadius)
+                    )
+                )
+                drawPath(path = keyPath, color = ColorKeyWhite)
+                drawLine(Color.Black.copy(alpha = 0.15f), Offset(x1, 0f), Offset(x1, size.height), 1.2.dp.toPx())
+            }
+
+            // 2. Subtle Top Keyboard Shadow Gradient (drapes over idle keys)
+            val shadowHeight = 24.dp.toPx()
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.5f),
+                        Color.Black.copy(alpha = 0.15f),
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = shadowHeight
+                ),
+                topLeft = Offset(0f, 0f),
+                size = Size(tw, shadowHeight)
+            )
+
+            // 3. Active White Key Glow Auras & Highlights
+            val now = System.currentTimeMillis()
+            val playedWhite = mutableListOf<Int>()
+            for (p in start..end) {
+                if (isPitchBlack(p)) continue
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                val isPressed = pressed.contains(p)
+                val isTarget = sustainedPitches.contains(p)
+                val isWaiting = waitTargetPitches.contains(p)
+                val isSatisfied = satisfiedPitches.contains(p)
+
+                val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                // A press the previous chord already used doesn't count here (wait mode wants it again)
+                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L) &&
+                        lastPress > (MidiInputManager.consumedPressTimestamps[p] ?: 0L)
+
+                if (isPressed || isTarget || isWaiting || isSatisfied) {
+                    val color = when {
+                        isSatisfied -> ColorSuccess
+                        isWaiting && isRecentOnset -> ColorSuccess
+                        isPressed -> ColorGold
+                        isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
+                        else -> ColorGold.copy(alpha = 0.5f)
+                    }
+
+                    // Glow aura around white key
+                    keyPath.reset()
+                    keyPath.addRoundRect(
+                        RoundRect(
+                            rect = Rect(x1 - 1f, -1f, x2 + 1f, size.height + 1f),
+                            bottomLeft = CornerRadius(whiteRadius + 1f, whiteRadius + 1f),
+                            bottomRight = CornerRadius(whiteRadius + 1f, whiteRadius + 1f)
+                        )
+                    )
+                    drawPath(path = keyPath, color = color.copy(alpha = 0.4f))
+
+                    // Crisp white key highlight
+                    keyPath.reset()
+                    keyPath.addRoundRect(
+                        RoundRect(
+                            rect = Rect(x1 + 0.5f, 0f, x2 - 0.5f, size.height),
+                            bottomLeft = CornerRadius(whiteRadius, whiteRadius),
+                            bottomRight = CornerRadius(whiteRadius, whiteRadius)
+                        )
+                    )
+                    drawPath(path = keyPath, color = color)
+                    if (showNoteNames && x2 - x1 >= 14.dp.toPx()) playedWhite += p
+                }
+            }
+
+            // 4. Black Keys
+            for (p in start..end) {
+                if (!isPitchBlack(p)) continue
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                val isPressed = pressed.contains(p)
+                val isTarget = sustainedPitches.contains(p)
+                val isWaiting = waitTargetPitches.contains(p)
+                val isSatisfied = satisfiedPitches.contains(p)
+
+                val lastPress = MidiInputManager.lastPressTimestamps[p] ?: 0L
+                val isRecentOnset = (now - lastPress <= 350L) && (isPressed || now - lastPress <= 250L) &&
+                        lastPress > (MidiInputManager.consumedPressTimestamps[p] ?: 0L)
+
+                val highlightColor = when {
+                    isSatisfied -> ColorSuccess
+                    isWaiting && isRecentOnset -> ColorSuccess
+                    isPressed -> ColorGold
+                    isWaiting -> ColorWaitTarget.copy(alpha = pulseAlpha)
+                    isTarget -> ColorGold.copy(alpha = 0.5f)
+                    else -> null
+                }
+
+                val h = size.height * 0.7f
+                keyPath.reset()
+                keyPath.addRoundRect(
+                    RoundRect(
+                        rect = Rect(x1 + 0.5f, 0f, x2 - 0.5f, h),
+                        bottomLeft = CornerRadius(blackRadius, blackRadius),
+                        bottomRight = CornerRadius(blackRadius, blackRadius)
+                    )
+                )
+
+                if (highlightColor != null) {
+                    Path().apply {
+                        addRoundRect(
+                            RoundRect(
+                                rect = Rect(x1 - 1.5f, -1.5f, x2 + 1.5f, h + 1.5f),
+                                bottomLeft = CornerRadius(blackRadius + 1f, blackRadius + 1f),
+                                bottomRight = CornerRadius(blackRadius + 1f, blackRadius + 1f)
+                            )
+                        )
+                        drawPath(this, color = highlightColor.copy(alpha = 0.45f))
+                    }
+                    drawPath(path = keyPath, color = highlightColor)
+                } else {
+                    drawPath(path = keyPath, color = ColorKeyBlack)
+                }
+            }
+
+            // 5. C Key Annotations
+            val textPaint = Paint().apply {
+                color = android.graphics.Color.parseColor("#777777")
+                textSize = 10.sp.toPx()
+                textAlign = Paint.Align.CENTER
+                isAntiAlias = true
+            }
+            // Played keys carry their name above the C labels, in the ink of a lit key
+            val namePaint = Paint().apply {
+                color = android.graphics.Color.parseColor("#3A2410")
+                textSize = 10.sp.toPx()
+                textAlign = Paint.Align.CENTER
+                isAntiAlias = true
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            }
+            for (p in playedWhite) {
+                val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                drawContext.canvas.nativeCanvas.drawText(noteName(p), (x1 + x2) / 2f, size.height - 24.dp.toPx(), namePaint)
+            }
+            for (p in start..end) {
+                if (!isPitchBlack(p) && p % 12 == 0) {
+                    val (x1, x2) = getPitchXRange(p, start, tw, numWhiteKeys)
+                    val centerX = (x1 + x2) / 2f
+                    val name = midiPitchName(p)
+                    val y = size.height - 10.dp.toPx()
+                    drawContext.canvas.nativeCanvas.drawText(name, centerX, y, textPaint)
+                }
+            }
+        }
+        else Canvas(modifier = Modifier.fillMaxSize()) {
             val wkW = tw / numWhiteKeys
             val whiteRadius = minOf(6.dp.toPx(), wkW * 0.3f)
             val blackRadius = minOf(4.dp.toPx(), wkW * 0.25f)
