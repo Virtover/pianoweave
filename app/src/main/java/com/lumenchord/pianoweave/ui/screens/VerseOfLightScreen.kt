@@ -1,5 +1,12 @@
 package com.lumenchord.pianoweave.ui.screens
 
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.Path
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.res.Configuration
@@ -77,6 +84,8 @@ private val LightPale: Color get() = byDay(0xFF5A4632, 0xFFF6E2C5)
 // By day the words in deep gold, the name and reference in a brighter one
 private val VerseColor: Color get() = byDay(0xFF6B430C, 0xFFFBEAD3)
 private val SoftGold: Color get() = byDay(0xFFA87418, 0xFFE6C08D)
+/** The verse's reference: by day a deeper gold than the name above, as in the design. */
+private val RefGold: Color get() = byDay(0xFF8A6118, 0xFFE6C08D)
 /** What the letters flash toward as the light reveals them. */
 private val RevealFlash: Color get() = byDay(0xFFB8782E, 0xFFFFFFFF)
 
@@ -113,7 +122,9 @@ private fun GlowText(
     val glowPx = with(density) { glow.toPx() } * (1f + 2f * exposure)
     val haloPx = with(density) { halo.toPx() } * (1f + exposure)
     val letterColor = lerp(color, RevealFlash, exposure)
-    val haloStrength = (haloAlpha * (1f + exposure)).coerceAtMost(1f)
+    // By day the words settle without a glow, as in the design; the light only swells through them in the reveal
+    val settled = if (AppThemeManager.isLight) exposure else 1f
+    val haloStrength = (haloAlpha * (1f + exposure) * settled).coerceAtMost(1f)
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Text(
             text = text,
@@ -127,7 +138,7 @@ private fun GlowText(
             text = text,
             style = style.copy(
                 color = letterColor,
-                shadow = Shadow(LightGlow.copy(alpha = (0.75f + 0.25f * exposure)), Offset.Zero, glowPx)
+                shadow = Shadow(LightGlow.copy(alpha = (0.75f + 0.25f * exposure) * settled), Offset.Zero, glowPx)
             ),
             overflow = TextOverflow.Visible
         )
@@ -197,6 +208,7 @@ fun VerseOfLightScreen(onClose: () -> Unit) {
                         radius = maxOf(size.width, size.height) * 0.9f
                     )
                 )
+                drawDayMotes()
             } else Modifier.background(LightBackground))
             .pointerInput(Unit) { detectTapGestures { } } // Keep touches from reaching the app below
     ) {
@@ -277,7 +289,7 @@ fun VerseOfLightScreen(onClose: () -> Unit) {
                     .padding(8.dp)
                     .graphicsLayer { alpha = crossReveal.value } // Pure darkness before the reveal
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = LightPale.copy(alpha = 0.35f))
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = if (AppThemeManager.isLight) Color(0xFF9A8468) else LightPale.copy(alpha = 0.35f))
             }
         }
     }
@@ -370,7 +382,7 @@ private fun VerseText(
             GlowText(
                 text = verse.ref,
                 style = verseStyle(fontSize = 15.sp, letterSpacing = 0.04.em),
-                color = SoftGold,
+                color = RefGold,
                 glow = 2.dp,
                 halo = 8.dp,
                 haloAlpha = 0.35f,
@@ -451,6 +463,10 @@ private fun CrossOfLight(size: Dp, swell: () -> Float, modifier: Modifier = Modi
 
     Canvas(modifier = modifier.size(width = size * 0.72f, height = size)) {
         val glow = breath * (1f + 1.2f * swell())
+        if (AppThemeManager.isLight) {
+            drawDayCross(glow, breath)
+            return@Canvas
+        }
         val h = this.size.height
         val cx = this.size.width / 2f
         val beam = h * 0.05f
@@ -512,6 +528,95 @@ private fun CrossOfLight(size: Dp, swell: () -> Float, modifier: Modifier = Modi
                 radius = beam * 1.6f
             ),
             radius = beam * 1.6f,
+            center = center
+        )
+    }
+}
+
+/**
+ * The cross by day, as the design draws it (a 120 x 170 cross, beams 18 wide, the bar 42 from the top): the upright
+ * gold lit from the right, the bar lit from above, a fine white edge inside and three layers of warm light around.
+ * Drawn as one shape, so the glow and the edge follow the whole outline, and where the beams meet a lit heart joins
+ * the two golds without a seam: the cross is where the light comes from.
+ */
+private fun DrawScope.drawDayCross(glow: Float, breath: Float) {
+    val h = size.height
+    val k = h / 170f
+    val cx = size.width / 2f
+    val beam = 18f * k
+    val r = beam / 2f
+    val arm = 60f * k
+    val barTop = 42f * k
+    val upright = Path().apply { addRoundRect(RoundRect(cx - r, 0f, cx + r, h, CornerRadius(r))) }
+    val bar = Path().apply { addRoundRect(RoundRect(cx - arm, barTop, cx + arm, barTop + beam, CornerRadius(r))) }
+    val cross = Path().apply { op(upright, bar, PathOperation.Union) }
+
+    // The design's three glows (blur, spread, colour, strength), widest first, each as soft strokes of the outline
+    val glows = listOf(
+        Triple(90f to 30f, Color(0xFFFFECC4), 0.4f),
+        Triple(36f to 10f, Color(0xFFFFE8B4), 0.7f),
+        Triple(10f to 3f, Color(0xFFFFF8E1), 0.95f)
+    )
+    val steps = 10
+    for ((blurSpread, color, strength) in glows) {
+        val (blur, spread) = blurSpread
+        for (i in steps - 1 downTo 0) {
+            val t = (i + 0.5f) / steps
+            val width = 2f * (spread + blur * t) * k
+            val alpha = (strength * (1f - t) * 2.2f / steps * glow).coerceIn(0f, 1f)
+            drawPath(cross, color.copy(alpha = alpha), style = Stroke(width = width, join = StrokeJoin.Round))
+        }
+    }
+
+    // The gold: the bar lit from above, the upright from the right
+    drawPath(bar, Brush.verticalGradient(listOf(Color(0xFFF7DB96), Color(0xFFD9A23F)), startY = barTop, endY = barTop + beam))
+    drawPath(
+        upright,
+        Brush.horizontalGradient(0f to Color(0xFFC99134), 0.55f to Color(0xFFF2CF7E), 1f to Color(0xFFFFF0C8), startX = cx - r, endX = cx + r)
+    )
+    clipPath(cross) {
+        // Where the beams meet: their light's heart, joining the two golds
+        val heart = Offset(cx, barTop + r)
+        drawCircle(
+            Brush.radialGradient(
+                0f to Color(0xFFFFF8E4).copy(alpha = 0.95f * breath),
+                0.45f to Color(0xFFFCE6AE).copy(alpha = 0.75f * breath),
+                1f to Color(0xFFF6D88E).copy(alpha = 0f),
+                center = heart,
+                radius = beam * 1.25f
+            ),
+            radius = beam * 1.25f,
+            center = heart
+        )
+        // A fine white edge just inside the whole outline, no line across the meeting
+        drawPath(cross, Color.White.copy(alpha = 0.7f), style = Stroke(width = 2.dp.toPx()))
+    }
+}
+
+/** Motes of light drifting in the warm haze by day, thickest near the cross, as dust catches sunlight (the design's). */
+private val DayMotes = listOf(
+    floatArrayOf(96f, 150f, 6f, 0.8f), floatArrayOf(282f, 128f, 5f, 0.7f), floatArrayOf(140f, 96f, 4f, 0.6f),
+    floatArrayOf(250f, 210f, 7f, 0.85f), floatArrayOf(78f, 250f, 4f, 0.55f), floatArrayOf(318f, 270f, 5f, 0.6f),
+    floatArrayOf(170f, 300f, 3f, 0.7f), floatArrayOf(226f, 92f, 3f, 0.65f), floatArrayOf(120f, 330f, 5f, 0.5f),
+    floatArrayOf(300f, 180f, 3f, 0.75f)
+)
+
+private fun DrawScope.drawDayMotes() {
+    // The design's board is 390 x 844
+    val sx = size.width / 390f
+    val sy = size.height / 844f
+    for ((x, y, s, o) in DayMotes.map { listOf(it[0], it[1], it[2], it[3]) }) {
+        val radius = s * 1.5f / 2f * minOf(sx, sy) * 1.4f
+        val center = Offset((x + s * 0.75f) * sx, (y + s * 0.75f) * sy)
+        drawCircle(
+            Brush.radialGradient(
+                0f to Color.White.copy(alpha = o * 0.8f),
+                0.45f to Color.White.copy(alpha = o * 0.8f * 0.55f),
+                0.7f to Color.Transparent,
+                center = center,
+                radius = radius
+            ),
+            radius = radius,
             center = center
         )
     }
