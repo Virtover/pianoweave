@@ -116,6 +116,11 @@ object AppPrefs {
     const val VOICE_MIC_MODE = "voice_mic_mode"
     /** Legacy flag: the hidden verse screen was opened at least once (superseded by [VERSE_OF_LIGHT_OPEN_COUNT]). */
     const val HAS_OPENED_VERSE_OF_LIGHT = "has_opened_verse_of_light"
+    /**
+     * The official server's last known answer to "does it bill?" (absent: never known). Kept so the Support pill
+     * shows while that server can't be reached, as long as it was free when it last answered.
+     */
+    const val OFFICIAL_SERVER_BILLED = "official_server_billed"
     /** Whether the light themes are in use (only once [IS_LIGHT_THEME_UNLOCKED]). */
     const val IS_LIGHT_THEME = "is_light_theme"
     /**

@@ -404,9 +404,22 @@ class PianoWeaveViewModel : ViewModel() {
     var supportMeLink by mutableStateOf<String?>(null)
         internal set
 
-    /** Whether the official server charges for transcriptions; null until its server-info has been read. */
+    /**
+     * Whether the official server charges for transcriptions: its last known answer, kept across runs, so it still
+     * holds while that server can't be reached; null only until it has answered once.
+     */
     var isOfficialServerBilled by mutableStateOf<Boolean?>(null)
         internal set
+
+    /** Whether the official server has been asked about billing in this run (its answer can change). */
+    internal var hasCheckedOfficialBillingThisRun = false
+
+    /** Takes and keeps a definite answer from the official server about billing. */
+    internal fun rememberOfficialServerBilled(billed: Boolean) {
+        isOfficialServerBilled = billed
+        hasCheckedOfficialBillingThisRun = true
+        appContext?.let { AppPrefs.get(it).edit().putBoolean(AppPrefs.OFFICIAL_SERVER_BILLED, billed).apply() }
+    }
 
     /** Donations only make sense while the official server is free, whichever server is selected. */
     val canShowSupport: Boolean

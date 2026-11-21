@@ -194,7 +194,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     serverMaxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0
                     freeMinutesPeriod = info.freeMinutesPeriod
-                    if (PianoApiFactory.isOfficialServer(url)) isOfficialServerBilled = isBilledServer
+                    if (PianoApiFactory.isOfficialServer(url)) rememberOfficialServerBilled(isBilledServer)
 
 
                     if (isBilledServer) {
@@ -287,15 +287,16 @@ private fun PianoWeaveViewModel.startMaintenanceWatch() {
 
 /** Asks the official server whether it bills, also while a custom server is selected (see [PianoWeaveViewModel.canShowSupport]). */
 private fun PianoWeaveViewModel.refreshOfficialServerBilling() {
-    // With the official server selected, its server-info above already answers this.
-    if (isOfficialServerBilled != null || isUsingDefaultServer) return
+    // With the official server selected, its server-info above already answers this; otherwise asked once a run
+    if (hasCheckedOfficialBillingThisRun || isUsingDefaultServer) return
     val officialUrl = defaultServerUrl.takeIf { it.isNotBlank() } ?: return
     viewModelScope.launch {
-        isOfficialServerBilled = try {
-            PianoApiFactory.getApi(officialUrl).getServerInfo()
+        try {
+            val billed = PianoApiFactory.getApi(officialUrl).getServerInfo()
                 .billingProvider.equals("google_play", ignoreCase = true)
+            rememberOfficialServerBilled(billed)
         } catch (_: Exception) {
-            null
+            // Unreachable: the last known answer stands (the Support pill doesn't vanish with the connection)
         }
     }
 }
@@ -407,6 +408,7 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
         ""
     }
     supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
+    isOfficialServerBilled = if (prefs.contains(AppPrefs.OFFICIAL_SERVER_BILLED)) prefs.getBoolean(AppPrefs.OFFICIAL_SERVER_BILLED, true) else null
     isCustomServer = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
     customServerUrl = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, "") ?: ""
     customServerPassword = SecretStore.get(context, AppPrefs.CUSTOM_SERVER_PASSWORD).orEmpty()
