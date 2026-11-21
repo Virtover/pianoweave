@@ -1,7 +1,7 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll.settings
 
-import androidx.compose.animation.AnimatedVisibility
 import com.lumenchord.pianoweave.ui.theme.Ink
+import androidx.compose.animation.AnimatedVisibility
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -149,11 +149,5 @@ fun LoopingSection(
                 }
             }
         }
-        // As the metronome's hint sits in the speed menu: the loop button's own gesture, where looping is set up
-        Text(
-            text = "Hold the loop button for the song map",
-            color = Ink.copy(alpha = 0.5f),
-            fontSize = 11.sp
-        )
     }
 }

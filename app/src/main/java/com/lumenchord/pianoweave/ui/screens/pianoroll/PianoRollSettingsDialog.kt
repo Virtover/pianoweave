@@ -1,6 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
-import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.DisplaySection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.keysAndNotesSummary
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.KeysAndNotesSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SongMapToggle
 import com.lumenchord.pianoweave.ui.components.AccentButton
 import androidx.activity.compose.BackHandler
 import com.lumenchord.pianoweave.ui.theme.Ink
@@ -64,7 +66,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.delay
 
 /** The settings dialog's pages: the main one, and the less-used groups, each opened from a row on it. */
-internal enum class SettingsPage { Main, Midi, WaitMode, VoiceCommands }
+internal enum class SettingsPage { Main, KeysAndNotes, Midi, WaitMode, VoiceCommands }
 
 /**
  * Practice settings. The main page keeps what's changed while practicing (tempo, loop, transposition);
@@ -187,19 +189,22 @@ internal fun SettingsDialog(
                                         endText = endText,
                                         onEndTextChange = { endText = it }
                                     )
+                                    SongMapToggle(viewModel = viewModel, context = currentContext)
                                     TranspositionSection(viewModel = viewModel)
-                                }
-
-                                HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
-
-                                SettingsGroup("Display") {
-                                    DisplaySection(viewModel = viewModel, context = currentContext)
                                 }
 
                                 HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
 
                                 SettingsGroup("More") {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        LinkRow(
+                                            icon = Icons.Default.Piano,
+                                            title = "Keyboard & notes",
+                                            subtitle = keysAndNotesSummary(viewModel),
+                                            previewTheme = appTheme,
+                                            onClick = { page = SettingsPage.KeysAndNotes },
+                                            trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+                                        )
                                         LinkRow(
                                             icon = Icons.Default.Timer,
                                             title = "Wait mode",
@@ -258,6 +263,11 @@ internal fun SettingsDialog(
                                 ) {
                                     Text("Done", fontWeight = FontWeight.Black, fontSize = 14.sp)
                                 }
+                            }
+
+                            SettingsPage.KeysAndNotes -> {
+                                PageHeader("Keyboard & notes", onBack = { page = SettingsPage.Main }, onClose = onDismiss)
+                                KeysAndNotesSection(viewModel = viewModel, context = currentContext)
                             }
 
                             SettingsPage.Midi -> {

@@ -47,26 +47,30 @@ import com.lumenchord.pianoweave.ui.viewmodel.PIANO_HIGHEST
 import com.lumenchord.pianoweave.ui.viewmodel.PIANO_LOWEST
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 
-/** What the piano roll shows: note names, the song map, and which keys. */
+/**
+ * The song map's switch, under the loop it shows. Its subtitle carries the loop button's gesture, as the speed
+ * menu carries the metronome's.
+ */
 @Composable
-fun DisplaySection(viewModel: PianoWeaveViewModel, context: Context) {
+fun SongMapToggle(viewModel: PianoWeaveViewModel, context: Context) {
+    SettingToggleRow(
+        title = "Song map",
+        subtitle = "Instead of the progress bar: how busy each bar is, and your loop. Or hold the loop button",
+        checked = viewModel.isSongMapEnabled,
+        onCheckedChange = { viewModel.setSongMapEnabled(context, it) },
+        accent = LocalAppTheme.current.primaryColor
+    )
+}
+
+/** One line for the Keyboard & notes row, so the page needn't be opened to check it. */
+fun keysAndNotesSummary(viewModel: PianoWeaveViewModel): String =
+    viewModel.keyboardRange.label + if (viewModel.isNoteNamesEnabled) " · names on" else " · names off"
+
+/** The Keyboard & notes page: which keys are shown, and names on the notes and keys. */
+@Composable
+fun KeysAndNotesSection(viewModel: PianoWeaveViewModel, context: Context) {
     val theme = LocalAppTheme.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SettingToggleRow(
-            title = "Note names",
-            subtitle = "On the falling notes and on the keys being played",
-            checked = viewModel.isNoteNamesEnabled,
-            onCheckedChange = { viewModel.setNoteNamesEnabled(context, it) },
-            accent = theme.primaryColor
-        )
-        SettingToggleRow(
-            title = "Song map",
-            subtitle = "Instead of the progress bar: how busy each bar is, and your loop",
-            checked = viewModel.isSongMapEnabled,
-            onCheckedChange = { viewModel.setSongMapEnabled(context, it) },
-            accent = theme.primaryColor
-        )
-
         SettingLabel(title = "Keyboard", subtitle = rangeHelp(viewModel.keyboardRange))
         RangeChoice(selected = viewModel.keyboardRange, onSelect = { viewModel.setKeyboardRange(context, it) })
 
@@ -102,6 +106,14 @@ fun DisplaySection(viewModel: PianoWeaveViewModel, context: Context) {
                 }
             }
         }
+
+        SettingToggleRow(
+            title = "Note names",
+            subtitle = "On the falling notes and on the keys being played",
+            checked = viewModel.isNoteNamesEnabled,
+            onCheckedChange = { viewModel.setNoteNamesEnabled(context, it) },
+            accent = theme.primaryColor
+        )
     }
 }
 

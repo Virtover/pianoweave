@@ -143,6 +143,11 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   are aliases of `MainActivity` (`LauncherDefault`, `LauncherDeveloper`, `LauncherLight`), one enabled; `LauncherIcon`
   remembers the wish on a definite answer (balance, sign-out) and swaps them in `onStop`, as a swap can close the app.
   The cat wins over the light icon.
+- **Piano roll keys & notes** (Settings → More → Keyboard & notes): which keys are drawn (`KeyboardRange`: All 88
+  by default, Song, Follow, Custom; `ui/screens/pianoroll/KeyboardWindow.kt`) and note names on notes and played keys.
+  Only the drawing changes: wait mode always listens to all 88 keys. Notes outside the keys shown get edge markers, and
+  a strip under the keys shows the whole keyboard. The song map (`SongMap.kt`) sits under Loop in Practice and is also
+  switched by holding the loop button, as the metronome by holding the speed button (both say so in their subtitle).
 - **Piano roll tutorial**: 4-step dialog (incl. voice commands) on first open (`HAS_SEEN_PIANO_ROLL_TUTORIAL`, account progress); closes only via its buttons.
 - **Verse of Light** (hidden): hold the round Piano Weave icon (top bar / rail) for 7 s the first time, 3 s the
   second, 2 s after (`VERSE_OF_LIGHT_OPEN_COUNT`); a normal tap still opens Settings. Shows a gold cross and a
