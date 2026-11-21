@@ -169,7 +169,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   API 33+), all in the chosen "Warm across, edges": the night drawables' ribbons in warm golds shaded across, a fine
   gold line, the bright edges; the launcher icon on the piano roll's sunlit stage.
 - **Account progress** (`util/AccountProgress.kt`): tutorials done, the light unlock and the verse count live in their
-  own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account; with cloud sync on,
+  own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account (the backup rules
+  in `res/xml/` keep only that file and the MIDI library: settings stay per device); with cloud sync on,
   they are also merged with `piano_weave_progress.json` in the Drive app folder (`cloud/AccountProgressSync.kt`,
   after each library sync and on each change; later change wins, counts only grow). Only unlocks and things done belong
   there, never choices (theme, Night / Day stay per device). `listCloudMidis` skips that
