@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.components
 
+import com.lumenchord.pianoweave.ui.theme.onKeyButton
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.background
 import com.lumenchord.pianoweave.ui.theme.AppThemeManager
@@ -54,6 +56,10 @@ fun AdaptiveNavigation(
     // By day the logo sits on the launcher icon's sunlit ground with a firm gold ring, so it holds on the parchment;
     // at night the faint disc it always had
     val isDay = AppThemeManager.isLight && logo == null
+    // The chosen tab's light: by day the theme's own gold (ink on it), as on the key buttons
+    val navTheme = LocalAppTheme.current
+    val navIndicator = if (navTheme.isLight) navTheme.litColor else MaterialTheme.colorScheme.secondary
+    val navIndicatorIcon = if (navTheme.isLight) navTheme.onKeyButton else MaterialTheme.colorScheme.onPrimary
     val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
     // The theme's own colour in it, as the night's disc has: its light mixed into the sunlit ground, its accent as the ring
     val dayTint = LocalAppTheme.current.fill?.first() ?: Color(0xFFF3CC6E)
@@ -133,10 +139,10 @@ fun AdaptiveNavigation(
                         )
                     },
                     colors = NavigationRailItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedIconColor = navIndicatorIcon,
                         selectedTextColor = MaterialTheme.colorScheme.secondary,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        indicatorColor = MaterialTheme.colorScheme.secondary
+                        indicatorColor = navIndicator
                     )
                 )
 
@@ -157,10 +163,10 @@ fun AdaptiveNavigation(
                         )
                     },
                     colors = NavigationRailItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedIconColor = navIndicatorIcon,
                         selectedTextColor = MaterialTheme.colorScheme.secondary,
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        indicatorColor = MaterialTheme.colorScheme.secondary
+                        indicatorColor = navIndicator
                     )
                 )
 
@@ -241,9 +247,9 @@ fun AdaptiveNavigation(
                         icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
                         label = { Text("Transcribe", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedIconColor = navIndicatorIcon,
                             selectedTextColor = MaterialTheme.colorScheme.secondary,
-                            indicatorColor = MaterialTheme.colorScheme.secondary
+                            indicatorColor = navIndicator
                         )
                     )
                     NavigationBarItem(
@@ -252,9 +258,9 @@ fun AdaptiveNavigation(
                         icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
                         label = { Text("Library", maxLines = 1, softWrap = false) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                            selectedIconColor = navIndicatorIcon,
                             selectedTextColor = MaterialTheme.colorScheme.secondary,
-                            indicatorColor = MaterialTheme.colorScheme.secondary
+                            indicatorColor = navIndicator
                         )
                     )
                 }

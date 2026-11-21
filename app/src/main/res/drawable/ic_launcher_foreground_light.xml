@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher icon by day (light themes): the same ribbons in warm golds shaded across, a fine gold line (firmer on the front ribbon) and the bright edges. -->
+<!-- The launcher icon by day (light themes): the same ribbons in warm golds shaded across, a fine warm bronze line and the bright edges. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -14,37 +14,37 @@
         <path android:pathData="@string/piano_weave_ribbons" android:strokeColor="#FFC85A" android:strokeWidth="100" android:strokeAlpha="0.0104" android:strokeLineJoin="round" android:strokeLineCap="round" />
         <path android:pathData="@string/piano_weave_ribbons" android:strokeColor="#FFC85A" android:strokeWidth="120" android:strokeAlpha="0.0046" android:strokeLineJoin="round" android:strokeLineCap="round" />
         <path android:pathData="@string/piano_weave_ribbons" android:strokeColor="#FFC85A" android:strokeWidth="140" android:strokeAlpha="0.0026" android:strokeLineJoin="round" android:strokeLineCap="round" />
-        <path android:pathData="@string/piano_weave_ribbon_back" android:strokeColor="#B57A22" android:strokeWidth="5" android:strokeLineJoin="round">
+        <path android:pathData="@string/piano_weave_ribbon_back" android:strokeColor="#9A6A26" android:strokeWidth="6" android:strokeLineJoin="round">
             <aapt:attr name="android:fillColor">
                 <gradient android:type="linear" android:startX="102.4" android:startY="0" android:endX="921.6" android:endY="0">
-                    <item android:offset="0" android:color="#B4741C" />
-                    <item android:offset="0.45" android:color="#D99A36" />
-                    <item android:offset="0.75" android:color="#E2AC4C" />
-                    <item android:offset="1" android:color="#B87C26" />
+                    <item android:offset="0" android:color="#C98C34" />
+                    <item android:offset="0.45" android:color="#E8B65C" />
+                    <item android:offset="0.75" android:color="#F0C672" />
+                    <item android:offset="1" android:color="#CB923C" />
                 </gradient>
             </aapt:attr>
         </path>
         <path android:pathData="@string/piano_weave_edge_back" android:strokeColor="#FFFBF4"
             android:strokeWidth="2.4" android:strokeAlpha="0.75" android:strokeLineCap="round" />
-        <path android:pathData="@string/piano_weave_ribbon_mid" android:strokeColor="#B9802A" android:strokeWidth="5" android:strokeLineJoin="round">
+        <path android:pathData="@string/piano_weave_ribbon_mid" android:strokeColor="#A2702A" android:strokeWidth="6" android:strokeLineJoin="round">
             <aapt:attr name="android:fillColor">
                 <gradient android:type="linear" android:startX="102.4" android:startY="0" android:endX="921.6" android:endY="0">
-                    <item android:offset="0" android:color="#C8862A" />
-                    <item android:offset="0.4" android:color="#E8B04A" />
-                    <item android:offset="0.7" android:color="#F2C66E" />
-                    <item android:offset="1" android:color="#C38A30" />
+                    <item android:offset="0" android:color="#DB9E42" />
+                    <item android:offset="0.4" android:color="#F3C86C" />
+                    <item android:offset="0.7" android:color="#F9DA92" />
+                    <item android:offset="1" android:color="#D6A048" />
                 </gradient>
             </aapt:attr>
         </path>
         <path android:pathData="@string/piano_weave_edge_mid" android:strokeColor="#FFFBF4"
             android:strokeWidth="2.4" android:strokeAlpha="0.75" android:strokeLineCap="round" />
-        <path android:pathData="@string/piano_weave_ribbon_front" android:strokeColor="#A96C1A" android:strokeWidth="7" android:strokeLineJoin="round">
+        <path android:pathData="@string/piano_weave_ribbon_front" android:strokeColor="#A06A22" android:strokeWidth="6" android:strokeLineJoin="round">
             <aapt:attr name="android:fillColor">
                 <gradient android:type="linear" android:startX="102.4" android:startY="0" android:endX="921.6" android:endY="0">
-                    <item android:offset="0" android:color="#CF8620" />
-                    <item android:offset="0.35" android:color="#F2A93A" />
-                    <item android:offset="0.65" android:color="#FAC45C" />
-                    <item android:offset="1" android:color="#C47E22" />
+                    <item android:offset="0" android:color="#E4A748" />
+                    <item android:offset="0.35" android:color="#FCCD6E" />
+                    <item android:offset="0.65" android:color="#FFE3A8" />
+                    <item android:offset="1" android:color="#DDA84E" />
                 </gradient>
             </aapt:attr>
         </path>

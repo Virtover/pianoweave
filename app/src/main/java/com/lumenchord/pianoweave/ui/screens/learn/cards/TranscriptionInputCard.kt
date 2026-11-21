@@ -377,7 +377,7 @@ fun TranscriptionInputCard(
                             viewModel.supportsArrangement -> if (isWide) "Paste a video link" else "Video link"
                             else -> if (isWide) "Paste a piano cover link" else "Piano cover link"
                         }
-                        Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
                     },
                     singleLine = true,
                     enabled = !viewModel.isLoading,
@@ -425,15 +425,13 @@ fun TranscriptionInputCard(
                     val siteStyle = SpanStyle(fontWeight = FontWeight.Medium)
                     Text(
                         text = buildAnnotatedString {
-                            append("Copy a link, e.g. from ")
+                            append("Paste a link, e.g. from ")
                             withStyle(siteStyle) { append("YouTube") }
                             append(", ")
                             withStyle(siteStyle) { append("TikTok") }
                             append(" or ")
                             withStyle(siteStyle) { append("Instagram") }
-                            append(",")
-                            appendLine()
-                            append("then paste it here.")
+                            append(".")
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),

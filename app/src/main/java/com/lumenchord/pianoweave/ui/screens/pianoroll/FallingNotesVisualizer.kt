@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.pianoroll
 
+import androidx.compose.ui.graphics.lerp
 import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.toArgb
@@ -199,6 +200,8 @@ internal fun FallingNotesVisualizer(
                 isWaiting -> ColorWaitTargetLight
                 isHitting -> ColorGoldLight
                 isAtBaseline -> ColorGoldLight.copy(alpha = 0.8f)
+                // By day the notes catch the light: their top in the theme's bright gold, not a faded copy
+                appTheme.isLight -> lerp(ColorGoldLight, Color.White, 0.2f)
                 else -> baseCol.copy(alpha = 0.6f)
             }
 
@@ -226,7 +229,8 @@ internal fun FallingNotesVisualizer(
             // Thin lit edge, like the highlight line along each ribbon
             drawRoundRect(
                 brush = Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.12f)),
+                    if (appTheme.isLight) listOf(Color.White.copy(alpha = 0.8f), Color.White.copy(alpha = 0.25f))
+                    else listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.12f)),
                     startY = y,
                     endY = y + h
                 ),

@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.screens.learn
 
+import com.lumenchord.pianoweave.ui.theme.litColor
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.border
@@ -198,61 +199,18 @@ fun ShopPanel(
     }
 }
 
-/**
- * "Plans | Credit packs". By day a recessed well, the chosen tab gold leaf inside it like Link / File / Mic; at
- * night the accent's soft see-through tab, which sits better on the dark sheet.
- */
+/** "Plans | Credit packs": the chosen one in a soft see-through tab of the accent. */
 @Composable
 private fun ShopTabs(selected: ShopTab, onSelect: (ShopTab) -> Unit) {
     val theme = LocalAppTheme.current
-    if (!theme.isLight) {
-        NightShopTabs(selected, onSelect)
-        return
-    }
-    val well = if (theme.isLight) MaterialTheme.colorScheme.tertiaryContainer else Color.Black.copy(alpha = 0.28f)
-    val tabs = listOf(ShopTab.Plans to "Plans", ShopTab.Packs to "Credit packs")
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .clip(PillShape)
-            .background(well, PillShape)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), PillShape)
-            .padding(3.dp)
-            .selectableGroup()
-            .testTag(ShopTags.TABS),
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        tabs.forEach { (tab, label) ->
-            val isSelected = selected == tab
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .then(if (isSelected) Modifier.goldLeaf(theme, PillShape) else Modifier)
-                    .clip(PillShape)
-                    .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(tab) }),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    label,
-                    color = if (isSelected) theme.onKeyButton else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NightShopTabs(selected: ShopTab, onSelect: (ShopTab) -> Unit) {
-    val gold = LocalAppTheme.current.primaryColor
+    // The theme's gold for the tab itself, the deeper accent for its words (readable on parchment by day)
+    val gold = theme.litColor
+    val words = theme.primaryColor
     val slate = MaterialTheme.colorScheme.tertiaryContainer
     val colors = SegmentedButtonDefaults.colors(
-        activeContainerColor = gold.copy(alpha = 0.16f),
-        activeContentColor = gold,
-        activeBorderColor = gold.copy(alpha = 0.6f),
+        activeContainerColor = gold.copy(alpha = if (theme.isLight) 0.22f else 0.16f),
+        activeContentColor = words,
+        activeBorderColor = gold.copy(alpha = if (theme.isLight) 0.8f else 0.6f),
         inactiveContainerColor = Color.Transparent,
         inactiveContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
         inactiveBorderColor = slate
