@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The logo by day (light themes), in the app's top bar: the same ribbons, line and edges as the launcher icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="900"
+    android:viewportHeight="900">
+    <group android:translateX="-62" android:translateY="-57">
+        <path android:pathData="@string/piano_weave_ribbon_back" android:strokeColor="#9A6A26" android:strokeWidth="5" android:strokeLineJoin="round">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="102.4" android:startY="0" android:endX="921.6" android:endY="0">
+                    <item android:offset="0" android:color="#C98C34" />
+                    <item android:offset="0.45" android:color="#E8B65C" />
+                    <item android:offset="0.75" android:color="#F0C672" />
+                    <item android:offset="1" android:color="#CB923C" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="@string/piano_weave_edge_back" android:strokeColor="#FFFBF4"
+            android:strokeWidth="2.4" android:strokeAlpha="0.75" android:strokeLineCap="round" />
+        <path android:pathData="@string/piano_weave_ribbon_mid" android:strokeColor="#A2702A" android:strokeWidth="5" android:strokeLineJoin="round">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="102.4" android:startY="0" android:endX="921.6" android:endY="0">
+                    <item android:offset="0" android:color="#DB9E42" />
+                    <item android:offset="0.4" android:color="#F3C86C" />
+                    <item android:offset="0.7" android:color="#F9DA92" />
+                    <item android:offset="1" android:color="#D6A048" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="@string/piano_weave_edge_mid" android:strokeColor="#FFFBF4"
+            android:strokeWidth="2.4" android:strokeAlpha="0.75" android:strokeLineCap="round" />
+        <path android:pathData="@string/piano_weave_ribbon_front" android:strokeColor="#A06A22" android:strokeWidth="5" android:strokeLineJoin="round">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="102.4" android:startY="0" android:endX="921.6" android:endY="0">
+                    <item android:offset="0" android:color="#E4A748" />
+                    <item android:offset="0.35" android:color="#FCCD6E" />
+                    <item android:offset="0.65" android:color="#FFE3A8" />
+                    <item android:offset="1" android:color="#DDA84E" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="@string/piano_weave_edge_front" android:strokeColor="#FFFBF4"
+            android:strokeWidth="2.4" android:strokeAlpha="0.75" android:strokeLineCap="round" />
+    </group>
+</vector>

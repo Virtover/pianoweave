@@ -55,12 +55,10 @@ fun AdaptiveNavigation(
     logo: Painter? = null,
     content: @Composable () -> Unit
 ) {
-    val logoPainter = logo ?: painterResource(id = R.drawable.app_icon)
-    // By day the logo is the launcher icon itself (one logo everywhere), filling the disc; only the thin ring takes
-    // the colour theme's accent. At night the faint disc it always had
-    val isDay = AppThemeManager.isLight && logo == null
-    val logoDiscColor = if (isDay) Color.Transparent else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-    val logoDiscBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = if (isDay) 0.4f else 0.3f))
+    val logoPainter = logo ?: painterResource(id = if (AppThemeManager.isLight) R.drawable.app_icon_light else R.drawable.app_icon)
+    // The same faint disc and ring by day and by night, in the colour theme's own colours
+    val logoDiscColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+    val logoDiscBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
     // The chosen tab's light: by day the theme's own gold (ink on it), as on the key buttons
     val navTheme = LocalAppTheme.current
     val navIndicator = if (navTheme.isLight) navTheme.litColor else MaterialTheme.colorScheme.secondary
@@ -101,7 +99,7 @@ fun AdaptiveNavigation(
                             border = logoDiscBorder
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                if (isDay) DayLogo(Modifier.fillMaxSize()) else Image(
+                                Image(
                                     painter = logoPainter,
                                     contentDescription = "Piano Weave Settings",
                                     contentScale = ContentScale.Crop,
@@ -211,7 +209,7 @@ fun AdaptiveNavigation(
                                 border = logoDiscBorder
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    if (isDay) DayLogo(Modifier.fillMaxSize()) else Image(
+                                    Image(
                                         painter = logoPainter,
                                         contentDescription = "Piano Weave Settings",
                                         contentScale = ContentScale.Crop,
@@ -302,16 +300,5 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.edgeLight(
             end = Offset(size.width, y),
             strokeWidth = stroke
         )
-    }
-}
-
-/** The logo by day: the launcher icon's two layers, sized so its visible circle fills this circle. */
-@Composable
-private fun DayLogo(modifier: Modifier) {
-    BoxWithConstraints(modifier.clip(CircleShape), contentAlignment = Alignment.Center) {
-        // An adaptive icon shows its middle 72 of 108 dp
-        val full = maxWidth * 1.5f
-        Image(painterResource(R.drawable.ic_launcher_background_light), contentDescription = null, modifier = Modifier.requiredSize(full))
-        Image(painterResource(R.drawable.ic_launcher_foreground_light), contentDescription = "Piano Weave Settings", modifier = Modifier.requiredSize(full))
     }
 }

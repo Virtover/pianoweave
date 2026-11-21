@@ -1,5 +1,10 @@
 package com.lumenchord.pianoweave.ui.theme
 
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Shape
@@ -100,9 +105,23 @@ val PillShape = RoundedCornerShape(percent = 50)
 fun Modifier.goldLeaf(theme: AppTheme, shape: Shape = PillShape, glowStrength: Float = 1f): Modifier =
     theme.fill?.let { colors ->
         // [glowStrength] below 1 for places with many lit buttons together, where full glows add up
-        val glow = colors.last().copy(alpha = glowStrength.coerceIn(0f, 1f))
-        shadow(elevation = 6.dp * glowStrength.coerceIn(0.2f, 1f), shape = shape, clip = false, ambientColor = glow, spotColor = glow)
-            .background(Brush.verticalGradient(colors), shape)
+        val strength = glowStrength.coerceIn(0f, 1f)
+        if (theme.isLight) {
+            // By day, as the design: warm light all round (an elevation shadow would darken the bottom edge), and the
+            // gold a little brighter at the foot
+            val leaf = listOf(colors.first(), lerp(colors.last(), colors.first(), 0.18f))
+            drawBehind {
+                for ((spread, alpha) in listOf(8.dp to 0.10f, 5.dp to 0.14f, 2.5.dp to 0.18f)) {
+                    val px = spread.toPx()
+                    val outline = shape.createOutline(Size(size.width + px * 2, size.height + px * 2), layoutDirection, this)
+                    translate(-px, -px) { drawOutline(outline, Color(0xFFFFC450).copy(alpha = alpha * strength)) }
+                }
+            }.background(Brush.verticalGradient(leaf), shape)
+        } else {
+            val glow = colors.last().copy(alpha = strength)
+            shadow(elevation = 6.dp * strength.coerceAtLeast(0.2f), shape = shape, clip = false, ambientColor = glow, spotColor = glow)
+                .background(Brush.verticalGradient(colors), shape)
+        }
     } ?: this
 
 /** A key button's container: clear over the gold leaf by day, the accent at night. */
