@@ -9,6 +9,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
 import com.lumenchord.pianoweave.ui.theme.litColor
+import com.lumenchord.pianoweave.ui.theme.inDaylight
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.lumenchord.pianoweave.ui.theme.Ink
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -481,6 +483,10 @@ private fun SpeedChip(speed: Float, onSelect: (Float) -> Unit, metronome: SpeedC
 internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDismiss: () -> Unit) {
     val appTheme = LocalAppTheme.current
     val ColorWaitTarget = appTheme.waitTargetColor
+    // The pale tint reads on the dark night surface; on parchment it washes out, so by day the letters
+    // take the wait colour deepened until it reads, on a slightly stronger chip
+    val noteTextColor = if (appTheme.isLight) ColorWaitTarget.inDaylight(0.12f) else appTheme.waitTargetLightColor
+    val chipAlpha = if (appTheme.isLight) 0.18f else 0.12f
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
     val topPadding = if (isPortrait || !isUiHidden) 56.dp else 12.dp
@@ -521,10 +527,11 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                         }
                     )
                 },
-            color = ColorSurface.copy(alpha = 0.85f),
+            // By day the falling notes behind are bright too, so the banner is more solid and better outlined
+            color = ColorSurface.copy(alpha = if (appTheme.isLight) 0.94f else 0.85f),
             shape = RoundedCornerShape(16.dp),
             shadowElevation = 4.dp,
-            border = BorderStroke(1.dp, Ink.copy(alpha = 0.08f))
+            border = BorderStroke(1.dp, Ink.copy(alpha = if (appTheme.isLight) 0.14f else 0.08f))
         ) {
             Row(
                 modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -534,7 +541,7 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                     text = "Play",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = Ink.copy(alpha = 0.5f),
+                    color = Ink.copy(alpha = if (appTheme.isLight) 0.65f else 0.5f),
                     modifier = Modifier.padding(end = 10.dp)
                 )
                 // Notes change with every chord, so they fade into each other instead of snapping
@@ -549,7 +556,7 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        sorted.forEach { NoteChip(it, ColorWaitTarget, appTheme.waitTargetLightColor) }
+                        sorted.forEach { NoteChip(it, ColorWaitTarget, noteTextColor, chipAlpha) }
                     }
                 }
                 Box(
@@ -563,7 +570,7 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Hide note banner",
-                        tint = Ink.copy(alpha = 0.4f),
+                        tint = Ink.copy(alpha = if (appTheme.isLight) 0.55f else 0.4f),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -577,7 +584,7 @@ internal fun WaitModeOverlay(notes: Set<Int>, isUiHidden: Boolean = false, onDis
  * (with a real sharp sign) and the octave small beside it, so the letter is what the eye catches.
  */
 @Composable
-private fun NoteChip(pitch: Int, color: Color, lightColor: Color) {
+private fun NoteChip(pitch: Int, color: Color, textColor: Color, chipAlpha: Float) {
     val name = midiPitchName(pitch)
     val pitchClass = name.takeWhile { !it.isDigit() && it != '-' }
     // The ♯ glyph sits low beside a capital letter, so it's drawn smaller and raised
@@ -590,7 +597,7 @@ private fun NoteChip(pitch: Int, color: Color, lightColor: Color) {
     val octave = name.drop(name.takeWhile { !it.isDigit() && it != '-' }.length)
     Row(
         modifier = Modifier
-            .background(color.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+            .background(color.copy(alpha = chipAlpha), RoundedCornerShape(10.dp))
             .padding(horizontal = 10.dp, vertical = 2.dp),
         verticalAlignment = Alignment.Bottom
     ) {
@@ -598,13 +605,13 @@ private fun NoteChip(pitch: Int, color: Color, lightColor: Color) {
             text = letter,
             fontSize = 22.sp,
             fontWeight = FontWeight.SemiBold,
-            color = lightColor
+            color = textColor
         )
         Text(
             text = octave,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = lightColor.copy(alpha = 0.6f),
+            color = textColor.copy(alpha = if (AppThemeManager.isLight) 0.75f else 0.6f),
             modifier = Modifier.padding(start = 1.dp, bottom = 4.dp)
         )
     }
