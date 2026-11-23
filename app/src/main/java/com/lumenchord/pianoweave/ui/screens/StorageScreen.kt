@@ -6,7 +6,12 @@ import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
 import android.Manifest
 import com.lumenchord.pianoweave.ui.theme.PillShape
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.compose.material.icons.filled.Mic
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -524,6 +529,22 @@ fun StorageScreen(
 
         // --- Compact Search Field ---
         val interactionSource = remember { MutableInteractionSource() }
+        // Voice search: the mic shows only where the device has speech input (some have none)
+        val voiceSearchIntent = remember {
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH)
+                .putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a song or artist")
+        }
+        val canSearchByVoice = remember {
+            voiceSearchIntent.resolveActivity(context.packageManager) != null
+        }
+        val voiceSearch = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val heard = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.trim()
+            if (result.resultCode == Activity.RESULT_OK && !heard.isNullOrEmpty()) searchQuery = heard
+        }
         BasicTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -570,6 +591,26 @@ fun StorageScreen(
                                     Icons.Default.Clear,
                                     contentDescription = "Clear search",
                                     modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    } else if (canSearchByVoice) {
+                        {
+                            IconButton(
+                                onClick = {
+                                    // The system's own speech input: no microphone permission of ours needed
+                                    try {
+                                        voiceSearch.launch(voiceSearchIntent)
+                                    } catch (_: ActivityNotFoundException) {
+                                    }
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Mic,
+                                    contentDescription = "Search by voice",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (isShort) 16.dp else 18.dp)
                                 )
                             }
                         }
