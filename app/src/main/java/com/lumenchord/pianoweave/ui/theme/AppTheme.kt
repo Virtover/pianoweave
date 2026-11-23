@@ -497,8 +497,11 @@ object AppThemeManager {
      * its keyboard line; everything else follows from them. The first is the default.
      */
     private val dayThemes = listOf(
-        // "The Son is the radiance of God's glory" (Hebrews 1:3); Lamplight's counterpart by day
-        DayTheme("radiance", "Radiance", Color(0xFFF3CC6E), Color(0xFFD9A23F), Color(0xFFE58A5A)),
+        // The heart and light of Christ: "The Son is the radiance of God's glory" (Hebrews 1:3), and God "made his
+        // light shine in our hearts... the glory of God in the face of Christ" (2 Corinthians 4:6). Gold lit from
+        // within: a white-gold source at the top pouring into clear gold, above a keyboard line of the heart's
+        // warm crimson, the light flowing out of the heart. Lamplight's counterpart by day.
+        DayTheme("radiance", "Radiance", Color(0xFFFFEDB8), Color(0xFFE4A93C), Color(0xFFD8506A)),
         // "Fan into flame the gift of God" (2 Timothy 1:6); Upper Room's counterpart
         DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFFFC65E), Color(0xFFF2902E), Color(0xFFFFE08A)),
         // "Arise, shine, for your light has come" (Isaiah 60:1); The Cup's counterpart
