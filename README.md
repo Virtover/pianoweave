@@ -34,7 +34,7 @@
 * **Interactive piano roll:** Falling notes with A/B looping, speed control and transposition.
 * **Wait mode:** Pauses at each note until you play it. It listens to your acoustic piano through the microphone, or to a MIDI keyboard, with the rest of the song playing along.
 * **Voice commands:** Practice hands-free. Say a command on its own (play, pause, wait, loop, full screen, loop start / loop end, again, back, forward, slower, faster, normal), or a few in a row ("full screen, play"), and "undo" to take one back. For noisy rooms it can listen only to what starts with "Selah" ("Selah, full screen wait"). Recognized on the device with Vosk; the 40 MB model downloads the first time it is turned on.
-* **MIDI keyboards:** USB and virtual MIDI keyboards connect automatically and play through the app's piano sound, which can be turned off for keyboards with their own speakers.
+* **MIDI keyboards:** USB and virtual MIDI keyboards connect automatically; Bluetooth LE MIDI keyboards are found and connected on the MIDI & Bluetooth page and reconnect on their own afterwards. Their notes play through the app's piano sound, which can be turned off for keyboards with their own speakers. The phone can also act as a Bluetooth MIDI device, so a computer (a DAW, or a web page in Chrome or Edge) can connect to it and exchange notes with the app.
 * **Grand piano sound:** FluidSynth with a bundled SoundFont for a rich, realistic piano.
 * **Cloud sync:** Back up and sync your song library with Google Drive.
 * **Made for any screen:** Portrait and landscape layouts, and many color themes.
