@@ -10,7 +10,7 @@ import org.junit.Test
  * happened (this regressed once already).
  */
 class LegalConsentTest {
-    // Bundled lists: Terms 2026-10-28 and 2026-11-20, Privacy Policy 2026-11-04 and 2026-11-16
+    // Bundled lists: Terms 2026-10-28 and 2026-11-20, Privacy Policy 2026-11-04, 2026-11-16 and 2026-11-23
     private val today = "2026-11-14"
 
     @Test
@@ -83,7 +83,7 @@ class LegalConsentTest {
         LegalConsent.onAppStart(prefs, today)
         prefs.edit() // dismissed the notice
             .putString(AppPrefs.SEEN_TERMS_CHANGE_NOTICE, "2026-11-20")
-            .putString(AppPrefs.SEEN_PRIVACY_CHANGE_NOTICE, "2026-11-16")
+            .putString(AppPrefs.SEEN_PRIVACY_CHANGE_NOTICE, "2026-11-23")
             .apply()
         assertNull(LegalConsent.changesToAnnounce(prefs, "2026-11-25"))
     }

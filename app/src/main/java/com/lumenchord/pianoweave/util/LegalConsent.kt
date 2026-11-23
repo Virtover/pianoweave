@@ -20,7 +20,7 @@ enum class LegalDocument(
 ) {
     // "versions" is the Terms' key because app releases from before the Privacy Policy was versioned read it
     TERMS("versions", listOf("2026-10-28", "2026-11-20"), AppPrefs.TERMS_VERSIONS, AppPrefs.SEEN_TERMS_CHANGE_NOTICE),
-    PRIVACY_POLICY("privacy_policy", listOf("2026-11-04", "2026-11-16"), AppPrefs.PRIVACY_VERSIONS, AppPrefs.SEEN_PRIVACY_CHANGE_NOTICE)
+    PRIVACY_POLICY("privacy_policy", listOf("2026-11-04", "2026-11-16", "2026-11-23"), AppPrefs.PRIVACY_VERSIONS, AppPrefs.SEEN_PRIVACY_CHANGE_NOTICE)
 }
 
 /** Announced versions the user hasn't been told about yet (at least one is set), told together in one notice. */
