@@ -4,54 +4,26 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Piano Weave – Regulamin</title>
-    <style>
-        :root {
-          --bg: #ffffff;
-          --fg: #1d2125;
-          --muted: #5b6770;
-          --accent: #8a5a00;
-          --line: #e2e6ea;
-          --card: #f6f8fa;
-          --todo: #fff3bf;
-        }
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg: #14181c;
-            --fg: #e6e9ec;
-            --muted: #9aa5ae;
-            --accent: #e0b04a;
-            --line: #2a3138;
-            --card: #1b2127;
-            --todo: #4a3d10;
-          }
-        }
-        * { box-sizing: border-box; }
-        body {
-          margin: 0;
-          background: var(--bg);
-          color: var(--fg);
-          font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-        }
-        main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
-        h1 { font-size: 2rem; margin: 0 0 4px; }
-        h2 { font-size: 1.25rem; margin: 40px 0 8px; padding-top: 8px; border-top: 1px solid var(--line); }
-        p, li { color: var(--fg); }
-        .meta { color: var(--muted); margin: 0 0 24px; }
-        a { color: var(--accent); }
-        ul, ol { padding-left: 22px; }
-        li { margin: 4px 0; }
-        .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
-        .card ul { margin: 6px 0 0; }
-        mark { background: var(--todo); color: inherit; padding: 0 3px; border-radius: 3px; }
-        .lang { float: right; margin-top: 10px; font-size: 0.95rem; color: var(--muted); }
-        nav ul { list-style: none; padding: 0; columns: 2; column-gap: 24px; }
-        nav li { margin: 3px 0; }
-        @media (max-width: 520px) { nav ul { columns: 1; } }
-        .doc-status:empty { display: none; }
-        .doc-status { border-left: 4px solid var(--accent); }
-    </style>
+    <meta name="theme-color" content="#0a0806">
+    <link rel="icon" type="image/svg+xml" href="../images/logo.svg">
+    <link rel="apple-touch-icon" href="../images/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../docs.css">
 </head>
 <body>
+<header class="site-header">
+    <a class="brand" href="https://pianoweave.com/" aria-label="Strona główna Piano Weave">
+        <img src="../images/logo.svg" alt="" width="34" height="34">
+        <span class="logo-text">Piano Weave</span>
+    </a>
+    <nav class="doc-nav" aria-label="Dokumenty">
+        <a href="../terms_of_service_pl.html" aria-current="page">Regulamin</a>
+        <a href="../privacy_policy.html">Polityka prywatności</a>
+        <a href="../delete_account.html">Usuwanie konta</a>
+    </nav>
+</header>
 <main>
 
     <p class="lang"><a href="2026-10-28.html" hreflang="en" lang="en">English</a> · <strong>Polski</strong></p>
@@ -223,6 +195,21 @@
     </p>
 
 </main>
+<footer class="site-footer">
+    <a class="brand" href="https://pianoweave.com/">
+        <img src="../images/logo.svg" alt="" width="28" height="28">
+        <span class="logo-text">Piano Weave</span>
+    </a>
+    <p class="footer-links">
+        <a href="https://pianoweave.com/">Strona</a>
+        <a href="../terms_of_service_pl.html">Regulamin</a>
+        <a href="../privacy_policy.html">Polityka prywatności</a>
+        <a href="../above_all_pl.html">Ponad wszystkim</a>
+        <a href="../delete_account.html">Usuwanie konta</a>
+        <a href="https://github.com/Virtover/pianoweave" rel="noopener">GitHub</a>
+    </p>
+    <p>&copy; 2026 Piano Weave</p>
+</footer>
 <script src="../terms.js"></script>
 </body>
 </html>

@@ -4,20 +4,27 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Piano Weave – Ponad wszystkim</title>
-    <style>
-        :root { --bg: #ffffff; --fg: #1d2125; --muted: #5b6770; --accent: #8a5a00; }
-        @media (prefers-color-scheme: dark) {
-          :root { --bg: #14181c; --fg: #e6e9ec; --muted: #9aa5ae; --accent: #e0b04a; }
-        }
-        body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-        main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
-        h1 { font-size: 2rem; margin: 0 0 12px; }
-        p { color: var(--muted); }
-        a { color: var(--accent); }
-    </style>
+    <meta name="theme-color" content="#0a0806">
+    <link rel="icon" type="image/svg+xml" href="images/logo.svg">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="docs.css">
 </head>
 <!-- Redirects to the version in effect today (see terms.js). Terms versions link a specific version instead. The list is the fallback without JavaScript: add each new version. -->
 <body data-doc="above_all" data-pick="current" data-lang="pl">
+<header class="site-header">
+    <a class="brand" href="https://pianoweave.com/" aria-label="Strona główna Piano Weave">
+        <img src="images/logo.svg" alt="" width="34" height="34">
+        <span class="logo-text">Piano Weave</span>
+    </a>
+    <nav class="doc-nav" aria-label="Dokumenty">
+        <a href="terms_of_service_pl.html">Regulamin</a>
+        <a href="privacy_policy.html">Polityka prywatności</a>
+        <a href="delete_account.html">Usuwanie konta</a>
+    </nav>
+</header>
 <main>
     <h1>Piano Weave – Ponad wszystkim</h1>
     <p>Otwieram obowiązującą wersję… Jeśli nic się nie dzieje, wybierz wersję dla potrzebnej daty:</p>
@@ -26,6 +33,21 @@
     </ul>
     <p><a href="above_all.html" hreflang="en" lang="en">English</a></p>
 </main>
+<footer class="site-footer">
+    <a class="brand" href="https://pianoweave.com/">
+        <img src="images/logo.svg" alt="" width="28" height="28">
+        <span class="logo-text">Piano Weave</span>
+    </a>
+    <p class="footer-links">
+        <a href="https://pianoweave.com/">Strona</a>
+        <a href="terms_of_service_pl.html">Regulamin</a>
+        <a href="privacy_policy.html">Polityka prywatności</a>
+        <a href="above_all_pl.html">Ponad wszystkim</a>
+        <a href="delete_account.html">Usuwanie konta</a>
+        <a href="https://github.com/Virtover/pianoweave" rel="noopener">GitHub</a>
+    </p>
+    <p>&copy; 2026 Piano Weave</p>
+</footer>
 <script src="terms.js"></script>
 </body>
 </html>

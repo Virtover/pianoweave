@@ -103,7 +103,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   consent asks again; before it, people who already had the app see `TermsChangeDialog` once per version (fresh
   installs don't), with Terms and Privacy changes in one dialog. To change a document: add its page(s), the date
   (Terms/Privacy also in `LegalDocument.bundledVersions`) and links in the fixed pages' fallback lists, at least 14
-  days ahead (the Terms promise that notice). **A new user must never get the change notice** (this bug has come
+  days ahead (the Terms promise that notice). The Privacy Policy promises no lead time. All `docs/` pages share `docs/docs.css` (the look of
+  pianoweave.com) and the site header and footer: start a new version from a copy of the previous one. **A new user must never get the change notice** (this bug has come
   back before): "new" means no preferences at all on the first launch, not install time = update time (they differ
   after an update before the first launch, or two installs in a row), and the user stays new until the version
   lists are first fetched (`LEGAL_NEW_USER`). `LegalConsentTest` covers this; run it after touching `LegalConsent`
