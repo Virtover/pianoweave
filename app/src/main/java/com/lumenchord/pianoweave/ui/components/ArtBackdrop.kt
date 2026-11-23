@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
@@ -26,21 +28,32 @@ fun smallThumbnailUrl(url: String): String =
 /** Blur needs Android 12; below that a sharp, busy image behind text would hurt readability, so none is drawn. */
 private val canBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-/** Each colour kept at 85 %, plus 15 % of warm parchment: shadows lift most, light art hardly changes. */
-private val DaylightLift = ColorFilter.colorMatrix(
-    ColorMatrix(
-        floatArrayOf(
-            0.85f, 0f, 0f, 0f, 0.15f * 248f,
-            0f, 0.85f, 0f, 0f, 0.15f * 236f,
-            0f, 0f, 0.85f, 0f, 0.15f * 214f,
-            0f, 0f, 0f, 1f, 0f
-        )
+/**
+ * By day only the art's colour reaches the page, never its darkness: each pixel becomes [page] plus that pixel's
+ * difference from its own grey (its luma), times [strength]. Black, white and grey art leave the page as it is;
+ * coloured art tints it about as bright as it was, like light through a stained-glass window, so no shadow falls.
+ */
+private fun daylightColour(page: Color, strength: Float): ColorFilter {
+    val (lr, lg, lb) = Triple(0.2126f, 0.7152f, 0.0722f)
+    fun row(own: Int, offset: Float): FloatArray {
+        val luma = floatArrayOf(lr, lg, lb)
+        return FloatArray(5) { i ->
+            when {
+                i < 3 -> strength * ((if (i == own) 1f else 0f) - luma[i])
+                i == 4 -> offset * 255f
+                else -> 0f
+            }
+        }
+    }
+    return ColorFilter.colorMatrix(
+        ColorMatrix(row(0, page.red) + row(1, page.green) + row(2, page.blue) + floatArrayOf(0f, 0f, 0f, 1f, 0f))
     )
-)
+}
 
 /**
  * The song's cover art, heavily blurred and dimmed, filling the parent [Box] behind its content.
- * [fadeTo] darkens it towards the bottom so text and buttons placed there stay readable.
+ * [fadeTo] darkens it towards the bottom so text and buttons placed there stay readable. By day it is the art's
+ * colour alone on the card's [MaterialTheme] surface ([daylightColour]): the page stays lit, only tinted.
  */
 @Composable
 fun BoxScope.ArtBackdrop(
@@ -49,16 +62,19 @@ fun BoxScope.ArtBackdrop(
     fadeTo: Color? = null
 ) {
     if (thumbnailUrl.isBlank() || !canBlur) return
+    val isDay = AppThemeManager.isLight
+    val page = MaterialTheme.colorScheme.surface
+    val dayFilter = remember(page) { daylightColour(page, strength = 1.2f) }
     AsyncImage(
         model = smallThumbnailUrl(thumbnailUrl),
         contentDescription = null,
         contentScale = ContentScale.Crop,
-        // By day dark art is lifted a little toward warm parchment, so a black cover doesn't sit like a hole in the page
-        colorFilter = if (AppThemeManager.isLight) DaylightLift else null,
+        colorFilter = if (isDay) dayFilter else null,
         modifier = Modifier
             .matchParentSize()
             .blur(28.dp)
-            .alpha(alpha)
+            // By day there is no darkness to dim, so the colour may show a little more
+            .alpha(if (isDay) (alpha * 1.6f).coerceAtMost(0.8f) else alpha)
     )
     if (fadeTo != null) {
         Box(

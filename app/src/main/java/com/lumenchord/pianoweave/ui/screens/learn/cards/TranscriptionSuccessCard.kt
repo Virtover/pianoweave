@@ -13,7 +13,12 @@ import androidx.compose.foundation.border
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.translate
+import com.lumenchord.pianoweave.ui.theme.AppThemeManager
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -43,6 +48,8 @@ import com.lumenchord.pianoweave.ui.theme.Moods
 /**
  * Shown when a transcription finishes: the song's cover art over a blurred backdrop of itself, ringed
  * in [Moods.Glory]'s gold (Revelation 21:23), whose glow flares up once as the card appears, then settles.
+ * By day the glow is warm light all round instead of an elevation shadow, which on parchment reads as a grey
+ * smudge, and the art behind is fainter, so the card stays a lit page.
  */
 @Composable
 fun TranscriptionSuccessCard(
@@ -57,6 +64,7 @@ fun TranscriptionSuccessCard(
     val surface = MaterialTheme.colorScheme.surface
     val shape = RoundedCornerShape(if (isShort) 14.dp else 20.dp)
     val metadata = song.metadata
+    val isDay = AppThemeManager.isLight
 
     val glow = remember(song.file) { Animatable(0f) }
     val appear = remember(song.file) { Animatable(0f) }
@@ -77,15 +85,26 @@ fun TranscriptionSuccessCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .shadow(
-                elevation = 24.dp * glow.value,
-                shape = shape,
-                ambientColor = glory.core,
-                spotColor = glory.core
+            .then(
+                if (isDay) Modifier.drawBehind {
+                    // Layered rings of warm light round the card, brighter than the page (a ring of the page's own
+                    // brightness reads as a smudge), strongest as it appears
+                    for ((spread, alpha) in listOf(16.dp to 0.10f, 10.dp to 0.16f, 5.dp to 0.24f, 2.dp to 0.32f)) {
+                        val px = spread.toPx() * (0.5f + 0.5f * glow.value)
+                        val outline = shape.createOutline(Size(size.width + px * 2, size.height + px * 2), layoutDirection, this)
+                        translate(-px, -px) { drawOutline(outline, DayHalo.copy(alpha = alpha * (0.35f + 0.65f * glow.value))) }
+                    }
+                } else Modifier.shadow(
+                    elevation = 24.dp * glow.value,
+                    shape = shape,
+                    ambientColor = glory.core,
+                    spotColor = glory.core
+                )
             )
             .clip(shape)
             .background(surface)
-            .border(BorderStroke(1.dp, glory.core.copy(alpha = 0.3f + 0.6f * glow.value)), shape)
+            // By day the deep gold of the text would be a heavy dark line round a lit card, so it stays faint
+            .border(BorderStroke(1.dp, glory.core.copy(alpha = if (isDay) 0.22f + 0.3f * glow.value else 0.3f + 0.6f * glow.value)), shape)
     ) {
         ArtBackdrop(thumbnailUrl = metadata.thumbnail, alpha = 0.55f, fadeTo = surface)
 
@@ -169,3 +188,6 @@ fun TranscriptionSuccessCard(
         }
     }
 }
+
+/** The success card's halo by day: warm light a little brighter than the parchment, gold in it but not glare. */
+private val DayHalo = androidx.compose.ui.graphics.Color(0xFFFFEDC2)
