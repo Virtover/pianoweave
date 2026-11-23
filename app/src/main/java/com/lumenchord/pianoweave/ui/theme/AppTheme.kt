@@ -499,9 +499,11 @@ object AppThemeManager {
     private val dayThemes = listOf(
         // The heart and light of Christ: "The Son is the radiance of God's glory" (Hebrews 1:3), and God "made his
         // light shine in our hearts... the glory of God in the face of Christ" (2 Corinthians 4:6). Gold lit from
-        // within: a white-gold source at the top pouring into clear gold, above a keyboard line of the heart's
-        // warm crimson, the light flowing out of the heart. Lamplight's counterpart by day.
-        DayTheme("radiance", "Radiance", Color(0xFFFFEDB8), Color(0xFFE4A93C), Color(0xFFD8506A)),
+        // within: a white-gold source at the top pouring into clear gold, and a keyboard line of that light given
+        // out. The heart is in wait mode: the note held out to you, waiting, is a warm rose, a heart offered
+        // ("while he was still a long way off, his father saw him", Luke 15:20). Lamplight's counterpart by day.
+        DayTheme("radiance", "Radiance", Color(0xFFFFEDB8), Color(0xFFE4A93C), Color(0xFFFFD36E),
+            waitColor = Color(0xFFE06A82)),
         // "Fan into flame the gift of God" (2 Timothy 1:6); Upper Room's counterpart
         DayTheme("fan_into_flame", "Fan into Flame", Color(0xFFFFC65E), Color(0xFFF2902E), Color(0xFFFFE08A)),
         // "Arise, shine, for your light has come" (Isaiah 60:1); The Cup's counterpart
