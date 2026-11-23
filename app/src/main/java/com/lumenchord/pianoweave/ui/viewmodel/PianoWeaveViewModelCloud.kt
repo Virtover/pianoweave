@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.lumenchord.pianoweave.api.GoogleDriveApiFactory
 import com.lumenchord.pianoweave.api.isPlaceholder
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
@@ -29,14 +30,14 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.ConcurrentLinkedQueue
 import retrofit2.HttpException
 
-private const val SYNC_CONCURRENCY = 6
+/** Each song is a separate small request, so the time is round trips; matches the Drive client's limit. */
+private const val SYNC_CONCURRENCY = GoogleDriveApiFactory.DRIVE_MAX_REQUESTS
 private const val TAG = "CloudSync"
 
 private suspend fun <T, R> List<T>.parallelMap(
-    concurrency: Int = SYNC_CONCURRENCY,
+    semaphore: Semaphore = Semaphore(SYNC_CONCURRENCY),
     block: suspend (T) -> R
 ): List<R> {
-    val semaphore = Semaphore(concurrency)
     return coroutineScope {
         map { item -> async { semaphore.withPermit { block(item) } } }.awaitAll()
     }
@@ -236,9 +237,11 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
 
                 // 3 + 4. Upload and download concurrently
                 val uploaded = ConcurrentLinkedQueue<CloudMidi>()
+                // One limit for both directions, so together they never queue up inside the HTTP client
+                val transfers = Semaphore(SYNC_CONCURRENCY)
                 coroutineScope {
                     val uploads = async {
-                        songsToUpload.parallelMap { localMidi ->
+                        songsToUpload.parallelMap(transfers) { localMidi ->
                             GoogleDriveManager.uploadMidi(context, localMidi, token).fold(
                                 onSuccess = {
                                     uploaded.add(it)
@@ -255,7 +258,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                         }
                     }
                     val downloads = async {
-                        songsToDownload.parallelMap { cloudSong ->
+                        songsToDownload.parallelMap(transfers) { cloudSong ->
                             GoogleDriveManager.downloadMidiFile(context, cloudSong, token).fold(
                                 onSuccess = { stored ->
                                     if (stored.file.exists() && stored.file.length() > 0) {

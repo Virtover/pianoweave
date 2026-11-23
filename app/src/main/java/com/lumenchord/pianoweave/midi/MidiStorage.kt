@@ -10,6 +10,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 
 data class StoredMidi(
     val file: File,
@@ -43,6 +44,7 @@ object MidiStorage {
     private const val THIRTY_DAYS_MS = 30L * 24 * 60 * 60 * 1000L
     private const val TEMP_MARKER = ".tmp-"
     private const val STALE_TEMP_MS = 60L * 60 * 1000L
+    private const val PURGE_INTERVAL_NS = 10L * 60 * 1_000_000_000L
     private val LINE_BREAKS = Regex("[\r\n]+")
 
     /**
@@ -143,14 +145,17 @@ object MidiStorage {
     private fun readDeletionAndCloudId(metadataFile: File): Triple<Boolean, Long, String> {
         if (!metadataFile.exists()) return Triple(false, 0L, "")
         return try {
-            val lines = metadataFile.readLines()
-            val isDeleted = if (lines.size >= 13) lines[12].toBooleanStrictOrNull() ?: false else false
-            val deletedAt = if (lines.size >= 14) lines[13].toLongOrNull() ?: 0L else 0L
-            val cloudFileId = if (lines.size >= 15) lines[14].trim() else ""
-            Triple(isDeleted, deletedAt, cloudFileId)
+            deletionAndCloudId(metadataFile.readLines())
         } catch (_: Exception) {
             Triple(false, 0L, "")
         }
+    }
+
+    private fun deletionAndCloudId(lines: List<String>): Triple<Boolean, Long, String> {
+        val isDeleted = if (lines.size >= 13) lines[12].toBooleanStrictOrNull() ?: false else false
+        val deletedAt = if (lines.size >= 14) lines[13].toLongOrNull() ?: 0L else 0L
+        val cloudFileId = if (lines.size >= 15) lines[14].trim() else ""
+        return Triple(isDeleted, deletedAt, cloudFileId)
     }
 
     fun updateCloudFileId(context: Context, storedMidi: StoredMidi, cloudFileId: String) {
@@ -200,20 +205,38 @@ object MidiStorage {
         }
     }
 
-    private fun purgeExpiredDeletedSongs(context: Context) {
-        val dir = directory(context)
+    /** When each library folder was last purged ([System.nanoTime], which never jumps with the clock). */
+    private val lastPurgeAt = ConcurrentHashMap<String, Long>()
+
+    /**
+     * Runs [purgeExpiredDeletedSongs] at most once per [PURGE_INTERVAL_NS]. It used to run on every listing
+     * (a cloud sync lists the library about 8 times), reading every record again each time. Neither of its
+     * limits (30 days, 1 hour) needs better precision.
+     */
+    private fun purgeIfDue(dir: File, nowNanos: Long, nowMillis: Long) {
+        val last = lastPurgeAt[dir.path]
+        if (last != null && nowNanos - last < PURGE_INTERVAL_NS) return
+        lastPurgeAt[dir.path] = nowNanos
+        purgeExpiredDeletedSongs(dir, nowMillis)
+    }
+
+    private fun purgeExpiredDeletedSongs(dir: File, nowMillis: Long) {
         // Temp files left behind by a crash mid-write
         dir.listFiles()
-            ?.filter { TEMP_MARKER in it.name && System.currentTimeMillis() - it.lastModified() > STALE_TEMP_MS }
+            ?.filter { TEMP_MARKER in it.name && nowMillis - it.lastModified() > STALE_TEMP_MS }
             ?.forEach { it.delete() }
         dir.listFiles()
             ?.filter { it.extension == "meta" }
             ?.forEach { metaFile ->
-                val (isDeleted, deletedAt, _) = readDeletionAndCloudId(metaFile)
-                if (isDeleted && deletedAt > 0L && (System.currentTimeMillis() - deletedAt > THIRTY_DAYS_MS)) {
-                    val midiFile = File(dir, metaFile.nameWithoutExtension + ".mid")
-                    midiFile.delete()
-                    metaFile.delete()
+                // Checked again under the lock: a song saved again at the same key since (a link transcribed
+                // again, a download) rewrites the record as not deleted, and must not be removed.
+                synchronized(writeLock) {
+                    val (isDeleted, deletedAt, _) = readDeletionAndCloudId(metaFile)
+                    if (isDeleted && deletedAt > 0L && (nowMillis - deletedAt > THIRTY_DAYS_MS)) {
+                        val midiFile = File(dir, metaFile.nameWithoutExtension + ".mid")
+                        midiFile.delete()
+                        metaFile.delete()
+                    }
                 }
             }
     }
@@ -281,9 +304,15 @@ object MidiStorage {
         )
     }
 
-    fun listAll(context: Context): List<StoredMidi> {
-        purgeExpiredDeletedSongs(context)
-        val dir = directory(context)
+    fun listAll(context: Context): List<StoredMidi> = listIn(directory(context))
+
+    /** [listAll] for the library folder [dir]; the clocks are parameters for tests. */
+    internal fun listIn(
+        dir: File,
+        nowNanos: Long = System.nanoTime(),
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<StoredMidi> {
+        purgeIfDue(dir, nowNanos, nowMillis)
 
         return dir
             .listFiles()
@@ -300,13 +329,14 @@ object MidiStorage {
 
                 if (!metadataFile.exists()) return@mapNotNull null
 
-                // Reads don't take the write lock, so the song may be deleted between the check and here
+                // Reads don't take the write lock, so the song may be deleted between the check and here.
+                // Read once: every field comes from the same version of the record (writes are atomic renames).
                 val lines = runCatching { metadataFile.readLines() }.getOrNull()
                 if (lines.isNullOrEmpty()) return@mapNotNull null
 
-                val (isDeleted, deletedAt, cloudFileId) = readDeletionAndCloudId(metadataFile)
+                val (isDeleted, deletedAt, cloudFileId) = deletionAndCloudId(lines)
                 val originalUrl = lines[0]
-                val metadata = readMetadata(metadataFile, midiFile)
+                val metadata = metadataFrom(lines)
 
                 StoredMidi(
                     file = midiFile,
@@ -327,12 +357,7 @@ object MidiStorage {
         return listAll(context).filterNot { it.isDeleted }
     }
 
-    private fun readMetadata(
-        metadataFile: File,
-        midiFile: File
-    ): VideoMetadata {
-        val lines = runCatching { metadataFile.readLines() }.getOrNull() ?: return fallbackMetadata()
-
+    private fun metadataFrom(lines: List<String>): VideoMetadata {
         if (lines.size < 12) {
             return fallbackMetadata(
                 videoUrl = lines.firstOrNull()?.trim().orEmpty().ifBlank { "Unknown source" }
