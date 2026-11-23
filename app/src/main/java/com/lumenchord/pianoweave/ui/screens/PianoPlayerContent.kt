@@ -745,9 +745,12 @@ internal fun ModernPianoPlayerContent(
     // A phone in portrait: the footer's back-to-start moves onto the elapsed time
     val isCompactFooter = !windowRoom.isLandscape && !isLargeWindow
     val songBars = remember(noteEvents, beats, songDurationMs) { songMapBars(noteEvents, beats, songDurationMs) }
+    // In full screen the keys give the strip under them (shown when only part of the keyboard is) some of the room
+    // they gained, so the stage stays as tall as without it
+    val stripTakesRoom = isUiHidden && !keyWindow.isWhole
     val keyboardHeight = when {
-        isLargeWindow -> if (isUiHidden) 120.dp else 104.dp
-        else -> if (isUiHidden) 100.dp else 70.dp
+        isLargeWindow -> if (isUiHidden) (if (stripTakesRoom) 108.dp else 120.dp) else 104.dp
+        else -> if (isUiHidden) (if (stripTakesRoom) 88.dp else 100.dp) else 70.dp
     }
 
     Column(
@@ -1060,8 +1063,9 @@ internal fun ModernPianoPlayerContent(
             )
         }
 
-        // Only part of the keyboard shown: the whole of it in miniature, the window marked, tap to move there
-        if (!isUiHidden && !keyWindow.isWhole) {
+        // Only part of the keyboard shown: the whole of it in miniature, the window marked, tap to move there.
+        // In full screen too: it is how the keys are moved without the bars.
+        if (!keyWindow.isWhole) {
             KeyRangeStrip(
                 window = keyWindow,
                 songPitches = songPitches,
