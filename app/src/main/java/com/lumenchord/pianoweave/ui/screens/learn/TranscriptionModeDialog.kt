@@ -65,8 +65,8 @@ private val modeOptions = listOf(
         mode = TranscriptionMode.Ensemble,
         icon = Icons.Default.Groups,
         title = "Ensemble",
-        bestFor = "Whole song",
-        body = "Every instrument, each on its own track."
+        bestFor = "Any song",
+        body = "The whole song, played on piano."
     ),
     // Only old servers: newer ones make ensembles instead
     ModeOption(
