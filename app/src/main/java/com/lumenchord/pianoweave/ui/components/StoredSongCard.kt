@@ -30,7 +30,7 @@ import com.lumenchord.pianoweave.api.describe
 import com.lumenchord.pianoweave.api.libraryKeyClip
 import com.lumenchord.pianoweave.api.libraryKeyMode
 import com.lumenchord.pianoweave.api.sourceOfLibraryKey
-import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.ui.semantics.contentDescription
@@ -193,7 +193,7 @@ internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean, clip: Clip? 
         Icon(
             when (mode) {
                 TranscriptionMode.Arrangement -> Icons.AutoMirrored.Filled.QueueMusic
-                TranscriptionMode.Ensemble -> Icons.Default.Groups
+                TranscriptionMode.Ensemble -> Icons.Default.LibraryMusic
                 TranscriptionMode.Transcription -> Icons.Default.Piano
             },
             contentDescription = null,

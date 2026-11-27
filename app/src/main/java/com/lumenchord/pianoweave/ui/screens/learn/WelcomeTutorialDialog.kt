@@ -97,7 +97,7 @@ private fun welcomeSteps(withArrangements: Boolean, ensemble: Boolean): List<Wel
             icon = Icons.AutoMirrored.Filled.QueueMusic,
             title = if (ensemble) "3. Piano or Ensemble" else "3. Transcribe or arrange",
             body = if (ensemble) {
-                "Piano for piano pieces, or just the piano of a song; Ensemble to play a whole song with all its instruments on piano."
+                "Piano for piano pieces, or just the piano of a song; Ensemble for a full song with other instruments, as piano versions from beginner to full."
             } else {
                 "Piano transcription for piano videos, Piano arrangement for any other song."
             },

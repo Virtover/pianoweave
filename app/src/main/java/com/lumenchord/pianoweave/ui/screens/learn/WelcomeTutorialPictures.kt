@@ -15,7 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -235,7 +235,7 @@ internal fun ChooseModePicture(ensemble: Boolean = true) {
         TapHint(shape = RoundedCornerShape(12.dp), number = 1, fillWidth = true) {
             ModeOptionMini(Icons.Default.Piano, if (ensemble) "Piano" else "Piano transcription", if (ensemble) "Piano pieces" else "Piano videos", isSelected = true)
         }
-        if (ensemble) ModeOptionMini(Icons.Default.Groups, "Ensemble", "Full songs", isSelected = false)
+        if (ensemble) ModeOptionMini(Icons.Default.LibraryMusic, "Ensemble", "Full songs", isSelected = false)
         else ModeOptionMini(Icons.AutoMirrored.Filled.QueueMusic, "Piano arrangement", "Any song", isSelected = false)
         TapHint(shape = PillShape, number = 2, fillWidth = true) {
             Row(

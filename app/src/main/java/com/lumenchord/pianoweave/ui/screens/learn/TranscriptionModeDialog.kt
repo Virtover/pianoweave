@@ -15,7 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
@@ -63,10 +63,10 @@ private val modeOptions = listOf(
     ),
     ModeOption(
         mode = TranscriptionMode.Ensemble,
-        icon = Icons.Default.Groups,
+        icon = Icons.Default.LibraryMusic,
         title = "Ensemble",
         bestFor = "Full songs",
-        body = "For a full song with other instruments: all of it as notes to play on piano."
+        body = "For a full song with other instruments: piano versions from beginner to full, plus every instrument's own track."
     ),
     // Only old servers: newer ones make ensembles instead
     ModeOption(
