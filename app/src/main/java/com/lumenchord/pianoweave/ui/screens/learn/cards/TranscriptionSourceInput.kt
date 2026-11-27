@@ -82,20 +82,30 @@ internal fun SourceSelector(
         // One size for every label, the largest at which all of them fit, so the segments read as a set
         // rather than each shrinking on its own.
         val segmentWidth = (maxWidth - SegmentDivider * (options.size - 1)) / options.size
-        val labelFontSize = remember(segmentWidth, labelStyle, density) {
-            val labelWidthsPx = options.indices.map { index ->
-                val padding = segmentPadding(isFirst = index == 0, isLast = index == options.lastIndex)
-                with(density) { (segmentWidth - padding - SegmentIconWithGap).toPx() }
+        // With the icons if the labels fit beside them at the smallest size, else the icons give way: a label is
+        // never cut (a narrow card, a large font scale, a long translation)
+        val fit = remember(segmentWidth, labelStyle, density) {
+            fun fontSizeFor(iconRoom: Dp): Float? {
+                val labelWidthsPx = options.indices.map { index ->
+                    val padding = segmentPadding(isFirst = index == 0, isLast = index == options.lastIndex)
+                    with(density) { (segmentWidth - padding - iconRoom).toPx() }
+                }
+                var size = LabelMaxFontSize
+                while (options.indices.any { index ->
+                        textMeasurer.measure(options[index].second, labelStyle.copy(fontSize = size.sp), maxLines = 1)
+                            .size.width > labelWidthsPx[index]
+                    }) {
+                    if (size <= LabelMinFontSize) return null
+                    size -= 0.5f
+                }
+                return size
             }
-            var size = LabelMaxFontSize
-            while (size > LabelMinFontSize && options.indices.any { index ->
-                    textMeasurer.measure(options[index].second, labelStyle.copy(fontSize = size.sp), maxLines = 1)
-                        .size.width > labelWidthsPx[index]
-                }) {
-                size -= 0.5f
-            }
-            size.sp
+            fontSizeFor(SegmentIconWithGap)?.let { it to true }
+                ?: fontSizeFor(0.dp)?.let { it to false }
+                ?: (LabelMinFontSize to false)
         }
+        val labelFontSize = fit.first.sp
+        val showIcons = fit.second
 
         // A recessed well, the chosen part lifted out of it: in warm light by day, in the theme's gold by night
         val theme = LocalAppTheme.current
@@ -140,16 +150,19 @@ internal fun SourceSelector(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
+                    if (showIcons) {
+                        Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
                     Text(
                         text = label,
                         color = contentColor,
                         style = labelStyle.copy(fontSize = labelFontSize, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium),
                         maxLines = 1,
                         softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        // Never an ellipsis: the sizes above leave the label room, and if even the smallest is
+                        // too wide it is let out over the segment's padding rather than cut
+                        overflow = TextOverflow.Visible
                     )
                 }
             }

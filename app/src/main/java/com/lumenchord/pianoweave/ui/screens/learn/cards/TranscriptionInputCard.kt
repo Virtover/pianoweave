@@ -236,7 +236,7 @@ fun TranscriptionInputCard(
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         // By the card's own width, not the window's: beside the recent songs on a smaller tablet it is narrow
         // again. A phone in landscape keeps the shared row however narrow, as it has no height to spare.
-        val inlineSelector = isWide && (isShort || maxWidth >= 480.dp)
+        val inlineSelector = isWide && (isShort || maxWidth >= 640.dp)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = cardShape,
