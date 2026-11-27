@@ -11,6 +11,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import android.content.Context
@@ -234,9 +236,22 @@ fun TranscriptionInputCard(
         label = "convertCardWash"
     )
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        // By the card's own width, not the window's: beside the recent songs on a smaller tablet it is narrow
-        // again. A phone in landscape keeps the shared row however narrow, as it has no height to spare.
-        val inlineSelector = isWide && (isShort || maxWidth >= 640.dp)
+        // The selector shares the title's row when it fits there in full at the current font scale: what the row
+        // leaves beside the badge, the title and the status chip (measured, so any width and font scale works) is
+        // compared with what the selector needs. A phone in landscape keeps the shared row however narrow, as it
+        // has no height to spare (the selector then drops its icons rather than cut a label).
+        val textMeasurer = rememberTextMeasurer()
+        val localDensity = LocalDensity.current
+        val titleStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        val titleWidth = remember(localDensity, titleStyle) {
+            with(localDensity) { textMeasurer.measure("AI Transcription", titleStyle, maxLines = 1).size.width.toDp() }
+        }
+        val selectorMinWidth = rememberSourceSelectorMinWidth()
+        val cardPadding = if (isShort) 12.dp else if (isLarge) 20.dp else 16.dp
+        val badge = if (isShort) 26.dp else 30.dp
+        // Badge, its gap, the title, the status chip (50dp: dot, icon and padding), the selector's own side padding
+        val beside = badge + 10.dp + titleWidth + 50.dp + 32.dp + 4.dp
+        val inlineSelector = isWide && (isShort || maxWidth - cardPadding * 2 - beside >= selectorMinWidth)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = cardShape,
@@ -250,7 +265,7 @@ fun TranscriptionInputCard(
                 modifier = Modifier
                     .cardWash(accent, washStrength)
                     // A phone in landscape has about 330dp of height: tighter, so the whole card fits without scrolling
-                    .padding(if (isShort) 12.dp else if (isLarge) 20.dp else 16.dp),
+                    .padding(cardPadding),
                 verticalArrangement = Arrangement.spacedBy(if (isShort) 8.dp else if (isLarge) 14.dp else 12.dp)
             ) {
                 val sourceSelector = @Composable { modifier: Modifier ->

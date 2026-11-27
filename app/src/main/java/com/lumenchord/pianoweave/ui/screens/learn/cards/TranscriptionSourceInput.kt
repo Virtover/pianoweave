@@ -169,6 +169,29 @@ internal fun SourceSelector(
         }
     }
 }
+
+/**
+ * The least width at which [SourceSelector] still shows its icons and its labels in full, at the current font
+ * scale: three equal segments, each with room for its widest label at the smallest size, its icon and its
+ * padding, plus the dividers and the well's own padding. A card that can give the selector this much keeps it
+ * in the title row; otherwise it gets a row of its own.
+ */
+@Composable
+internal fun rememberSourceSelectorMinWidth(): Dp {
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val labelStyle = MaterialTheme.typography.labelLarge.copy(fontSize = LabelMinFontSize.sp, fontWeight = FontWeight.Bold)
+    return remember(density, labelStyle) {
+        val labels = listOf("Link", "File", "Mic")
+        val segment = labels.mapIndexed { index, label ->
+            val textPx = textMeasurer.measure(label, labelStyle, maxLines = 1).size.width
+            with(density) { textPx.toDp() } + SegmentIconWithGap + segmentPadding(index == 0, index == labels.lastIndex)
+        }.max()
+        // 3dp of padding at each end of the well, and a little to spare for rounding
+        segment * labels.size + SegmentDivider * (labels.size - 1) + 6.dp + 2.dp
+    }
+}
+
 private val SegmentDivider = 1.dp
 /** Icon (18dp) plus the gap before the label. */
 private val SegmentIconWithGap = 24.dp
