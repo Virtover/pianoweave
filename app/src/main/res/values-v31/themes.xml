@@ -8,7 +8,7 @@
         <item name="android:windowSplashScreenBrandingImage">@drawable/splash_branding</item>
     </style>
 
-    <!-- The splash by day: chosen for the next launches with SplashScreen.setSplashScreenTheme (API 33+). -->
+    <!-- The light launcher alias uses this for Android 12; API 33+ also selects it with setSplashScreenTheme. -->
     <style name="Theme.PianoWeave.Light" parent="Theme.PianoWeave">
         <item name="android:windowBackground">@color/splash_background_light</item>
         <item name="android:windowSplashScreenBackground">@color/splash_background_light</item>

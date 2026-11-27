@@ -196,8 +196,9 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   shapes (the owner rejected them). Key buttons are gold leaf by day (`goldLeaf`, `AppTheme.fill`, ink on it).
   `AppThemeManager.isLight` is snapshot state read by `Moods`, `SupportRose`, `Ink` (use it instead of `Color.White`
   for text and hairlines on surfaces; text on an accent keeps the `isLightAccent` rule) and `lampGlow`. Outside the
-  app: `LauncherLight` icon, `Theme.PianoWeave.Light` (window background, and the splash via `setSplashScreenTheme` on
-  API 33+), all in the chosen "Warm across, edges": the night drawables' ribbons in warm golds shaded across, a fine
+  app: `LauncherLight` icon, `LightMainActivity` (an explicitly light-themed launcher target for Android 12 Samsung
+  devices), and `Theme.PianoWeave.Light` (window background, and the splash via `setSplashScreenTheme` on API 33+),
+  all in the chosen "Warm across, edges": the night drawables' ribbons in warm golds shaded across, a fine
   gold line, the bright edges; the launcher icon on the piano roll's sunlit stage.
 - **Account progress** (`util/AccountProgress.kt`): tutorials done, the light unlock and the verse count live in their
   own prefs file (`account_progress`), so Android Auto Backup keeps them with the Google account (the backup rules

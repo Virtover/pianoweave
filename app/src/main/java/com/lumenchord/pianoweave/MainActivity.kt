@@ -76,7 +76,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 
-class MainActivity : ComponentActivity() {
+open class MainActivity : ComponentActivity() {
 
     private val viewModel: PianoWeaveViewModel by viewModels()
 
