@@ -246,4 +246,17 @@ class MidiStorageListTest {
         assertEquals(listOf("again"), MidiStorage.listIn(dir, nowNanos = 0L, nowMillis = now).map { it.videoUrl })
         assertTrue(File(dir, "again.mid").exists())
     }
+
+    @Test
+    fun aLibrarySyncedWithDriveKeepsItsDeletionsUntilASyncPushesThem() {
+        val dir = tmp.newFolder()
+        song(dir, "expired", record("u1", deleted = "true", deletedAt = "${now - 90 * day}", cloudId = "id-1"))
+        File(dir, "x.meta.tmp-1").apply { writeText("x"); setLastModified(now - 2 * 60 * 60 * 1000) }
+
+        val listed = MidiStorage.listIn(dir, nowNanos = 0L, nowMillis = now, keepTombstones = true)
+
+        assertTrue(listed.single().isDeleted)
+        assertTrue(File(dir, "expired.meta").exists())
+        assertFalse(File(dir, "x.meta.tmp-1").exists())
+    }
 }

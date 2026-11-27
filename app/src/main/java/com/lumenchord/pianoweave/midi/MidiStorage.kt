@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.lumenchord.pianoweave.api.VideoMetadata
 import com.lumenchord.pianoweave.api.placeholderMetadata
+import com.lumenchord.pianoweave.util.AppPrefs
 import okhttp3.ResponseBody
 import java.io.File
 import java.nio.file.Files
@@ -213,18 +214,21 @@ object MidiStorage {
      * (a cloud sync lists the library about 8 times), reading every record again each time. Neither of its
      * limits (30 days, 1 hour) needs better precision.
      */
-    private fun purgeIfDue(dir: File, nowNanos: Long, nowMillis: Long) {
+    private fun purgeIfDue(dir: File, nowNanos: Long, nowMillis: Long, keepTombstones: Boolean) {
         val last = lastPurgeAt[dir.path]
         if (last != null && nowNanos - last < PURGE_INTERVAL_NS) return
         lastPurgeAt[dir.path] = nowNanos
-        purgeExpiredDeletedSongs(dir, nowMillis)
+        purgeExpiredDeletedSongs(dir, nowMillis, keepTombstones)
     }
 
-    private fun purgeExpiredDeletedSongs(dir: File, nowMillis: Long) {
+    private fun purgeExpiredDeletedSongs(dir: File, nowMillis: Long, keepTombstones: Boolean) {
         // Temp files left behind by a crash mid-write
         dir.listFiles()
             ?.filter { TEMP_MARKER in it.name && nowMillis - it.lastModified() > STALE_TEMP_MS }
             ?.forEach { it.delete() }
+        // A deleted song of a library synced with Drive is its deletion still to be pushed there (a sync
+        // forgets it once its cloud copy is gone); expired, the song would come back with the next sync.
+        if (keepTombstones) return
         dir.listFiles()
             ?.filter { it.extension == "meta" }
             ?.forEach { metaFile ->
@@ -304,15 +308,20 @@ object MidiStorage {
         )
     }
 
-    fun listAll(context: Context): List<StoredMidi> = listIn(directory(context))
+    fun listAll(context: Context): List<StoredMidi> =
+        listIn(directory(context), keepTombstones = !AppPrefs.get(context).getString(AppPrefs.CLOUD_LIBRARY_ACCOUNT, null).isNullOrBlank())
 
-    /** [listAll] for the library folder [dir]; the clocks are parameters for tests. */
+    /**
+     * [listAll] for the library folder [dir]; the clocks are parameters for tests. [keepTombstones]: the
+     * library is synced with a Google account, so deleted songs never expire (see [purgeExpiredDeletedSongs]).
+     */
     internal fun listIn(
         dir: File,
         nowNanos: Long = System.nanoTime(),
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        keepTombstones: Boolean = false
     ): List<StoredMidi> {
-        purgeIfDue(dir, nowNanos, nowMillis)
+        purgeIfDue(dir, nowNanos, nowMillis, keepTombstones)
 
         return dir
             .listFiles()

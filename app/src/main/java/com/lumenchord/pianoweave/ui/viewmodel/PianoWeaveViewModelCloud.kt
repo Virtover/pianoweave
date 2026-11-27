@@ -9,6 +9,7 @@ import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.cloud.CloudAccountCache
 import com.lumenchord.pianoweave.cloud.CloudMidi
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
+import com.lumenchord.pianoweave.cloud.LibrarySyncRules
 import com.lumenchord.pianoweave.cloud.PendingDetailEdits
 import com.lumenchord.pianoweave.cloud.isCloudFallback
 import com.lumenchord.pianoweave.midi.hasEditableDetails
@@ -154,73 +155,50 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                 MidiStorage.listAll(context).filter { it.cloudFileId in corruptedIds }
                     .forEach { MidiStorage.updateCloudFileId(context, it, "") }
 
-                removeDuplicateCloudCopies(context, initialCloudSongs, MidiStorage.listAll(context), token)
+                unlinkImportsSharingCloudCopy(context)
+
+                // 1. Deletions before anything else, so nothing below can upload, keep or download a deleted song.
+                val allLocalSongs = MidiStorage.listAll(context)
+                val deletions = LibrarySyncRules.deletions(
+                    local = allLocalSongs,
+                    cloud = initialCloudSongs,
+                    applyRemoteDeletions = LibrarySyncRules.appliesRemoteDeletions(uploadPreviousAccountSongs, allLocalSongs, initialCloudSongs)
+                )
+                // Deleted on another device (local files only, no network)
+                deletions.deletedRemotely.forEach { MidiStorage.hardDelete(context, it) }
+                // Deleted here: their cloud copies go (parallel)
+                val stillInCloud = deletions.cloudCopies.parallelMap { cloud ->
+                    val result = GoogleDriveManager.deleteCloudMidi(context, cloud.id, token)
+                    result.exceptionOrNull()?.let { err ->
+                        Log.w(TAG, "Cloud deletion failed", err)
+                        failures.add("Delete '${cloud.metadata.title}' from Drive: ${connectionMessage(err, DRIVE) ?: err.localizedMessage ?: "Unknown error"}")
+                    }
+                    cloud.takeIf { result.isFailure }
+                }.filterNotNull().map { it.id }.toSet()
+                // Not downloaded again now either way; a failed deletion is retried on the next sync
+                initialCloudSongs.removeAll(deletions.cloudCopies.toSet())
+                // A deleted song is forgotten only once its cloud copies are gone. Forgotten earlier, a copy
+                // whose deletion failed would come back as a new song on the next sync.
+                deletions.tombstones
+                    .filter { (_, copies) -> copies.none { it.id in stillInCloud } }
+                    .forEach { (song, _) -> MidiStorage.forgetDeleted(context, song) }
+
+                removeDuplicateCloudCopies(context, initialCloudSongs, MidiStorage.list(context), token)
 
                 // Best effort, so every build reads them directly; the details were already read above
                 initialCloudSongs.filter { it.hasLegacyDescription && !it.hasLostMetadata }
                     .parallelMap { GoogleDriveManager.rewriteLegacyDescription(context, it, token) }
 
-                unlinkImportsSharingCloudCopy(context)
-
-                // Keys shared by several songs (older imports) never identify a song; those match by cloud id only.
-                val cloudFileIds = initialCloudSongs.map { it.id }.toSet()
-                val cloudUrls = initialCloudSongs.map { it.videoUrl }.filterNot { it.isSharedSourceKey }.toSet()
-                val allLocalSongs = MidiStorage.listAll(context)
-
-                // 1. Remote deletions (local files only, no network). A song whose linked copy is gone but
-                // which still has another cloud copy (e.g. a duplicate removed by another device) is relinked below.
-                fun isDeletedRemotely(song: StoredMidi) =
-                    song.cloudFileId.isNotBlank() && song.cloudFileId !in cloudFileIds && song.videoUrl !in cloudUrls
-                if (!uploadPreviousAccountSongs) {
-                    allLocalSongs.filter(::isDeletedRemotely).forEach { MidiStorage.hardDelete(context, it) }
-                }
-
-                // One snapshot instead of re-listing from disk several times
-                val localSongs = if (!uploadPreviousAccountSongs) {
-                    allLocalSongs.filterNot(::isDeletedRemotely)
-                } else {
-                    allLocalSongs
-                }
-                val deletedLocal = localSongs.filter { it.isDeleted }
-                val activeLocalSongs = localSongs.filterNot { it.isDeleted }
-                val deletedLocalCloudIds = deletedLocal.map { it.cloudFileId }.filter { it.isNotBlank() }.toSet()
-                val deletedLocalUrls = deletedLocal.map { it.videoUrl }.filterNot { it.isSharedSourceKey }.toSet()
-
-                // 2. Purge cloud copies of soft-deleted songs (parallel)
-                val cloudSongsToDelete = initialCloudSongs.filter {
-                    it.id in deletedLocalCloudIds || it.videoUrl in deletedLocalUrls
-                }
-                val stillInCloud = cloudSongsToDelete.parallelMap { cloud ->
-                    cloud.takeIf { GoogleDriveManager.deleteCloudMidi(context, it.id, token).isFailure }
-                }.filterNotNull()
-                // Not downloaded again now either way; the deletion is retried on the next sync
-                initialCloudSongs.removeAll(cloudSongsToDelete.toSet())
-                // A deleted song is forgotten only once its cloud copy is gone. Forgotten earlier, a copy
-                // whose deletion failed would come back as a new song on the next sync.
-                deletedLocal.filterNot { song ->
-                    stillInCloud.any { it.id == song.cloudFileId || (!song.videoUrl.isSharedSourceKey && it.videoUrl == song.videoUrl) }
-                }.forEach { MidiStorage.forgetDeleted(context, it) }
-
+                // 2. Both directions, worked out up front from the same snapshot
+                val activeLocalSongs = MidiStorage.list(context)
                 val remainingCloudByUrl = initialCloudSongs.filterNot { it.videoUrl.isSharedSourceKey }.associateBy { it.videoUrl }
                 val remainingCloudById = initialCloudSongs.associateBy { it.id }
-
-                // Work out BOTH directions up front from the same snapshot. They are disjoint,
-                // so uploads and downloads can run at the same time.
-                val localCloudIds = activeLocalSongs.map { it.cloudFileId }.filter { it.isNotBlank() }.toSet()
-                val localUrls = activeLocalSongs.map { it.videoUrl }.filterNot { it.isSharedSourceKey }.toSet()
-
-                val songsToUpload = activeLocalSongs.filter {
-                    it.cloudFileId !in remainingCloudById && it.videoUrl !in remainingCloudByUrl
-                }
-                val songsToLink = activeLocalSongs.filter {
-                    it.cloudFileId !in remainingCloudById && it.videoUrl in remainingCloudByUrl
-                }
-                val songsToDownload = initialCloudSongs.filter {
-                    it.id !in localCloudIds && it.videoUrl !in localUrls
-                }
+                val plan = LibrarySyncRules.transfers(activeLocalSongs, initialCloudSongs)
+                val songsToUpload = plan.upload
+                val songsToDownload = plan.download
 
                 // Linking is local-only metadata, no network
-                songsToLink.forEach { MidiStorage.updateCloudFileId(context, it, remainingCloudByUrl.getValue(it.videoUrl).id) }
+                plan.link.forEach { (song, cloud) -> MidiStorage.updateCloudFileId(context, song, cloud.id) }
 
                 repairLostMetadata(context, activeLocalSongs, remainingCloudById, remainingCloudByUrl, token)
                 syncEditedDetails(context, remainingCloudById, token)

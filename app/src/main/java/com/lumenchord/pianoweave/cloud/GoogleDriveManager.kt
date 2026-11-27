@@ -21,6 +21,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.HttpException
+import retrofit2.Response
 import java.time.Instant
 
 data class CloudMidi(
@@ -324,15 +326,21 @@ object GoogleDriveManager {
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             GoogleAuthManager.executeWithAuthRetry(context, authHeader) { header ->
-                val response = GoogleDriveApiFactory.api.deleteFile(fileId = fileId, authHeader = header)
-                if (!response.isSuccessful && response.code() != 404) {
-                    val errBody = response.errorBody()?.string() ?: ""
-                    throw Exception("Failed to delete file from Drive (${response.code()}): $errBody")
-                }
+                requireDeleted(GoogleDriveApiFactory.api.deleteFile(fileId = fileId, authHeader = header))
             }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * A delete that Drive refused throws [HttpException], like every other Drive call: only that lets
+     * [GoogleAuthManager.executeWithAuthRetry] refresh an expired token and try again. A plain exception
+     * here made every deletion fail once the token was an hour old, silently during a sync, so a song
+     * deleted on one device stayed in Drive and reached the others. 404: already gone, which is the goal.
+     */
+    internal fun requireDeleted(response: Response<*>) {
+        if (!response.isSuccessful && response.code() != 404) throw HttpException(response)
     }
 }

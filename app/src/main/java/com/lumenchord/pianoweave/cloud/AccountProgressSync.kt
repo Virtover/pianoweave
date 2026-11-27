@@ -56,7 +56,7 @@ object AccountProgressSync {
                                 .build()
                         )
                     }
-                    copies.drop(1).forEach { api.deleteFile(fileId = it.id!!, authHeader = header) }
+                    copies.drop(1).forEach { GoogleDriveManager.requireDeleted(api.deleteFile(fileId = it.id!!, authHeader = header)) }
                     changed
                 }
             }

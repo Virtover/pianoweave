@@ -8,9 +8,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
+import com.lumenchord.pianoweave.cloud.LibrarySyncRules
+import kotlinx.coroutines.CancellationException
 import com.lumenchord.pianoweave.cloud.PendingDetailEdits
 import com.lumenchord.pianoweave.midi.hasEditableDetails
-import com.lumenchord.pianoweave.midi.isSharedSourceKey
 import kotlinx.coroutines.sync.withLock
 import com.lumenchord.pianoweave.midi.ExportNotifier
 import com.lumenchord.pianoweave.midi.ExportState
@@ -129,35 +130,25 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
             // again after this deleted its cloud copy, and the next sync would bring it back
             if (token.isNotBlank()) GoogleDriveManager.libraryMutex.withLock {
                 try {
-                    val fileId = if (song.cloudFileId.isNotBlank()) {
-                        song.cloudFileId
-                    } else if (song.videoUrl.isSharedSourceKey) {
-                        null // The key may belong to another song's cloud copy
-                    } else {
-                        val cloudSongs = GoogleDriveManager.listCloudMidis(context, token).getOrDefault(emptyList())
-                        cloudSongs.firstOrNull { it.videoUrl == song.videoUrl }?.id
+                    // The record as it is now: a backup or sync that finished since may have linked it
+                    val tombstone = MidiStorage.listAll(context).firstOrNull { it.file == song.file && it.isDeleted }
+                        ?: return@withLock // Added again meanwhile, or already forgotten
+                    // Every copy the deletion covers, not just the linked one (see cloudCopiesDeletedBy). A
+                    // failed listing keeps the tombstone: forgotten, a copy left in Drive would come back.
+                    val cloud = GoogleDriveManager.listCloudMidis(context, token).getOrThrow()
+                    LibrarySyncRules.cloudCopiesDeletedBy(tombstone, cloud).forEach { copy ->
+                        GoogleDriveManager.deleteCloudMidi(context, copy.id, token).getOrThrow()
                     }
-
-                    if (!fileId.isNullOrBlank()) {
-                        val deleteResult = GoogleDriveManager.deleteCloudMidi(context, fileId, token)
-                        if (deleteResult.isSuccess) {
-                            MidiStorage.forgetDeleted(context, song)
-                            withContext(Dispatchers.Main) {
-                                hasCloudSyncError = false
-                                cloudSyncError = null
-                                saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = false, errorMsg = null)
-                                loadSongsImpl(context)
-                            }
-                        } else {
-                            throw deleteResult.exceptionOrNull() ?: Exception("Failed to delete from Drive")
-                        }
-                    } else {
-                        MidiStorage.forgetDeleted(context, song)
-                        withContext(Dispatchers.Main) {
-                            loadSongsImpl(context)
-                        }
+                    MidiStorage.forgetDeleted(context, tombstone)
+                    withContext(Dispatchers.Main) {
+                        hasCloudSyncError = false
+                        cloudSyncError = null
+                        saveCloudSyncState(context, enabled = isCloudSyncEnabled, hasError = false, errorMsg = null)
+                        loadSongsImpl(context)
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    // The tombstone stays; the next sync (at the latest when the app next comes to the front) pushes it first
                     withContext(Dispatchers.Main) {
                         hasCloudSyncError = true
                         cloudSyncError = "Failed to delete file from cloud: ${connectionMessage(e, DRIVE) ?: e.localizedMessage ?: "Network error"}"
