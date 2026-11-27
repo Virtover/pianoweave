@@ -129,7 +129,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   skips. So the song stays one card, one Drive file and one delete, and old devices see full. Default and raw failing
   retry the download; other levels are tried twice and left out. Piano roll Settings → Difficulty (top, only with
   levels; Raw has an info tooltip) re-parses in place; the choice is line 17 of the song's `.meta`, per song and
-  device (`MidiVariants.choose`: stored, else full, else raw). Export writes `<title> - <level>.mid` per level. Old
+  device (`MidiVariants.choose`: stored, else full, else the hardest listed, else raw). The server lists only levels that
+  differ (a simple song: e.g. full and easy; drums alone: raw), and the menu offers exactly those; one alone is a plain file. Export writes `<title> - <level>.mid` per level. Old
   ensemble songs and servers without `variants` are plain files: no Difficulty row. A fuller per-track UI would need track names (meta 0x03) and
   programs from the reader, and a per-track mute or hand choice.
 - **Trim** (server-info `trimming: true`): the scissors end of the Transcribe button (`TrimSegment`) opens `TrimDialog`, and the chosen part shows under its label; the part (whole seconds,

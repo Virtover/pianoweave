@@ -28,20 +28,20 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.launch
 
 /** What each choice is, in the menu and under the title. */
-private fun difficultyHint(variant: String): String = when (variant) {
-    MidiVariants.FULL -> "Every note, for two hands"
-    MidiVariants.ADVANCED -> "A little lighter, for two hands"
-    MidiVariants.INTERMEDIATE -> "Fewer notes, for two hands"
-    MidiVariants.EASY -> "Simpler, for two hands"
-    MidiVariants.BEGINNER -> "The simplest, for two hands"
+internal fun difficultyHint(variant: String): String = when (variant) {
+    MidiVariants.FULL -> "Every note, arranged for piano"
+    MidiVariants.ADVANCED -> "Full chords and octave bass"
+    MidiVariants.INTERMEDIATE -> "Melody, bass and 3-note chords"
+    MidiVariants.EASY -> "Melody, bass and up to 2 chord notes"
+    MidiVariants.BEGINNER -> "Melody and single bass notes"
     MidiVariants.RAW -> "Every instrument, as transcribed"
     else -> ""
 }
 
 /**
- * The difficulty of an ensemble song, as one row like Speed: the piano versions from Full to Beginner, and Raw,
- * the multi-track as transcribed. Shown only for a song with several results; the choice switches the notes at
- * once and is kept with the song.
+ * The difficulty of an ensemble song, as one row like Speed: exactly the levels the server made for it (a simple
+ * song has only those that differ), and Raw, the multi-track as transcribed. Shown only for a song with two or
+ * more; the choice switches the notes at once and is kept with the song.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -44,15 +44,17 @@ object MidiVariants {
     fun primaryOf(names: Collection<String>): String? = ordered(names).let { if (FULL in it) FULL else it.firstOrNull() }
 
     /**
-     * The variant shown for a song that has [available]: the stored choice while it exists, then full,
-     * then raw, then whatever there is.
+     * The variant shown for a song that has [available], which is exactly what the server listed: for a simple
+     * song only the levels that differ, for drums alone only raw. The stored choice while it exists, then full,
+     * then the hardest level there is, then raw.
      */
-    fun choose(stored: String?, available: List<String>): String? = when {
-        available.isEmpty() -> null
-        stored != null && stored in available -> stored
-        FULL in available -> FULL
-        RAW in available -> RAW
-        else -> available.first()
+    fun choose(stored: String?, available: List<String>): String? {
+        val names = ordered(available)
+        return when {
+            names.isEmpty() -> null
+            stored != null && stored in names -> stored
+            else -> names.firstOrNull { it != RAW } ?: RAW
+        }
     }
 
     /** One file of [variants] (name to MIDI bytes); a single variant stays a plain MIDI file. */

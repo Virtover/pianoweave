@@ -6,6 +6,7 @@ import com.lumenchord.pianoweave.midi.MidiVariants.EASY
 import com.lumenchord.pianoweave.midi.MidiVariants.FULL
 import com.lumenchord.pianoweave.midi.MidiVariants.INTERMEDIATE
 import com.lumenchord.pianoweave.midi.MidiVariants.RAW
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.difficultyHint
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.rawExplanation
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
@@ -84,14 +85,52 @@ class MidiVariantsTest {
     }
 
     @Test
-    fun choice_keepsTheStoredOne_thenFull_thenRaw() {
+    fun choice_keepsTheStoredOne_thenFull_thenTheHardestLevel_thenRaw() {
         val levels = MidiVariants.ORDER
         assertEquals(EASY, MidiVariants.choose(EASY, levels))
         assertEquals(FULL, MidiVariants.choose("", levels))
         assertEquals(FULL, MidiVariants.choose(BEGINNER, levels - BEGINNER))
-        assertEquals(RAW, MidiVariants.choose(FULL, listOf(ADVANCED, RAW)))
-        assertEquals(ADVANCED, MidiVariants.choose(null, listOf(ADVANCED, EASY)))
+        assertEquals(ADVANCED, MidiVariants.choose(FULL, listOf(RAW, ADVANCED)))
+        assertEquals(INTERMEDIATE, MidiVariants.choose(null, listOf(BEGINNER, INTERMEDIATE, EASY)))
+        assertEquals(RAW, MidiVariants.choose(FULL, listOf(RAW)))
         assertNull(MidiVariants.choose(FULL, emptyList()))
+    }
+
+    @Test
+    fun aSimpleSong_offersExactlyTheLevelsListed() {
+        // Full and easy only: two choices, full first
+        val (bytes, asked) = download(listOf(FULL, EASY)) { _, _ -> null }
+        assertEquals(listOf<String?>(FULL, EASY), asked)
+        val offered = MidiVariants.read(bytes).keys.toList()
+        assertEquals(listOf(FULL, EASY), offered)
+        assertEquals(FULL, MidiVariants.choose(null, offered))
+        // A stored level the song doesn't have falls back to full
+        assertEquals(FULL, MidiVariants.choose(BEGINNER, offered))
+    }
+
+    @Test
+    fun aSingleLevel_orDrumsAlone_isAPlainSongWithNoDifficulty() {
+        for (only in listOf(FULL, RAW, EASY)) {
+            val (bytes, asked) = download(listOf(only)) { _, _ -> null }
+            assertEquals(listOf<String?>(null), asked)
+            assertTrue("$only alone offers no choice", MidiVariants.read(bytes).isEmpty())
+        }
+    }
+
+    @Test
+    fun withoutFull_theHardestListedLevelIsTheDefault_andWhatOthersSee() {
+        val (bytes, _) = download(listOf(EASY, INTERMEDIATE, RAW)) { _, _ -> null }
+        val offered = MidiVariants.read(bytes).keys.toList()
+        assertEquals(listOf(INTERMEDIATE, EASY, RAW), offered)
+        assertEquals(INTERMEDIATE, MidiVariants.choose(null, offered))
+        assertEquals(listOf(64), notesOf(bytes))
+    }
+
+    @Test
+    fun hintsSayWhatEachLevelKeeps() {
+        assertEquals("Every note, arranged for piano", difficultyHint(FULL))
+        assertEquals("Melody and single bass notes", difficultyHint(BEGINNER))
+        MidiVariants.ORDER.forEach { assertTrue(it, difficultyHint(it).isNotBlank()) }
     }
 
     @Test
