@@ -64,7 +64,7 @@ private fun PianoWeaveViewModel.readLinkLength(context: Context) {
     viewModelScope.launch {
         try {
             val cost = fetchBillingCostResponse(context, sourceUrl = url)
-            linkDurations = linkDurations + (url to cost.durationSeconds)
+            rememberLinkCheck(url, cost)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             val serverMessage = (e as? HttpException)?.let { ServerErrors.detailMessage(ServerErrors.errorBody(it)) }

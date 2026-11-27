@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.api.BillingCostResponse
+import com.lumenchord.pianoweave.api.toLinkPreview
 import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.CreateTranscriptionRequest
 import com.lumenchord.pianoweave.api.clipSourceKey
@@ -53,8 +54,10 @@ internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
             estimatedCostCredits = if (partSeconds != null) {
                 fetchBillingCost(context, durationSeconds = partSeconds)
             } else {
+                // Typing a link asks once it rests, not on every letter; a paste is one change and waits only this
+                delay(LINK_CHECK_DEBOUNCE_MS)
                 val cost = fetchBillingCostResponse(context, sourceUrl = stableUrl)
-                linkDurations = linkDurations + (stableUrl to cost.durationSeconds)
+                rememberLinkCheck(stableUrl, cost)
                 cost.costMinutes
             }
         } catch (e: Exception) {
@@ -71,6 +74,19 @@ internal fun PianoWeaveViewModel.calculateCostForUrlImpl(url: String) {
         }
     }
 }
+/** How long the link field must rest before the server is asked about it. */
+private const val LINK_CHECK_DEBOUNCE_MS = 450L
+
+/** How many links' previews are kept: enough to go back and forth, never a growing list. */
+private const val LINK_PREVIEWS_KEPT = 16
+
+/** Keeps what the server read of [url]: its length (Trim, the cost) and its preview. */
+internal fun PianoWeaveViewModel.rememberLinkCheck(url: String, cost: BillingCostResponse) {
+    linkDurations = linkDurations + (url to cost.durationSeconds)
+    linkPreviews = (linkPreviews - url + (url to cost.toLinkPreview())).entries.toList()
+        .takeLast(LINK_PREVIEWS_KEPT).associate { it.toPair() }
+}
+
 /**
  * The server's cost in minutes of a link or of a file's length. Signed in only: a billed server answers
  * 401 without the Google token. While it is busy checking other videos it is asked again after a moment.

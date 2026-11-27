@@ -403,7 +403,12 @@ data class ActiveSubscription(
 data class BillingCostResponse(
     /** The whole video's or file's length, also when the cost is of a part. */
     @SerializedName("duration_seconds") val durationSeconds: Float,
-    @SerializedName("cost_minutes") val costMinutes: Int
+    @SerializedName("cost_minutes") val costMinutes: Int,
+    /** The link's details for its preview ([LinkPreview]); absent on older servers and for a file's length. */
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("channel") val channel: String? = null,
+    @SerializedName("thumbnail") val thumbnail: String? = null,
+    @SerializedName("webpage_url") val webpageUrl: String? = null
 )
 
 data class VerifyPurchaseRequest(

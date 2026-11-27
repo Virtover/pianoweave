@@ -429,6 +429,13 @@ fun TranscriptionInputCard(
                     }
                 )
 
+                // The pasted video, as the server read it for its cost: the length is said only here
+                val linkPreview = viewModel.linkPreview
+                val isReadingLink = viewModel.isCalculatingCost && viewModel.videoUrl.isNotBlank()
+                if (source == TranscriptionSource.Link && !viewModel.isLoading && (linkPreview != null || isReadingLink)) {
+                    LinkPreviewRow(preview = linkPreview)
+                }
+
                 val needsPassword = viewModel.serverStatus == ServerStatus.PASSWORD_REQUIRED
                 if (needsPassword && !viewModel.isLoading) {
                     ServerPasswordNotice(isOfficialServer = viewModel.isUsingDefaultServer, onClick = onOpenServerSettings)

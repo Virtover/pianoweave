@@ -412,6 +412,13 @@ class PianoWeaveViewModel : ViewModel() {
     /** Lengths of links as the server read them (for the cost or for Trim), by link. */
     internal var linkDurations by mutableStateOf<Map<String, Float>>(emptyMap())
 
+    /** What the server's cost check told of links ([LinkPreview]), by link; the last few only. */
+    internal var linkPreviews by mutableStateOf<Map<String, com.lumenchord.pianoweave.api.LinkPreview>>(emptyMap())
+
+    /** The preview of the link in the field, once the server has read it; null while it hasn't, or for no link. */
+    val linkPreview: com.lumenchord.pianoweave.api.LinkPreview?
+        get() = videoUrl.takeIf { it.isNotBlank() }?.let { linkPreviews[normalizeUrlImpl(it)] }?.takeUnless { it.isEmpty }
+
     /** The Trim dialog is open; kept here, as the mode choice is, so a rotation doesn't close it. */
     var showTrimDialog by mutableStateOf(false)
 
