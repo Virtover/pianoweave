@@ -1,5 +1,8 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.api.isPastedLink
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
 import com.lumenchord.pianoweave.api.formatDuration
 import com.lumenchord.pianoweave.api.LinkPreview
 import androidx.compose.runtime.mutableIntStateOf
@@ -398,6 +401,17 @@ fun TranscriptionInputCard(
                 // A read link shows its title instead of the URL while the field isn't being edited, like
                 // an address bar showing a page's title. Same line, same style: only the text changes.
                 val linkPreview = viewModel.linkPreview
+                // A pasted link lets go of the field (and the keyboard), so its title shows without another tap;
+                // typing, and a paste of something that isn't a link, keep it
+                val focusManager = LocalFocusManager.current
+                val keyboard = LocalSoftwareKeyboardController.current
+                val pasteOrType: (String, String) -> Unit = { old, new ->
+                    viewModel.updateUrl(new)
+                    if (isPastedLink(old, new)) {
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                    }
+                }
                 var isLinkFocused by remember { mutableStateOf(false) }
                 var linkFieldWidth by remember { mutableIntStateOf(0) }
                 val measurer = rememberTextMeasurer()
@@ -415,7 +429,7 @@ fun TranscriptionInputCard(
                 }
                 OutlinedTextField(
                     value = viewModel.videoUrl,
-                    onValueChange = { viewModel.updateUrl(it) },
+                    onValueChange = { pasteOrType(viewModel.videoUrl, it) },
                     visualTransformation = resolved?.let { ResolvedLinkTransformation(it) } ?: VisualTransformation.None,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -461,7 +475,7 @@ fun TranscriptionInputCard(
                                     val pasted = clipboard.getClipEntry()?.clipData
                                         ?.takeIf { it.itemCount > 0 }
                                         ?.getItemAt(0)?.coerceToText(context)?.toString()?.trim()
-                                    if (!pasted.isNullOrEmpty()) viewModel.updateUrl(pasted)
+                                    if (!pasted.isNullOrEmpty()) pasteOrType(viewModel.videoUrl, pasted)
                                 }
                             }) {
                                 // A smaller icon in a soft well of the accent: clearly a button, without growing the field
