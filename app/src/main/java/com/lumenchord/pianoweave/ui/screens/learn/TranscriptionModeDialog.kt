@@ -58,15 +58,15 @@ private val modeOptions = listOf(
         mode = TranscriptionMode.Transcription,
         icon = Icons.Default.Piano,
         title = "Piano",
-        bestFor = "Piano part",
-        body = "Only the piano part, as piano notes."
+        bestFor = "Piano pieces",
+        body = "For piano pieces, or to take just the piano out of a full song."
     ),
     ModeOption(
         mode = TranscriptionMode.Ensemble,
         icon = Icons.Default.Groups,
         title = "Ensemble",
-        bestFor = "Any song",
-        body = "The whole song, played on piano."
+        bestFor = "Full songs",
+        body = "For a full song with other instruments: all of it as notes to play on piano."
     ),
     // Only old servers: newer ones make ensembles instead
     ModeOption(
@@ -125,7 +125,7 @@ internal fun TranscriptionModeDialog(
                 ) {
                     DialogHeroHeader(
                         title = if (second == TranscriptionMode.Arrangement) "Transcribe or Arrange?" else "Piano or Ensemble?",
-                        subtitle = if (second == TranscriptionMode.Arrangement) "Choose what the AI makes from this song." else "Choose what to transcribe.",
+                        subtitle = if (second == TranscriptionMode.Arrangement) "Choose what the AI makes from this song." else "Choose what to make from this song.",
                         icon = Icons.Default.AutoAwesome,
                         onClose = onDismiss,
                         titleColor = colorGold
