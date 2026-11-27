@@ -167,4 +167,88 @@ class SimpleMidiReaderTest {
         // The drum note (channel 9, zero length here) is a note too
         assertEquals(listOf(0L, 500L, 1000L), notes.map { it.durationMs }.sorted())
     }
+
+    private fun song(format: Int, vararg tracks: IntArray) = SimpleMidiReader.parseSong(midi(format, *tracks).inputStream())
+
+    @Test
+    fun sustainPedalHoldsOnlyItsOwnChannelsNotes() {
+        // At 120 BPM: channel 0's pedal down from 0 to 1000 ms; notes on channels 0, 1 and 9 (drums) from 0 to 500.
+        // The piano's pedal held every channel's notes, an ensemble's drums and strings too
+        val track = intArrayOf(
+            0x00, 0xB0, 64, 127, 0x00, 0x90, 60, 100, 0x00, 0x99, 36, 100, 0x00, 0x91, 64, 100,
+            0x83, 0x60, 0x80, 60, 0, 0x00, 0x89, 36, 0, 0x00, 0x81, 64, 0,
+            0x83, 0x60, 0xB0, 64, 0
+        ) + endOfTrack
+        val parsed = song(0, track)
+        assertEquals(listOf(SustainPedalSpan(0L, 1000L, channel = 0)), parsed.sustainPedal)
+        val byChannel = parsed.notes.associateBy { it.channel }
+        assertEquals(1000L, byChannel.getValue(0).soundEndMs)
+        assertEquals(500L, byChannel.getValue(1).soundEndMs)
+        assertEquals(500L, byChannel.getValue(DRUM_CHANNEL).soundEndMs)
+        // The key's own length is unchanged: the roll and wait mode use it
+        assertEquals(500L, byChannel.getValue(0).durationMs)
+    }
+
+    @Test
+    fun eachChannelsPedalLiftsByItself() {
+        // Channel 0 lifts at 500 ms, channel 1 at 1000 ms. Merged into one pedal, the first lift ended both
+        val track = intArrayOf(
+            0x00, 0xB0, 64, 127, 0x00, 0xB1, 64, 127, 0x00, 0x91, 64, 100,
+            0x81, 0x70, 0x81, 64, 0,
+            0x81, 0x70, 0xB0, 64, 0,
+            0x83, 0x60, 0xB1, 64, 0
+        ) + endOfTrack
+        val parsed = song(0, track)
+        assertEquals(
+            listOf(SustainPedalSpan(0L, 500L, channel = 0), SustainPedalSpan(0L, 1000L, channel = 1)),
+            parsed.sustainPedal
+        )
+        assertEquals(1000L, parsed.notes.single().soundEndMs)
+    }
+
+    @Test
+    fun pedalOnAnotherTrackHoldsUntilItsNextLift() {
+        // Format 1, the pedal in a track of its own on channel 0: down 0 to 500 ms, lifted, down again 525 to 1000.
+        // Released at 250 ms: held to the lift at 500 only, not on through the next pedalling. Released in the
+        // gap (492 ticks, 512.5 ms): not held. Released at the very tick the pedal goes down again (525): held.
+        val pedalTrack = intArrayOf(
+            0x00, 0xB0, 64, 127, 0x83, 0x60, 0xB0, 64, 0, 0x18, 0xB0, 64, 127, 0x83, 0x48, 0xB0, 64, 0
+        ) + endOfTrack
+        val noteTrack = intArrayOf(
+            0x00, 0x90, 60, 100, 0x00, 0x90, 62, 100, 0x00, 0x90, 64, 100,
+            0x81, 0x70, 0x80, 60, 0, 0x81, 0x7C, 0x80, 64, 0, 0x0C, 0x80, 62, 0
+        ) + endOfTrack
+        val parsed = song(1, pedalTrack, noteTrack)
+        assertEquals(listOf(SustainPedalSpan(0L, 500L), SustainPedalSpan(525L, 1000L)), parsed.sustainPedal)
+        val byPitch = parsed.notes.associateBy { it.pitch }
+        assertEquals(500L, byPitch.getValue(60).soundEndMs)
+        assertEquals(0L, byPitch.getValue(64).pedalHoldMs)
+        assertEquals(1000L, byPitch.getValue(62).soundEndMs)
+    }
+
+    @Test
+    fun notesStruckUnderThePedalAreHeldAndANeverLiftedPedalHoldsForever() {
+        // Pedal down at 0, never lifted; a note from 500 to 1000 ms. Sostenuto (66) and soft (67) are ignored
+        val track = intArrayOf(
+            0x00, 0xB0, 64, 100, 0x00, 0xB0, 66, 127, 0x00, 0xB0, 67, 127,
+            0x83, 0x60, 0x90, 60, 100, 0x83, 0x60, 0x80, 60, 0
+        ) + endOfTrack
+        val parsed = song(0, track)
+        assertEquals(listOf(SustainPedalSpan(0L, Long.MAX_VALUE)), parsed.sustainPedal)
+        val note = parsed.notes.single()
+        assertEquals(500L, note.durationMs)
+        assertEquals(Long.MAX_VALUE, note.soundEndMs)
+    }
+
+    @Test
+    fun halfPedalCountsByTheMiddleAndAKeyReleasedAsThePedalLiftsIsNotHeld() {
+        // 63 is up and 64 down; the note's key comes up at 500 ms, the tick the pedal lifts
+        val track = intArrayOf(
+            0x00, 0xB0, 64, 63, 0x00, 0x90, 60, 100, 0x81, 0x70, 0xB0, 64, 64,
+            0x81, 0x70, 0x80, 60, 0, 0x00, 0xB0, 64, 0
+        ) + endOfTrack
+        val parsed = song(0, track)
+        assertEquals(listOf(SustainPedalSpan(250L, 500L)), parsed.sustainPedal)
+        assertEquals(500L, parsed.notes.single().soundEndMs)
+    }
 }

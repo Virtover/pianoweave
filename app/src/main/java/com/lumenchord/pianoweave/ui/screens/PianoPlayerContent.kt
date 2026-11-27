@@ -88,7 +88,7 @@ import com.lumenchord.pianoweave.midi.RemoteControl
 import com.lumenchord.pianoweave.midi.RollSync
 import com.lumenchord.pianoweave.ui.viewmodel.PLAYBACK_SPEEDS
 import com.lumenchord.pianoweave.midi.StoredMidi
-import com.lumenchord.pianoweave.midi.SustainPedalSpan
+import com.lumenchord.pianoweave.midi.SongVoices
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
 import com.lumenchord.pianoweave.ui.components.KeyboardNotices
 import com.lumenchord.pianoweave.ui.components.MicPermissionDialog
@@ -107,7 +107,6 @@ import kotlin.math.roundToInt
 internal fun ModernPianoPlayerContent(
     song: StoredMidi,
     rawEvents: List<MidiNoteEvent>,
-    sustainPedal: List<SustainPedalSpan>,
     beats: List<Beat>,
     viewModel: PianoWeaveViewModel,
     onBack: () -> Unit
@@ -344,6 +343,8 @@ internal fun ModernPianoPlayerContent(
         }
         val isFreshStart = !playRun.isRunning
         playRun.isRunning = true
+        // Pausing stopped every note
+        if (isFreshStart) playRun.voices.clear()
 
         // The metronome follows the song's beats; wait mode stops at every chord, so it has none
         val hasMetronome = beats.isNotEmpty() && !viewModel.isWaitModeEnabled
@@ -394,23 +395,19 @@ internal fun ModernPianoPlayerContent(
         }
         if (isFreshStart) countIn(viewModel.playheadMs)
 
-        // Pitches the song itself is sounding, so each gets its note off once no note of it is under the
-        // playhead any more (ended, or jumped past by wait mode) and the sustain pedal is up
-        val songSoundingPitches = mutableSetOf<Int>()
+        // Each pitch the song sounds gets its note off once no note of it sounds any more: ended (or jumped past
+        // by wait mode) and not held by its channel's sustain pedal
+        val songVoices = playRun.voices
         fun songNoteOn(note: MidiNoteEvent) {
             PianoPlayer.noteOn(note.pitch, note.velocity)
             MidiInputManager.sendNoteOn(note.pitch, note.velocity)
-            songSoundingPitches.add(note.pitch)
+            songVoices.started(note.pitch)
         }
         fun releaseEndedNotes() {
-            val head = viewModel.playheadMs
-            if (sustainPedal.any { head >= it.startMs && head < it.endMs }) return
-            songSoundingPitches.retainAll { pitch ->
-                val stillSounding = noteEvents.any { it.pitch == pitch && head >= it.startMs && head < it.startMs + it.durationMs }
+            songVoices.releaseEnded(noteEvents, viewModel.playheadMs) { pitch ->
                 // A key the user holds (keyboard or on screen) shares the channel; cutting it would silence them
-                if (!stillSounding && pitch !in MidiInputManager.pressedKeys && !MidiInputManager.isSustaining(pitch)) PianoPlayer.noteOff(pitch)
-                if (!stillSounding) MidiInputManager.sendNoteOff(pitch)
-                stillSounding
+                if (pitch !in MidiInputManager.pressedKeys && !MidiInputManager.isSustaining(pitch)) PianoPlayer.noteOff(pitch)
+                MidiInputManager.sendNoteOff(pitch)
             }
         }
 
@@ -540,7 +537,7 @@ internal fun ModernPianoPlayerContent(
                 viewModel.playheadMs = viewModel.loopStartMs
                 lastTriggeredHeadMs = viewModel.loopStartMs
                 PianoPlayer.stopAllNotes()
-                songSoundingPitches.clear()
+                songVoices.clear()
                 countIn(viewModel.loopStartMs)
                 // The count-in may have moved it back to a beat
                 val restartMs = viewModel.playheadMs
@@ -1218,6 +1215,8 @@ private fun DraggableVisibilityButton(
 /** See `playRun` in [ModernPianoPlayerContent]. */
 private class PlayRun {
     var isRunning = false
+    /** The song's sounding pitches, kept across restarts of the playback loop (see [SongVoices]). */
+    val voices = SongVoices()
 }
 
 /** The count-in without the metronome: a countdown of this many seconds. */

@@ -6,8 +6,20 @@ data class MidiNoteEvent(
     val durationMs: Long,  // Duration of note in milliseconds
     val velocity: Int,     // Striking velocity (0-127)
     /** MIDI channel index; 9 (channel 10) holds an ensemble file's drums, which play as piano like the rest. */
-    val channel: Int = 0
-)
+    val channel: Int = 0,
+    /**
+     * How long the sound outlasts the key: the channel's sustain pedal, down when the key comes up, holds it
+     * until lifted ([Long.MAX_VALUE]: never lifted). Kept relative, so a copy moved in time keeps it right.
+     */
+    val pedalHoldMs: Long = 0L
+) {
+    /** When the dampers stop this note: the key's end, or the lift of the pedal holding it then. */
+    val soundEndMs: Long
+        get() {
+            val keyEnd = startMs + durationMs
+            return if (pedalHoldMs > Long.MAX_VALUE - keyEnd) Long.MAX_VALUE else keyEnd + pedalHoldMs
+        }
+}
 
 /** MIDI channel index of General MIDI percussion, the drum track of an ensemble file. */
 const val DRUM_CHANNEL = 9
@@ -19,10 +31,14 @@ fun drumNotesEnabled(debuggable: Boolean, saved: Boolean?): Boolean = debuggable
 fun withoutDrumsUnless(notes: List<MidiNoteEvent>, includeDrums: Boolean): List<MidiNoteEvent> =
     if (includeDrums) notes else notes.filter { it.channel != DRUM_CHANNEL }
 
-/** A span with the sustain pedal (CC64) held down; [endMs] is [Long.MAX_VALUE] if it is never lifted. */
+/**
+ * A span with the sustain pedal (CC64) held down on [channel] (an index, 0 to 15); [endMs] is [Long.MAX_VALUE]
+ * if it is never lifted. Like on a MIDI synthesizer, it holds only that channel's notes.
+ */
 data class SustainPedalSpan(
     val startMs: Long,
-    val endMs: Long
+    val endMs: Long,
+    val channel: Int = 0
 )
 
 /**

@@ -93,8 +93,9 @@ object SimpleMidiReader {
         // the tempo events sit in the first track and apply to every track
         val tickNotes = mutableListOf<TickNote>()
         val tempoChanges = mutableListOf<Pair<Long, Int>>()
-        // Sustain pedal (CC64) changes as tick to down; a piano has one pedal, whichever track holds it
-        val pedalChanges = mutableListOf<Pair<Long, Boolean>>()
+        // Sustain pedal (CC64) changes: each channel has its own, whichever track holds it, and it holds only
+        // that channel's notes (an ensemble's piano pedal mustn't hold its strings or drums)
+        val pedalChanges = mutableListOf<PedalChange>()
         val timeSignatures = mutableListOf<TimeSignature>()
 
         /*
@@ -156,28 +157,28 @@ object SimpleMidiReader {
 
         val tempoMap = TempoMap(tempoChanges, division)
 
-        val sustainPedal = mutableListOf<SustainPedalSpan>()
-        var pedalDownSinceTick: Long? = null
-        for ((tick, down) in pedalChanges.sortedBy { it.first }) {
-            val since = pedalDownSinceTick
-            if (down && since == null) {
-                pedalDownSinceTick = tick
-            } else if (!down && since != null) {
-                sustainPedal += SustainPedalSpan(tempoMap.toMs(since), tempoMap.toMs(tick))
-                pedalDownSinceTick = null
-            }
-        }
-        pedalDownSinceTick?.let { sustainPedal += SustainPedalSpan(tempoMap.toMs(it), Long.MAX_VALUE) }
+        val pedalSpans = pedalTickSpans(pedalChanges)
+        val sustainPedal = pedalSpans.flatMap { (channel, spans) ->
+            spans.map { SustainPedalSpan(tempoMap.toMs(it.first), if (it.last == Long.MAX_VALUE) Long.MAX_VALUE else tempoMap.toMs(it.last), channel) }
+        }.sortedWith(compareBy({ it.startMs }, { it.channel }))
 
         val notes = tickNotes
             .map { note ->
                 val startMs = tempoMap.toMs(note.startTick)
+                val endMs = tempoMap.toMs(note.endTick)
+                // The pedal down when the key comes up (pressed at that very tick too) holds the sound until lifted
+                val holdingLift = pedalSpans[note.channel]?.let { liftHolding(it, note.endTick) }
                 MidiNoteEvent(
                     pitch = note.pitch,
                     startMs = startMs,
-                    durationMs = tempoMap.toMs(note.endTick) - startMs,
+                    durationMs = endMs - startMs,
                     velocity = note.velocity,
-                    channel = note.channel
+                    channel = note.channel,
+                    pedalHoldMs = when (holdingLift) {
+                        null -> 0L
+                        Long.MAX_VALUE -> Long.MAX_VALUE
+                        else -> tempoMap.toMs(holdingLift) - endMs
+                    }
                 )
             }
             .sortedWith(
@@ -253,7 +254,7 @@ object SimpleMidiReader {
         trackEnd: Int,
         output: MutableList<TickNote>,
         tempoChanges: MutableList<Pair<Long, Int>>,
-        pedalChanges: MutableList<Pair<Long, Boolean>>,
+        pedalChanges: MutableList<PedalChange>,
         timeSignatures: MutableList<TimeSignature>
     ) {
         var currentTicks = 0L
@@ -529,7 +530,9 @@ object SimpleMidiReader {
                      * controller
                      * value
                      *
-                     * Only the sustain pedal (64) is kept; 64 and up is down.
+                     * Only the sustain pedal (64) is kept, per channel; 64 and up is down (half-pedal
+                     * values count by that line). Sostenuto (66) and soft (67) are ignored: their notes
+                     * play as written.
                      */
                     val controller =
                         readByte(
@@ -544,7 +547,7 @@ object SimpleMidiReader {
                         ) ?: break
 
                     if (controller == 64) {
-                        pedalChanges += currentTicks to (value >= 64)
+                        pedalChanges += PedalChange(currentTicks, channel, value >= 64)
                     }
                 }
 
@@ -735,6 +738,44 @@ object SimpleMidiReader {
         val numerator: Int,
         val denominatorPower: Int
     )
+
+    private data class PedalChange(val tick: Long, val channel: Int, val down: Boolean)
+
+    /**
+     * Each channel's pedal-down spans in ticks, sorted (end [Long.MAX_VALUE]: never lifted). Changes are taken
+     * in time order, all tracks together; a repeated down or up changes nothing.
+     */
+    private fun pedalTickSpans(changes: List<PedalChange>): Map<Int, List<LongRange>> =
+        changes.groupBy { it.channel }.mapValues { (_, ofChannel) ->
+            val spans = mutableListOf<LongRange>()
+            var downSince: Long? = null
+            for (change in ofChannel.sortedBy { it.tick }) {
+                val since = downSince
+                if (change.down && since == null) {
+                    downSince = change.tick
+                } else if (!change.down && since != null) {
+                    // Down and up at one tick holds nothing
+                    if (change.tick > since) spans += since..change.tick
+                    downSince = null
+                }
+            }
+            downSince?.let { spans += it..Long.MAX_VALUE }
+            spans
+        }
+
+    /** The lift (tick) of the span in [spans] down at [tick] (from its first tick, up to before its last), or null. */
+    private fun liftHolding(spans: List<LongRange>, tick: Long): Long? {
+        // The last span starting at or before the tick
+        var low = 0
+        var high = spans.size - 1
+        var found = -1
+        while (low <= high) {
+            val mid = (low + high) ushr 1
+            if (spans[mid].first <= tick) { found = mid; low = mid + 1 } else high = mid - 1
+        }
+        val span = spans.getOrNull(found) ?: return null
+        return span.last.takeIf { tick < it }
+    }
 
     private data class TickNote(
         val pitch: Int,
