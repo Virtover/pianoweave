@@ -121,6 +121,36 @@ object MidiVariants {
     }
 
     /**
+     * An ensemble job completed with only raw listed may still get its levels: a RunPod endpoint on an older
+     * image sends raw, and the server adds the levels a few seconds later. So its status is read again every
+     * [intervalMs] for up to [maxWaitMs], and whatever is listed then is taken (drums alone stay raw only).
+     * Never for a piano job, whose one result is raw too, nor for an older server that lists nothing. A
+     * failed read ends the wait with what is known.
+     */
+    suspend fun awaitLateLevels(
+        listed: List<String>?,
+        isEnsemble: Boolean,
+        refresh: suspend () -> List<String>?,
+        pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
+        intervalMs: Long = 2_000L,
+        maxWaitMs: Long = 20_000L
+    ): List<String>? {
+        var current = listed
+        var waited = 0L
+        while (isEnsemble && current == listOf(RAW) && waited < maxWaitMs) {
+            pause(intervalMs)
+            waited += intervalMs
+            current = try {
+                refresh() ?: current
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                return current
+            }
+        }
+        return current
+    }
+
+    /**
      * Downloads a finished job's results as one song file. [listed] is the status's `variants` (null from
      * older servers): with fewer than two, the plain download is the one result. Otherwise each is fetched
      * by name. The default one and raw are retried as any download is (their failure is thrown, and the

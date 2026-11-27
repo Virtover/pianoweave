@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.midi
 import android.content.Context
 import com.lumenchord.pianoweave.api.TranscriptionStatusResponse
 import com.lumenchord.pianoweave.api.VideoMetadata
+import com.lumenchord.pianoweave.api.isEnsembleKey
 import com.lumenchord.pianoweave.api.libraryKeyClip
 import com.lumenchord.pianoweave.api.placeholderMetadata
 import com.lumenchord.pianoweave.api.sanitizeVideoMetadata
@@ -23,19 +24,23 @@ object CompletedTranscriptions {
      * Saves the job's MIDI unless the song is already stored. Returns the new song, or null if it existed.
      * [download] fetches one result by name (null: the default one); an ensemble job's results all go into
      * the song's one file ([MidiVariants.download]), written once all are in, so a crash leaves no half song.
+     * [refreshStatus] reads the job again while an ensemble's levels may still be on their way
+     * ([MidiVariants.awaitLateLevels]).
      */
     suspend fun saveOnce(
         context: Context,
         stableUrl: String,
         job: TranscriptionStatusResponse,
+        refreshStatus: suspend () -> TranscriptionStatusResponse,
         download: suspend (variant: String?) -> ResponseBody
     ): StoredMidi? = mutex.withLock {
         if (MidiStorage.find(context, stableUrl) != null) return@withLock null
-        val bytes = MidiVariants.download(job.variants, { variant -> download(variant).use { it.bytes() } }, ::isMissing)
+        val listed = MidiVariants.awaitLateLevels(job.variants, isEnsemble = stableUrl.isEnsembleKey, refresh = { refreshStatus().variants })
+        val bytes = MidiVariants.download(listed, { variant -> download(variant).use { it.bytes() } }, ::isMissing)
         MidiStorage.saveBytes(context, stableUrl, metadataFor(job, stableUrl), bytes)
     }
 
-    /** A result the server doesn't have (404), as opposed to one it couldn't send just now. */
+    /** A result the server doesn't have (404, error_code `variant_unavailable`), not one it couldn't send just now. */
     private fun isMissing(e: Throwable): Boolean = (e as? HttpException)?.code() == 404
 
     /**

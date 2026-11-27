@@ -67,7 +67,10 @@ class TranscriptionWorker(
 
         // Null if the in-app poller saved it first; it then also takes care of the Drive backup.
         val savedMidi = try {
-            CompletedTranscriptions.saveOnce(applicationContext, stableUrl, job) { variant ->
+            CompletedTranscriptions.saveOnce(
+                applicationContext, stableUrl, job,
+                refreshStatus = { withAuth(serverUrl) { header -> api.getTranscription(jobId, authHeader = header) } }
+            ) { variant ->
                 withAuth(serverUrl) { header -> api.downloadMidi(jobId, authHeader = header, variant = variant) }
             }
         } catch (e: Exception) {

@@ -231,4 +231,58 @@ class MidiVariantsTest {
         assertTrue(rawExplanation(true).contains("drums"))
         assertFalse(rawExplanation(false).contains("drums"))
     }
+
+    // ---- Levels that arrive after completion ----
+
+    private class LateStatus(val answers: List<List<String>?>, val failAt: Int = -1) {
+        var reads = 0
+        var waitedMs = 0L
+        suspend fun refresh(): List<String>? {
+            val i = reads++
+            if (i == failAt) throw IOException("offline")
+            return answers.getOrElse(i) { answers.last() }
+        }
+    }
+
+    private fun await(listed: List<String>?, ensemble: Boolean, status: LateStatus) = runBlocking {
+        MidiVariants.awaitLateLevels(listed, ensemble, refresh = status::refresh, pause = { status.waitedMs += it })
+    }
+
+    @Test
+    fun anEnsembleWithOnlyRaw_waitsForItsLevels() {
+        val status = LateStatus(listOf(listOf(RAW), listOf(RAW), MidiVariants.ORDER))
+        assertEquals(MidiVariants.ORDER, await(listOf(RAW), ensemble = true, status))
+        assertEquals(3, status.reads)
+        assertEquals(6_000L, status.waitedMs)
+    }
+
+    @Test
+    fun drumsAlone_waitAtMostTwentySeconds_thenTakeRaw() {
+        val status = LateStatus(listOf(listOf(RAW)))
+        assertEquals(listOf(RAW), await(listOf(RAW), ensemble = true, status))
+        assertEquals(10, status.reads)
+        assertEquals(20_000L, status.waitedMs)
+    }
+
+    @Test
+    fun pianoJobs_olderServers_andListedLevels_neverWait() {
+        for ((listed, ensemble) in listOf(listOf(RAW) to false, null to true, emptyList<String>() to true, listOf(FULL, RAW) to true)) {
+            val status = LateStatus(listOf(MidiVariants.ORDER))
+            assertEquals(listed, await(listed, ensemble, status))
+            assertEquals(0, status.reads)
+        }
+    }
+
+    @Test
+    fun aFailedStatusRead_endsTheWaitWithWhatIsKnown() {
+        val status = LateStatus(listOf(listOf(RAW)), failAt = 1)
+        assertEquals(listOf(RAW), await(listOf(RAW), ensemble = true, status))
+        assertEquals(2, status.reads)
+    }
+
+    @Test
+    fun aLoneMelody_givesFullAndRaw_twoChoices() {
+        val (bytes, _) = download(listOf(FULL, RAW)) { _, _ -> null }
+        assertEquals(listOf(FULL, RAW), MidiVariants.read(bytes).keys.toList())
+    }
 }

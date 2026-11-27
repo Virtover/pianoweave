@@ -130,7 +130,14 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   retry the download; other levels are tried twice and left out. Piano roll Settings → Difficulty (top, only with
   levels; Raw has an info tooltip) re-parses in place; the choice is line 17 of the song's `.meta`, per song and
   device (`MidiVariants.choose`: stored, else full, else the hardest listed, else raw). The server lists only levels that
-  differ (a simple song: e.g. full and easy; drums alone: raw), and the menu offers exactly those; one alone is a plain file. Export writes `<title> - <level>.mid` per level. Old
+  differ (a simple song: e.g. full and easy; drums alone: raw), and the menu offers exactly those; one alone is a plain file.
+  `variants` is `[]` until completed and always ends with `raw` (piano jobs: `["raw"]`). An ensemble completed with only
+  `["raw"]` is read again every 2 s for up to 20 s (`awaitLateLevels`: an older RunPod image's levels come late); a 404
+  (`variant_unavailable`) leaves that level out.
+- **Link preview** (server `GET api/billing/cost`: `title`, `channel`, `thumbnail`; billed servers, signed in, 450 ms
+  after the field rests): no row of its own. The thumbnail takes the link field's leading icon (24 dp, icon while it
+  loads or fails); the title, the channel on wide layouts and the length go in the Transcribe button's sub-line, where
+  a Trim part was already said (`sentLine`). No title: the card is as it was. Export writes `<title> - <level>.mid` per level. Old
   ensemble songs and servers without `variants` are plain files: no Difficulty row. A fuller per-track UI would need track names (meta 0x03) and
   programs from the reader, and a per-track mute or hand choice.
 - **Trim** (server-info `trimming: true`): the scissors end of the Transcribe button (`TrimSegment`) opens `TrimDialog`, and the chosen part shows under its label; the part (whole seconds,
