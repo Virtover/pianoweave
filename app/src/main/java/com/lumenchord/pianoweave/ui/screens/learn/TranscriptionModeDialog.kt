@@ -66,7 +66,7 @@ private val modeOptions = listOf(
         icon = Icons.Default.Groups,
         title = "Ensemble",
         bestFor = "Several instruments",
-        body = "Every instrument of a song on its own track."
+        body = "Every instrument of a song."
     ),
     // Only old servers: newer ones make ensembles instead
     ModeOption(
