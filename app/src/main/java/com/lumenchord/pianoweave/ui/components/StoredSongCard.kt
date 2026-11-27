@@ -30,6 +30,7 @@ import com.lumenchord.pianoweave.api.describe
 import com.lumenchord.pianoweave.api.libraryKeyClip
 import com.lumenchord.pianoweave.api.libraryKeyMode
 import com.lumenchord.pianoweave.api.sourceOfLibraryKey
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.ui.semantics.contentDescription
@@ -127,7 +128,7 @@ fun StoredSongCard(
                         modifier = Modifier.padding(top = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // A transcription and an arrangement of one link share a title; the tag tells them apart
+                        // The piano, ensemble and arrangement versions of one link share a title; the tag tells them apart
                         song.madeAs?.let { mode ->
                             SongModeTag(mode, compact = !room.isWide, clip = song.videoUrl.libraryKeyClip)
                             Spacer(Modifier.width(6.dp))
@@ -168,15 +169,18 @@ internal val StoredMidi.madeAs: TranscriptionMode?
     }
 
 /**
- * Marks a song as a transcription or an arrangement. [compact] (portrait, where the details line is
+ * Marks a song as a piano transcription, an ensemble or an (old) arrangement. [compact] (portrait, where the details line is
  * short) shows the icon only; the name is still read out by screen readers. A song of a part ([clip]) shows its
  * range beside the name, or a scissors when compact.
  */
 @Composable
 internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean, clip: Clip? = null) {
     val accent = MaterialTheme.colorScheme.secondary
-    val isArrangement = mode == TranscriptionMode.Arrangement
-    val name = if (isArrangement) "Arrangement" else "Transcription"
+    val name = when (mode) {
+        TranscriptionMode.Arrangement -> "Arrangement"
+        TranscriptionMode.Ensemble -> "Ensemble"
+        TranscriptionMode.Transcription -> "Piano"
+    }
     val label = clip?.let { "$name, part ${it.describe()}" } ?: name
     Row(
         modifier = Modifier
@@ -187,7 +191,11 @@ internal fun SongModeTag(mode: TranscriptionMode, compact: Boolean, clip: Clip? 
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            if (isArrangement) Icons.AutoMirrored.Filled.QueueMusic else Icons.Default.Piano,
+            when (mode) {
+                TranscriptionMode.Arrangement -> Icons.AutoMirrored.Filled.QueueMusic
+                TranscriptionMode.Ensemble -> Icons.Default.Groups
+                TranscriptionMode.Transcription -> Icons.Default.Piano
+            },
             contentDescription = null,
             tint = accent,
             modifier = Modifier.size(11.dp)

@@ -16,8 +16,8 @@ object ServerErrors {
     const val TRANSCRIPTION_INTERRUPTED = "transcription_interrupted"
 
     /**
-     * Piano arrangements are off on the server (409), or none of its workers has room for them right now
-     * (503); a transcription still works.
+     * Ensemble transcriptions (on old servers, piano arrangements) are off on the server (409), or none of its workers has room for them right now
+     * (503); a Piano transcription still works.
      */
     const val ARRANGEMENT_UNAVAILABLE = "arrangement_unavailable"
 

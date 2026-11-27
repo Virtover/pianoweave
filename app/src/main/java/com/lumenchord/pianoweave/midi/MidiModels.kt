@@ -4,8 +4,17 @@ data class MidiNoteEvent(
     val pitch: Int,        // MIDI note number (e.g. 60 = Middle C)
     val startMs: Long,     // Start time in milliseconds from beginning of song
     val durationMs: Long,  // Duration of note in milliseconds
-    val velocity: Int      // Striking velocity (0-127)
+    val velocity: Int,     // Striking velocity (0-127)
+    /** MIDI channel index; 9 (channel 10) holds an ensemble file's drums, which play as piano like the rest. */
+    val channel: Int = 0
 )
+
+/** MIDI channel index of General MIDI percussion, the drum track of an ensemble file. */
+const val DRUM_CHANNEL = 9
+
+/** [notes] without the drum channel's when [includeDrums] is false; the list itself when it is true. */
+fun withoutDrumsUnless(notes: List<MidiNoteEvent>, includeDrums: Boolean): List<MidiNoteEvent> =
+    if (includeDrums) notes else notes.filter { it.channel != DRUM_CHANNEL }
 
 /** A span with the sustain pedal (CC64) held down; [endMs] is [Long.MAX_VALUE] if it is never lifted. */
 data class SustainPedalSpan(

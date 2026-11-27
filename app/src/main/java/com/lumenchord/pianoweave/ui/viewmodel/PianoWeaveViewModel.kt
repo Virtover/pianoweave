@@ -3,6 +3,7 @@ package com.lumenchord.pianoweave.ui.viewmodel
 import androidx.compose.runtime.mutableIntStateOf
 import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.TranscriptionMode
+import com.lumenchord.pianoweave.api.offeredModes
 import android.content.Context
 import android.media.MediaRecorder
 import android.net.Uri
@@ -101,6 +102,20 @@ class PianoWeaveViewModel : ViewModel() {
         internal set
     /** Debug builds: the Learn header's pill forced to credits or support (see Settings → About). */
     var headerPillOverride by mutableStateOf(HeaderPillOverride.Auto)
+        internal set
+
+    /** Debug builds: drum (channel 9) notes are included like any other; off hides, mutes and un-waits them. */
+    var includeDrumNotes by mutableStateOf(true)
+        internal set
+
+    /** Debug builds: the "official server" is the dev server below, not config.txt's (see AppConfig.applyDebugServer). */
+    var debugServerEnabled by mutableStateOf(false)
+        internal set
+    var debugServerUrl by mutableStateOf("")
+        internal set
+    var debugServerName by mutableStateOf("")
+        internal set
+    var debugServerPassword by mutableStateOf("")
         internal set
     var isKeyboardSoundEnabled by mutableStateOf(true)
         internal set
@@ -358,11 +373,23 @@ class PianoWeaveViewModel : ViewModel() {
     val supportsFileUpload: Boolean
         get() = maxUploadSizeMb != null
 
-    /** From server-info: the server can make piano arrangements, so Transcribe offers the choice. */
+    /** From server-info: an old server that makes piano arrangements (`arrangement`, no `ensemble`). */
     var supportsArrangement by mutableStateOf(false)
         internal set
 
-    /** The server [supportsArrangement] was read from. */
+    /** From server-info: the server makes ensemble transcriptions (`ensemble`), so Transcribe offers the choice. */
+    var supportsEnsemble by mutableStateOf(false)
+        internal set
+
+    /** Transcribe offers a choice of modes: Piano and Ensemble, or Piano and an old server's arrangement. */
+    val offersModeChoice: Boolean
+        get() = supportsArrangement || supportsEnsemble
+
+    /** The second mode offered beside Piano; null when the server offers only Piano. */
+    val secondMode: TranscriptionMode?
+        get() = offeredModes(supportsArrangement, supportsEnsemble).getOrNull(1)
+
+    /** The server [supportsArrangement] and [supportsEnsemble] were read from. */
     internal var arrangementInfoServerUrl = ""
 
     /** From server-info: a submission may ask for only a part of its song, so the card offers Trim. */
@@ -617,6 +644,13 @@ class PianoWeaveViewModel : ViewModel() {
     fun setKeyboardRange(context: Context, range: KeyboardRange) = setKeyboardRangeImpl(context, range)
     fun setCustomRange(context: Context, low: Int, high: Int) = setCustomRangeImpl(context, low, high)
     fun cycleHeaderPill(context: Context) = cycleHeaderPillImpl(context)
+
+    /** Debug builds: shows, plays and waits for drum notes, or not. */
+    fun setIncludeDrumNotes(context: Context, include: Boolean) = setIncludeDrumNotesImpl(context, include)
+
+    /** Debug builds: switches the official server to the dev server ([url], [name]) or back; see [setDebugServerImpl]. */
+    fun setDebugServer(context: Context, enabled: Boolean, url: String, name: String, password: String) =
+        setDebugServerImpl(context, enabled, url, name, password)
     fun setKeyboardSoundEnabled(context: Context, enabled: Boolean) = setKeyboardSoundEnabledImpl(context, enabled)
     fun setMidiOutputEnabled(context: Context, enabled: Boolean) = setMidiOutputEnabledImpl(context, enabled)
     fun setMetronomeEnabled(context: Context, enabled: Boolean) = setMetronomeEnabledImpl(context, enabled)

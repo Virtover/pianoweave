@@ -27,6 +27,12 @@ enum class HeaderPillOverride(val label: String) {
     }
 }
 
+internal fun PianoWeaveViewModel.setIncludeDrumNotesImpl(context: Context, include: Boolean) {
+    if (!context.isDebuggable) return
+    includeDrumNotes = include
+    AppPrefs.get(context).edit().putBoolean(AppPrefs.DEBUG_DRUM_NOTES, include).apply()
+}
+
 internal fun PianoWeaveViewModel.cycleHeaderPillImpl(context: Context) {
     headerPillOverride = headerPillOverride.next()
     AppPrefs.get(context).edit().putString(AppPrefs.DEBUG_HEADER_PILL, headerPillOverride.name).apply()
@@ -43,6 +49,7 @@ internal fun PianoWeaveViewModel.loadDisplayPreferences(context: Context) {
     keyboardRange = KeyboardRange.fromName(prefs.getString(AppPrefs.KEYBOARD_RANGE, null))
     customRangeLow = prefs.getInt(AppPrefs.CUSTOM_RANGE_LOW, 33).coerceIn(PIANO_LOWEST, PIANO_HIGHEST - 12)
     customRangeHigh = prefs.getInt(AppPrefs.CUSTOM_RANGE_HIGH, 96).coerceIn(customRangeLow + 12, PIANO_HIGHEST)
+    includeDrumNotes = !context.isDebuggable || prefs.getBoolean(AppPrefs.DEBUG_DRUM_NOTES, true)
     headerPillOverride = if (context.isDebuggable) HeaderPillOverride.fromName(prefs.getString(AppPrefs.DEBUG_HEADER_PILL, null))
     else HeaderPillOverride.Auto
 }

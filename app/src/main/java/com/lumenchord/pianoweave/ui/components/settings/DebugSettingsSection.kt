@@ -15,7 +15,14 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.ToggleOff
 import androidx.compose.material.icons.filled.ToggleOn
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.lumenchord.pianoweave.api.config.normalizeDevServerUrl
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,7 +54,12 @@ fun DebugSettingsSection(
     onCycleHeaderPill: () -> Unit,
     isLightThemeUnlocked: Boolean,
     onResetLightTheme: () -> Unit,
-    onResetVerseOfLight: () -> Unit
+    onResetVerseOfLight: () -> Unit,
+    debugServerEnabled: Boolean,
+    debugServerUrl: String,
+    debugServerName: String,
+    debugServerPassword: String,
+    onSetDebugServer: (enabled: Boolean, url: String, name: String, password: String) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -101,6 +113,17 @@ fun DebugSettingsSection(
                 trailingIcon = if (isIgnoringAccountProgress) Icons.Default.ToggleOn else Icons.Default.ToggleOff
             )
 
+        // Debug builds only: the "official server" (the one that gets the Google token and shows its announcements)
+        // is a dev server instead of the real one; release builds never read this
+            DebugServerRow(
+                previewTheme = previewTheme,
+                enabled = debugServerEnabled,
+                url = debugServerUrl,
+                name = debugServerName,
+                password = debugServerPassword,
+                onApply = onSetDebugServer
+            )
+
         // Debug builds only: the Learn header's pill as the server decides, or forced to credits or to support
             LinkRow(
                 icon = Icons.Default.Favorite,
@@ -129,6 +152,66 @@ fun DebugSettingsSection(
                 trailingIcon = Icons.Default.RestartAlt
             )
 
+    }
+}
+
+/** The switch between the real official server and a dev server, and the dev server's address and name. */
+@Composable
+private fun DebugServerRow(
+    previewTheme: AppTheme,
+    enabled: Boolean,
+    url: String,
+    name: String,
+    password: String,
+    onApply: (enabled: Boolean, url: String, name: String, password: String) -> Unit
+) {
+    var passwordText by remember(password) { mutableStateOf(password) }
+    var urlText by remember(url) { mutableStateOf(url) }
+    var nameText by remember(name) { mutableStateOf(name) }
+    val urlValid = normalizeDevServerUrl(urlText) != null
+    LinkRow(
+        icon = Icons.Default.Dns,
+        title = "Official server",
+        subtitle = if (enabled) "Dev server: ${normalizeDevServerUrl(url) ?: "no valid address"}. Tap to use the real one"
+        else "Real official server. Tap to use the dev server below",
+        previewTheme = previewTheme,
+        onClick = { onApply(!enabled, urlText, nameText, passwordText) },
+        trailingIcon = if (enabled) Icons.Default.ToggleOn else Icons.Default.ToggleOff
+    )
+    OutlinedTextField(
+        value = urlText,
+        onValueChange = { urlText = it },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Dev server address") },
+        placeholder = { Text("https://dev.example.com/ (http:// for local)") },
+        singleLine = true,
+        isError = urlText.isNotBlank() && !urlValid,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+    )
+    OutlinedTextField(
+        value = nameText,
+        onValueChange = { nameText = it },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Dev server name (shown instead of the official name)") },
+        singleLine = true
+    )
+    OutlinedTextField(
+        value = passwordText,
+        onValueChange = { passwordText = it },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Dev server password (optional)") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation()
+    )
+    if (urlText != url || nameText != name || passwordText != password) {
+        LinkRow(
+            icon = Icons.Default.Check,
+            title = "Save dev server",
+            subtitle = if (enabled) "Reconnects to it" else "Used once the switch above is on",
+            previewTheme = previewTheme,
+            onClick = { onApply(enabled, urlText, nameText, passwordText) },
+            trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
+        )
     }
 }
 

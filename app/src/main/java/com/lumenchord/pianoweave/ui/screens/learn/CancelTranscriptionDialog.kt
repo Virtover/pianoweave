@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.lumenchord.pianoweave.api.TranscriptionMode
+import com.lumenchord.pianoweave.api.jobNoun
 import com.lumenchord.pianoweave.ui.components.DangerButton
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 
@@ -27,7 +29,7 @@ import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 internal fun CancelTranscriptionDialog(
     progressPercent: Int,
     isBilledServer: Boolean = false,
-    isArrangement: Boolean = false,
+    mode: TranscriptionMode = TranscriptionMode.Transcription,
     onConfirmCancel: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -60,13 +62,17 @@ internal fun CancelTranscriptionDialog(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     DialogHeader(
-                        title = if (isArrangement) "Cancel Arrangement?" else "Cancel Transcription?",
+                        title = when (mode) {
+                            TranscriptionMode.Arrangement -> "Cancel Arrangement?"
+                            TranscriptionMode.Ensemble -> "Cancel Ensemble?"
+                            TranscriptionMode.Transcription -> "Cancel Transcription?"
+                        },
                         icon = Icons.Default.StopCircle,
                         onClose = onDismiss,
                         titleColor = colorGold
                     )
 
-                    val job = if (isArrangement) "arrangement" else "transcription"
+                    val job = mode.jobNoun
                     val bodyText = if (isBilledServer) {
                         "Are you sure you want to cancel this $job job? Progress ($progressPercent%) will be lost and part of your credits will be consumed for the work already processed."
                     } else {
@@ -99,7 +105,7 @@ internal fun CancelTranscriptionDialog(
                             )
                         ) {
                             Text(
-                                text = if (isArrangement) "Keep Arranging" else "Keep Transcribing",
+                                text = if (mode == TranscriptionMode.Arrangement) "Keep Arranging" else "Keep Transcribing",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 12.sp,
                                 maxLines = 1,

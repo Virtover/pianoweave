@@ -17,6 +17,7 @@ import com.lumenchord.pianoweave.api.failureMessage
 import com.lumenchord.pianoweave.api.TranscriptionMode
 import com.lumenchord.pianoweave.api.isUploadSourceKey
 import com.lumenchord.pianoweave.api.libraryKeyClip
+import com.lumenchord.pianoweave.api.jobNoun
 import com.lumenchord.pianoweave.api.libraryKeyMode
 import com.lumenchord.pianoweave.api.sourceOfLibraryKey
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
@@ -136,7 +137,7 @@ private suspend fun PianoWeaveViewModel.fetchJobStatusOrNull(context: Context, j
 /** The job or its MIDI expired on the server (or was removed): waiting longer would never end. */
 private fun PianoWeaveViewModel.failGoneJob(context: Context) {
     showTranscriptionError(
-        "This ${if (transcriptionMode == TranscriptionMode.Arrangement) "arrangement" else "transcription"} is no longer " +
+        "This ${transcriptionMode.jobNoun} is no longer " +
             "on the server; it may have expired. Tap Transcribe to start it again.",
         offerUpload = false
     )
@@ -150,14 +151,20 @@ private fun PianoWeaveViewModel.applyJobStatus(job: TranscriptionStatusResponse)
     rememberDeveloperJob(job)
 
     val isArrangement = transcriptionMode == TranscriptionMode.Arrangement
+    val isEnsemble = transcriptionMode == TranscriptionMode.Ensemble
     status = when (job.status) {
         "queued" -> "Queued in server pipeline..."
         "running", "processing" -> when {
             job.metadata != null -> "${if (isArrangement) "Arranging" else "Transcribing"} \"${job.metadata.title}\"..."
             isArrangement -> "AI model arranging notes..."
+            isEnsemble -> "AI model transcribing each instrument..."
             else -> "AI model transcribing notes..."
         }
-        "completed" -> if (isArrangement) "Arrangement completed." else "Transcription completed."
+        "completed" -> when {
+            isArrangement -> "Arrangement completed."
+            isEnsemble -> "Ensemble transcription completed."
+            else -> "Transcription completed."
+        }
         "failed" -> {
             val errMsg = job.failureMessage
             transcriptionError = errMsg

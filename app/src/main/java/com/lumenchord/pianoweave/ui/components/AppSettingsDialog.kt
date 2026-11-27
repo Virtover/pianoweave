@@ -164,7 +164,12 @@ fun AppSettingsDialog(
                                 onCycleHeaderPill = { viewModel.cycleHeaderPill(context) },
                                 isLightThemeUnlocked = viewModel.isLightThemeUnlocked,
                                 onResetLightTheme = { viewModel.resetLightThemeUnlock(context) },
-                                onResetVerseOfLight = { viewModel.resetVerseOfLight(context) }
+                                onResetVerseOfLight = { viewModel.resetVerseOfLight(context) },
+                                debugServerEnabled = viewModel.debugServerEnabled,
+                                debugServerUrl = viewModel.debugServerUrl,
+                                debugServerName = viewModel.debugServerName,
+                                debugServerPassword = viewModel.debugServerPassword,
+                                onSetDebugServer = { enabled, url, name, password -> viewModel.setDebugServer(context, enabled, url, name, password) }
                             )
                         }
                     }

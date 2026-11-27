@@ -6,11 +6,11 @@ import com.google.gson.annotations.SerializedName
 data class CreateTranscriptionRequest(
     @SerializedName("source_url") val source_url: String,
     /**
-     * [TranscriptionMode.apiValue] of an arrangement; null (left out) for a transcription, the server's
-     * default, so a transcription is the request servers without arrangements know.
+     * [TranscriptionMode.requestValue]: "piano" or "ensemble" for servers with ensembles; null (left out) for
+     * Piano on older ones, the request they know, or "arrangement" for their piano arrangements.
      */
     @SerializedName("mode") val mode: String? = null,
-    /** Only sent with an arrangement; the server refuses a style on a transcription. */
+    /** Only sent with an old server's arrangement; the server refuses a style on a transcription, new ones ignore it. */
     @SerializedName("style") val style: String? = null,
     /** A part of the video ([Clip]); left out (null) for the whole of it, and always for servers without `trimming`. */
     @SerializedName("start_seconds") val startSeconds: Int? = null,
@@ -18,51 +18,113 @@ data class CreateTranscriptionRequest(
 )
 
 /**
- * What the server makes of a song: a [Transcription] of the piano that is played in it, or an
- * [Arrangement], a piano cover of the whole song (vocals and band included) written by AI.
+ * What the server makes of a song: a [Transcription] (the server's "Piano" mode: Transkun, for recordings of a
+ * piano, everything written as piano notes), an [Ensemble] (every instrument in its own track, plus drums), or,
+ * only on old servers, an [Arrangement], a piano cover of the whole song written by AI.
  */
 enum class TranscriptionMode(val apiValue: String) {
     Transcription("transcription"),
-    Arrangement("arrangement");
+    Arrangement("arrangement"),
+    Ensemble("ensemble");
 
-    /** The server's arrangement style for this mode; the app offers a single one. */
+    /** The server's arrangement style for this mode (old servers only; the app offers a single one). */
     val style: String?
         get() = if (this == Arrangement) ARRANGEMENT_STYLE else null
 
-    companion object {
-        fun fromApiValue(value: String?): TranscriptionMode =
-            entries.firstOrNull { it.apiValue == value } ?: Transcription
+    /**
+     * The `mode` a request carries. Piano is left out (null) for servers without ensembles, the default they
+     * know, and is "piano" for those with them; [Arrangement] and [Ensemble] are always named.
+     */
+    fun requestValue(ensembleServer: Boolean): String? = when (this) {
+        Transcription -> if (ensembleServer) "piano" else null
+        else -> apiValue
     }
+
+    companion object {
+        /**
+         * Reads any word a server (or an earlier app version's preferences) uses: "piano" and "transcription" are
+         * Piano, "ensemble" is Ensemble, "arrangement" an old server's piano arrangement (this app sends it
+         * only to those; a new server would mean an ensemble by it).
+         */
+        fun fromApiValue(value: String?): TranscriptionMode = when (value) {
+            "ensemble" -> Ensemble
+            "arrangement" -> Arrangement
+            else -> Transcription
+        }
+    }
+}
+
+/** What a job in this mode is called in messages: "transcription", "ensemble transcription" or "arrangement". */
+val TranscriptionMode.jobNoun: String
+    get() = when (this) {
+        TranscriptionMode.Transcription -> "transcription"
+        TranscriptionMode.Ensemble -> "ensemble transcription"
+        TranscriptionMode.Arrangement -> "arrangement"
+    }
+
+/**
+ * The modes a server offers, from its server-info: Piano and Ensemble when it has `ensemble`; Piano and the
+ * old Piano arrangement when only `arrangement` is true (an old server); just Piano otherwise.
+ */
+fun offeredModes(arrangement: Boolean?, ensemble: Boolean?): List<TranscriptionMode> = when {
+    ensemble == true -> listOf(TranscriptionMode.Transcription, TranscriptionMode.Ensemble)
+    arrangement == true -> listOf(TranscriptionMode.Transcription, TranscriptionMode.Arrangement)
+    else -> listOf(TranscriptionMode.Transcription)
 }
 
 /** The middle of the server's three styles (level1 sparse .. level3 dense): full, yet still playable. */
 private const val ARRANGEMENT_STYLE = "level2"
 
 /**
- * Marks an arrangement's library key. Songs are keyed by their source (a link, or upload://<job>), and an
- * arrangement of a link is a different song from its transcription, so its key gets this fragment. As a
+ * Marks an old piano arrangement's library key. Songs are keyed by their source (a link, or upload://<job>), and an
+ * arrangement of a link is a different song from its piano version, so its key gets this fragment. As a
  * URL fragment it keeps the key a working link that opens the same video.
  */
 private const val ARRANGEMENT_KEY_SUFFIX = "#piano-arrangement"
 
-/** The library key of [sourceKey]'s song in [mode]. */
-fun libraryKey(sourceKey: String, mode: TranscriptionMode): String =
-    if (mode == TranscriptionMode.Arrangement && !sourceKey.isArrangementKey) sourceKey + ARRANGEMENT_KEY_SUFFIX else sourceKey
+/** The same for an ensemble transcription: a third song beside the piano version and the old arrangement. */
+private const val ENSEMBLE_KEY_SUFFIX = "#ensemble"
 
-/** True for a library key of an arrangement (see [libraryKey]). */
+/** The library key of [sourceKey]'s song in [mode]. */
+fun libraryKey(sourceKey: String, mode: TranscriptionMode): String = when {
+    sourceKey.hasModeSuffix -> sourceKey
+    mode == TranscriptionMode.Arrangement -> sourceKey + ARRANGEMENT_KEY_SUFFIX
+    mode == TranscriptionMode.Ensemble -> sourceKey + ENSEMBLE_KEY_SUFFIX
+    else -> sourceKey
+}
+
+private val String.hasModeSuffix: Boolean
+    get() = endsWith(ARRANGEMENT_KEY_SUFFIX) || endsWith(ENSEMBLE_KEY_SUFFIX)
+
+private val String.withoutModeSuffix: String
+    get() = when {
+        endsWith(ARRANGEMENT_KEY_SUFFIX) -> removeSuffix(ARRANGEMENT_KEY_SUFFIX)
+        endsWith(ENSEMBLE_KEY_SUFFIX) -> removeSuffix(ENSEMBLE_KEY_SUFFIX)
+        else -> this
+    }
+
+/** True for a library key of an old piano arrangement (see [libraryKey]). */
 val String.isArrangementKey: Boolean
     get() = endsWith(ARRANGEMENT_KEY_SUFFIX)
 
-/** The source a library key was made from: the link or upload key, without the arrangement and part marks. */
+/** True for a library key of an ensemble transcription (see [libraryKey]). */
+val String.isEnsembleKey: Boolean
+    get() = endsWith(ENSEMBLE_KEY_SUFFIX)
+
+/** The source a library key was made from: the link or upload key, without the mode and part marks. */
 val String.sourceOfLibraryKey: String
-    get() = removeSuffix(ARRANGEMENT_KEY_SUFFIX).withoutClip
+    get() = withoutModeSuffix.withoutClip
 
 /** The part of its source a library key's song is (see [clipSourceKey]); null for the whole song. */
 val String.libraryKeyClip: Clip?
-    get() = removeSuffix(ARRANGEMENT_KEY_SUFFIX).clipOfSourceKey
+    get() = withoutModeSuffix.clipOfSourceKey
 
 val String.libraryKeyMode: TranscriptionMode
-    get() = if (isArrangementKey) TranscriptionMode.Arrangement else TranscriptionMode.Transcription
+    get() = when {
+        isArrangementKey -> TranscriptionMode.Arrangement
+        isEnsembleKey -> TranscriptionMode.Ensemble
+        else -> TranscriptionMode.Transcription
+    }
 
 data class CreateTranscriptionResponse(
     @SerializedName("job_id") val job_id: String,
@@ -84,7 +146,7 @@ data class TranscriptionStatusResponse(
     @SerializedName("metadata") val metadata: VideoMetadata? = null,
     @SerializedName("minutes") val minutes: Int? = null,
     @SerializedName("title") val title: String? = null,
-    /** [TranscriptionMode.apiValue]; absent on servers without arrangements. */
+    /** The word the submission used: "piano", "ensemble", or the old "transcription" / "arrangement"; absent on old servers. */
     @SerializedName("mode") val mode: String? = null,
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null,
     /** The part transcribed, for a job of a part ([Clip]); end null runs to the end. Absent on older servers. */
@@ -120,6 +182,8 @@ data class DeveloperServerState(
     /** Null when no local worker has a live heartbeat. */
     @SerializedName("workers") val workers: DeveloperWorkersState? = null,
     @SerializedName("arrangement") val arrangement: Boolean? = null,
+    /** Whether the server makes ensemble transcriptions; absent on older servers. */
+    @SerializedName("ensemble") val ensemble: Boolean? = null,
     @SerializedName("paused") val paused: Boolean? = null,
     @SerializedName("links_off") val linksOff: Boolean? = null,
     @SerializedName("maintenance") val maintenance: MaintenanceNotice? = null
@@ -136,15 +200,19 @@ data class DeveloperWorkersState(
     /** Jobs all local workers run at once. */
     @SerializedName("capacity") val capacity: Int = 0,
     @SerializedName("arranging") val arranging: Int = 0,
+    /** Workers that take ensemble jobs; absent on older servers. */
+    @SerializedName("ensemble") val ensemble: Int? = null,
     @SerializedName("average_job_seconds") val averageJobSeconds: Float? = null
 )
 
 /** Why a failed job failed. The server writes its "error" for users, so it is shown as it is. */
 val TranscriptionStatusResponse.failureMessage: String
     get() {
-        val fallback = if (TranscriptionMode.fromApiValue(mode) == TranscriptionMode.Arrangement) {
-            "The server could not arrange this."
-        } else "The server could not transcribe this."
+        val fallback = when (TranscriptionMode.fromApiValue(mode)) {
+            TranscriptionMode.Arrangement -> "The server could not arrange this."
+            TranscriptionMode.Ensemble -> "The server could not transcribe this ensemble."
+            TranscriptionMode.Transcription -> "The server could not transcribe this."
+        }
         val message = error?.trim()?.takeIf { it.isNotEmpty() } ?: fallback
         // Nothing was wrong with the song: it can simply be sent again, at no loss
         return if (errorCode == ServerErrors.TRANSCRIPTION_INTERRUPTED) {
@@ -251,8 +319,13 @@ data class ServerInfoResponse(
     @SerializedName("max_video_length_minutes") val maxVideoLengthMinutes: Float? = null,
     /** Absent on servers that cannot transcribe uploaded files. */
     @SerializedName("max_upload_size_mb") val maxUploadSizeMb: Float? = null,
-    /** Whether the server makes piano arrangements; absent (false) on servers that can't. */
+    /**
+     * Old servers: they make piano arrangements (mode arrangement + style). On servers with [ensemble] it is
+     * always false. Absent (false) on servers that can't.
+     */
     @SerializedName("arrangement") val arrangement: Boolean? = null,
+    /** Whether the server makes ensemble transcriptions; absent (false) on older servers. */
+    @SerializedName("ensemble") val ensemble: Boolean? = null,
     /** Whether a submission may ask for only a part ([Clip]); absent (false) on servers that would transcribe it all. */
     @SerializedName("trimming") val trimming: Boolean? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,

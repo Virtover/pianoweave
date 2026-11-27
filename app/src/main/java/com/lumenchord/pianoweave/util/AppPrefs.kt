@@ -128,6 +128,14 @@ object AppPrefs {
      * empty, so tutorials and hidden things can be tried as a newcomer. Turning it off brings the real progress back.
      */
     const val IGNORE_ACCOUNT_PROGRESS = "ignore_account_progress"
+    /** Debug builds: the "official server" is the dev server below (see AppConfig.applyDebugServer); ignored in release builds. */
+    /** Debug builds: whether channel-9 (drum) notes of a song are shown and played as piano notes (default true). */
+    const val DEBUG_DRUM_NOTES = "debug_drum_notes"
+    const val DEBUG_SERVER_ENABLED = "debug_server_enabled"
+    const val DEBUG_SERVER_URL = "debug_server_url"
+    const val DEBUG_SERVER_NAME = "debug_server_name"
+    /** Optional password of the debug dev server, encrypted (read via [SecretStore]); sent to that server alone. */
+    const val DEBUG_SERVER_PASSWORD = "debug_server_password"
     /** Debug builds: which pill the Learn header shows ([com.lumenchord.pianoweave.ui.viewmodel.HeaderPillOverride] name). */
     const val DEBUG_HEADER_PILL = "debug_header_pill"
     /** Play version code of the last flexible in-app update the user declined, and when (epoch ms). */

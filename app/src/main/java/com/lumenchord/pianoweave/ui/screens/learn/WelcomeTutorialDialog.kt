@@ -61,10 +61,11 @@ private data class WelcomeStep(
 )
 
 /**
- * The walkthrough's steps. [withArrangements] (the server makes arrangements) adds the step that chooses
- * between a transcription and an arrangement, and speaks of any song; without them it is about piano videos.
+ * The walkthrough's steps. [withArrangements] (the server offers a second mode) adds the step that chooses
+ * between Piano and Ensemble (or, on an old server, a piano arrangement: [ensemble] false), and speaks of any song;
+ * without it the walkthrough is about piano videos.
  */
-private fun welcomeSteps(withArrangements: Boolean): List<WelcomeStep> = listOfNotNull(
+private fun welcomeSteps(withArrangements: Boolean, ensemble: Boolean): List<WelcomeStep> = listOfNotNull(
     WelcomeStep(
         icon = Icons.Default.Piano,
         title = "Welcome to Piano Weave",
@@ -94,9 +95,13 @@ private fun welcomeSteps(withArrangements: Boolean): List<WelcomeStep> = listOfN
     if (withArrangements) {
         WelcomeStep(
             icon = Icons.AutoMirrored.Filled.QueueMusic,
-            title = "3. Transcribe or arrange",
-            body = "Piano transcription for piano videos, Piano arrangement for any other song. In a few minutes, the music turns into notes.",
-            picture = { ChooseModePicture() }
+            title = if (ensemble) "3. Piano or Ensemble" else "3. Transcribe or arrange",
+            body = if (ensemble) {
+                "Piano for recordings of a piano. Ensemble for any recording with several instruments: each instrument gets its own track. In a few minutes, the music turns into notes."
+            } else {
+                "Piano transcription for piano videos, Piano arrangement for any other song. In a few minutes, the music turns into notes."
+            },
+            picture = { ChooseModePicture(ensemble) }
         )
     } else null,
     WelcomeStep(
@@ -120,11 +125,11 @@ private const val MIN_PICTURE_SCALE = 0.6f
  * with the step's buttons staying in place.
  */
 @Composable
-internal fun WelcomeTutorialDialog(withArrangements: Boolean, onDismiss: (finished: Boolean) -> Unit) {
+internal fun WelcomeTutorialDialog(withArrangements: Boolean, ensemble: Boolean = true, onDismiss: (finished: Boolean) -> Unit) {
     val appTheme = LocalAppTheme.current
     val colorGold = appTheme.primaryColor
     // Fixed for as long as it is open: server info arriving midway must not add or drop a step
-    val welcomeSteps = remember { welcomeSteps(withArrangements) }
+    val welcomeSteps = remember { welcomeSteps(withArrangements, ensemble) }
     var stepIndex by remember { mutableIntStateOf(0) }
     val step = welcomeSteps[stepIndex]
 

@@ -39,6 +39,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.filled.ToggleOff
+import androidx.compose.material.icons.filled.ToggleOn
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -246,6 +248,18 @@ internal fun SettingsDialog(
                                             onClick = onOpenTutorial,
                                             trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight
                                         )
+                                        // Debug builds only: ensemble files put drums on channel 10; they play as piano unless off
+                                        if (isDebuggableBuild(currentContext)) {
+                                            LinkRow(
+                                                icon = Icons.Default.Piano,
+                                                title = "Drum notes (debug)",
+                                                subtitle = if (viewModel.includeDrumNotes) "On: channel 10 notes are shown, played and waited for"
+                                                else "Off: channel 10 notes hidden, silent, not waited for",
+                                                previewTheme = appTheme,
+                                                onClick = { viewModel.setIncludeDrumNotes(currentContext, !viewModel.includeDrumNotes) },
+                                                trailingIcon = if (viewModel.includeDrumNotes) Icons.Default.ToggleOn else Icons.Default.ToggleOff
+                                            )
+                                        }
                                     }
                                 }
 

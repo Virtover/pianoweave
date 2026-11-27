@@ -15,6 +15,7 @@ import com.lumenchord.pianoweave.api.ServerMaintenance
 import com.lumenchord.pianoweave.api.PianoApiFactory
 import com.lumenchord.pianoweave.api.ServerErrors
 import com.lumenchord.pianoweave.api.TranscriptionMode
+import com.lumenchord.pianoweave.api.offeredModes
 import com.lumenchord.pianoweave.api.libraryKey
 import com.lumenchord.pianoweave.util.AppPrefs
 import com.lumenchord.pianoweave.api.retryWhenBusy
@@ -116,8 +117,8 @@ internal fun PianoWeaveViewModel.updateUrlImpl(url: String) {
 
 /** The mode chosen last time, if this server still offers it; the choice dialog starts on it. */
 internal fun PianoWeaveViewModel.lastChosenModeImpl(context: Context): TranscriptionMode {
-    if (!supportsArrangement) return TranscriptionMode.Transcription
-    return TranscriptionMode.fromApiValue(AppPrefs.get(context).getString(AppPrefs.LAST_TRANSCRIPTION_MODE, null))
+    val last = TranscriptionMode.fromApiValue(AppPrefs.get(context).getString(AppPrefs.LAST_TRANSCRIPTION_MODE, null))
+    return if (last in offeredModes(supportsArrangement, supportsEnsemble)) last else TranscriptionMode.Transcription
 }
 
 /**
@@ -137,7 +138,7 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(
     if (file == null && (isFileSource || stableUrl.isBlank())) return
 
     // Uploads are each their own song (keyed by job), so only links can overlap what the library has
-    val chosenMode = if (supportsArrangement) mode else TranscriptionMode.Transcription
+    val chosenMode = if (mode in offeredModes(supportsArrangement, supportsEnsemble)) mode else TranscriptionMode.Transcription
     if (file == null && !overlapConfirmed) {
         val overlapping = overlappingLibraryParts(stableUrl, chosenMode, activeClip)
         if (overlapping.isNotEmpty()) {
@@ -148,10 +149,10 @@ internal fun PianoWeaveViewModel.startTranscriptionImpl(
 
     if (file == null) videoUrl = stableUrl
     transcriptionError = null
-    // A server that dropped arrangements since the dialog opened gets a transcription it can make
-    transcriptionMode = if (supportsArrangement) mode else TranscriptionMode.Transcription
-    if (supportsArrangement) {
-        AppPrefs.get(context).edit().putString(AppPrefs.LAST_TRANSCRIPTION_MODE, mode.apiValue).apply()
+    // A server that dropped a mode since the dialog opened gets Piano, which it can make
+    transcriptionMode = chosenMode
+    if (offersModeChoice) {
+        AppPrefs.get(context).edit().putString(AppPrefs.LAST_TRANSCRIPTION_MODE, chosenMode.apiValue).apply()
     }
 
     // Client-side pre-check only; the server enforces the balance. A developer's jobs are never charged, nor
@@ -226,11 +227,13 @@ internal fun PianoWeaveViewModel.failTranscriptionStart(context: Context, e: Exc
         errorCode == ServerErrors.SOURCE_TEMPORARILY_UNAVAILABLE -> linksOffMessage(e)
         errorCode == ServerErrors.ARRANGEMENT_UNAVAILABLE -> {
             // 409: off on this server, so the choice goes away; 503: only no room for one right now
+            val ensemble = transcriptionMode == TranscriptionMode.Ensemble
             if ((e as? HttpException)?.code() == 409) {
-                supportsArrangement = false
-                "This server no longer makes piano arrangements."
+                if (ensemble) supportsEnsemble = false else supportsArrangement = false
+                if (ensemble) "This server no longer makes ensemble transcriptions." else "This server no longer makes piano arrangements."
             } else {
-                "No room for a piano arrangement right now. Try again later."
+                if (ensemble) "No room for an ensemble transcription right now. Try again later."
+                else "No room for a piano arrangement right now. Try again later."
             }
         }
         e is InsufficientBalanceException || ServerErrors.isPaymentRequired(e) -> {
@@ -367,7 +370,7 @@ private suspend fun PianoWeaveViewModel.submitTranscription(
                 PianoApiFactory.getApi(serverUrl).createTranscription(
                     request = CreateTranscriptionRequest(
                         source_url = stableUrl,
-                        mode = mode.apiValue.takeIf { mode != TranscriptionMode.Transcription },
+                        mode = mode.requestValue(supportsEnsemble),
                         style = mode.style,
                         startSeconds = clip?.startSeconds,
                         endSeconds = clip?.endSeconds

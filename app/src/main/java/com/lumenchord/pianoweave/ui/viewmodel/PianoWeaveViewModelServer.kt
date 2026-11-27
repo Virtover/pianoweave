@@ -12,6 +12,7 @@ import com.lumenchord.pianoweave.api.UserBalanceResponse
 import com.lumenchord.pianoweave.api.videoLimit
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.util.isDebuggable
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
 import com.lumenchord.pianoweave.billing.PendingPurchaseStore
@@ -156,6 +157,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
     // so its texts don't flicker while it reconnects
     if (url != arrangementInfoServerUrl) {
         supportsArrangement = false
+        supportsEnsemble = false
         supportsTrimming = false
     }
     ServerMaintenance.watch(url)
@@ -188,7 +190,9 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     subscriptionPlans = usablePlans(info.subscriptions)
                     resultRetentionSeconds = info.resultRetentionSeconds
                     maxUploadSizeMb = info.maxUploadSizeMb
-                    supportsArrangement = info.arrangement == true
+                    supportsEnsemble = info.ensemble == true
+                    // An old server's piano arrangements; a server with ensembles never offers them
+                    supportsArrangement = info.arrangement == true && !supportsEnsemble
                     supportsTrimming = info.trimming == true
                     arrangementInfoServerUrl = url
                     serverMaxVideoLengthMinutes = info.maxVideoLengthMinutes
@@ -228,6 +232,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                         subscriptionPlans = emptyList()
                         maxUploadSizeMb = null
                         supportsArrangement = false
+                        supportsEnsemble = false
                         supportsTrimming = false
                     }
                     if (passwordRequired) serverStatus = ServerStatus.PASSWORD_REQUIRED
@@ -408,6 +413,12 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
         ""
     }
     supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
+    if (context.isDebuggable) {
+        debugServerEnabled = prefs.getBoolean(AppPrefs.DEBUG_SERVER_ENABLED, false)
+        debugServerUrl = prefs.getString(AppPrefs.DEBUG_SERVER_URL, null) ?: AppConfig.getConfigOrNull()?.devBaseUrl.orEmpty()
+        debugServerPassword = SecretStore.get(context, AppPrefs.DEBUG_SERVER_PASSWORD).orEmpty()
+        debugServerName = prefs.getString(AppPrefs.DEBUG_SERVER_NAME, null) ?: AppConfig.getConfigOrNull()?.devName.orEmpty()
+    }
     isOfficialServerBilled = if (prefs.contains(AppPrefs.OFFICIAL_SERVER_BILLED)) prefs.getBoolean(AppPrefs.OFFICIAL_SERVER_BILLED, true) else null
     isCustomServer = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
     customServerUrl = prefs.getString(AppPrefs.CUSTOM_SERVER_URL, "") ?: ""
@@ -499,6 +510,38 @@ internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useC
         .putString(AppPrefs.CUSTOM_GOOGLE_CLIENT_ID, customGoogleClientId)
         .apply()
 
+    checkServerHealthAndInfoImpl(context, isUserAction = true)
+}
+
+/**
+ * Debug builds only: makes the official server the dev server at [url] (named [name]) when [enabled], or the real
+ * one again, and connects to it. Everything about the old official server (balance, offers, its billing answer) is
+ * dropped, as for any change of server.
+ */
+internal fun PianoWeaveViewModel.setDebugServerImpl(context: Context, enabled: Boolean, url: String, name: String, password: String) {
+    if (!context.isDebuggable || isLoading) return
+    debugServerEnabled = enabled
+    debugServerUrl = url.trim()
+    debugServerName = name.trim()
+    debugServerPassword = password
+    SecretStore.put(context, AppPrefs.DEBUG_SERVER_PASSWORD, password)
+    AppPrefs.get(context).edit()
+        .putBoolean(AppPrefs.DEBUG_SERVER_ENABLED, enabled)
+        .putString(AppPrefs.DEBUG_SERVER_URL, debugServerUrl)
+        .putString(AppPrefs.DEBUG_SERVER_NAME, debugServerName)
+        .remove(AppPrefs.OFFICIAL_SERVER_BILLED)
+        .apply()
+    AppConfig.applyDebugServer(context)
+    defaultServerUrl = AppConfig.getConfigOrNull()?.baseUrl.orEmpty()
+    supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
+    isOfficialServerBilled = null
+    hasCheckedOfficialBillingThisRun = false
+
+    showShopDialog = false
+    userCredits = null
+    serverOffers = emptyList()
+    subscriptionPlans = emptyList()
+    billingProvider = "none"
     checkServerHealthAndInfoImpl(context, isUserAction = true)
 }
 

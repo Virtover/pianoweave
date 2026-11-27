@@ -448,7 +448,8 @@ private fun PianoWeaveApp(
     // App-level, as Settings opens it from either tab
     if (viewModel.showWelcomeTutorial) {
         WelcomeTutorialDialog(
-            withArrangements = viewModel.supportsArrangement,
+            withArrangements = viewModel.offersModeChoice,
+            ensemble = viewModel.supportsEnsemble || !viewModel.supportsArrangement,
             onDismiss = { finished -> viewModel.dismissWelcomeTutorial(context, finished) }
         )
     }

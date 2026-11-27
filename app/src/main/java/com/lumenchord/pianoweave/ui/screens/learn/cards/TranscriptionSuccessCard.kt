@@ -4,6 +4,7 @@ import com.lumenchord.pianoweave.ui.components.AccentButton
 import com.lumenchord.pianoweave.ui.components.rememberWindowRoom
 
 import com.lumenchord.pianoweave.api.isArrangementKey
+import com.lumenchord.pianoweave.api.isEnsembleKey
 import androidx.compose.animation.core.Animatable
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -136,7 +137,11 @@ fun TranscriptionSuccessCard(
                 Spacer(Modifier.height(if (isShort) 6.dp else 10.dp))
             }
             Text(
-                text = if (song.videoUrl.isArrangementKey) "Arrangement ready" else "Transcription ready",
+                text = when {
+                    song.videoUrl.isArrangementKey -> "Arrangement ready"
+                    song.videoUrl.isEnsembleKey -> "Ensemble ready"
+                    else -> "Transcription ready"
+                },
                 style = (if (isShort) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
                     .copy(fontWeight = FontWeight.Bold),
                 color = glory.core

@@ -138,7 +138,7 @@ fun LearnScreen(
         CancelTranscriptionDialog(
             progressPercent = (viewModel.progress * 100).toInt(),
             isBilledServer = viewModel.isBilledServer,
-            isArrangement = viewModel.transcriptionMode == TranscriptionMode.Arrangement,
+            mode = viewModel.transcriptionMode,
             onConfirmCancel = {
                 showCancelConfirmDialog = false
                 viewModel.cancelTranscription(context)

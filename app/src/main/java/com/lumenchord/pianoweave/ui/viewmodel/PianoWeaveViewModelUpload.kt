@@ -315,8 +315,8 @@ private suspend fun PianoWeaveViewModel.submitUpload(
                 PianoApiFactory.getApi(serverUrl).uploadTranscription(
                     filename = file.name,
                     file = body,
-                    // A transcription sends no mode, so older servers get the request they know
-                    mode = mode.apiValue.takeIf { mode != TranscriptionMode.Transcription },
+                    // Piano sends no mode to older servers, so they get the request they know
+                    mode = mode.requestValue(supportsEnsemble),
                     style = mode.style,
                     startSeconds = clip?.startSeconds,
                     endSeconds = clip?.endSeconds,

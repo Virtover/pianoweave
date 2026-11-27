@@ -10,3 +10,7 @@ WEB_CLIENT_ID="364237387363-9uhsmnol0lp4ndmkaf2i1v0456gfivp4.apps.googleusercont
 # Optional: only if the official server has a password (secrets/server_password on the server).
 # It ships inside the APK, so it keeps strangers off the server but is not a real secret.
 DEFAULT_SERVER_PASSWORD=""
+# Optional, debug builds only: what the dev server fields of Settings -> Debug start with.
+# DEV_API_BASE_URL=https://dev.example.com/
+# DEV_SERVER_NAME="Piano Weave Dev"
+# Dev servers have no password unless one is typed in that setting.

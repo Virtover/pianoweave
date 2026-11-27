@@ -176,7 +176,8 @@ object SimpleMidiReader {
                     pitch = note.pitch,
                     startMs = startMs,
                     durationMs = tempoMap.toMs(note.endTick) - startMs,
-                    velocity = note.velocity
+                    velocity = note.velocity,
+                    channel = note.channel
                 )
             }
             .sortedWith(
@@ -263,7 +264,7 @@ object SimpleMidiReader {
         var runningStatus = 0
 
         /*
-         * pitch -> queue of active notes.
+         * (channel, pitch) -> queue of active notes.
          *
          * The queue is important because malformed or unusual
          * MIDI can contain overlapping notes of the same pitch.
@@ -440,6 +441,7 @@ object SimpleMidiReader {
              * MIDI channel message
              */
             val type = status and 0xF0
+            val channel = status and 0x0F
 
             when (type) {
                 0x80 -> {
@@ -464,6 +466,7 @@ object SimpleMidiReader {
 
                     finishNote(
                         pitch = pitch,
+                        channel = channel,
                         endTick = currentTicks,
                         activeNotes = activeNotes,
                         output = output
@@ -498,13 +501,14 @@ object SimpleMidiReader {
                          */
                         finishNote(
                             pitch = pitch,
+                            channel = channel,
                             endTick = currentTicks,
                             activeNotes = activeNotes,
                             output = output
                         )
                     } else {
                         activeNotes
-                            .getOrPut(pitch) {
+                            .getOrPut(noteKey(channel, pitch)) {
                                 mutableListOf()
                             }
                             .add(
@@ -591,14 +595,19 @@ object SimpleMidiReader {
         }
     }
 
+    /** Notes are paired with their note off per channel: several instruments of one track may play one pitch. */
+    private fun noteKey(channel: Int, pitch: Int) = channel * 128 + pitch
+
     private fun finishNote(
         pitch: Int,
+        channel: Int,
         endTick: Long,
         activeNotes:
         HashMap<Int, MutableList<ActiveNote>>,
         output: MutableList<TickNote>
     ) {
-        val notes = activeNotes[pitch]
+        val key = noteKey(channel, pitch)
+        val notes = activeNotes[key]
             ?: return
 
         if (notes.isEmpty()) {
@@ -617,13 +626,14 @@ object SimpleMidiReader {
                     pitch = pitch,
                     startTick = note.startTick,
                     endTick = endTick,
-                    velocity = note.velocity
+                    velocity = note.velocity,
+                    channel = channel
                 )
             )
         }
 
         if (notes.isEmpty()) {
-            activeNotes.remove(pitch)
+            activeNotes.remove(key)
         }
     }
 
@@ -730,7 +740,8 @@ object SimpleMidiReader {
         val pitch: Int,
         val startTick: Long,
         val endTick: Long,
-        val velocity: Int
+        val velocity: Int,
+        val channel: Int
     )
 
     /**

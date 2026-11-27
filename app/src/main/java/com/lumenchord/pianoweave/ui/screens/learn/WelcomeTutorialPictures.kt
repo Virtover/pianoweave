@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -224,17 +225,18 @@ internal fun TranscribePicture(withArrangements: Boolean) {
     }
 }
 
-/** Step 3: the Transcribe or Arrange choice, an option and then the button ringed. */
+/** Step 3: the choice of mode (Piano or Ensemble; on old servers Transcribe or Arrange), an option and then the button ringed. */
 @Composable
-internal fun ChooseModePicture() {
+internal fun ChooseModePicture(ensemble: Boolean = true) {
     val gold = LocalAppTheme.current.primaryColor
     val onGold = if (LocalAppTheme.current.isLightAccent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary
     ScreenFrame(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Transcribe or Arrange?", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = gold, maxLines = 1)
+        Text(if (ensemble) "Piano or Ensemble?" else "Transcribe or Arrange?", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = gold, maxLines = 1)
         TapHint(shape = RoundedCornerShape(12.dp), number = 1, fillWidth = true) {
-            ModeOptionMini(Icons.Default.Piano, "Piano transcription", "Piano videos", isSelected = true)
+            ModeOptionMini(Icons.Default.Piano, if (ensemble) "Piano" else "Piano transcription", if (ensemble) "Recordings of a piano" else "Piano videos", isSelected = true)
         }
-        ModeOptionMini(Icons.AutoMirrored.Filled.QueueMusic, "Piano arrangement", "Any song", isSelected = false)
+        if (ensemble) ModeOptionMini(Icons.Default.Groups, "Ensemble", "Several instruments", isSelected = false)
+        else ModeOptionMini(Icons.AutoMirrored.Filled.QueueMusic, "Piano arrangement", "Any song", isSelected = false)
         TapHint(shape = PillShape, number = 2, fillWidth = true) {
             Row(
                 modifier = Modifier

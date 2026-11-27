@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
@@ -56,10 +57,20 @@ private val modeOptions = listOf(
     ModeOption(
         mode = TranscriptionMode.Transcription,
         icon = Icons.Default.Piano,
-        title = "Piano transcription",
-        bestFor = "Piano videos",
-        body = "The piano notes, as played. Vocals and other instruments are left out."
+        title = "Piano",
+        bestFor = "Recordings of a piano",
+        body = "For recordings of a piano. Everything is transcribed as piano notes."
     ),
+    ModeOption(
+        mode = TranscriptionMode.Ensemble,
+        icon = Icons.Default.Groups,
+        title = "Ensemble",
+        bestFor = "Several instruments",
+        body = "For any recording with several instruments, such as a band, an orchestra or a choir. " +
+            "Each instrument gets its own track, plus a drum track. Instrument names are approximate, " +
+            "and parts that sound alike can share a track."
+    ),
+    // Only old servers: newer ones make ensembles instead
     ModeOption(
         mode = TranscriptionMode.Arrangement,
         icon = Icons.AutoMirrored.Filled.QueueMusic,
@@ -70,8 +81,8 @@ private val modeOptions = listOf(
 )
 
 /**
- * Asked on every Transcribe while the server makes arrangements: a transcription of the piano in the song,
- * or an arrangement of all of it. Opens on the last choice; a tap on an option only selects ([onSelect])
+ * Asked on every Transcribe while the server offers a second mode: Piano, and an Ensemble transcription (or, on
+ * an old server, a piano arrangement of the whole song), named by [second]. Opens on the last choice; a tap on an option only selects ([onSelect])
  * it, since starting costs minutes, and the button below names what will be made. [cost] (credits, on a
  * billed server) is the same either way, so it is said once rather than per option.
  */
@@ -79,6 +90,7 @@ private val modeOptions = listOf(
 internal fun TranscriptionModeDialog(
     selected: TranscriptionMode,
     onSelect: (TranscriptionMode) -> Unit,
+    second: TranscriptionMode,
     cost: Int?,
     onConfirm: (TranscriptionMode) -> Unit,
     onDismiss: () -> Unit
@@ -114,15 +126,15 @@ internal fun TranscriptionModeDialog(
                     verticalArrangement = Arrangement.spacedBy(if (isWide) 12.dp else 16.dp)
                 ) {
                     DialogHeroHeader(
-                        title = "Transcribe or Arrange?",
-                        subtitle = "Choose what the AI makes from this song.",
+                        title = if (second == TranscriptionMode.Arrangement) "Transcribe or Arrange?" else "Piano or Ensemble?",
+                        subtitle = if (second == TranscriptionMode.Arrangement) "Choose what the AI makes from this song." else "Choose what kind of recording this is.",
                         icon = Icons.Default.AutoAwesome,
                         onClose = onDismiss,
                         titleColor = colorGold
                     )
 
                     val options = @Composable { modifier: Modifier ->
-                        modeOptions.forEach { option ->
+                        modeOptions.filter { it.mode == TranscriptionMode.Transcription || it.mode == second }.forEach { option ->
                             ModeOptionCard(
                                 option = option,
                                 isSelected = option.mode == selected,

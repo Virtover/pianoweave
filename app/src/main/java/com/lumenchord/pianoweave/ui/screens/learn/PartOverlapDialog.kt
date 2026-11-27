@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.lumenchord.pianoweave.api.Clip
 import com.lumenchord.pianoweave.api.TranscriptionMode
+import com.lumenchord.pianoweave.api.jobNoun
 import com.lumenchord.pianoweave.api.describe
 import com.lumenchord.pianoweave.ui.components.DialogHeader
 import com.lumenchord.pianoweave.ui.components.DialogSurface
@@ -36,7 +37,7 @@ import com.lumenchord.pianoweave.ui.viewmodel.OverlapWarning
 internal fun PartOverlapDialog(warning: OverlapWarning, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val appTheme = LocalAppTheme.current
     val gold = appTheme.primaryColor
-    val noun = if (warning.mode == TranscriptionMode.Arrangement) "arrangement" else "transcription"
+    val noun = warning.mode.jobNoun
     val what = warning.clip?.let { "This part (${it.describe()})" } ?: "The whole song"
     val count = warning.overlapping.size
 

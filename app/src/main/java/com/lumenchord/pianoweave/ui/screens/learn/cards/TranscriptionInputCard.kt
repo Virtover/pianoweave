@@ -167,13 +167,14 @@ fun TranscriptionInputCard(
     }
     val onTranscribeClick = {
         // Signing in comes first: a choice made before it would be lost to the account picker
-        if (viewModel.supportsArrangement && !needsSignIn) viewModel.modeChoice = viewModel.lastChosenMode(context)
+        if (viewModel.offersModeChoice && !needsSignIn) viewModel.modeChoice = viewModel.lastChosenMode(context)
         else startOrAskTerms(TranscriptionMode.Transcription)
     }
     viewModel.modeChoice?.let { choice ->
         TranscriptionModeDialog(
             selected = choice,
             onSelect = { viewModel.modeChoice = it },
+            second = viewModel.secondMode ?: TranscriptionMode.Ensemble,
             cost = viewModel.estimatedCostCredits.takeIf { viewModel.isBilledServer },
             onConfirm = { mode ->
                 viewModel.modeChoice = null
@@ -184,7 +185,7 @@ fun TranscriptionInputCard(
     }
     viewModel.termsPendingMode?.let { mode ->
         TranscriptionTermsDialog(
-            explainPianoOnly = !viewModel.supportsArrangement,
+            explainPianoOnly = !viewModel.offersModeChoice,
             onAgree = {
                 viewModel.termsPendingMode = null
                 LegalConsent.acceptTerms(context)
@@ -374,7 +375,7 @@ fun TranscriptionInputCard(
                     // Without arrangements piano covers are what the server does best; with them, any video will do
                     placeholder = {
                         val hint = when {
-                            viewModel.supportsArrangement -> if (isWide) "Paste a video link" else "Video link"
+                            viewModel.offersModeChoice -> if (isWide) "Paste a video link" else "Video link"
                             else -> if (isWide) "Paste a piano cover link" else "Piano cover link"
                         }
                         Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f))
@@ -428,7 +429,7 @@ fun TranscriptionInputCard(
                             when (source) {
                                 // With arrangements any song will do; without them a piano performance
                                 TranscriptionSource.Link -> {
-                                    append(if (viewModel.supportsArrangement) "Paste a song video link, e.g. from " else "Paste a piano video link, e.g. from ")
+                                    append(if (viewModel.offersModeChoice) "Paste a song video link, e.g. from " else "Paste a piano video link, e.g. from ")
                                     withStyle(siteStyle) { append("YouTube") }
                                     append(", ")
                                     withStyle(siteStyle) { append("TikTok") }
@@ -441,10 +442,10 @@ fun TranscriptionInputCard(
                                     withStyle(siteStyle) { append("audio") }
                                     append(" or ")
                                     withStyle(siteStyle) { append("video") }
-                                    append(if (viewModel.supportsArrangement) " file of a song or of piano playing." else " file of piano playing.")
+                                    append(if (viewModel.offersModeChoice) " file of a song or of piano playing." else " file of piano playing.")
                                 }
                                 TranscriptionSource.Record -> append(
-                                    if (viewModel.supportsArrangement) "Record piano playing, or a song, near your phone."
+                                    if (viewModel.offersModeChoice) "Record piano playing, or a song, near your phone."
                                     else "Play the piano near your phone and record it."
                                 )
                             }

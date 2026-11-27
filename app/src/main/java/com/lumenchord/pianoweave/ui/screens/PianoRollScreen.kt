@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.em
 import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.midi.SimpleMidiReader
+import com.lumenchord.pianoweave.midi.withoutDrumsUnless
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.SustainPedalSpan
 import com.lumenchord.pianoweave.ui.screens.pianoroll.*
@@ -35,7 +36,10 @@ fun PianoRollScreen(
     viewModel: PianoWeaveViewModel,
     onBack: () -> Unit
 ) {
-    var noteEvents by remember(song) { mutableStateOf<List<MidiNoteEvent>?>(null) }
+    var allNotes by remember(song) { mutableStateOf<List<MidiNoteEvent>?>(null) }
+    // The debug drum switch applies to the open song at once, without reading the file again
+    val includeDrums = viewModel.includeDrumNotes
+    val noteEvents = remember(allNotes, includeDrums) { allNotes?.let { withoutDrumsUnless(it, includeDrums) } }
     var sustainPedal by remember(song) { mutableStateOf<List<SustainPedalSpan>>(emptyList()) }
     var beats by remember(song) { mutableStateOf<List<Beat>>(emptyList()) }
     var parseError by remember(song) { mutableStateOf<String?>(null) }
@@ -54,7 +58,7 @@ fun PianoRollScreen(
 
     LaunchedEffect(song.file.absolutePath) {
         viewModel.isWaitModeEnabled = false
-        noteEvents = null
+        allNotes = null
         parseError = null
         try {
             val parsedSong = withContext(Dispatchers.IO) {
@@ -63,7 +67,7 @@ fun PianoRollScreen(
             val parsed = parsedSong.notes
             sustainPedal = parsedSong.sustainPedal
             beats = parsedSong.beats
-            noteEvents = parsed
+            allNotes = parsed
             val duration = (parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
             if (viewModel.loopEndMs == 0L) {
                 viewModel.loopEndMs = duration

@@ -169,12 +169,14 @@ private fun ServerFacts(state: DeveloperServerState) {
         else buildString {
             append("${workers.count} (${workers.capacity} jobs at once")
             if (workers.arranging > 0) append(", ${workers.arranging} arranging")
+            if ((workers.ensemble ?: 0) > 0) append(", ${workers.ensemble} on ensembles")
             append(")")
             workers.averageJobSeconds?.let { append(", ~${duration(it.toDouble())} a job") }
         }
     )
     FactRow("Outsourcing", onOff(state.outsourcing))
-    FactRow("Arrangements", onOff(state.arrangement))
+    state.ensemble?.let { FactRow("Ensembles", onOff(it)) }
+    if (state.arrangement == true || state.ensemble == null) FactRow("Arrangements", onOff(state.arrangement))
     if (state.paused == true) FactRow("Submissions", "PAUSED by an administrator", warn = true)
     if (state.linksOff == true) FactRow("Video links", "OFF by an administrator", warn = true)
     state.maintenance?.takeIf { it.isValid }?.let { notice ->

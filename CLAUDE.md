@@ -110,10 +110,19 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   lists are first fetched (`LEGAL_NEW_USER`). `LegalConsentTest` covers this; run it after touching `LegalConsent`
   or anything that writes preferences before `LegalConsent.onAppStart`. Testing needs no made-up versions: debug builds have Settings → Debug →
   "Preview legal change notice" (each tap a different case), and any page takes `?today=YYYY-MM-DD`.
-- **Piano arrangements**: when server-info says `arrangement: true`, Transcribe opens `TranscriptionModeDialog`
-  (transcription vs arrangement, one style: `level2`). An arrangement's library key is its source key plus
-  `#piano-arrangement` (`libraryKey()` in `api/TranscriptionModels.kt`), so it never collides with the transcription
-  of the same link and stays a working link; the mode is read back from the key (resume, cards, library tag).
+- **Modes** (`TranscriptionMode` in `api/TranscriptionModels.kt`): Piano (Transkun, request mode `piano`), Ensemble
+  (every instrument its own track plus drums on channel index 9, `ensemble`) and, old servers only, Piano arrangement
+  (`arrangement` + style `level2`). `offeredModes(arrangement, ensemble)` decides from server-info: `ensemble: true`
+  gives Piano + Ensemble; no `ensemble` and `arrangement: true` (an old server) gives Piano + the arrangement; else
+  Piano only. Piano sends no `mode` to old servers and `piano` to ones with `ensemble`; no style goes to new servers.
+  Transcribe opens `TranscriptionModeDialog` when there are two. Library keys: the source key, plus `#piano-arrangement`
+  or `#ensemble` (`libraryKey()`), so a link's piano, arrangement and ensemble songs are three songs and stay working
+  links; the mode is read back from the key (resume, cards, library tag).
+- **Multi-track MIDI**: `SimpleMidiReader` merges the notes of every track and channel (each `MidiNoteEvent` keeps its
+  `channel`); the piano roll has no per-track UI, and everything, drums on channel index 9 included, shows and plays as
+  piano and counts in wait mode. Debug builds: the piano roll's Settings has "Drum notes (debug)" (`includeDrumNotes`),
+  which off hides channel-9 notes, mutes them and drops them from wait mode at once (`withoutDrumsUnless`). A fuller
+  per-track UI would need track names (meta 0x03) and programs from the reader, and a per-track mute or hand choice.
 - **Trim** (server-info `trimming: true`): the scissors end of the Transcribe button (`TrimSegment`) opens `TrimDialog`, and the chosen part shows under its label; the part (whole seconds,
   end null = to the end) is sent as `start_seconds`/`end_seconds` and only its length is charged. A part's library key
   is its source key plus `#part=<start>-<end>` before any `#piano-arrangement` (`api/Clips.kt`), so parts and the whole
@@ -179,5 +188,7 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   file, but **app versions before 55 list it as a song**. Debug builds: Settings → Debug → "Ignore account progress"
   uses an empty stand-in file that never syncs (a newcomer's view); off brings the real progress back.
 - **Debug section** (Settings, debug builds only, heading included: `DebugSettingsSection`): every testing switch lives
-  there, e.g. "Learn header pill" forces the Learn header to the credits or the support pill on any server. "Reset light themes" / "Reset Verse of
+  there; "Official server" swaps the official server for a dev server (address and name typed there, optional defaults
+  `DEV_API_BASE_URL` / `DEV_SERVER_NAME` in config.txt) through `AppConfig.applyDebugServer`, which every user of the
+  official server reads; release builds ignore it. Also e.g. "Learn header pill" forces the Learn header to the credits or the support pill on any server. "Reset light themes" / "Reset Verse of
   Light" make each hidden feature unfound again, on the account too.

@@ -115,4 +115,48 @@ class SimpleMidiReaderTest {
         assertEquals((0L..2500L step 250L).toList(), beats.map { it.timeMs })
         assertEquals(listOf(0, 6), beats.indices.filter { beats[it].isBarStart })
     }
+
+    // --- Ensemble files: many tracks, drums on channel 10 (index 9) ---
+
+    private fun channelNote(channel: Int, pitch: Int) =
+        intArrayOf(0x00, 0x90 or channel, pitch, 100, 0x83, 0x60, 0x80 or channel, pitch, 0)
+
+    @Test
+    fun drumNotesOnChannelTenAreReadLikeAnyOtherNote() {
+        val piano = channelNote(0, 60) + endOfTrack
+        val drums = channelNote(9, 36) + channelNote(9, 38) + endOfTrack
+        val notes = parse(midi(1, piano, drums))
+        assertEquals(listOf(36, 38, 60), notes.map { it.pitch }.sorted())
+        assertEquals(listOf(9, 9), notes.filter { it.pitch != 60 }.map { it.channel })
+    }
+
+    @Test
+    fun theDebugSwitchLeavesDrumsOutOrKeepsThem() {
+        val notes = parse(midi(1, channelNote(0, 60) + endOfTrack, channelNote(9, 36) + endOfTrack))
+        assertEquals(listOf(60), withoutDrumsUnless(notes, includeDrums = false).map { it.pitch })
+        assertEquals(notes, withoutDrumsUnless(notes, includeDrums = true))
+    }
+
+    @Test
+    fun allSixteenChannelsAreKept() {
+        val tracks = (0..15).map { channelNote(it, 40 + it) + endOfTrack }
+        val notes = parse(midi(1, *tracks.toTypedArray()))
+        assertEquals(16, notes.size)
+        assertEquals((0..15).toList(), notes.map { it.channel })
+    }
+
+    @Test
+    fun aSingleFormatZeroTrackMixingChannelsKeepsEachNoteAndPairsOffsPerChannel() {
+        // Channels 0 and 1 play pitch 60 together; each note off ends its own channel's note
+        val track = intArrayOf(
+            0x00, 0x90, 60, 100,
+            0x00, 0x91, 60, 100,
+            0x83, 0x60, 0x80, 60, 0,
+            0x83, 0x60, 0x81, 60, 0,
+            0x00, 0x99, 36, 100, 0x00, 0x89, 36, 0
+        ) + endOfTrack
+        val notes = parse(midi(0, track))
+        // The drum note (channel 9, zero length here) is a note too
+        assertEquals(listOf(0L, 500L, 1000L), notes.map { it.durationMs }.sorted())
+    }
 }
