@@ -175,6 +175,7 @@ internal fun PianoWeaveViewModel.refreshCloudSyncImpl(
                     }
                     cloud.takeIf { result.isFailure }
                 }.filterNotNull().map { it.id }.toSet()
+                Log.i(TAG, "Deletions: ${deletions.tombstones.size} here (${deletions.cloudCopies.size} cloud copies, ${stillInCloud.size} failed), ${deletions.deletedRemotely.size} from other devices")
                 // Not downloaded again now either way; a failed deletion is retried on the next sync
                 initialCloudSongs.removeAll(deletions.cloudCopies.toSet())
                 // A deleted song is forgotten only once its cloud copies are gone. Forgotten earlier, a copy

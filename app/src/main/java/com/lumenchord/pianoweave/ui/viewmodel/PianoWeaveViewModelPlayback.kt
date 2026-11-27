@@ -6,6 +6,7 @@ import com.lumenchord.pianoweave.api.isEnsembleKey
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.lumenchord.pianoweave.cloud.GoogleDriveManager
 import com.lumenchord.pianoweave.cloud.LibrarySyncRules
@@ -117,6 +118,9 @@ internal fun PianoWeaveViewModel.loadSongsImpl(context: Context) {
     resumeActiveJobIfAnyImpl(context)
 }
 
+/** The cloud sync's log tag (PianoWeaveViewModelCloud), so a deletion shows in the same log. */
+private const val CLOUD_SYNC_TAG = "CloudSync"
+
 internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMidi) {
     MidiStorage.delete(context, song) // Soft delete locally immediately
     loadSongsImpl(context)
@@ -140,6 +144,7 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
                     LibrarySyncRules.cloudCopiesDeletedBy(tombstone, cloud).forEach { copy ->
                         GoogleDriveManager.deleteCloudMidi(context, copy.id, token).getOrThrow()
                     }
+                    Log.i(CLOUD_SYNC_TAG, "Deleted from Drive at once: ${LibrarySyncRules.cloudCopiesDeletedBy(tombstone, cloud).size} copies")
                     MidiStorage.forgetDeleted(context, tombstone)
                     withContext(Dispatchers.Main) {
                         hasCloudSyncError = false
@@ -149,6 +154,7 @@ internal fun PianoWeaveViewModel.deleteSongImpl(context: Context, song: StoredMi
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
+                    Log.w(CLOUD_SYNC_TAG, "Deleting from Drive failed; kept for the next sync", e)
                     // The tombstone stays; the next sync (at the latest when the app next comes to the front) pushes it first
                     withContext(Dispatchers.Main) {
                         hasCloudSyncError = true
