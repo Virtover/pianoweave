@@ -147,9 +147,12 @@ object MidiVariants {
      * A job completed with only raw listed may still get its levels: a RunPod endpoint on an older image sends
      * raw, and the server adds the levels a few seconds later. So while [mayGetLevels] its status is read again
      * every [intervalMs] for up to [maxWaitMs], and whatever is listed then is taken (drums alone stay raw only).
-     * Ensemble jobs only, for now: a piano job's one result is raw too on servers without piano levels, and
-     * nothing yet tells those apart. Never for an older server that lists nothing. A failed read ends the wait.
+     * A piano job only where the server says it makes piano levels ([mayGetLevels]): elsewhere raw is a piano
+     * job's one result. Never for an older server that lists nothing. A failed read ends the wait.
      */
+    /** Whether a completed job listing only raw may still get levels: an ensemble's always, a piano job's where the server makes them. */
+    fun mayGetLevels(isEnsemble: Boolean, serverMakesPianoLevels: Boolean): Boolean = isEnsemble || serverMakesPianoLevels
+
     suspend fun awaitLateLevels(
         listed: List<String>?,
         mayGetLevels: Boolean,

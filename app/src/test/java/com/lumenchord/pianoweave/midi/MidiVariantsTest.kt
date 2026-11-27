@@ -391,4 +391,42 @@ class MidiVariantsTest {
         two[at] = 'X'.code.toByte()
         assertTrue(MidiVariants.read(two).isEmpty())
     }
+
+    // ---- Late levels for piano jobs, where the server makes them ----
+
+    @Test
+    fun aPianoJob_waitsForLateLevels_onlyOnAServerThatMakesThem() {
+        assertTrue(MidiVariants.mayGetLevels(isEnsemble = true, serverMakesPianoLevels = false))
+        assertTrue(MidiVariants.mayGetLevels(isEnsemble = false, serverMakesPianoLevels = true))
+        assertFalse(MidiVariants.mayGetLevels(isEnsemble = false, serverMakesPianoLevels = false))
+
+        val newServer = LateStatus(listOf(listOf(RAW), MidiVariants.ORDER))
+        assertEquals(MidiVariants.ORDER, await(listOf(RAW), MidiVariants.mayGetLevels(false, true), newServer))
+        assertEquals(2, newServer.reads)
+
+        val oldServer = LateStatus(listOf(MidiVariants.ORDER))
+        assertEquals(listOf(RAW), await(listOf(RAW), MidiVariants.mayGetLevels(false, false), oldServer))
+        assertEquals(0, oldServer.reads)
+    }
+
+    @Test
+    fun theServersThatMakePianoLevels_areRememberedByUrl() {
+        val prefs = com.lumenchord.pianoweave.util.FakePrefs()
+        val server = "https://piano.example.com/"
+        assertFalse(PianoLevels.isMadeBy(prefs, server))
+        PianoLevels.remember(prefs, server, makesThem = true)
+        assertTrue(PianoLevels.isMadeBy(prefs, server))
+        assertTrue(PianoLevels.isMadeBy(prefs, "https://piano.example.com"))
+        assertFalse(PianoLevels.isMadeBy(prefs, "https://other.example.com/"))
+        // A server that stops saying so (an older version put back) is forgotten
+        PianoLevels.remember(prefs, server, makesThem = false)
+        assertFalse(PianoLevels.isMadeBy(prefs, server))
+    }
+
+    @Test
+    fun serverInfo_readsPianoLevels_absentOnOlderServers() {
+        val gson = com.google.gson.Gson()
+        assertEquals(true, gson.fromJson("""{"piano_levels": true}""", com.lumenchord.pianoweave.api.ServerInfoResponse::class.java).pianoLevels)
+        assertNull(gson.fromJson("""{}""", com.lumenchord.pianoweave.api.ServerInfoResponse::class.java).pianoLevels)
+    }
 }

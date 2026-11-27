@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.worker
 
+import com.lumenchord.pianoweave.midi.PianoLevels
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -69,7 +70,8 @@ class TranscriptionWorker(
         val savedMidi = try {
             CompletedTranscriptions.saveOnce(
                 applicationContext, stableUrl, job,
-                refreshStatus = { withAuth(serverUrl) { header -> api.getTranscription(jobId, authHeader = header) } }
+                refreshStatus = { withAuth(serverUrl) { header -> api.getTranscription(jobId, authHeader = header) } },
+                serverMakesPianoLevels = PianoLevels.isMadeBy(AppPrefs.get(applicationContext), serverUrl)
             ) { variant ->
                 withAuth(serverUrl) { header -> api.downloadMidi(jobId, authHeader = header, variant = variant) }
             }

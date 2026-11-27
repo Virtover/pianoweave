@@ -132,7 +132,8 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   device (`MidiVariants.choose`: stored, else the mode's `defaultOrder`: ensemble full, then the hardest listed, then raw;
   piano raw first). Piano jobs get levels too: their raw is Transkun's own result, shown as "Original" (export
   `<title> - original.mid`) and kept as the primary, so older versions play what the pianist played. Piano jobs
-  don't wait for late levels: no server-info field says a server makes them yet. The server lists only levels that
+  wait for late levels only on servers whose server-info says `piano_levels: true` (`midi/PianoLevels.kt`, kept by
+  URL in prefs so the worker knows too). The server lists only levels that
   differ (a simple song: e.g. full and easy; drums alone: raw), and the menu offers exactly those; one alone is a plain file.
   `variants` is `[]` until completed and always ends with `raw` (piano jobs: `["raw"]`). An ensemble completed with only
   `["raw"]` is read again every 2 s for up to 20 s (`awaitLateLevels`: an older RunPod image's levels come late); a 404

@@ -1,5 +1,7 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import com.lumenchord.pianoweave.util.AppPrefs
+import com.lumenchord.pianoweave.midi.PianoLevels
 import android.content.Context
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
@@ -220,7 +222,8 @@ private suspend fun PianoWeaveViewModel.downloadMidiWithRetry(
                         executeServerCallImpl(context) { authHeader ->
                             PianoApiFactory.getApi(activeServerUrl).getTranscription(jobId, authHeader = authHeader)
                         }
-                    }
+                    },
+                    serverMakesPianoLevels = PianoLevels.isMadeBy(AppPrefs.get(context), activeServerUrl)
                 ) { variant ->
                     executeServerCallImpl(context) { authHeader ->
                         PianoApiFactory.getApi(activeServerUrl).downloadMidi(jobId, authHeader = authHeader, variant = variant)

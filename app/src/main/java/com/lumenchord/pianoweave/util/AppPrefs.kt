@@ -50,6 +50,12 @@ object AppPrefs {
     const val PENDING_SUBMISSION_KEY = "pending_submission_key"
     const val PENDING_SUBMISSION_SOURCE = "pending_submission_source"
 
+    /**
+     * Server URLs whose server-info said `piano_levels: true`. Kept so the background worker, which has no view
+     * model, knows too whether a piano job may still get its levels after completing (MidiVariants.awaitLateLevels).
+     */
+    const val PIANO_LEVELS_SERVERS = "piano_levels_servers"
+
     // Cloud sync
     const val IS_CLOUD_SYNC_ENABLED = "is_cloud_sync_enabled"
     const val HAS_CLOUD_SYNC_ERROR = "has_cloud_sync_error"

@@ -32,11 +32,13 @@ object CompletedTranscriptions {
         stableUrl: String,
         job: TranscriptionStatusResponse,
         refreshStatus: suspend () -> TranscriptionStatusResponse,
+        /** The server said `piano_levels: true` ([PianoLevels]). */
+        serverMakesPianoLevels: Boolean,
         download: suspend (variant: String?) -> ResponseBody
     ): StoredMidi? = mutex.withLock {
         if (MidiStorage.find(context, stableUrl) != null) return@withLock null
         val isEnsemble = stableUrl.isEnsembleKey
-        val listed = MidiVariants.awaitLateLevels(job.variants, mayGetLevels = isEnsemble, refresh = { refreshStatus().variants })
+        val listed = MidiVariants.awaitLateLevels(job.variants, mayGetLevels = MidiVariants.mayGetLevels(isEnsemble, serverMakesPianoLevels), refresh = { refreshStatus().variants })
         val bytes = MidiVariants.download(listed, { variant -> download(variant).use { it.bytes() } }, ::isMissing, isEnsemble)
         MidiStorage.saveBytes(context, stableUrl, metadataFor(job, stableUrl), bytes)
     }

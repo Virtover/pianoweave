@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import com.lumenchord.pianoweave.midi.PianoLevels
 import android.app.Activity
 import android.content.Context
 import androidx.compose.runtime.snapshotFlow
@@ -197,6 +198,7 @@ internal fun PianoWeaveViewModel.checkServerHealthAndInfoImpl(
                     // An old server's piano arrangements; a server with ensembles never offers them
                     supportsArrangement = info.arrangement == true && !supportsEnsemble
                     supportsTrimming = info.trimming == true
+                    PianoLevels.remember(AppPrefs.get(targetContext), url, info.pianoLevels == true)
                     arrangementInfoServerUrl = url
                     serverMaxVideoLengthMinutes = info.maxVideoLengthMinutes
                     freeMinutes = info.freeMinutes ?: 0

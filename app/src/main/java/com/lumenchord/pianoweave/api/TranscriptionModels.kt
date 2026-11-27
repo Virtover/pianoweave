@@ -334,6 +334,8 @@ data class ServerInfoResponse(
     @SerializedName("ensemble") val ensemble: Boolean? = null,
     /** Whether a submission may ask for only a part ([Clip]); absent (false) on servers that would transcribe it all. */
     @SerializedName("trimming") val trimming: Boolean? = null,
+    /** The server makes difficulty levels for piano jobs too ([com.lumenchord.pianoweave.midi.MidiVariants]); absent on older ones. */
+    @SerializedName("piano_levels") val pianoLevels: Boolean? = null,
     @SerializedName("free_minutes") val freeMinutes: Int? = null,
     @SerializedName("free_minutes_period") val freeMinutesPeriod: String? = null,
     /** Subscription plans, lowest level first; absent on older servers and when billing is off. */
