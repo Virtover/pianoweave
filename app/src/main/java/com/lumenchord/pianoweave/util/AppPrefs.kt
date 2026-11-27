@@ -129,7 +129,7 @@ object AppPrefs {
      */
     const val IGNORE_ACCOUNT_PROGRESS = "ignore_account_progress"
     /** Debug builds: the "official server" is the dev server below (see AppConfig.applyDebugServer); ignored in release builds. */
-    /** Debug builds: whether channel-9 (drum) notes of a song are shown and played as piano notes (default true). */
+    /** Debug builds: whether channel-9 (drum) notes of a song are shown and played as piano notes (default false). */
     const val DEBUG_DRUM_NOTES = "debug_drum_notes"
     const val DEBUG_SERVER_ENABLED = "debug_server_enabled"
     const val DEBUG_SERVER_URL = "debug_server_url"

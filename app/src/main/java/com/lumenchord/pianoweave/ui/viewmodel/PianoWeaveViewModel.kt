@@ -104,8 +104,8 @@ class PianoWeaveViewModel : ViewModel() {
     var headerPillOverride by mutableStateOf(HeaderPillOverride.Auto)
         internal set
 
-    /** Debug builds: drum (channel 9) notes are included like any other; off hides, mutes and un-waits them. */
-    var includeDrumNotes by mutableStateOf(true)
+    /** Debug builds: drum (channel 9) notes are off (hidden, silent, not waited for) unless switched on here; release builds never have them. */
+    var includeDrumNotes by mutableStateOf(false)
         internal set
 
     /** Debug builds: the "official server" is the dev server below, not config.txt's (see AppConfig.applyDebugServer). */

@@ -138,6 +138,14 @@ class SimpleMidiReaderTest {
     }
 
     @Test
+    fun drumsAreOffUnlessADebugBuildSwitchesThemOn() {
+        assertEquals(false, drumNotesEnabled(debuggable = false, saved = true))
+        assertEquals(false, drumNotesEnabled(debuggable = false, saved = null))
+        assertEquals(false, drumNotesEnabled(debuggable = true, saved = false))
+        assertEquals(true, drumNotesEnabled(debuggable = true, saved = true))
+    }
+
+    @Test
     fun allSixteenChannelsAreKept() {
         val tracks = (0..15).map { channelNote(it, 40 + it) + endOfTrack }
         val notes = parse(midi(1, *tracks.toTypedArray()))

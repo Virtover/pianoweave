@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.ui.viewmodel
 
+import com.lumenchord.pianoweave.midi.drumNotesEnabled
 import com.lumenchord.pianoweave.util.isDebuggable
 import android.content.Context
 import com.lumenchord.pianoweave.util.AppPrefs
@@ -49,7 +50,7 @@ internal fun PianoWeaveViewModel.loadDisplayPreferences(context: Context) {
     keyboardRange = KeyboardRange.fromName(prefs.getString(AppPrefs.KEYBOARD_RANGE, null))
     customRangeLow = prefs.getInt(AppPrefs.CUSTOM_RANGE_LOW, 33).coerceIn(PIANO_LOWEST, PIANO_HIGHEST - 12)
     customRangeHigh = prefs.getInt(AppPrefs.CUSTOM_RANGE_HIGH, 96).coerceIn(customRangeLow + 12, PIANO_HIGHEST)
-    includeDrumNotes = !context.isDebuggable || prefs.getBoolean(AppPrefs.DEBUG_DRUM_NOTES, true)
+    includeDrumNotes = drumNotesEnabled(context.isDebuggable, prefs.getBoolean(AppPrefs.DEBUG_DRUM_NOTES, false))
     headerPillOverride = if (context.isDebuggable) HeaderPillOverride.fromName(prefs.getString(AppPrefs.DEBUG_HEADER_PILL, null))
     else HeaderPillOverride.Auto
 }

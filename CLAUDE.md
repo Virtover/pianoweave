@@ -119,10 +119,11 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   or `#ensemble` (`libraryKey()`), so a link's piano, arrangement and ensemble songs are three songs and stay working
   links; the mode is read back from the key (resume, cards, library tag).
 - **Multi-track MIDI**: `SimpleMidiReader` merges the notes of every track and channel (each `MidiNoteEvent` keeps its
-  `channel`); the piano roll has no per-track UI, and everything, drums on channel index 9 included, shows and plays as
-  piano and counts in wait mode. Debug builds: the piano roll's Settings has "Drum notes (debug)" (`includeDrumNotes`),
-  which off hides channel-9 notes, mutes them and drops them from wait mode at once (`withoutDrumsUnless`). A fuller
-  per-track UI would need track names (meta 0x03) and programs from the reader, and a per-track mute or hand choice.
+  `channel`); the piano roll has no per-track UI, and everything plays as piano. Drums (channel index 9) are off by
+  default and always in release builds (`drumNotesEnabled`): hidden, silent, not waited for. Only debug builds have
+  Settings "Drum notes (debug)" (`includeDrumNotes`) to switch them on at once (`withoutDrumsUnless`). Export and share
+  copy the server's file unchanged, drums included. A fuller per-track UI would need track names (meta 0x03) and
+  programs from the reader, and a per-track mute or hand choice.
 - **Trim** (server-info `trimming: true`): the scissors end of the Transcribe button (`TrimSegment`) opens `TrimDialog`, and the chosen part shows under its label; the part (whole seconds,
   end null = to the end) is sent as `start_seconds`/`end_seconds` and only its length is charged. A part's library key
   is its source key plus `#part=<start>-<end>` before any `#piano-arrangement` (`api/Clips.kt`), so parts and the whole

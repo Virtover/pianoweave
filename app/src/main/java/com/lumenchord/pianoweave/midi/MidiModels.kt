@@ -12,6 +12,9 @@ data class MidiNoteEvent(
 /** MIDI channel index of General MIDI percussion, the drum track of an ensemble file. */
 const val DRUM_CHANNEL = 9
 
+/** Drums are off unless a debuggable build has them switched on; release builds never get them. */
+fun drumNotesEnabled(debuggable: Boolean, saved: Boolean?): Boolean = debuggable && saved == true
+
 /** [notes] without the drum channel's when [includeDrums] is false; the list itself when it is true. */
 fun withoutDrumsUnless(notes: List<MidiNoteEvent>, includeDrums: Boolean): List<MidiNoteEvent> =
     if (includeDrums) notes else notes.filter { it.channel != DRUM_CHANNEL }
