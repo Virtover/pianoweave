@@ -145,8 +145,9 @@ internal fun SourceSelector(
                             role = Role.RadioButton,
                             onClick = { onSelect(source) }
                         )
-                        // The rounded ends eat into the outer segments, so their content keeps clear of the curve.
-                        .padding(start = if (isFirst) 12.dp else 6.dp, end = if (isLast) 12.dp else 6.dp),
+                        // The rounded ends eat into the outer segments, so their content keeps clear of the curve:
+                        // the same on both sides, or the icon and label would sit off-centre in their segment
+                        .padding(horizontal = segmentSidePadding(isFirst, isLast)),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -198,8 +199,10 @@ private val SegmentIconWithGap = 24.dp
 private const val LabelMaxFontSize = 14f
 private const val LabelMinFontSize = 10f
 /** Matches the segment padding: the outer ends keep clear of the pill's curve. */
-private fun segmentPadding(isFirst: Boolean, isLast: Boolean): Dp =
-    (if (isFirst) 12.dp else 6.dp) + (if (isLast) 12.dp else 6.dp)
+private fun segmentPadding(isFirst: Boolean, isLast: Boolean): Dp = segmentSidePadding(isFirst, isLast) * 2
+
+/** Each side of a segment's content: more at the outer ends, equal left and right so the content is centred. */
+private fun segmentSidePadding(isFirst: Boolean, isLast: Boolean): Dp = if (isFirst || isLast) 9.dp else 6.dp
 /** The empty file slot: one large target that also says which files work and how big they may be. */
 @Composable
 internal fun ChooseFileArea(
