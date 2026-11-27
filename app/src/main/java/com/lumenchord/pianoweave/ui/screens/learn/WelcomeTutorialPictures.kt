@@ -233,9 +233,9 @@ internal fun ChooseModePicture(ensemble: Boolean = true) {
     ScreenFrame(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(if (ensemble) "Piano or Ensemble?" else "Transcribe or Arrange?", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = gold, maxLines = 1)
         TapHint(shape = RoundedCornerShape(12.dp), number = 1, fillWidth = true) {
-            ModeOptionMini(Icons.Default.Piano, if (ensemble) "Piano" else "Piano transcription", if (ensemble) "Recordings of a piano" else "Piano videos", isSelected = true)
+            ModeOptionMini(Icons.Default.Piano, if (ensemble) "Piano" else "Piano transcription", if (ensemble) "Piano part" else "Piano videos", isSelected = true)
         }
-        if (ensemble) ModeOptionMini(Icons.Default.Groups, "Ensemble", "Every instrument", isSelected = false)
+        if (ensemble) ModeOptionMini(Icons.Default.Groups, "Ensemble", "Whole song", isSelected = false)
         else ModeOptionMini(Icons.AutoMirrored.Filled.QueueMusic, "Piano arrangement", "Any song", isSelected = false)
         TapHint(shape = PillShape, number = 2, fillWidth = true) {
             Row(
