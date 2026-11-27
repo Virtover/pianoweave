@@ -1,5 +1,6 @@
 package com.lumenchord.pianoweave.api.config
 
+import com.lumenchord.pianoweave.util.AppPrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -58,5 +59,63 @@ class DebugServerConfigTest {
     fun theDevPasswordIsNotUsedWhileTheSwitchIsOff() {
         val config = debugServerConfig(official, false, "https://dev.example.com", "Dev", password = "dev-pass")
         assertEquals("secret", config.serverPassword)
+    }
+
+    // --- Saving and reading back, through the code the settings card and the startup use ---
+
+    private class MapStore : DebugServerStore {
+        val values = mutableMapOf<String, Any>()
+        override fun getBoolean(key: String, default: Boolean) = values[key] as? Boolean ?: default
+        override fun getString(key: String) = values[key] as? String
+        override fun getSecret(key: String) = values[key + "#secret"] as? String
+        override fun write(enabled: Boolean, url: String, name: String, password: String) {
+            values[AppPrefs.DEBUG_SERVER_ENABLED] = enabled
+            values[AppPrefs.DEBUG_SERVER_URL] = url
+            values[AppPrefs.DEBUG_SERVER_NAME] = name
+            values[AppPrefs.DEBUG_SERVER_PASSWORD + "#secret"] = password
+        }
+    }
+
+    @Test
+    fun savedChoiceIsReadBack() {
+        val store = MapStore()
+        assertEquals(DebugServerChoice(false, "", "", ""), DebugServerSettings.load(store, official))
+        DebugServerSettings.save(store, DebugServerChoice(true, " dev.example.com ", " My dev ", "pw"))
+        assertEquals(DebugServerChoice(true, "dev.example.com", "My dev", "pw"), DebugServerSettings.load(store, official))
+    }
+
+    @Test
+    fun neverSavedFieldsStartFromTheConfigsDevDefaults() {
+        val withDefaults = official.copy(devBaseUrl = "https://d.example.com/", devName = "D")
+        val loaded = DebugServerSettings.load(MapStore(), withDefaults)
+        assertEquals("https://d.example.com/", loaded.url)
+        assertEquals("D", loaded.name)
+    }
+
+    @Test
+    fun theActiveConfigSwitchesToTheDevAddressAfterSavingAndBackWhenOff() {
+        AppConfig.setBaseForTest(official)
+        try {
+            val store = MapStore()
+            AppConfig.applyDebugServer(store, debuggable = true)
+            assertEquals("https://server.example.com/", AppConfig.getConfig().baseUrl)
+
+            DebugServerSettings.save(store, DebugServerChoice(true, "dev.example.com", "Dev", "pw"))
+            AppConfig.applyDebugServer(store, debuggable = true)
+            assertEquals("https://dev.example.com/", AppConfig.getConfig().baseUrl)
+            assertEquals("Dev", AppConfig.getConfig().name)
+            assertEquals("pw", AppConfig.getConfig().serverPassword)
+
+            // A release build ignores whatever is saved
+            AppConfig.applyDebugServer(store, debuggable = false)
+            assertEquals("https://server.example.com/", AppConfig.getConfig().baseUrl)
+            assertEquals("secret", AppConfig.getConfig().serverPassword)
+
+            DebugServerSettings.save(store, DebugServerChoice(false, "dev.example.com", "Dev", "pw"))
+            AppConfig.applyDebugServer(store, debuggable = true)
+            assertEquals("https://server.example.com/", AppConfig.getConfig().baseUrl)
+        } finally {
+            AppConfig.setBaseForTest(null)
+        }
     }
 }

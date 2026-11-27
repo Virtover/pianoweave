@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.LightMode
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
+import com.lumenchord.pianoweave.ui.viewmodel.DebugServerResult
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
@@ -59,7 +60,7 @@ fun DebugSettingsSection(
     debugServerUrl: String,
     debugServerName: String,
     debugServerPassword: String,
-    onSetDebugServer: (enabled: Boolean, url: String, name: String, password: String) -> Unit
+    onSetDebugServer: (enabled: Boolean, url: String, name: String, password: String) -> DebugServerResult
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),

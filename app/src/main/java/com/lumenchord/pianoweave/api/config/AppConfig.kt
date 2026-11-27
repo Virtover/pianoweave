@@ -67,20 +67,23 @@ object AppConfig {
      * for the official server (its address and name, who gets the Google token, announcements) reads this config,
      * so the switch reaches all of it. Release builds always get config.txt's server.
      */
-    fun applyDebugServer(context: Context) {
+    fun applyDebugServer(context: Context) = applyDebugServer(PrefsDebugServerStore(context), context.isDebuggable)
+
+    /** [applyDebugServer] with the store and the debuggable flag given (for tests). */
+    internal fun applyDebugServer(store: DebugServerStore, debuggable: Boolean) {
         val official = base ?: return
-        if (!context.isDebuggable) {
+        if (!debuggable) {
             config = official
             return
         }
-        val prefs = AppPrefs.get(context)
-        config = debugServerConfig(
-            official,
-            enabled = prefs.getBoolean(AppPrefs.DEBUG_SERVER_ENABLED, false),
-            url = prefs.getString(AppPrefs.DEBUG_SERVER_URL, null) ?: official.devBaseUrl.orEmpty(),
-            name = prefs.getString(AppPrefs.DEBUG_SERVER_NAME, null) ?: official.devName.orEmpty(),
-            password = SecretStore.get(context, AppPrefs.DEBUG_SERVER_PASSWORD).orEmpty()
-        )
+        val choice = DebugServerSettings.load(store, official)
+        config = debugServerConfig(official, choice.enabled, choice.url, choice.name, choice.password)
+    }
+
+    /** For tests: the config.txt values, without reading assets. */
+    internal fun setBaseForTest(official: ServerConfig?) {
+        base = official
+        config = official
     }
 
     fun initialize(

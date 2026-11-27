@@ -649,7 +649,7 @@ class PianoWeaveViewModel : ViewModel() {
     fun setIncludeDrumNotes(context: Context, include: Boolean) = setIncludeDrumNotesImpl(context, include)
 
     /** Debug builds: switches the official server to the dev server ([url], [name]) or back; see [setDebugServerImpl]. */
-    fun setDebugServer(context: Context, enabled: Boolean, url: String, name: String, password: String) =
+    fun setDebugServer(context: Context, enabled: Boolean, url: String, name: String, password: String): DebugServerResult =
         setDebugServerImpl(context, enabled, url, name, password)
     fun setKeyboardSoundEnabled(context: Context, enabled: Boolean) = setKeyboardSoundEnabledImpl(context, enabled)
     fun setMidiOutputEnabled(context: Context, enabled: Boolean) = setMidiOutputEnabledImpl(context, enabled)

@@ -49,6 +49,7 @@ import com.lumenchord.pianoweave.ui.components.SectionHeader
 import com.lumenchord.pianoweave.ui.components.SettingLabel
 import com.lumenchord.pianoweave.ui.components.quietFieldColors
 import com.lumenchord.pianoweave.ui.theme.AppTheme
+import com.lumenchord.pianoweave.ui.viewmodel.DebugServerResult
 import com.lumenchord.pianoweave.ui.theme.PillShape
 import com.lumenchord.pianoweave.ui.theme.goldLeaf
 import com.lumenchord.pianoweave.ui.theme.keyButtonContainer
@@ -68,7 +69,7 @@ internal fun DebugServerCard(
     url: String,
     name: String,
     password: String,
-    onApply: (enabled: Boolean, url: String, name: String, password: String) -> Unit
+    onApply: (enabled: Boolean, url: String, name: String, password: String) -> DebugServerResult
 ) {
     val context = LocalContext.current
     var useDev by remember(enabled) { mutableStateOf(enabled) }
@@ -167,13 +168,14 @@ internal fun DebugServerCard(
 
                 AccentButton(
                     onClick = {
-                        onApply(useDev, urlText, nameText, passwordText)
-                        Toast.makeText(
-                            context,
-                            if (useDev) "Saved. Using the dev server ${normalized.orEmpty().removeSuffix("/")}"
-                            else "Saved. Using the real official server",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        val message = when (onApply(useDev, urlText, nameText, passwordText)) {
+                            DebugServerResult.Saved ->
+                                if (useDev) "Saved. Using the dev server ${normalized.orEmpty().removeSuffix("/")}"
+                                else "Saved. Using the real official server"
+                            DebugServerResult.Busy -> "Not saved: a transcription is running. Finish or cancel it first."
+                            DebugServerResult.NotDebugBuild -> "Not saved: only debug builds have this option."
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     },
                     enabled = canSave,
                     modifier = Modifier

@@ -12,6 +12,9 @@ import com.lumenchord.pianoweave.api.UserBalanceResponse
 import com.lumenchord.pianoweave.api.videoLimit
 import com.lumenchord.pianoweave.api.VerifyPurchaseResponse
 import com.lumenchord.pianoweave.api.config.AppConfig
+import com.lumenchord.pianoweave.api.config.DebugServerChoice
+import com.lumenchord.pianoweave.api.config.DebugServerSettings
+import com.lumenchord.pianoweave.api.config.PrefsDebugServerStore
 import com.lumenchord.pianoweave.util.isDebuggable
 import com.lumenchord.pianoweave.auth.GoogleAuthManager
 import com.lumenchord.pianoweave.billing.PendingPurchase
@@ -414,10 +417,12 @@ internal fun PianoWeaveViewModel.loadPreferencesImpl(context: Context) {
     }
     supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
     if (context.isDebuggable) {
-        debugServerEnabled = prefs.getBoolean(AppPrefs.DEBUG_SERVER_ENABLED, false)
-        debugServerUrl = prefs.getString(AppPrefs.DEBUG_SERVER_URL, null) ?: AppConfig.getConfigOrNull()?.devBaseUrl.orEmpty()
-        debugServerPassword = SecretStore.get(context, AppPrefs.DEBUG_SERVER_PASSWORD).orEmpty()
-        debugServerName = prefs.getString(AppPrefs.DEBUG_SERVER_NAME, null) ?: AppConfig.getConfigOrNull()?.devName.orEmpty()
+        // The config's own dev defaults are for a never-saved choice, so the official config is not the dev one
+        val saved = DebugServerSettings.load(PrefsDebugServerStore(context), AppConfig.getConfigOrNull())
+        debugServerEnabled = saved.enabled
+        debugServerUrl = saved.url
+        debugServerName = saved.name
+        debugServerPassword = saved.password
     }
     isOfficialServerBilled = if (prefs.contains(AppPrefs.OFFICIAL_SERVER_BILLED)) prefs.getBoolean(AppPrefs.OFFICIAL_SERVER_BILLED, true) else null
     isCustomServer = prefs.getBoolean(AppPrefs.USE_CUSTOM_SERVER, false)
@@ -518,19 +523,22 @@ internal fun PianoWeaveViewModel.updateServerSettingsImpl(context: Context, useC
  * one again, and connects to it. Everything about the old official server (balance, offers, its billing answer) is
  * dropped, as for any change of server.
  */
-internal fun PianoWeaveViewModel.setDebugServerImpl(context: Context, enabled: Boolean, url: String, name: String, password: String) {
-    if (!context.isDebuggable || isLoading) return
-    debugServerEnabled = enabled
-    debugServerUrl = url.trim()
-    debugServerName = name.trim()
-    debugServerPassword = password
-    SecretStore.put(context, AppPrefs.DEBUG_SERVER_PASSWORD, password)
-    AppPrefs.get(context).edit()
-        .putBoolean(AppPrefs.DEBUG_SERVER_ENABLED, enabled)
-        .putString(AppPrefs.DEBUG_SERVER_URL, debugServerUrl)
-        .putString(AppPrefs.DEBUG_SERVER_NAME, debugServerName)
-        .remove(AppPrefs.OFFICIAL_SERVER_BILLED)
-        .apply()
+internal fun PianoWeaveViewModel.setDebugServerImpl(
+    context: Context,
+    enabled: Boolean,
+    url: String,
+    name: String,
+    password: String
+): DebugServerResult {
+    if (!context.isDebuggable) return DebugServerResult.NotDebugBuild
+    // Switching servers under a running job would send its polls to the other server
+    if (isLoading) return DebugServerResult.Busy
+    val saved = DebugServerSettings.save(PrefsDebugServerStore(context), DebugServerChoice(enabled, url, name, password))
+    debugServerEnabled = saved.enabled
+    debugServerUrl = saved.url
+    debugServerName = saved.name
+    debugServerPassword = saved.password
+    AppPrefs.get(context).edit().remove(AppPrefs.OFFICIAL_SERVER_BILLED).apply()
     AppConfig.applyDebugServer(context)
     defaultServerUrl = AppConfig.getConfigOrNull()?.baseUrl.orEmpty()
     supportMeLink = AppConfig.getConfigOrNull()?.supportMeLink
@@ -543,6 +551,17 @@ internal fun PianoWeaveViewModel.setDebugServerImpl(context: Context, enabled: B
     subscriptionPlans = emptyList()
     billingProvider = "none"
     checkServerHealthAndInfoImpl(context, isUserAction = true)
+    return DebugServerResult.Saved
+}
+
+/** What saving the debug dev server option did. */
+enum class DebugServerResult {
+    /** Saved, applied, and the app reconnects to it. */
+    Saved,
+    /** Not saved: a transcription is running, and finishing or cancelling it comes first. */
+    Busy,
+    /** Not saved: only debug builds have the option. */
+    NotDebugBuild
 }
 
 /** How a credit pack's verification ended. */
