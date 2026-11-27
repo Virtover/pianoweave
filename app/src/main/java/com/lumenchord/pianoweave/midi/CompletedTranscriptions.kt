@@ -9,6 +9,7 @@ import com.lumenchord.pianoweave.api.sanitizeVideoMetadata
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.ResponseBody
+import retrofit2.HttpException
 
 /**
  * The in-app poller and TranscriptionWorker both see the same job complete. Only the first one
@@ -18,16 +19,24 @@ object CompletedTranscriptions {
 
     private val mutex = Mutex()
 
-    /** Saves the job's MIDI unless the song is already stored. Returns the new song, or null if it existed. */
+    /**
+     * Saves the job's MIDI unless the song is already stored. Returns the new song, or null if it existed.
+     * [download] fetches one result by name (null: the default one); an ensemble job's results all go into
+     * the song's one file ([MidiVariants.download]), written once all are in, so a crash leaves no half song.
+     */
     suspend fun saveOnce(
         context: Context,
         stableUrl: String,
         job: TranscriptionStatusResponse,
-        download: suspend () -> ResponseBody
+        download: suspend (variant: String?) -> ResponseBody
     ): StoredMidi? = mutex.withLock {
         if (MidiStorage.find(context, stableUrl) != null) return@withLock null
-        MidiStorage.save(context, stableUrl, metadataFor(job, stableUrl), download())
+        val bytes = MidiVariants.download(job.variants, { variant -> download(variant).use { it.bytes() } }, ::isMissing)
+        MidiStorage.saveBytes(context, stableUrl, metadataFor(job, stableUrl), bytes)
     }
+
+    /** A result the server doesn't have (404), as opposed to one it couldn't send just now. */
+    private fun isMissing(e: Throwable): Boolean = (e as? HttpException)?.code() == 404
 
     /**
      * The server sends `metadata: null` when its stored metadata fails validation, but still sends the

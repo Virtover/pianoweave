@@ -16,6 +16,7 @@ import kotlinx.coroutines.sync.withLock
 import com.lumenchord.pianoweave.midi.ExportNotifier
 import com.lumenchord.pianoweave.midi.ExportState
 import com.lumenchord.pianoweave.midi.MidiExporter
+import com.lumenchord.pianoweave.midi.MidiVariants
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.MidiInputManager
@@ -246,8 +247,24 @@ internal fun PianoWeaveViewModel.exportLocalSongImpl(context: Context, song: Sto
             song.videoUrl.isEnsembleKey -> "${song.metadata.title} (ensemble)"
             else -> song.metadata.title
         }
-        MidiExporter.exportToDownloads(context, fileTitle) { song.file.inputStream() }
+        // An ensemble song's piano versions and raw multi-track: one plain MIDI file each, as other apps expect
+        val variants = MidiVariants.read(song.file)
+        if (variants.isEmpty()) {
+            MidiExporter.exportToDownloads(context, fileTitle) { song.file.inputStream() }
+        } else runCatching {
+            val names = variants.map { (variant, bytes) ->
+                MidiExporter.exportToDownloads(context, MidiVariants.exportTitle(song.metadata.title, variant)) { bytes.inputStream() }.getOrThrow()
+            }
+            "${names.size} files, ${names.first()} to ${names.last()}"
+        }
     }
+}
+
+internal fun PianoWeaveViewModel.selectSongVariantImpl(context: Context, song: StoredMidi, variant: String) {
+    if (variant !in songVariants || variant == selectedVariant) return
+    selectedVariant = variant
+    // The song's record, not a preference: it goes with the song, and with it when it is deleted
+    viewModelScope.launch(Dispatchers.IO) { MidiStorage.updateSelectedVariant(context, song, variant) }
 }
 
 internal fun PianoWeaveViewModel.launchExport(

@@ -214,9 +214,9 @@ private suspend fun PianoWeaveViewModel.downloadMidiWithRetry(
     while (currentJobId == jobId) {
         try {
             return withContext(Dispatchers.IO) {
-                val savedMidi = CompletedTranscriptions.saveOnce(context, stableUrl, job) {
+                val savedMidi = CompletedTranscriptions.saveOnce(context, stableUrl, job) { variant ->
                     executeServerCallImpl(context) { authHeader ->
-                        PianoApiFactory.getApi(activeServerUrl).downloadMidi(jobId, authHeader = authHeader)
+                        PianoApiFactory.getApi(activeServerUrl).downloadMidi(jobId, authHeader = authHeader, variant = variant)
                     }
                 }
                 if (savedMidi != null) {

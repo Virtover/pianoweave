@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.em
 import com.lumenchord.pianoweave.midi.Beat
 import com.lumenchord.pianoweave.midi.MidiNoteEvent
 import com.lumenchord.pianoweave.midi.SimpleMidiReader
+import androidx.compose.ui.platform.LocalContext
 import com.lumenchord.pianoweave.midi.withoutDrumsUnless
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.midi.SustainPedalSpan
@@ -28,6 +29,8 @@ import com.lumenchord.pianoweave.ui.theme.DisplayFontFamily
 import com.lumenchord.pianoweave.ui.theme.LocalAppTheme
 import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.Dispatchers
+import com.lumenchord.pianoweave.midi.MidiStorage
+import com.lumenchord.pianoweave.midi.MidiVariants
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -56,22 +59,50 @@ fun PianoRollScreen(
         onDispose { view.keepScreenOn = false }
     }
 
+    // The song's results by name (an ensemble song's difficulty levels); empty for a plain MIDI file
+    var variants by remember(song) { mutableStateOf<Map<String, ByteArray>?>(null) }
+    val context = LocalContext.current
+
     LaunchedEffect(song.file.absolutePath) {
         viewModel.isWaitModeEnabled = false
         allNotes = null
         parseError = null
+        viewModel.songVariants = emptyList()
+        viewModel.selectedVariant = null
+        try {
+            val (found, stored) = withContext(Dispatchers.IO) {
+                MidiVariants.read(song.file) to MidiStorage.readSelectedVariant(context, song)
+            }
+            viewModel.songVariants = found.keys.toList()
+            viewModel.selectedVariant = MidiVariants.choose(stored, found.keys.toList())
+            variants = found
+        } catch (e: Exception) {
+            parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
+        }
+    }
+
+    // Opening the song, and each change of difficulty: the notes are swapped in place, so the playhead stays
+    // where it is (within the new length) and the settings dialog stays open
+    val variant = viewModel.selectedVariant
+    LaunchedEffect(variants, variant) {
+        val found = variants ?: return@LaunchedEffect
         try {
             val parsedSong = withContext(Dispatchers.IO) {
-                SimpleMidiReader.parseSong(song.file)
+                if (found.isEmpty()) SimpleMidiReader.parseSong(song.file)
+                else SimpleMidiReader.parseSong(found.getValue(MidiVariants.choose(variant, found.keys.toList())!!).inputStream())
             }
             val parsed = parsedSong.notes
+            val duration = (parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
+            val previous = allNotes?.let { (it.maxOfOrNull { n -> n.startMs + n.durationMs } ?: 10_000L) + 5000L }
             sustainPedal = parsedSong.sustainPedal
             beats = parsedSong.beats
             allNotes = parsed
-            val duration = (parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L
-            if (viewModel.loopEndMs == 0L) {
+            // A loop end left at the old song's end moves to the new one's; a loop set by hand stays
+            if (viewModel.loopEndMs == 0L || (previous != null && viewModel.loopEndMs == previous)) {
                 viewModel.loopEndMs = duration
             }
+            viewModel.loopStartMs = viewModel.loopStartMs.coerceAtMost(duration)
+            viewModel.playheadMs = viewModel.playheadMs.coerceIn(0L, duration)
         } catch (e: Exception) {
             parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
         }

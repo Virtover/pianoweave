@@ -58,6 +58,8 @@ import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.MetronomeSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.MidiSettingsSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SettingsGroup
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.SpeedSection
+import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.DifficultySection
+import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.TranspositionSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.VoiceCommandsSection
 import com.lumenchord.pianoweave.ui.screens.pianoroll.settings.WaitModeSection
@@ -78,6 +80,8 @@ internal enum class SettingsPage { Main, KeysAndNotes, Midi, WaitMode, VoiceComm
 @Composable
 internal fun SettingsDialog(
     viewModel: PianoWeaveViewModel,
+    /** The open song, for its Difficulty (shown only when it has several results). */
+    song: StoredMidi?,
     songDurationMs: Long,
     hasBeats: Boolean,
     isTempoUnstable: Boolean = false,
@@ -172,6 +176,12 @@ internal fun SettingsDialog(
                                     onClose = onDismiss,
                                     titleColor = colorGold
                                 )
+
+                                // First: it decides which notes everything below applies to
+                                if (song != null && viewModel.songVariants.size > 1) {
+                                    DifficultySection(viewModel = viewModel, song = song, context = currentContext)
+                                    HorizontalDivider(color = colorSlate.copy(alpha = 0.6f))
+                                }
 
                                 SettingsGroup("Tempo") {
                                     SpeedSection(viewModel = viewModel, context = currentContext)

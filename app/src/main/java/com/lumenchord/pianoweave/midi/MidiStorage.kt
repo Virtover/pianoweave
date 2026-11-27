@@ -6,7 +6,6 @@ import android.provider.OpenableColumns
 import com.lumenchord.pianoweave.api.VideoMetadata
 import com.lumenchord.pianoweave.api.placeholderMetadata
 import com.lumenchord.pianoweave.util.AppPrefs
-import okhttp3.ResponseBody
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -21,7 +20,12 @@ data class StoredMidi(
     val deletedAt: Long = 0L,
     val cloudFileId: String = "",
     /** When the song was first added to the library (on any device). Orders the library and syncs through Drive. */
-    val addedAt: Long = 0L
+    val addedAt: Long = 0L,
+    /**
+     * The difficulty chosen for a song with several results ([MidiVariants]), on this device; blank until
+     * one is chosen. Kept with the song, so each song opens as it was left.
+     */
+    val selectedVariant: String = ""
 )
 
 /**
@@ -165,6 +169,20 @@ object MidiStorage {
         } catch (_: Exception) {}
     }
 
+    /** Line 17 of the record; older versions keep lines they don't know when they rewrite one. */
+    fun updateSelectedVariant(context: Context, storedMidi: StoredMidi, variant: String) {
+        try {
+            updateRecordLines(metadataFileFor(context, storedMidi)) { lines ->
+                if (lines.size < 17) lines.add("")
+                lines[16] = variant
+            }
+        } catch (_: Exception) {}
+    }
+
+    /** The stored difficulty of [storedMidi] as it is on disk now ([StoredMidi.selectedVariant] may be older). */
+    fun readSelectedVariant(context: Context, storedMidi: StoredMidi): String =
+        runCatching { metadataFileFor(context, storedMidi).readLines().getOrNull(16)?.trim() }.getOrNull().orEmpty()
+
     fun updateAddedAt(context: Context, storedMidi: StoredMidi, addedAt: Long) {
         try {
             updateRecordLines(metadataFileFor(context, storedMidi)) { lines -> lines[15] = addedAt.toString() }
@@ -243,17 +261,6 @@ object MidiStorage {
                     }
                 }
             }
-    }
-
-    fun save(
-        context: Context,
-        videoUrl: String,
-        metadata: VideoMetadata?,
-        body: ResponseBody
-    ): StoredMidi = store(context, videoUrl, metadata) { target ->
-        body.byteStream().use { input ->
-            target.outputStream().use { output -> input.copyTo(output) }
-        }
     }
 
     fun saveBytes(
@@ -354,7 +361,8 @@ object MidiStorage {
                     isDeleted = isDeleted,
                     deletedAt = deletedAt,
                     cloudFileId = cloudFileId,
-                    addedAt = readAddedAt(lines, midiFile)
+                    addedAt = readAddedAt(lines, midiFile),
+                    selectedVariant = lines.getOrNull(16)?.trim().orEmpty()
                 )
             }
             // Newest first. The URL breaks ties the same way everywhere (file names of imports differ per device).

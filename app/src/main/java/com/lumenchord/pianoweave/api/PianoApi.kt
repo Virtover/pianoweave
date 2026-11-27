@@ -113,6 +113,8 @@ interface PianoApi {
     @GET("api/transcriptions/{jobId}/midi")
     suspend fun downloadMidi(
         @Path("jobId") jobId: String,
-        @Header("Authorization") authHeader: String? = null
+        @Header("Authorization") authHeader: String? = null,
+        /** One of the job status's `variants` (see MidiVariants); null (left out) for the default result. */
+        @Query("variant") variant: String? = null
     ): ResponseBody
 }

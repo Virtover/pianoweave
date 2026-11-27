@@ -88,7 +88,8 @@ class MidiStorageListTest {
                     isDeleted = isDeleted,
                     deletedAt = deletedAt,
                     cloudFileId = cloudFileId,
-                    addedAt = lines.getOrNull(15)?.trim()?.toLongOrNull()?.takeIf { it > 0L } ?: midiFile.lastModified()
+                    addedAt = lines.getOrNull(15)?.trim()?.toLongOrNull()?.takeIf { it > 0L } ?: midiFile.lastModified(),
+                    selectedVariant = lines.getOrNull(16)?.trim().orEmpty()
                 )
             }
             ?.sortedWith(compareByDescending<StoredMidi> { it.addedAt }.thenBy { it.videoUrl })
@@ -258,5 +259,17 @@ class MidiStorageListTest {
         assertTrue(listed.single().isDeleted)
         assertTrue(File(dir, "expired.meta").exists())
         assertFalse(File(dir, "x.meta.tmp-1").exists())
+    }
+
+    @Test
+    fun readsTheChosenDifficulty_andOlderRecordsHaveNone() {
+        val dir = tmp.newFolder()
+        song(dir, "chosen", record("https://youtu.be/a#ensemble") + " easy ")
+        song(dir, "older", record("https://youtu.be/b#ensemble"))
+
+        val listed = MidiStorage.listIn(dir, nowNanos = 0L, nowMillis = now).associateBy { it.videoUrl }
+
+        assertEquals("easy", listed.getValue("https://youtu.be/a#ensemble").selectedVariant)
+        assertEquals("", listed.getValue("https://youtu.be/b#ensemble").selectedVariant)
     }
 }

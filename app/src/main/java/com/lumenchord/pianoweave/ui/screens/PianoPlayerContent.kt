@@ -1106,6 +1106,7 @@ internal fun ModernPianoPlayerContent(
     if (showSettingsDialog) {
         SettingsDialog(
             viewModel = viewModel,
+            song = song,
             songDurationMs = songDurationMs,
             hasBeats = beats.isNotEmpty(),
             isTempoUnstable = isTempoUnstable,

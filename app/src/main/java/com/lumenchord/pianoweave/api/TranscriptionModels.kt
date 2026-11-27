@@ -155,7 +155,13 @@ data class TranscriptionStatusResponse(
     /** Where the model runs: "local" or "remote" (RunPod). Absent on older servers. */
     @SerializedName("backend") val backend: String? = null,
     /** What happened to the job; only for a developer's account ([UserBalanceResponse.developer]). */
-    @SerializedName("developer") val developer: DeveloperJobDetails? = null
+    @SerializedName("developer") val developer: DeveloperJobDetails? = null,
+    /**
+     * The results a completed ensemble job has, by name, in the order full, advanced, intermediate, easy,
+     * beginner, raw ([com.lumenchord.pianoweave.midi.MidiVariants]). Absent on older servers: then the
+     * plain download is the only result.
+     */
+    @SerializedName("variants") val variants: List<String>? = null
 )
 
 /** A developer's view of one job, from the server's records. Times are epoch seconds. */

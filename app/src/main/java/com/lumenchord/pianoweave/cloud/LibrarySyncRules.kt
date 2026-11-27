@@ -7,7 +7,8 @@ import com.lumenchord.pianoweave.midi.isSharedSourceKey
  * What a library sync decides, from one listing of the device's library and one of Drive. Pure, so the
  * rules that keep a deleted song deleted can be tested across devices (LibrarySyncRulesTest).
  *
- * A song is one Drive file, so there is no index to keep consistent: a song
+ * A song is one Drive file, whatever it holds (an ensemble song keeps all its difficulty levels in it,
+ * see [com.lumenchord.pianoweave.midi.MidiVariants]), so there is no index to keep consistent: a song
  * is in the account while its file is, and deleting the file is the deletion every device sees. A
  * deletion that couldn't reach Drive stays here as a tombstone (the soft-deleted record) and is pushed
  * first at every later sync, before anything is uploaded or downloaded.

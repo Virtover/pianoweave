@@ -133,6 +133,16 @@ class PianoWeaveViewModel : ViewModel() {
     var loopEndMs by mutableLongStateOf(0L)
     var transposeOffset by mutableIntStateOf(0)
 
+    /**
+     * The open song's results by name ([com.lumenchord.pianoweave.midi.MidiVariants]): an ensemble song's
+     * difficulty levels and raw; empty for a song with one result. Set by the piano roll as it opens a song.
+     */
+    var songVariants by mutableStateOf<List<String>>(emptyList())
+        internal set
+    /** The one of [songVariants] shown, played and waited for; null for a song with one result. */
+    var selectedVariant by mutableStateOf<String?>(null)
+        internal set
+
     // --- Voice Commands (piano roll) ---
     var isVoiceCommandsEnabled by mutableStateOf(false)
         internal set
@@ -679,6 +689,8 @@ class PianoWeaveViewModel : ViewModel() {
     fun clearImportError() = clearImportErrorImpl()
     fun importMidiFile(context: Context, uri: Uri) = importMidiFileImpl(context, uri)
     fun exportLocalSong(context: Context, song: StoredMidi) = exportLocalSongImpl(context, song)
+    /** Switches the open song to [variant] at once and remembers it for that song. */
+    fun selectSongVariant(context: Context, song: StoredMidi, variant: String) = selectSongVariantImpl(context, song, variant)
     fun updateSongDetails(context: Context, song: StoredMidi, title: String, artist: String) =
         updateSongDetailsImpl(context, song, title, artist)
 
