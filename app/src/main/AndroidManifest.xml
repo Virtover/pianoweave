@@ -97,7 +97,6 @@
             android:targetActivity=".LightMainActivity"
             android:exported="true"
             android:enabled="false"
-            android:theme="@style/Theme.PianoWeave.Light"
             android:icon="@mipmap/ic_launcher_light"
             android:roundIcon="@mipmap/ic_launcher_light">
             <intent-filter>
