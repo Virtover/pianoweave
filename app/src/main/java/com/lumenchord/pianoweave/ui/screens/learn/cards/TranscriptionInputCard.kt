@@ -1,5 +1,13 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import coil3.compose.SubcomposeAsyncImage
+import com.lumenchord.pianoweave.api.LinkPreview
+import com.lumenchord.pianoweave.api.formatDuration
+import com.lumenchord.pianoweave.ui.components.smallThumbnailUrl
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.SpanStyle
@@ -399,7 +407,13 @@ fun TranscriptionInputCard(
                     enabled = !viewModel.isLoading,
                     shape = PillShape,
                     colors = quietFieldColors(),
-                    leadingIcon = { Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f), modifier = Modifier.size(20.dp)) },
+                    // The link's thumbnail, once the server has read it, in the link icon's place and size
+                    leadingIcon = {
+                        LinkLeadingIcon(
+                            thumbnail = viewModel.linkPreview?.thumbnail,
+                            tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
+                        )
+                    },
                     trailingIcon = {
                         if (viewModel.isLoading) return@OutlinedTextField
                         if (viewModel.videoUrl.isNotEmpty()) {
@@ -428,13 +442,6 @@ fun TranscriptionInputCard(
                         }
                     }
                 )
-
-                // The pasted video, as the server read it for its cost: the length is said only here
-                val linkPreview = viewModel.linkPreview
-                val isReadingLink = viewModel.isCalculatingCost && viewModel.videoUrl.isNotBlank()
-                if (source == TranscriptionSource.Link && !viewModel.isLoading && (linkPreview != null || isReadingLink)) {
-                    LinkPreviewRow(preview = linkPreview)
-                }
 
                 val needsPassword = viewModel.serverStatus == ServerStatus.PASSWORD_REQUIRED
                 if (needsPassword && !viewModel.isLoading) {
@@ -550,18 +557,43 @@ fun TranscriptionInputCard(
                                 if (isBilled && viewModel.isCalculatingCost) {
                                     Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
                                 } else {
-                                    // A chosen part is said under the label, so the button tells all that will be sent
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    // Under the label, what will be sent: the video's title as the server read it (with its
+                                    // channel where there is room) and its length, or the part chosen with Trim
+                                    val preview = if (source == TranscriptionSource.Link) viewModel.linkPreview else null
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    ) {
                                         Text(buttonLabel, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                                        clip?.let {
-                                            Text(
-                                                text = it.describe(),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                lineHeight = 12.sp,
-                                                maxLines = 1,
-                                                color = content.copy(alpha = 0.8f)
-                                            )
+                                        sentLine(preview, clip, withChannel = isWide)?.let { (name, length) ->
+                                            val described = sentLineDescription(preview, clip)
+                                            Row(
+                                                modifier = Modifier.semantics { contentDescription = described },
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                name?.let {
+                                                    Text(
+                                                        text = it,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        lineHeight = 12.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        color = content.copy(alpha = 0.8f),
+                                                        modifier = Modifier.weight(1f, fill = false)
+                                                    )
+                                                }
+                                                length?.let {
+                                                    Text(
+                                                        text = if (name != null) " · $it" else it,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        lineHeight = 12.sp,
+                                                        maxLines = 1,
+                                                        color = content.copy(alpha = 0.8f)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                     if (isBilled && cost != null) {
@@ -728,5 +760,45 @@ private fun RightsFootnote() {
             autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = MaterialTheme.typography.labelSmall.fontSize),
             modifier = Modifier.weight(1f, fill = false)
         )
+    }
+}
+
+/**
+ * The line under Transcribe: the title (and channel, [withChannel]) that may be cut short, and the length that never
+ * is: the part chosen with Trim, else the video's. Null when there is neither a title nor a part, so a server that
+ * sends no title leaves the button as it always was.
+ */
+internal fun sentLine(preview: LinkPreview?, clip: Clip?, withChannel: Boolean): Pair<String?, String?>? {
+    val title = preview?.title
+    if (title == null && clip == null) return null
+    val name = title?.let { t -> preview.channel?.takeIf { withChannel }?.let { "$t · $it" } ?: t }
+    val length = clip?.describe() ?: preview?.durationSeconds?.let(::formatDuration)
+    return name to length
+}
+
+/** What a screen reader says for [sentLine], in words rather than the dots of the line. */
+internal fun sentLineDescription(preview: LinkPreview?, clip: Clip?): String =
+    listOfNotNull(preview?.contentDescription?.takeIf { it.isNotEmpty() }, clip?.let { "part ${it.describe()}" })
+        .joinToString(", ")
+
+/**
+ * The link field's leading icon: the link symbol, or the pasted video's thumbnail at the same size, rounded, faded
+ * in once it has loaded. While it loads, and if it fails, the symbol stays, so the field never changes size.
+ */
+@Composable
+private fun LinkLeadingIcon(thumbnail: String?, tint: Color) {
+    val icon: @Composable () -> Unit = { Icon(Icons.Default.Link, null, tint = tint, modifier = Modifier.size(20.dp)) }
+    Crossfade(targetState = thumbnail, label = "linkThumbnail") { url ->
+        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            if (url == null) icon()
+            else SubcomposeAsyncImage(
+                model = smallThumbnailUrl(url),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                loading = { icon() },
+                error = { icon() },
+                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp))
+            )
+        }
     }
 }
