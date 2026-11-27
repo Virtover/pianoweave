@@ -259,7 +259,7 @@ internal fun PianoWeaveViewModel.exportLocalSongImpl(context: Context, song: Sto
             MidiExporter.exportToDownloads(context, fileTitle) { song.file.inputStream() }
         } else runCatching {
             val names = variants.map { (variant, bytes) ->
-                MidiExporter.exportToDownloads(context, MidiVariants.exportTitle(song.metadata.title, variant)) { bytes.inputStream() }.getOrThrow()
+                MidiExporter.exportToDownloads(context, MidiVariants.exportTitle(song.metadata.title, variant, song.videoUrl.isEnsembleKey)) { bytes.inputStream() }.getOrThrow()
             }
             "${names.size} files, ${names.first()} to ${names.last()}"
         }

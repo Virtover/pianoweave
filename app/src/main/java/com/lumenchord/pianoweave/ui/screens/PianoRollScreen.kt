@@ -31,6 +31,7 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.Dispatchers
 import com.lumenchord.pianoweave.midi.MidiStorage
 import com.lumenchord.pianoweave.midi.MidiVariants
+import com.lumenchord.pianoweave.api.isEnsembleKey
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -74,7 +75,7 @@ fun PianoRollScreen(
                 MidiVariants.read(song.file) to MidiStorage.readSelectedVariant(context, song)
             }
             viewModel.songVariants = found.keys.toList()
-            viewModel.selectedVariant = MidiVariants.choose(stored, found.keys.toList())
+            viewModel.selectedVariant = MidiVariants.choose(stored, found.keys.toList(), song.videoUrl.isEnsembleKey)
             variants = found
         } catch (e: Exception) {
             parseError = e.message?.takeIf { it.isNotBlank() } ?: "MIDI loading failed"
@@ -89,7 +90,7 @@ fun PianoRollScreen(
         try {
             val parsedSong = withContext(Dispatchers.IO) {
                 if (found.isEmpty()) SimpleMidiReader.parseSong(song.file)
-                else SimpleMidiReader.parseSong(found.getValue(MidiVariants.choose(variant, found.keys.toList())!!).inputStream())
+                else SimpleMidiReader.parseSong(found.getValue(MidiVariants.choose(variant, found.keys.toList(), song.videoUrl.isEnsembleKey)!!).inputStream())
             }
             val parsed = parsedSong.notes
             val duration = (parsed.maxOfOrNull { it.startMs + it.durationMs } ?: 10_000L) + 5000L

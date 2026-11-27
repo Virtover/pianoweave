@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lumenchord.pianoweave.midi.MidiVariants
+import com.lumenchord.pianoweave.api.isEnsembleKey
 import com.lumenchord.pianoweave.midi.StoredMidi
 import com.lumenchord.pianoweave.ui.components.AppDropdownMenu
 import com.lumenchord.pianoweave.ui.components.AppMenuItem
@@ -28,13 +29,13 @@ import com.lumenchord.pianoweave.ui.viewmodel.PianoWeaveViewModel
 import kotlinx.coroutines.launch
 
 /** What each choice is, in the menu and under the title. */
-internal fun difficultyHint(variant: String): String = when (variant) {
+internal fun difficultyHint(variant: String, isEnsemble: Boolean = true): String = when (variant) {
     MidiVariants.FULL -> "Every note, arranged for piano"
     MidiVariants.ADVANCED -> "Full chords and octave bass"
     MidiVariants.INTERMEDIATE -> "Melody, bass and 3-note chords"
     MidiVariants.EASY -> "Melody, bass and up to 2 chord notes"
     MidiVariants.BEGINNER -> "Melody and single bass notes"
-    MidiVariants.RAW -> "Every instrument, as transcribed"
+    MidiVariants.RAW -> if (isEnsemble) "Every instrument, as transcribed" else "Every note the pianist played"
     else -> ""
 }
 
@@ -48,6 +49,7 @@ internal fun difficultyHint(variant: String): String = when (variant) {
 fun DifficultySection(viewModel: PianoWeaveViewModel, song: StoredMidi, context: Context) {
     val variants = viewModel.songVariants
     val selected = viewModel.selectedVariant ?: return
+    val isEnsemble = song.videoUrl.isEnsembleKey
     if (variants.size < 2) return
     val colorAccent = LocalAppTheme.current.primaryColor
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -65,8 +67,8 @@ fun DifficultySection(viewModel: PianoWeaveViewModel, song: StoredMidi, context:
                 TooltipBox(
                     positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
                     tooltip = {
-                        RichTooltip(title = { Text("Raw") }) {
-                            Text(rawExplanation(viewModel.includeDrumNotes), lineHeight = 18.sp)
+                        RichTooltip(title = { Text(MidiVariants.label(MidiVariants.RAW, isEnsemble)) }) {
+                            Text(rawExplanation(viewModel.includeDrumNotes, isEnsemble), lineHeight = 18.sp)
                         }
                     },
                     state = tooltipState
@@ -74,17 +76,17 @@ fun DifficultySection(viewModel: PianoWeaveViewModel, song: StoredMidi, context:
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .clickable(onClickLabel = "Explain Raw") { scope.launch { tooltipState.show() } }
+                            .clickable(onClickLabel = "Explain ${MidiVariants.label(MidiVariants.RAW, isEnsemble)}") { scope.launch { tooltipState.show() } }
                             .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(difficultyHint(selected), fontSize = 12.sp, lineHeight = 16.sp, color = muted, modifier = Modifier.weight(1f, fill = false))
+                        Text(difficultyHint(selected, isEnsemble), fontSize = 12.sp, lineHeight = 16.sp, color = muted, modifier = Modifier.weight(1f, fill = false))
                         Icon(Icons.Outlined.Info, contentDescription = null, tint = muted, modifier = Modifier.size(14.dp))
                     }
                 }
             } else {
-                Text(difficultyHint(selected), fontSize = 12.sp, lineHeight = 16.sp, color = muted)
+                Text(difficultyHint(selected, isEnsemble), fontSize = 12.sp, lineHeight = 16.sp, color = muted)
             }
         }
         Box {
@@ -94,7 +96,7 @@ fun DifficultySection(viewModel: PianoWeaveViewModel, song: StoredMidi, context:
                 shape = PillShape,
                 contentPadding = PaddingValues(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
             ) {
-                Text(MidiVariants.label(selected), color = colorAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(MidiVariants.label(selected, isEnsemble), color = colorAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Difficulty", tint = colorAccent, modifier = Modifier.size(20.dp))
             }
             AppDropdownMenu(
@@ -105,8 +107,8 @@ fun DifficultySection(viewModel: PianoWeaveViewModel, song: StoredMidi, context:
             ) {
                 variants.forEach { option ->
                     AppMenuItem(
-                        text = MidiVariants.label(option),
-                        hint = difficultyHint(option),
+                        text = MidiVariants.label(option, isEnsemble),
+                        hint = difficultyHint(option, isEnsemble),
                         selected = option == selected,
                         tint = colorAccent,
                         role = Role.RadioButton,
@@ -121,8 +123,13 @@ fun DifficultySection(viewModel: PianoWeaveViewModel, song: StoredMidi, context:
     }
 }
 
-/** Drums are mentioned only where they can be on: a debug build with its drum switch on. */
-internal fun rawExplanation(withDrums: Boolean): String =
-    "The transcription as it is: every instrument as its own track" +
+/**
+ * Raw explained. A piano song's (Original) is the transcription as the pianist played it, nothing to warn about;
+ * an ensemble's is every instrument, unarranged. Drums are mentioned only where they can be on: a debug build
+ * with its drum switch on.
+ */
+internal fun rawExplanation(withDrums: Boolean, isEnsemble: Boolean = true): String =
+    if (!isEnsemble) "As transcribed, every note the pianist played, with their own pedal."
+    else "The transcription as it is: every instrument as its own track" +
         (if (withDrums) ", drums included, played as piano notes" else "") +
         ". It isn't arranged for two hands, so it can be hard or impossible to play."

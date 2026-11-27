@@ -285,4 +285,110 @@ class MidiVariantsTest {
         val (bytes, _) = download(listOf(FULL, RAW)) { _, _ -> null }
         assertEquals(listOf(FULL, RAW), MidiVariants.read(bytes).keys.toList())
     }
+
+    // ---- Piano songs with levels ----
+
+    @Test
+    fun aPianoSong_opensOnTheOriginal_andOlderReadersSeeIt() {
+        val bundle = MidiVariants.bundle(all, isEnsemble = false)
+        // What an older app version, or any other MIDI reader, plays: what the pianist played
+        assertEquals(listOf(36), notesOf(bundle))
+        assertEquals(MidiVariants.ORDER, MidiVariants.read(bundle).keys.toList())
+        assertEquals(RAW, MidiVariants.choose(null, MidiVariants.ORDER, isEnsemble = false))
+        assertEquals(EASY, MidiVariants.choose(EASY, MidiVariants.ORDER, isEnsemble = false))
+        assertEquals(RAW, MidiVariants.choose(BEGINNER, listOf(FULL, RAW), isEnsemble = false))
+        // Without raw (never sent, but kept safe) the piano levels follow the ensemble order
+        assertEquals(FULL, MidiVariants.choose(null, listOf(FULL, EASY), isEnsemble = false))
+        // An ensemble's default stays full
+        assertEquals(listOf(60), notesOf(MidiVariants.bundle(all)))
+    }
+
+    @Test
+    fun aPianoJob_downloadsItsLevels_withTheOriginalFirst() {
+        val bytes = runBlocking {
+            MidiVariants.download(MidiVariants.ORDER, { all.getValue(it!!) }, isMissing = { false }, isEnsemble = false)
+        }
+        assertEquals(listOf(36), notesOf(bytes))
+        assertEquals(MidiVariants.ORDER, MidiVariants.read(bytes).keys.toList())
+        // Raw is the default there: its failure is retried, a level's is not
+        try {
+            runBlocking {
+                MidiVariants.download(listOf(FULL, RAW), { if (it == RAW) throw IOException("reset") else all.getValue(it!!) }, { false }, isEnsemble = false)
+            }
+            fail("the Original must be retried")
+        } catch (_: IOException) {
+        }
+    }
+
+    @Test
+    fun aPianoSongsRaw_isCalledOriginal_onScreenAndInExports_butStaysRaw() {
+        assertEquals("Original", MidiVariants.label(RAW, isEnsemble = false))
+        assertEquals("Raw", MidiVariants.label(RAW))
+        assertEquals("Full", MidiVariants.label(FULL, isEnsemble = false))
+        assertEquals("Psalm - original", MidiVariants.exportTitle("Psalm", RAW, isEnsemble = false))
+        assertEquals("Psalm - raw", MidiVariants.exportTitle("Psalm", RAW))
+        assertEquals("Every note the pianist played", difficultyHint(RAW, isEnsemble = false))
+        assertEquals("Every instrument, as transcribed", difficultyHint(RAW))
+        assertFalse(rawExplanation(true, isEnsemble = false).contains("impossible"))
+        assertFalse(rawExplanation(true, isEnsemble = false).contains("drums"))
+        assertTrue(rawExplanation(false).contains("impossible"))
+        assertEquals(listOf(RAW, FULL, ADVANCED, INTERMEDIATE, EASY, BEGINNER), MidiVariants.defaultOrder(isEnsemble = false))
+    }
+
+    @Test
+    fun pianoJobs_neverWaitForLateLevels_untilServersSayTheyMakeThem() {
+        val status = LateStatus(listOf(MidiVariants.ORDER))
+        assertEquals(listOf(RAW), await(listOf(RAW), ensemble = false, status))
+        assertEquals(0, status.reads)
+    }
+
+    // ---- Songs from before the levels, and damaged files ----
+
+    @Test
+    fun songsFromBeforeTheLevels_arePlainFiles_withNoChoice() {
+        // Piano, raw-only ensemble, old arrangements, imports, and copies synced from older versions alike
+        for (pitch in listOf(36, 48, 60)) {
+            val old = midi(pitch)
+            assertTrue(MidiVariants.read(old).isEmpty())
+            assertNull(MidiVariants.choose("easy", MidiVariants.read(old).keys.toList(), isEnsemble = false))
+            assertArrayEquals(old, MidiVariants.extract(old, RAW))
+            assertEquals(listOf(pitch), notesOf(old))
+        }
+    }
+
+    @Test
+    fun aFileStrippedOfItsLevels_becomesAOneFileSong() {
+        val bundle = MidiVariants.bundle(all)
+        val primaryOnly = bundle.copyOf(all.getValue(FULL).size)
+        assertTrue(MidiVariants.read(primaryOnly).isEmpty())
+        assertEquals(listOf(60), notesOf(primaryOnly))
+    }
+
+    @Test
+    fun aDamagedIndex_leavesThePrimaryAlone() {
+        val bundle = MidiVariants.bundle(all)
+        val at = all.getValue(FULL).size + 8 + 2 // the index's name: "fu" then "ll"
+        bundle[at] = 'x'.code.toByte()
+        assertTrue(MidiVariants.read(bundle).isEmpty())
+        assertEquals(listOf(60), notesOf(bundle))
+    }
+
+    @Test
+    fun aDamagedLevel_isLeftOut_theOthersStay() {
+        val bundle = MidiVariants.bundle(all)
+        // The first level after the index ("advanced"): its MIDI header spoiled
+        val at = all.getValue(FULL).size + 8 + FULL.length + 8 + 1 + ADVANCED.length
+        assertEquals('M'.code.toByte(), bundle[at])
+        bundle[at] = 'X'.code.toByte()
+        assertEquals(MidiVariants.ORDER - ADVANCED, MidiVariants.read(bundle).keys.toList())
+        assertEquals(listOf(60), notesOf(bundle))
+    }
+
+    @Test
+    fun onlyOneLevelLeft_isNoChoice() {
+        val two = MidiVariants.bundle(mapOf(FULL to all.getValue(FULL), EASY to all.getValue(EASY)))
+        val at = all.getValue(FULL).size + 8 + FULL.length + 8 + 1 + EASY.length
+        two[at] = 'X'.code.toByte()
+        assertTrue(MidiVariants.read(two).isEmpty())
+    }
 }

@@ -129,7 +129,10 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   skips. So the song stays one card, one Drive file and one delete, and old devices see full. Default and raw failing
   retry the download; other levels are tried twice and left out. Piano roll Settings → Difficulty (top, only with
   levels; Raw has an info tooltip) re-parses in place; the choice is line 17 of the song's `.meta`, per song and
-  device (`MidiVariants.choose`: stored, else full, else the hardest listed, else raw). The server lists only levels that
+  device (`MidiVariants.choose`: stored, else the mode's `defaultOrder`: ensemble full, then the hardest listed, then raw;
+  piano raw first). Piano jobs get levels too: their raw is Transkun's own result, shown as "Original" (export
+  `<title> - original.mid`) and kept as the primary, so older versions play what the pianist played. Piano jobs
+  don't wait for late levels: no server-info field says a server makes them yet. The server lists only levels that
   differ (a simple song: e.g. full and easy; drums alone: raw), and the menu offers exactly those; one alone is a plain file.
   `variants` is `[]` until completed and always ends with `raw` (piano jobs: `["raw"]`). An ensemble completed with only
   `["raw"]` is read again every 2 s for up to 20 s (`awaitLateLevels`: an older RunPod image's levels come late); a 404

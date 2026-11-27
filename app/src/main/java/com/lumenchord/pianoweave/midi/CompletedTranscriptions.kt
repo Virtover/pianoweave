@@ -35,8 +35,9 @@ object CompletedTranscriptions {
         download: suspend (variant: String?) -> ResponseBody
     ): StoredMidi? = mutex.withLock {
         if (MidiStorage.find(context, stableUrl) != null) return@withLock null
-        val listed = MidiVariants.awaitLateLevels(job.variants, isEnsemble = stableUrl.isEnsembleKey, refresh = { refreshStatus().variants })
-        val bytes = MidiVariants.download(listed, { variant -> download(variant).use { it.bytes() } }, ::isMissing)
+        val isEnsemble = stableUrl.isEnsembleKey
+        val listed = MidiVariants.awaitLateLevels(job.variants, mayGetLevels = isEnsemble, refresh = { refreshStatus().variants })
+        val bytes = MidiVariants.download(listed, { variant -> download(variant).use { it.bytes() } }, ::isMissing, isEnsemble)
         MidiStorage.saveBytes(context, stableUrl, metadataFor(job, stableUrl), bytes)
     }
 

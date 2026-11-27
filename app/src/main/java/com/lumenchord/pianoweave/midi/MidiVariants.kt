@@ -28,10 +28,23 @@ object MidiVariants {
     /** The server's order, and the order they are offered in. */
     val ORDER = listOf(FULL, ADVANCED, INTERMEDIATE, EASY, BEGINNER, RAW)
 
-    fun label(variant: String): String = variant.replaceFirstChar { it.uppercase() }
+    /**
+     * What a variant is called on screen. A piano song's raw is Transkun's own result, the notes as the pianist
+     * played them: "Original" there. The stored and sent name stays "raw" everywhere.
+     */
+    fun label(variant: String, isEnsemble: Boolean = true): String =
+        if (variant == RAW && !isEnsemble) "Original" else variant.replaceFirstChar { it.uppercase() }
 
-    /** An exported variant's file name, without ".mid": "Song - full". */
-    fun exportTitle(songTitle: String, variant: String): String = "$songTitle - $variant"
+    /** An exported variant's file name, without ".mid": "Song - full", a piano song's raw "Song - original". */
+    fun exportTitle(songTitle: String, variant: String, isEnsemble: Boolean = true): String =
+        "$songTitle - ${label(variant, isEnsemble).lowercase()}"
+
+    /**
+     * The order a song's default is looked for in, per mode: the one place to change it. Ensemble opens on the
+     * arranged full version (else the hardest level, else raw); piano on the transcription as played.
+     */
+    fun defaultOrder(isEnsemble: Boolean): List<String> =
+        if (isEnsemble) ORDER else listOf(RAW) + ORDER.filter { it != RAW }
 
     private const val INDEX_CHUNK = 0x50577669 // "PWvi"
     private const val VARIANT_CHUNK = 0x50577672 // "PWvr"
@@ -40,28 +53,30 @@ object MidiVariants {
     /** The known names of [names], once each, in [ORDER]. Names from a newer server are left out. */
     fun ordered(names: Collection<String>): List<String> = ORDER.filter { it in names }
 
-    /** The variant a song opens with: full, else the first there is. */
-    fun primaryOf(names: Collection<String>): String? = ordered(names).let { if (FULL in it) FULL else it.firstOrNull() }
+    /** The variant a song opens with when nothing is stored; also the one other readers see (see [bundle]). */
+    fun primaryOf(names: Collection<String>, isEnsemble: Boolean = true): String? =
+        defaultOrder(isEnsemble).firstOrNull { it in names }
 
     /**
      * The variant shown for a song that has [available], which is exactly what the server listed: for a simple
-     * song only the levels that differ, for drums alone only raw. The stored choice while it exists, then full,
-     * then the hardest level there is, then raw.
+     * song only the levels that differ, for drums alone only raw. The stored choice while it exists, then the
+     * mode's default ([defaultOrder]).
      */
-    fun choose(stored: String?, available: List<String>): String? {
+    fun choose(stored: String?, available: List<String>, isEnsemble: Boolean = true): String? {
         val names = ordered(available)
         return when {
             names.isEmpty() -> null
             stored != null && stored in names -> stored
-            else -> names.firstOrNull { it != RAW } ?: RAW
+            else -> primaryOf(names, isEnsemble)
         }
     }
 
     /** One file of [variants] (name to MIDI bytes); a single variant stays a plain MIDI file. */
-    fun bundle(variants: Map<String, ByteArray>): ByteArray {
+    fun bundle(variants: Map<String, ByteArray>, isEnsemble: Boolean = true): ByteArray {
         val names = ordered(variants.keys)
         require(names.isNotEmpty()) { "No variants" }
-        val primary = primaryOf(names)!!
+        // What every other reader sees, older app versions too: a piano song stays the transcription as played
+        val primary = primaryOf(names, isEnsemble)!!
         if (names.size == 1) return variants.getValue(primary)
         val out = ByteArrayOutputStream()
         out.write(variants.getValue(primary))
@@ -78,14 +93,22 @@ object MidiVariants {
         val chunks = chunksOf(bytes) ?: return emptyMap()
         val index = chunks.firstOrNull { it.type == INDEX_CHUNK } ?: return emptyMap()
         val primary = String(bytes, index.start, index.length, Charsets.UTF_8)
+        // A damaged index can't say what the primary is: the file is then what every other reader sees, one song
+        if (primary !in ORDER) return emptyMap()
         val found = linkedMapOf(primary to bytes.copyOfRange(0, index.start - 8))
         for (chunk in chunks.filter { it.type == VARIANT_CHUNK }) {
+            if (chunk.length < 1) continue
             val nameLength = bytes[chunk.start].toInt() and 0xFF
             if (nameLength + 1 > chunk.length) continue
             val name = String(bytes, chunk.start + 1, nameLength, Charsets.UTF_8)
-            found.putIfAbsent(name, bytes.copyOfRange(chunk.start + 1 + nameLength, chunk.start + chunk.length))
+            val midi = bytes.copyOfRange(chunk.start + 1 + nameLength, chunk.start + chunk.length)
+            // A level whose MIDI is damaged is left out; the primary and the others stay
+            if (chunksOf(midi) == null) continue
+            found.putIfAbsent(name, midi)
         }
-        return ordered(found.keys).associateWith { found.getValue(it) }
+        val variants = ordered(found.keys).associateWith { found.getValue(it) }
+        // One level left is no choice: the song plays as the plain file it then is
+        return if (variants.size < 2) emptyMap() else variants
     }
 
     fun read(file: File): Map<String, ByteArray> = runCatching { read(file.readBytes()) }.getOrDefault(emptyMap())
@@ -121,15 +144,15 @@ object MidiVariants {
     }
 
     /**
-     * An ensemble job completed with only raw listed may still get its levels: a RunPod endpoint on an older
-     * image sends raw, and the server adds the levels a few seconds later. So its status is read again every
-     * [intervalMs] for up to [maxWaitMs], and whatever is listed then is taken (drums alone stay raw only).
-     * Never for a piano job, whose one result is raw too, nor for an older server that lists nothing. A
-     * failed read ends the wait with what is known.
+     * A job completed with only raw listed may still get its levels: a RunPod endpoint on an older image sends
+     * raw, and the server adds the levels a few seconds later. So while [mayGetLevels] its status is read again
+     * every [intervalMs] for up to [maxWaitMs], and whatever is listed then is taken (drums alone stay raw only).
+     * Ensemble jobs only, for now: a piano job's one result is raw too on servers without piano levels, and
+     * nothing yet tells those apart. Never for an older server that lists nothing. A failed read ends the wait.
      */
     suspend fun awaitLateLevels(
         listed: List<String>?,
-        isEnsemble: Boolean,
+        mayGetLevels: Boolean,
         refresh: suspend () -> List<String>?,
         pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
         intervalMs: Long = 2_000L,
@@ -137,7 +160,7 @@ object MidiVariants {
     ): List<String>? {
         var current = listed
         var waited = 0L
-        while (isEnsemble && current == listOf(RAW) && waited < maxWaitMs) {
+        while (mayGetLevels && current == listOf(RAW) && waited < maxWaitMs) {
             pause(intervalMs)
             waited += intervalMs
             current = try {
@@ -160,11 +183,12 @@ object MidiVariants {
     suspend fun download(
         listed: List<String>?,
         fetch: suspend (variant: String?) -> ByteArray,
-        isMissing: (Throwable) -> Boolean
+        isMissing: (Throwable) -> Boolean,
+        isEnsemble: Boolean = true
     ): ByteArray {
         val names = ordered(listed.orEmpty())
         if (names.size < 2) return fetch(null)
-        val required = setOfNotNull(primaryOf(names), RAW.takeIf { it in names })
+        val required = setOfNotNull(primaryOf(names, isEnsemble), RAW.takeIf { it in names })
         val got = linkedMapOf<String, ByteArray>()
         var lastMissing: Throwable? = null
         for (name in names) {
@@ -181,6 +205,6 @@ object MidiVariants {
             }
         }
         if (got.isEmpty()) throw lastMissing ?: IllegalStateException("No result could be downloaded")
-        return bundle(got)
+        return bundle(got, isEnsemble)
     }
 }
