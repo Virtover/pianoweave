@@ -29,8 +29,8 @@
 
 ## Features
 
-* **AI transcription, Piano:** Turns a recording of a piano (a video link such as YouTube, an audio/video file or a microphone recording) into MIDI. Everything is transcribed as piano notes.
-* **AI transcription, Ensemble:** For any recording with several instruments, such as a band, an orchestra or a choir. Each instrument gets its own track, plus a drum track; instrument names are approximate, and parts that sound alike can share a track. The player shows the pitched tracks as piano notes; drums are not shown.
+* **AI transcription, Piano:** Turns a recording of a piano (a video link such as YouTube, an audio/video file or a microphone recording) into MIDI.
+* **AI transcription, Ensemble:** Every instrument of a song on its own track.
 * **Interactive piano roll:** Falling notes with A/B looping, speed control and transposition.
 * **Wait mode:** Pauses at each note until you play it. It listens to your acoustic piano through the microphone, or to a MIDI keyboard, with the rest of the song playing along.
 * **Voice commands:** Practice hands-free. Say a command on its own (play, pause, wait, loop, full screen, loop start / loop end, again, back, forward, slower, faster, normal), or a few in a row ("full screen, play"), and "undo" to take one back. For noisy rooms it can listen only to what starts with "Selah" ("Selah, full screen wait"). Recognized on the device with Vosk; the 40 MB model downloads the first time it is turned on.

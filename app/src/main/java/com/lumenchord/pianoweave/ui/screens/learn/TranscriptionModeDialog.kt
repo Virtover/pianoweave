@@ -59,16 +59,14 @@ private val modeOptions = listOf(
         icon = Icons.Default.Piano,
         title = "Piano",
         bestFor = "Recordings of a piano",
-        body = "For recordings of a piano. Everything is transcribed as piano notes."
+        body = "For recordings of a piano."
     ),
     ModeOption(
         mode = TranscriptionMode.Ensemble,
         icon = Icons.Default.Groups,
         title = "Ensemble",
         bestFor = "Several instruments",
-        body = "For any recording with several instruments, such as a band, an orchestra or a choir. " +
-            "Each instrument gets its own track, plus a drum track. Instrument names are approximate, " +
-            "and parts that sound alike can share a track."
+        body = "Every instrument of a song on its own track."
     ),
     // Only old servers: newer ones make ensembles instead
     ModeOption(
@@ -76,7 +74,7 @@ private val modeOptions = listOf(
         icon = Icons.AutoMirrored.Filled.QueueMusic,
         title = "Piano arrangement",
         bestFor = "Any song",
-        body = "The whole song, as it might sound on piano. An approximation, so it may not be what you expect."
+        body = "The whole song, played on piano."
     )
 )
 
