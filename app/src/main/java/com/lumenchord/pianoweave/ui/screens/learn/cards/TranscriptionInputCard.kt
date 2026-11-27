@@ -1,12 +1,18 @@
 package com.lumenchord.pianoweave.ui.screens.learn.cards
 
+import com.lumenchord.pianoweave.api.formatDuration
+import com.lumenchord.pianoweave.api.LinkPreview
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.animation.Crossfade
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import coil3.compose.SubcomposeAsyncImage
-import com.lumenchord.pianoweave.api.LinkPreview
-import com.lumenchord.pianoweave.api.formatDuration
 import com.lumenchord.pianoweave.ui.components.smallThumbnailUrl
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -388,12 +394,41 @@ fun TranscriptionInputCard(
                             onClick = pickFile
                         )
                     }
-                } else OutlinedTextField(
+                } else {
+                // A read link shows its title instead of the URL while the field isn't being edited, like
+                // an address bar showing a page's title. Same line, same style: only the text changes.
+                val linkPreview = viewModel.linkPreview
+                var isLinkFocused by remember { mutableStateOf(false) }
+                var linkFieldWidth by remember { mutableIntStateOf(0) }
+                val measurer = rememberTextMeasurer()
+                val fieldStyle = LocalTextStyle.current
+                val density = LocalDensity.current
+                val resolvedTitle = linkPreview?.title?.takeIf { !isLinkFocused && linkFieldWidth > 0 && !viewModel.isLoading }
+                val resolved = resolvedTitle?.let { title ->
+                    // The text's room: the field less the 48 dp icon slots on both sides and their 4 dp gaps
+                    val room = linkFieldWidth - with(density) { (48.dp * 2 + 12.dp).roundToPx() }
+                    remember(title, room, fieldStyle) {
+                        AnnotatedString(resolvedLinkText(title) { candidate ->
+                            measurer.measure(candidate, fieldStyle, maxLines = 1, softWrap = false).size.width <= room
+                        })
+                    }
+                }
+                OutlinedTextField(
                     value = viewModel.videoUrl,
                     onValueChange = { viewModel.updateUrl(it) },
+                    visualTransformation = resolved?.let { ResolvedLinkTransformation(it) } ?: VisualTransformation.None,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .onFocusChanged { linkInputAnchors.isLinkFieldFocused = it.isFocused }
+                        .onSizeChanged { linkFieldWidth = it.width }
+                        .then(
+                            if (resolvedTitle != null) Modifier.semantics {
+                                contentDescription = resolvedLinkDescription(linkPreview!!)
+                            } else Modifier
+                        )
+                        .onFocusChanged {
+                            isLinkFocused = it.isFocused
+                            linkInputAnchors.isLinkFieldFocused = it.isFocused
+                        }
                         .onGloballyPositioned { linkInputAnchors.linkFieldTopInRoot = it.positionInRoot().y },
                     // Without arrangements piano covers are what the server does best; with them, any video will do
                     placeholder = {
@@ -442,6 +477,7 @@ fun TranscriptionInputCard(
                         }
                     }
                 )
+                }
 
                 val needsPassword = viewModel.serverStatus == ServerStatus.PASSWORD_REQUIRED
                 if (needsPassword && !viewModel.isLoading) {
@@ -557,43 +593,18 @@ fun TranscriptionInputCard(
                                 if (isBilled && viewModel.isCalculatingCost) {
                                     Text("Calculating cost...", fontWeight = FontWeight.ExtraBold)
                                 } else {
-                                    // Under the label, what will be sent: the video's title as the server read it (with its
-                                    // channel where there is room) and its length, or the part chosen with Trim
-                                    val preview = if (source == TranscriptionSource.Link) viewModel.linkPreview else null
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    ) {
+                                    // A chosen part is said under the label, so the button tells all that will be sent
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(buttonLabel, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                                        sentLine(preview, clip, withChannel = isWide)?.let { (name, length) ->
-                                            val described = sentLineDescription(preview, clip)
-                                            Row(
-                                                modifier = Modifier.semantics { contentDescription = described },
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                name?.let {
-                                                    Text(
-                                                        text = it,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        lineHeight = 12.sp,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        color = content.copy(alpha = 0.8f),
-                                                        modifier = Modifier.weight(1f, fill = false)
-                                                    )
-                                                }
-                                                length?.let {
-                                                    Text(
-                                                        text = if (name != null) " · $it" else it,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        lineHeight = 12.sp,
-                                                        maxLines = 1,
-                                                        color = content.copy(alpha = 0.8f)
-                                                    )
-                                                }
-                                            }
+                                        clip?.let {
+                                            Text(
+                                                text = it.describe(),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                lineHeight = 12.sp,
+                                                maxLines = 1,
+                                                color = content.copy(alpha = 0.8f)
+                                            )
                                         }
                                     }
                                     if (isBilled && cost != null) {
@@ -764,22 +775,42 @@ private fun RightsFootnote() {
 }
 
 /**
- * The line under Transcribe: the title (and channel, [withChannel]) that may be cut short, and the length that never
- * is: the part chosen with Trim, else the video's. Null when there is neither a title nor a part, so a server that
- * sends no title leaves the button as it always was.
+ * What a read link's field shows while it isn't being edited: its title alone, cut to what [fits] (the field's
+ * width) with an ellipsis. Nothing more, so the card says no more than it did.
  */
-internal fun sentLine(preview: LinkPreview?, clip: Clip?, withChannel: Boolean): Pair<String?, String?>? {
-    val title = preview?.title
-    if (title == null && clip == null) return null
-    val name = title?.let { t -> preview.channel?.takeIf { withChannel }?.let { "$t · $it" } ?: t }
-    val length = clip?.describe() ?: preview?.durationSeconds?.let(::formatDuration)
-    return name to length
+internal fun resolvedLinkText(title: String, fits: (String) -> Boolean): String =
+    if (fits(title)) title
+    else title.take(longestFitting(title.length) { n -> fits(title.take(n) + ELLIPSIS) }.coerceAtLeast(1)).trimEnd() + ELLIPSIS
+
+private const val ELLIPSIS = "…"
+
+/** The largest n in 0..[max] for which [fits] holds, given that it holds for every smaller n. */
+private fun longestFitting(max: Int, fits: (Int) -> Boolean): Int {
+    var low = 0
+    var high = max
+    while (low < high) {
+        val mid = (low + high + 1) / 2
+        if (fits(mid)) low = mid else high = mid - 1
+    }
+    return low
 }
 
-/** What a screen reader says for [sentLine], in words rather than the dots of the line. */
-internal fun sentLineDescription(preview: LinkPreview?, clip: Clip?): String =
-    listOfNotNull(preview?.contentDescription?.takeIf { it.isNotEmpty() }, clip?.let { "part ${it.describe()}" })
+/** The field announced while it shows a read link: what it is (the channel and length are heard, not shown). */
+internal fun resolvedLinkDescription(preview: LinkPreview): String =
+    listOfNotNull("Link: ${preview.title}", preview.channel?.let { "by $it" }, preview.durationSeconds?.let { "length ${formatDuration(it)}" })
         .joinToString(", ")
+
+/**
+ * Shows [shown] in place of the URL without changing it: every position maps to the URL's end, so a tap that
+ * focuses the field puts the cursor there, and the URL comes back (the transformation is dropped on focus).
+ */
+private class ResolvedLinkTransformation(private val shown: AnnotatedString) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText =
+        TransformedText(shown, object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int = shown.length
+            override fun transformedToOriginal(offset: Int): Int = text.length
+        })
+}
 
 /**
  * The link field's leading icon: the link symbol, or the pasted video's thumbnail at the same size, rounded, faded

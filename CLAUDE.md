@@ -135,11 +135,10 @@ follows it), capture, then **set it back to 1**. In Git Bash, prefix adb command
   `["raw"]` is read again every 2 s for up to 20 s (`awaitLateLevels`: an older RunPod image's levels come late); a 404
   (`variant_unavailable`) leaves that level out.
 - **Link preview** (server `GET api/billing/cost`: `title`, `channel`, `thumbnail`; billed servers, signed in, 450 ms
-  after the field rests): no row of its own. The thumbnail takes the link field's leading icon (24 dp, icon while it
-  loads or fails); the title, the channel on wide layouts and the length go in the Transcribe button's sub-line, where
-  a Trim part was already said (`sentLine`). No title: the card is as it was. Export writes `<title> - <level>.mid` per level. Old
-  ensemble songs and servers without `variants` are plain files: no Difficulty row. A fuller per-track UI would need track names (meta 0x03) and
-  programs from the reader, and a per-track mute or hand choice.
+  after the field rests): no row of its own and nothing in the Transcribe button. A read link's field shows its title
+  instead of the URL while unfocused (`ResolvedLinkTransformation`, cut to the field with an ellipsis), the thumbnail
+  in the leading icon's place; focus brings the URL back with the cursor at its end. Channel and length are only in
+  the screen-reader text. No title: the card is as it was.
 - **Trim** (server-info `trimming: true`): the scissors end of the Transcribe button (`TrimSegment`) opens `TrimDialog`, and the chosen part shows under its label; the part (whole seconds,
   end null = to the end) is sent as `start_seconds`/`end_seconds` and only its length is charged. A part's library key
   is its source key plus `#part=<start>-<end>` before any `#piano-arrangement` (`api/Clips.kt`), so parts and the whole
