@@ -4,8 +4,8 @@ Quick orientation for Claude Code sessions in this repo. Read this first; README
 
 ## What this is
 
-**Piano Weave** (brand: Lumenchord, package `com.lumenchord.pianoweave`): an Android app that turns piano
-performances from online videos into MIDI and lets you practice them on an interactive falling-notes piano roll.
+**Piano Weave** (brand: Lumenchord, package `com.lumenchord.pianoweave`): an Android app that turns songs from
+online videos into MIDI (the piano part or the whole song) and lets you practice them on an interactive falling-notes piano roll.
 Kotlin + Jetpack Compose (Material 3), single module `:app`, minSdk 26, targetSdk 37. Owner/author: Krzysztof
 Olszak (GitHub `Virtover`). Source is PolyForm Noncommercial (see `LICENSE`, `COMMERCIAL.MD`).
 
